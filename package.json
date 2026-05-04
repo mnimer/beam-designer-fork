@@ -19,6 +19,11 @@
       {
         "command": "dataflow-pipeline-builder.showEditor",
         "title": "DataFlow: Show Editor"
+      },
+      {
+        "command": "dataflow-pipeline-builder.refreshPipelines",
+        "title": "Refresh Pipelines",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -35,6 +40,15 @@
         {
           "id": "dataflowExplorer",
           "name": "DataFlow Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dataflow-pipeline-builder.refreshPipelines",
+          "when": "view == dataflowExplorer",
+          "group": "navigation"
         }
       ]
     }

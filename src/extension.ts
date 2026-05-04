@@ -10,13 +10,19 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('dataflowExplorer', treeDataProvider);
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('dataflow-pipeline-builder.refreshPipelines', () => {
+            treeDataProvider.refresh();
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.showEditor', () => {
             vscode.commands.executeCommand('dataflow-pipeline-builder.openPipeline', 'Manual Pipeline', 'edit');
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view') => {
+        vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view', uri?: vscode.Uri) => {
             const panel = vscode.window.createWebviewPanel(
                 'beamPipelineEditor',
                 `Apache Beam Pipeline Editor - ${pipelineName} (${mode})`,
@@ -46,11 +52,86 @@ export function activate(context: vscode.ExtensionContext) {
                 .replace('./assets/index.css', cssUri.toString());
 
             webview.html = htmlContent;
+
+            // Handle messages from webview
+            webview.onDidReceiveMessage(
+                message => {
+                    switch (message.command) {
+                        case 'ready':
+                            if (uri && fs.existsSync(uri.fsPath)) {
+                                const content = fs.readFileSync(uri.fsPath, 'utf-8');
+                                webview.postMessage({ command: 'loadPipeline', data: content });
+                            } else {
+                                webview.postMessage({ command: 'loadPipeline', data: null });
+                            }
+                            return;
+                        case 'savePipeline':
+                            if (uri) {
+                                fs.writeFileSync(uri.fsPath, message.data, 'utf-8');
+                                vscode.window.setStatusBarMessage(`Saved ${pipelineName}`, 2000);
+                            }
+                            return;
+                    }
+                },
+                undefined,
+                context.subscriptions
+            );
         })
     );
 }
 
 class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<DataItem | undefined | null | void> = new vscode.EventEmitter<DataItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<DataItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
+    private pipelines: DataItem[] = [];
+
+    constructor() {
+        this.refresh();
+    }
+
+    refresh(): void {
+        this.scanPipelines();
+    }
+
+    private async scanPipelines() {
+        const files = await vscode.workspace.findFiles('**/*.pipeline');
+        this.pipelines = this.buildTree(files);
+        this._onDidChangeTreeData.fire();
+    }
+
+    private buildTree(files: vscode.Uri[]): DataItem[] {
+        const root: DataItem[] = [];
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return [];
+        }
+
+        const workspacePath = workspaceFolder.uri.fsPath;
+
+        files.forEach(file => {
+            const relativePath = path.relative(workspacePath, file.fsPath);
+            const parts = relativePath.split(path.sep);
+            
+            let currentLevel = root;
+            
+            for (let i = 0; i < parts.length - 1; i++) {
+                const part = parts[i];
+                let folder = currentLevel.find(item => item.label === part && item.contextValue === 'folder');
+                if (!folder) {
+                    folder = new DataItem(part, vscode.TreeItemCollapsibleState.Collapsed, 'folder', []);
+                    currentLevel.push(folder);
+                }
+                currentLevel = folder.children!;
+            }
+            
+            const fileName = parts[parts.length - 1];
+            currentLevel.push(new DataItem(fileName, vscode.TreeItemCollapsibleState.None, 'pipeline-edit', undefined, file));
+        });
+
+        return root;
+    }
+
     getTreeItem(element: DataItem): vscode.TreeItem {
         return element;
     }
@@ -58,16 +139,17 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
     getChildren(element?: DataItem): Thenable<DataItem[]> {
         if (!element) {
             return Promise.resolve([
-                new DataItem('Pipelines', vscode.TreeItemCollapsibleState.Collapsed, 'category'),
+                new DataItem('Pipelines', vscode.TreeItemCollapsibleState.Collapsed, 'category', this.pipelines),
                 new DataItem('Running Pipelines', vscode.TreeItemCollapsibleState.Collapsed, 'category')
             ]);
         }
 
         if (element.label === 'Pipelines') {
-            return Promise.resolve([
-                new DataItem('pipeline 1', vscode.TreeItemCollapsibleState.None, 'pipeline-edit'),
-                new DataItem('pipeline 2', vscode.TreeItemCollapsibleState.None, 'pipeline-edit')
-            ]);
+            return Promise.resolve(element.children || []);
+        }
+
+        if (element.contextValue === 'folder') {
+            return Promise.resolve(element.children || []);
         }
 
         if (element.label === 'Running Pipelines') {
@@ -84,7 +166,9 @@ class DataItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly contextValue: string
+        public readonly contextValue: string,
+        public readonly children?: DataItem[],
+        public readonly resourceUri?: vscode.Uri
     ) {
         super(label, collapsibleState);
 
@@ -92,9 +176,9 @@ class DataItem extends vscode.TreeItem {
             this.command = {
                 command: 'dataflow-pipeline-builder.openPipeline',
                 title: 'Open Pipeline',
-                arguments: [label, 'edit']
+                arguments: [label, 'edit', this.resourceUri]
             };
-            this.iconPath = new vscode.ThemeIcon('file-submodule');
+            this.iconPath = new vscode.ThemeIcon('file');
         } else if (contextValue === 'pipeline-view') {
             this.command = {
                 command: 'dataflow-pipeline-builder.openPipeline',
@@ -102,6 +186,8 @@ class DataItem extends vscode.TreeItem {
                 arguments: [label, 'view']
             };
             this.iconPath = new vscode.ThemeIcon('pulse');
+        } else if (contextValue === 'folder') {
+            this.iconPath = new vscode.ThemeIcon('folder');
         }
     }
 }
