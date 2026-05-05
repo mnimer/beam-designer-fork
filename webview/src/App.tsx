@@ -28,45 +28,16 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { Search, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { PipelineNode } from './components/PipelineNode';
 import { SidebarItem } from './components/SidebarItem';
 import { PropertyPane } from './components/PropertyPane';
+import { NodesCard } from './components/NodesCard';
+import { BottomPanel } from './components/BottomPanel/BottomPanel';
 
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 
-const highlightPython = (code: string) => {
-  if (!code) return '';
-  
-  const tokens: string[] = [];
-  let tokenCounter = 0;
-  
-  const addToken = (str: string, cls: string) => {
-    const id = `___TOKEN_${tokenCounter++}___`;
-    tokens.push(`<span class="${cls}">${str}</span>`);
-    return id;
-  };
-  
-  let tempCode = code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-    
-  tempCode = tempCode.replace(/(#.*)/g, (match) => addToken(match, 'text-slate-500'));
-  tempCode = tempCode.replace(/(['"])(.*?)\1/g, (match) => addToken(match, 'text-green-400'));
-  tempCode = tempCode.replace(/\b(import|from|def|with|as|if|__name__|__main__|return)\b/g, (match) => addToken(match, 'text-pink-500 font-bold'));
-  tempCode = tempCode.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g, (_match, p1) => {
-    const id = addToken(p1, 'text-blue-400');
-    return `${id}(`;
-  });
-  
-  tokens.forEach((token, index) => {
-    const id = `___TOKEN_${index}___`;
-    tempCode = tempCode.replace(id, token);
-  });
-  
-  return tempCode;
-};
+
 
 
 
@@ -391,67 +362,12 @@ function App() {
         {/* Canvas */}
         <div className="flex-1 relative">
           {/* Floating Card on Left */}
-          <div className="absolute top-4 left-4 z-10 w-64 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Nodes</h2>
-              <Search className="w-4 h-4 text-slate-400 cursor-pointer" />
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-slate-700">
-              <button
-                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${activeTab === 'SOURCES' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-                onClick={() => setActiveTab('SOURCES')}
-              >
-                SOURCES
-              </button>
-              <button
-                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'STEPS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-                onClick={() => nodes.length > 0 && setActiveTab('STEPS')}
-                disabled={nodes.length === 0}
-              >
-                STEPS
-              </button>
-              <button
-                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'SINKS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-                onClick={() => nodes.length > 0 && setActiveTab('SINKS')}
-                disabled={nodes.length === 0}
-              >
-                SINKS
-              </button>
-            </div>
-
-            {/* Tab Content */}
-            <div className="grid grid-cols-3 gap-4 mt-2">
-              {activeTab === 'SOURCES' && (
-                <>
-                  <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
-                  <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
-                  <SidebarItem label="JDBC" type="SOURCE" iconName="Cable" onDragStart={onDragStart} />
-                  <SidebarItem label="Kafka" type="SOURCE" iconName="Share2" onDragStart={onDragStart} />
-                  <SidebarItem label="S3" type="SOURCE" iconName="HardDrive" onDragStart={onDragStart} />
-                  <SidebarItem label="GCS" type="SOURCE" iconName="Cloud" onDragStart={onDragStart} />
-                </>
-              )}
-              {activeTab === 'STEPS' && (
-                <>
-                  <SidebarItem label="Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
-                  <SidebarItem label="Groups" type="STEP" iconName="Layers" onDragStart={onDragStart} />
-                  <SidebarItem label="Counts" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                  <SidebarItem label="Batch" type="STEP" iconName="Box" onDragStart={onDragStart} />
-                  <SidebarItem label="Scripts" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
-                </>
-              )}
-              {activeTab === 'SINKS' && (
-                <>
-                  <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
-                  <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
-                  <SidebarItem label="Kafka" type="SINK" iconName="Share2" onDragStart={onDragStart} />
-                  <SidebarItem label="JDBC" type="SINK" iconName="Cable" onDragStart={onDragStart} />
-                </>
-              )}
-            </div>
-          </div>
+          <NodesCard 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            nodesCount={nodes.length} 
+            onDragStart={onDragStart} 
+          />
 
           <ReactFlow
             nodes={nodes}
@@ -481,224 +397,18 @@ function App() {
         </div>
 
         {/* Bottom Panel */}
-        <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
-          {/* Tab Headers */}
-          <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
-            <button
-              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-              onClick={() => setBottomTab('DEPLOYMENT')}
-            >
-              DEPLOYMENT
-            </button>
-            <button
-              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'RUNNING_INSTANCES' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-              onClick={() => setBottomTab('RUNNING_INSTANCES')}
-            >
-              RUNNING INSTANCES
-            </button>
-            <button
-              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-              onClick={() => setBottomTab('SOURCE_CODE')}
-            >
-              SOURCE CODE
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="flex-1 overflow-auto p-4">
-            {bottomTab === 'DEPLOYMENT' && (
-              <div className="flex gap-6 h-full">
-                {/* Left Side: Form (2/3 width) */}
-                <div className="w-2/3 flex gap-6">
-                  {/* Column 1 */}
-                  <div className="flex-1 flex flex-col gap-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-bold uppercase text-slate-500">Runner</label>
-                      <select 
-                        value={jobConfig.runner} 
-                        onChange={(e) => setJobConfig({...jobConfig, runner: e.target.value})}
-                        className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
-                      >
-                        <option>DirectRunner</option>
-                        <option>Dataflow</option>
-                        <option>Spark</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full items-center">
-                      <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5">RUN NOW</button>
-                      <button 
-                        className={`bg-slate-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
-                        disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
-                      >
-                        SCHEDULE
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Column 2 */}
-                  <div className="flex-1 flex flex-col gap-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-bold uppercase text-slate-500">Machine Type</label>
-                      <select 
-                        value={jobConfig.machineType} 
-                        onChange={(e) => setJobConfig({...jobConfig, machineType: e.target.value})}
-                        className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
-                      >
-                        <option>n1-standard-1</option>
-                        <option>n1-standard-2</option>
-                        <option>n1-standard-4</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold uppercase text-slate-500">Min</label>
-                        <input 
-                          type="number" 
-                          min={0} 
-                          max={999} 
-                          value={jobConfig.minInstances} 
-                          onChange={(e) => setJobConfig({...jobConfig, minInstances: parseInt(e.target.value, 10) || 0})}
-                          className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={jobConfig.runner === 'DirectRunner'}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold uppercase text-slate-500">Max</label>
-                        <input 
-                          type="number" 
-                          min={0} 
-                          max={999} 
-                          value={jobConfig.maxInstances} 
-                          onChange={(e) => setJobConfig({...jobConfig, maxInstances: parseInt(e.target.value, 10) || 0})}
-                          className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={jobConfig.runner === 'DirectRunner'}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Runtime Variables (1/3 width) */}
-                <div className="w-1/3 flex flex-col">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold uppercase text-slate-500">Runtime Variables</span>
-                    <button onClick={addVariable} className="text-blue-500 text-xs font-bold">+ Add</button>
-                  </div>
-                  <div className="bg-[#252836] rounded border border-slate-700 flex-1 overflow-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
-                        <tr>
-                          <th className="text-left p-2">Key</th>
-                          <th className="text-left p-2">Value</th>
-                          <th className="text-left p-2">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {runtimeVariables.map((variable, index) => (
-                          <tr key={index} className="border-t border-slate-700">
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={variable.key}
-                                onChange={(e) => updateVariable(index, 'key', e.target.value)}
-                                className="bg-transparent text-white w-full focus:outline-none"
-                                disabled={variable.key === 'JOB_ID'}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={variable.value}
-                                onChange={(e) => updateVariable(index, 'value', e.target.value)}
-                                className={`bg-transparent w-full focus:outline-none ${variable.key === 'JOB_ID' && !isJobIdValid(variable.value) ? 'text-red-500' : 'text-white'}`}
-                              />
-                            </td>
-                            <td className="p-2">
-                              {variable.key !== 'JOB_ID' && (
-                                <button onClick={() => deleteVariable(index)} className="text-red-500 hover:text-red-400">
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {bottomTab === 'RUNNING_INSTANCES' && (
-              <div className="h-full flex flex-col">
-                <div className="bg-[#252836] rounded border border-slate-700 flex-1 overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
-                      <tr>
-                        <th className="text-left p-2">Instance Name</th>
-                        <th className="text-left p-2">Runner</th>
-                        <th className="text-left p-2">Status</th>
-                        <th className="text-left p-2">Duration</th>
-                        <th className="text-left p-2">Job ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-t border-slate-700">
-                        <td className="p-2">prod-analytics-etl</td>
-                        <td className="p-2">Dataflow</td>
-                        <td className="p-2 flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          Running
-                        </td>
-                        <td className="p-2">12h 45m</td>
-                        <td className="p-2">df-89234</td>
-                      </tr>
-                      <tr className="border-t border-slate-700">
-                        <td className="p-2">batch-ringout-backfill</td>
-                        <td className="p-2">Dataflow</td>
-                        <td className="p-2 flex items-center gap-1">
-                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                          Canceled
-                        </td>
-                        <td className="p-2">45m</td>
-                        <td className="p-2">df-88322</td>
-                      </tr>
-                      <tr className="border-t border-slate-700">
-                        <td className="p-2">streaming-logs-archiver</td>
-                        <td className="p-2">Dataflow</td>
-                        <td className="p-2 flex items-center gap-1">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                          Stopped
-                        </td>
-                        <td className="p-2">15d 2h</td>
-                        <td className="p-2">df-77161</td>
-                      </tr>
-                      <tr className="border-t border-slate-700">
-                        <td className="p-2">ml-insight-generator</td>
-                        <td className="p-2">Serverless Spark</td>
-                        <td className="p-2 flex items-center gap-1">
-                          <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                          Pending
-                        </td>
-                        <td className="p-2">1s</td>
-                        <td className="p-2">sp-11389</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {bottomTab === 'SOURCE_CODE' && (
-              <div className="h-full bg-[#1E202A] rounded border border-slate-700 p-4 overflow-auto">
-                <pre className="text-xs font-mono text-slate-300">
-                  <code dangerouslySetInnerHTML={{ __html: highlightPython(generatedCode) || 'No code generated yet. Make a change or save to generate.' }} />
-                </pre>
-              </div>
-            )}
-          </div>
-        </div>
+        <BottomPanel 
+          bottomTab={bottomTab}
+          setBottomTab={setBottomTab}
+          jobConfig={jobConfig}
+          setJobConfig={setJobConfig}
+          runtimeVariables={runtimeVariables}
+          addVariable={addVariable}
+          updateVariable={updateVariable}
+          deleteVariable={deleteVariable}
+          isJobIdValid={isJobIdValid}
+          generatedCode={generatedCode}
+        />
       </div>
 
       {/* Property Pane on Right */}
