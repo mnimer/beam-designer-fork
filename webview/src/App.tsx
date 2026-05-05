@@ -16,7 +16,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Trash2 } from 'lucide-react';
+import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Trash2, Copy } from 'lucide-react';
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 
 const iconComponentMap: Record<string, any> = {
@@ -88,7 +88,7 @@ const PropertyForm = ({ node, onChange }: { node: any, onChange: (properties: an
         </div>
         <div className="flex flex-col gap-2">
           <label className="text-xs font-bold uppercase text-slate-500">Create Disposition</label>
-          <select name="createDisposition" value={properties.createDisposition || 'CREATE_IF_NEEDED'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm">
+          <select name="createDisposition" value={properties.createDisposition || 'CREATE_NEVER'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm">
             <option>CREATE_IF_NEEDED</option>
             <option>CREATE_NEVER</option>
           </select>
@@ -763,6 +763,30 @@ function App() {
                   </div>
                 </div>
                 <PropertyForm node={node} onChange={(props) => handleApplyProperties(node.id, props)} />
+                
+                {/* Spacer to push content to bottom */}
+                <div className="flex-1" />
+
+                {/* Runtime Variables at the bottom */}
+                <div className="border-t border-slate-700 pt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold uppercase text-slate-500">Runtime Variables</span>
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                    {runtimeVariables.map((variable, index) => (
+                      <div key={index} className="flex justify-between items-center text-sm text-slate-300 bg-[#252836] p-2 rounded">
+                        <span>${variable.key}</span>
+                        <button 
+                          onClick={() => navigator.clipboard.writeText(`$${variable.key}`)}
+                          className="text-slate-500 hover:text-slate-300"
+                          title="Copy to clipboard"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </>
             );
           })()}
