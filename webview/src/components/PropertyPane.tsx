@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Copy } from 'lucide-react';
 import { PropertyForm } from './PropertyForm';
-import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
   Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode

@@ -19,8 +19,6 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   addEdge,
-  Handle,
-  Position,
   type Connection,
   type Edge,
   ReactFlowProvider,
@@ -28,9 +26,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { Trash2 } from 'lucide-react';
 import { PipelineNode } from './components/PipelineNode';
-import { SidebarItem } from './components/SidebarItem';
 import { PropertyPane } from './components/PropertyPane';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
@@ -132,6 +128,7 @@ function App() {
   }, [future, nodes, edges, runtimeVariables, jobConfig, setNodes, setEdges]);
 
   useEffect(() => {
+    console.log('[@App.tsx] Save effect checked, isLoaded=', isLoaded);
     if (!isLoaded) return;
     console.log('[@App.tsx] Save effect triggered');
     if (vscode) {
@@ -278,6 +275,7 @@ function App() {
   );
 
   const handleApplyProperties = useCallback((nodeId: string, properties: any) => {
+    console.log('[@App.tsx] handleApplyProperties called', nodeId, properties);
     takeSnapshot();
     setNodes((nds) =>
       nds.map((node) => {
