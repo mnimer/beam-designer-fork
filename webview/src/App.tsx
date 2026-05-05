@@ -1,3 +1,14 @@
+/**
+ * App Component
+ * 
+ * This is the main application component for the Apache Beam Designer.
+ * It renders the canvas, sidebar, and property pane.
+ * 
+ * Architectural Decisions:
+ * - Refactored to use separate components for nodes, property forms, and property pane to improve maintainability.
+ * - Uses React Flow for the canvas.
+ */
+
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
 import { BeamGenerator } from './generator/beamGenerator';
@@ -17,12 +28,12 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Trash2, Copy } from 'lucide-react';
-const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+import { Search, Trash2 } from 'lucide-react';
+import { PipelineNode } from './components/PipelineNode';
+import { SidebarItem } from './components/SidebarItem';
+import { PropertyPane } from './components/PropertyPane';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode
-};
+const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 
 const highlightPython = (code: string) => {
   if (!code) return '';
@@ -57,113 +68,13 @@ const highlightPython = (code: string) => {
   return tempCode;
 };
 
-const PipelineNode = ({ data, selected }: { data: { label: string, type: string, iconName: string }, selected?: boolean }) => {
-  const isSource = data.type === 'SOURCE';
-  const isSink = data.type === 'SINK';
 
-  const IconComponent = iconComponentMap[data.iconName];
-
-  return (
-    <div className={`bg-[#1E202A] border ${selected ? 'border-blue-500' : 'border-slate-700'} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left`}>
-      {!isSource && (
-        <Handle type="target" position={Position.Left} className="w-2 h-2 bg-blue-500 border-none" />
-      )}
-      
-      <div className="flex items-center gap-3 w-full">
-        <div className="bg-slate-700/50 p-2 rounded">
-          {IconComponent && <IconComponent className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-blue-400' : data.type === 'SINK' ? 'text-green-400' : 'text-orange-400'}`} />}
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">{data.type}</span>
-          <span className="text-sm font-medium text-slate-200">{data.label}</span>
-        </div>
-      </div>
-
-      {!isSink && (
-        <Handle type="source" position={Position.Right} className="w-2 h-2 bg-blue-500 border-none" />
-      )}
-    </div>
-  );
-};
 
 const nodeTypes = {
   pipeline: PipelineNode,
 };
 
-const PropertyForm = ({ node, onChange }: { node: any, onChange: (properties: any) => void }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    onChange({ ...(node.data.properties || {}), [e.target.name]: e.target.value });
-  };
 
-  const { label } = node.data;
-  const properties = node.data.properties || {};
-
-  let formContent = null;
-
-  if (label.includes('PubSub')) {
-    formContent = (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Topic</label>
-          <input type="text" name="topic" value={properties.topic || ''} onChange={handleChange} placeholder="projects/my-project/topics/my-topic" className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Subscription</label>
-          <input type="text" name="subscription" value={properties.subscription || ''} onChange={handleChange} placeholder="projects/my-project/subscriptions/my-sub" className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" />
-        </div>
-      </div>
-    );
-  } else if (label.includes('BigQuery')) {
-    formContent = (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Table</label>
-          <input type="text" name="table" value={properties.table || ''} onChange={handleChange} placeholder="my-project:my_dataset.my_table" className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Create Disposition</label>
-          <select name="createDisposition" value={properties.createDisposition || 'CREATE_NEVER'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm">
-            <option>CREATE_IF_NEEDED</option>
-            <option>CREATE_NEVER</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Write Disposition</label>
-          <select name="writeDisposition" value={properties.writeDisposition || 'WRITE_APPEND'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm">
-            <option>WRITE_APPEND</option>
-            <option>WRITE_TRUNCATE</option>
-            <option>WRITE_EMPTY</option>
-          </select>
-        </div>
-      </div>
-    );
-  } else if (label.includes('Windowing')) {
-    formContent = (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Window Type</label>
-          <select name="windowType" value={properties.windowType || 'Fixed Window'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm">
-            <option>Fixed Window</option>
-            <option>Sliding Window</option>
-            <option>Session Window</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Duration</label>
-          <input type="text" name="duration" value={properties.duration || '60'} onChange={handleChange} className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" />
-        </div>
-      </div>
-    );
-  } else {
-    formContent = <div className="text-sm text-slate-400">Generic properties for {label}</div>;
-  }
-
-  return (
-    <>
-      {formContent}
-    </>
-  );
-};
 
 const initialNodes = [
   {
@@ -191,19 +102,7 @@ const initialEdges = [
   { id: 'e2-3', source: '2', target: '3' },
 ];
 
-const SidebarItem = ({ label, type, iconName, onDragStart }: { label: string, type: string, iconName: string, onDragStart: any }) => {
-  const IconComponent = iconComponentMap[iconName];
-  return (
-    <div
-      className="flex flex-col items-center justify-center p-2 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
-      draggable
-      onDragStart={(e) => onDragStart(e, 'pipeline', label, type, iconName)}
-    >
-      {IconComponent && <IconComponent className="w-6 h-6 text-slate-300 mb-1" />}
-      <span className="text-xs text-slate-300 mt-1">{label}</span>
-    </div>
-  );
-};
+
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -803,57 +702,12 @@ function App() {
       </div>
 
       {/* Property Pane on Right */}
-      {selectedNodeId && (
-        <div className="w-80 bg-[#1A1D26] p-4 border-l border-slate-700 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Properties</h2>
-            <Box className="w-4 h-4 text-slate-400" />
-          </div>
-          
-          {(() => {
-            const node = nodes.find(n => n.id === selectedNodeId);
-            if (!node) return null;
-            const IconComponent = iconComponentMap[node.data.iconName];
-            return (
-              <>
-                <div className="flex items-center gap-3 bg-[#252836] p-3 rounded-lg">
-                  <div className="bg-slate-700/50 p-2 rounded">
-                    {IconComponent && <IconComponent className={`w-5 h-5 ${node.data.type === 'SOURCE' ? 'text-blue-400' : node.data.type === 'SINK' ? 'text-green-400' : 'text-orange-400'}`} />}
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-white">{node.data.label}</div>
-                    <div className="text-xs text-slate-500">NODE ID: {node.id}</div>
-                  </div>
-                </div>
-                <PropertyForm node={node} onChange={(props) => handleApplyProperties(node.id, props)} />
-                
-                {/* Spacer to push content to bottom */}
-                <div className="flex-1" />
-
-                {/* Runtime Variables at the bottom */}
-                <div className="border-t border-slate-700 pt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold uppercase text-slate-500">Runtime Variables</span>
-                  </div>
-                  <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-                    {runtimeVariables.map((variable, index) => (
-                      <div key={index} className="flex justify-between items-center text-sm text-slate-300 bg-[#252836] p-2 rounded">
-                        <span>${variable.key}</span>
-                        <button 
-                          onClick={() => navigator.clipboard.writeText(`$${variable.key}`)}
-                          className="text-slate-500 hover:text-slate-300"
-                          title="Copy to clipboard"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
+      {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
+        <PropertyPane 
+          node={nodes.find(n => n.id === selectedNodeId)!} 
+          onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
+          runtimeVariables={runtimeVariables} 
+        />
       )}
     </div>
   );
