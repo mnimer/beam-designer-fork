@@ -1,6 +1,9 @@
 import YAML from 'yaml';
+import { PubSubSourceGenerator } from './sources/PubSubIO';
+import { BigQuerySinkGenerator } from './sinks/BigQueryIO';
+import { WindowGenerator } from './steps/Window';
 
-interface Node {
+export interface Node {
     id: string;
     type: string;
     data: {
@@ -29,37 +32,11 @@ interface PipelineData {
     };
 }
 
-interface TransformGenerator {
+export interface TransformGenerator {
     generate(node: Node, indent: number): string;
 }
 
-class PubSubSourceGenerator implements TransformGenerator {
-    generate(node: Node, _indent: number): string {
-        const topic = node.data.properties?.topic || 'projects/DEFAULT_PROJECT/topics/DEFAULT_TOPIC';
-        return `| 'Read from PubSub (${node.id})' >> beam.io.ReadFromPubSub(topic='${topic}')`;
-    }
-}
 
-class BigQuerySinkGenerator implements TransformGenerator {
-    generate(node: Node, indent: number): string {
-        const table = node.data.properties?.table || 'DEFAULT_PROJECT:DEFAULT_DATASET.DEFAULT_TABLE';
-        const createDisposition = node.data.properties?.createDisposition || 'CREATE_IF_NEEDED';
-        const writeDisposition = node.data.properties?.writeDisposition || 'WRITE_APPEND';
-        const nextIndent = ' '.repeat(indent + 4);
-        return `| 'Write to BigQuery (${node.id})' >> beam.io.WriteToBigQuery(
-${nextIndent}table='${table}',
-${nextIndent}create_disposition=beam.io.BigQueryDisposition.${createDisposition},
-${nextIndent}write_disposition=beam.io.BigQueryDisposition.${writeDisposition}
-${' '.repeat(indent)})`;
-    }
-}
-
-class WindowGenerator implements TransformGenerator {
-    generate(node: Node, _indent: number): string {
-        const duration = node.data.properties?.duration || '60';
-        return `| 'Window into 1 min (${node.id})' >> beam.WindowInto(beam.window.FixedWindows(${duration}))`;
-    }
-}
 
 export class BeamGenerator {
     private generators: Record<string, TransformGenerator> = {};
