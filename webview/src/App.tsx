@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
+import { BeamGenerator } from './generator/beamGenerator';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -178,6 +179,7 @@ function App() {
   const [bottomTab, setBottomTab] = useState('DEPLOYMENT');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState('');
   const [runtimeVariables, setRuntimeVariables] = useState<{key: string, value: string}[]>([
     { key: 'LOG_LEVEL', value: 'INFO' },
     { key: 'NUM_WORKERS', value: '2' }
@@ -228,10 +230,19 @@ function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    console.log('[@App.tsx] Save effect triggered');
     if (vscode) {
       const state = { nodes, edges, runtimeVariables, jobConfig };
       const yamlStr = YAML.stringify(state);
-      vscode.postMessage({ command: 'savePipeline', data: yamlStr });
+      console.log('[@App.tsx] YAML generated');
+      
+      const generator = new BeamGenerator();
+      const pythonCode = generator.generate(yamlStr);
+      console.log('[@App.tsx] Python code generated, length:', pythonCode.length);
+      setGeneratedCode(pythonCode);
+      
+      vscode.postMessage({ command: 'savePipeline', data: yamlStr, pythonCode: pythonCode });
+      console.log('[@App.tsx] Sent savePipeline message');
     }
   }, [nodes, edges, runtimeVariables, jobConfig, isLoaded]);
 
@@ -274,6 +285,8 @@ function App() {
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
           }
           setIsLoaded(true);
+        } else if (message.command === 'updateSource') {
+          setGeneratedCode(message.data);
         }
       };
       window.addEventListener('message', handleMessage);
@@ -746,8 +759,10 @@ function App() {
             )}
 
             {bottomTab === 'SOURCE_CODE' && (
-              <div className="h-full bg-[#1E202A] rounded border border-slate-700 p-4">
-                <div className="text-slate-500 text-sm">Source code editor will be here...</div>
+              <div className="h-full bg-[#1E202A] rounded border border-slate-700 p-4 overflow-auto">
+                <pre className="text-xs text-slate-300 font-mono">
+                  <code>{generatedCode || 'No code generated yet. Make a change or save to generate.'}</code>
+                </pre>
               </div>
             )}
           </div>

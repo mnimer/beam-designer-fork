@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
-
 export function activate(context: vscode.ExtensionContext) {
     console.log('Apache Beam Pipeline Builder is now active!');
 
@@ -68,7 +67,11 @@ export function activate(context: vscode.ExtensionContext) {
                         case 'savePipeline':
                             if (uri) {
                                 fs.writeFileSync(uri.fsPath, message.data, 'utf-8');
-                                vscode.window.setStatusBarMessage(`Saved ${pipelineName}`, 2000);
+                                if (message.pythonCode) {
+                                    const pyPath = uri.fsPath.replace('.pipeline', '.py');
+                                    fs.writeFileSync(pyPath, message.pythonCode, 'utf-8');
+                                }
+                                vscode.window.setStatusBarMessage(`Saved \${pipelineName} and generated .py`, 2000);
                             }
                             return;
                     }
