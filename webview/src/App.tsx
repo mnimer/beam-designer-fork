@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
 import ReactFlow, {
   MiniMap,
@@ -180,6 +180,37 @@ function App() {
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
   const { project } = useReactFlow();
 
+  const [history, setHistory] = useState<{ nodes: any[], edges: any[] }[]>([]);
+  const [future, setFuture] = useState<{ nodes: any[], edges: any[] }[]>([]);
+
+  const stateRef = useRef({ nodes, edges });
+  useEffect(() => {
+    stateRef.current = { nodes, edges };
+  }, [nodes, edges]);
+
+  const takeSnapshot = useCallback(() => {
+    setHistory((prev) => [...prev, stateRef.current]);
+    setFuture([]);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (history.length === 0) return;
+    const previousState = history[history.length - 1];
+    setFuture((prev) => [{ nodes, edges }, ...prev]);
+    setNodes(previousState.nodes);
+    setEdges(previousState.edges);
+    setHistory((prev) => prev.slice(0, -1));
+  }, [history, nodes, edges, setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (future.length === 0) return;
+    const nextState = future[0];
+    setHistory((prev) => [...prev, { nodes, edges }]);
+    setNodes(nextState.nodes);
+    setEdges(nextState.edges);
+    setFuture((prev) => prev.slice(1));
+  }, [future, nodes, edges, setNodes, setEdges]);
+
   useEffect(() => {
     if (!isLoaded) return;
     if (vscode) {
@@ -219,12 +250,52 @@ function App() {
     }
   }, [setNodes, setEdges]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const modifier = event.ctrlKey || event.metaKey;
+
+      if (modifier && event.key === 'z') {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      if (modifier && (event.key === 'y' || (event.shiftKey && event.key === 'Z'))) {
+        event.preventDefault();
+        redo();
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          (activeElement instanceof HTMLElement && activeElement.isContentEditable)
+        );
+
+        if (!isInputFocused && selectedNodeId) {
+          takeSnapshot();
+          setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
+          setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
+          setSelectedNodeId(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId, setNodes, setEdges, takeSnapshot, undo, redo]);
+
   const onConnect = useCallback(
-    (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: Connection | Edge) => {
+      takeSnapshot();
+      setEdges((eds) => addEdge(params, eds));
+    },
+    [setEdges, takeSnapshot]
   );
 
   const handleApplyProperties = useCallback((nodeId: string, properties: any) => {
+    takeSnapshot();
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
@@ -280,6 +351,7 @@ function App() {
         },
       };
 
+      takeSnapshot();
       setNodes((nds) => nds.concat(newNode));
 
       if (data.type === 'STEP') {
@@ -379,6 +451,7 @@ function App() {
           onPaneClick={() => setSelectedNodeId(null)}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          onNodeDragStop={() => takeSnapshot()}
         >
           <Controls />
           <MiniMap
