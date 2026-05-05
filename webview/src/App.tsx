@@ -339,6 +339,20 @@ function App() {
     setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
   };
 
+  const isValidConnection = useCallback(
+    (connection: Connection) => {
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+
+      if (sourceNode?.data.type === 'SOURCE' && targetNode?.data.type === 'SINK') {
+        return false;
+      }
+
+      return true;
+    },
+    [nodes]
+  );
+
   const onConnect = useCallback(
     (params: Connection | Edge) => {
       takeSnapshot();
@@ -501,6 +515,7 @@ function App() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             nodeTypes={nodeTypes}
+            isValidConnection={isValidConnection}
             fitView
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
