@@ -16,7 +16,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode } from 'lucide-react';
+import { Search, Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Trash2 } from 'lucide-react';
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 
 const iconComponentMap: Record<string, any> = {
@@ -175,18 +175,29 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [activeTab, setActiveTab] = useState('SOURCES');
+  const [bottomTab, setBottomTab] = useState('DEPLOYMENT');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [runtimeVariables, setRuntimeVariables] = useState<{key: string, value: string}[]>([
+    { key: 'LOG_LEVEL', value: 'INFO' },
+    { key: 'NUM_WORKERS', value: '2' }
+  ]);
+  const [jobConfig, setJobConfig] = useState({
+    runner: 'DirectRunner',
+    machineType: 'n1-standard-1',
+    minInstances: 1,
+    maxInstances: 10
+  });
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
   const { project } = useReactFlow();
 
-  const [history, setHistory] = useState<{ nodes: any[], edges: any[] }[]>([]);
-  const [future, setFuture] = useState<{ nodes: any[], edges: any[] }[]>([]);
+  const [history, setHistory] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
+  const [future, setFuture] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
 
-  const stateRef = useRef({ nodes, edges });
+  const stateRef = useRef({ nodes, edges, runtimeVariables, jobConfig });
   useEffect(() => {
-    stateRef.current = { nodes, edges };
-  }, [nodes, edges]);
+    stateRef.current = { nodes, edges, runtimeVariables, jobConfig };
+  }, [nodes, edges, runtimeVariables, jobConfig]);
 
   const takeSnapshot = useCallback(() => {
     setHistory((prev) => [...prev, stateRef.current]);
@@ -196,29 +207,33 @@ function App() {
   const undo = useCallback(() => {
     if (history.length === 0) return;
     const previousState = history[history.length - 1];
-    setFuture((prev) => [{ nodes, edges }, ...prev]);
+    setFuture((prev) => [{ nodes, edges, runtimeVariables, jobConfig }, ...prev]);
     setNodes(previousState.nodes);
     setEdges(previousState.edges);
+    setRuntimeVariables(previousState.runtimeVariables);
+    setJobConfig(previousState.jobConfig);
     setHistory((prev) => prev.slice(0, -1));
-  }, [history, nodes, edges, setNodes, setEdges]);
+  }, [history, nodes, edges, runtimeVariables, jobConfig, setNodes, setEdges]);
 
   const redo = useCallback(() => {
     if (future.length === 0) return;
     const nextState = future[0];
-    setHistory((prev) => [...prev, { nodes, edges }]);
+    setHistory((prev) => [...prev, { nodes, edges, runtimeVariables, jobConfig }]);
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
+    setRuntimeVariables(nextState.runtimeVariables);
+    setJobConfig(nextState.jobConfig);
     setFuture((prev) => prev.slice(1));
-  }, [future, nodes, edges, setNodes, setEdges]);
+  }, [future, nodes, edges, runtimeVariables, jobConfig, setNodes, setEdges]);
 
   useEffect(() => {
     if (!isLoaded) return;
     if (vscode) {
-      const state = { nodes, edges };
+      const state = { nodes, edges, runtimeVariables, jobConfig };
       const yamlStr = YAML.stringify(state);
       vscode.postMessage({ command: 'savePipeline', data: yamlStr });
     }
-  }, [nodes, edges, isLoaded]);
+  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded]);
 
   useEffect(() => {
     if (vscode) {
@@ -227,6 +242,7 @@ function App() {
       const handleMessage = (event: MessageEvent) => {
         const message = event.data;
         if (message.command === 'loadPipeline') {
+          console.log('Received loadPipeline message:', message);
           console.log('Received loadPipeline message, data length:', message.data ? message.data.length : 0);
           if (message.data) {
             try {
@@ -234,6 +250,16 @@ function App() {
               console.log('Parsed YAML data:', data);
               setNodes(data.nodes || []);
               setEdges(data.edges || []);
+              const variables = data.runtimeVariables || [];
+              const hasJobId = variables.some((v: any) => v.key === 'JOB_ID');
+              if (!hasJobId) {
+                const defaultJobId = message.filename 
+                  ? message.filename.replace('.pipeline', '').replace(/ /g, '_') 
+                  : 'default_job';
+                variables.unshift({ key: 'JOB_ID', value: defaultJobId });
+              }
+              setRuntimeVariables(variables);
+              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
             } catch (e) {
               console.error('Failed to parse YAML', e);
             }
@@ -241,6 +267,11 @@ function App() {
             console.log('No data received, setting empty pipeline');
             setNodes([]);
             setEdges([]);
+            const defaultJobId = message.filename 
+              ? message.filename.replace('.pipeline', '').replace(/ /g, '_') 
+              : 'default_job';
+            setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
+            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
           }
           setIsLoaded(true);
         }
@@ -248,7 +279,7 @@ function App() {
       window.addEventListener('message', handleMessage);
       return () => window.removeEventListener('message', handleMessage);
     }
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, setRuntimeVariables]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -285,6 +316,28 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId, setNodes, setEdges, takeSnapshot, undo, redo]);
+
+  const addVariable = () => {
+    takeSnapshot();
+    setRuntimeVariables([...runtimeVariables, { key: 'NEW_VAR', value: 'value' }]);
+  };
+
+  const updateVariable = (index: number, field: 'key' | 'value', value: string) => {
+    takeSnapshot();
+    setRuntimeVariables(
+      runtimeVariables.map((v, i) => (i === index ? { ...v, [field]: value } : v))
+    );
+  };
+
+  const isJobIdValid = (value: string) => {
+    const regex = /^[a-z]([-a-z0-9]*[a-z0-9])?$/;
+    return regex.test(value);
+  };
+
+  const deleteVariable = (index: number) => {
+    takeSnapshot();
+    setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
+  };
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
@@ -374,95 +427,316 @@ function App() {
 
   return (
     <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A]">
-      {/* Canvas */}
-      <div className="flex-1 relative">
-        {/* Floating Card on Left */}
-        <div className="absolute top-4 left-4 z-10 w-64 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Nodes</h2>
-            <Search className="w-4 h-4 text-slate-400 cursor-pointer" />
+      {/* Main Content Area (Canvas + Bottom Panel) */}
+      <div className="flex-1 flex flex-col">
+        {/* Canvas */}
+        <div className="flex-1 relative">
+          {/* Floating Card on Left */}
+          <div className="absolute top-4 left-4 z-10 w-64 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Nodes</h2>
+              <Search className="w-4 h-4 text-slate-400 cursor-pointer" />
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-700">
+              <button
+                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${activeTab === 'SOURCES' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
+                onClick={() => setActiveTab('SOURCES')}
+              >
+                SOURCES
+              </button>
+              <button
+                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'STEPS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
+                onClick={() => nodes.length > 0 && setActiveTab('STEPS')}
+                disabled={nodes.length === 0}
+              >
+                STEPS
+              </button>
+              <button
+                className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'SINKS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
+                onClick={() => nodes.length > 0 && setActiveTab('SINKS')}
+                disabled={nodes.length === 0}
+              >
+                SINKS
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="grid grid-cols-3 gap-4 mt-2">
+              {activeTab === 'SOURCES' && (
+                <>
+                  <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
+                  <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
+                  <SidebarItem label="JDBC" type="SOURCE" iconName="Cable" onDragStart={onDragStart} />
+                  <SidebarItem label="Kafka" type="SOURCE" iconName="Share2" onDragStart={onDragStart} />
+                  <SidebarItem label="S3" type="SOURCE" iconName="HardDrive" onDragStart={onDragStart} />
+                  <SidebarItem label="GCS" type="SOURCE" iconName="Cloud" onDragStart={onDragStart} />
+                </>
+              )}
+              {activeTab === 'STEPS' && (
+                <>
+                  <SidebarItem label="Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+                  <SidebarItem label="Groups" type="STEP" iconName="Layers" onDragStart={onDragStart} />
+                  <SidebarItem label="Counts" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                  <SidebarItem label="Batch" type="STEP" iconName="Box" onDragStart={onDragStart} />
+                  <SidebarItem label="Scripts" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
+                </>
+              )}
+              {activeTab === 'SINKS' && (
+                <>
+                  <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
+                  <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
+                  <SidebarItem label="Kafka" type="SINK" iconName="Share2" onDragStart={onDragStart} />
+                  <SidebarItem label="JDBC" type="SINK" iconName="Cable" onDragStart={onDragStart} />
+                </>
+              )}
+            </div>
           </div>
-          
-          {/* Tabs */}
-          <div className="flex border-b border-slate-700">
+
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={nodeTypes}
+            fitView
+            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onPaneClick={() => setSelectedNodeId(null)}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onNodeDragStop={() => takeSnapshot()}
+          >
+            <Controls />
+            <MiniMap
+              nodeColor={(node: any) => {
+                if (node.data?.type === 'SOURCE') return '#3b82f6';
+                if (node.data?.type === 'SINK') return '#10b981';
+                return '#f97316';
+              }}
+            />
+            <Background gap={12} size={1} />
+          </ReactFlow>
+        </div>
+
+        {/* Bottom Panel */}
+        <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
+          {/* Tab Headers */}
+          <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
             <button
-              className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${activeTab === 'SOURCES' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-              onClick={() => setActiveTab('SOURCES')}
+              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+              onClick={() => setBottomTab('DEPLOYMENT')}
             >
-              SOURCES
+              DEPLOYMENT
             </button>
             <button
-              className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'STEPS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-              onClick={() => nodes.length > 0 && setActiveTab('STEPS')}
-              disabled={nodes.length === 0}
+              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'RUNNING_INSTANCES' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+              onClick={() => setBottomTab('RUNNING_INSTANCES')}
             >
-              STEPS
+              RUNNING INSTANCES
             </button>
             <button
-              className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodes.length === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'SINKS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-              onClick={() => nodes.length > 0 && setActiveTab('SINKS')}
-              disabled={nodes.length === 0}
+              className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+              onClick={() => setBottomTab('SOURCE_CODE')}
             >
-              SINKS
+              SOURCE CODE
             </button>
           </div>
 
           {/* Tab Content */}
-          <div className="grid grid-cols-3 gap-4 mt-2">
-            {activeTab === 'SOURCES' && (
-              <>
-                <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
-                <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
-                <SidebarItem label="JDBC" type="SOURCE" iconName="Cable" onDragStart={onDragStart} />
-                <SidebarItem label="Kafka" type="SOURCE" iconName="Share2" onDragStart={onDragStart} />
-                <SidebarItem label="S3" type="SOURCE" iconName="HardDrive" onDragStart={onDragStart} />
-                <SidebarItem label="GCS" type="SOURCE" iconName="Cloud" onDragStart={onDragStart} />
-              </>
+          <div className="flex-1 overflow-auto p-4">
+            {bottomTab === 'DEPLOYMENT' && (
+              <div className="flex gap-6 h-full">
+                {/* Left Side: Form (2/3 width) */}
+                <div className="w-2/3 flex gap-6">
+                  {/* Column 1 */}
+                  <div className="flex-1 flex flex-col gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold uppercase text-slate-500">Runner</label>
+                      <select 
+                        value={jobConfig.runner} 
+                        onChange={(e) => setJobConfig({...jobConfig, runner: e.target.value})}
+                        className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
+                      >
+                        <option>DirectRunner</option>
+                        <option>Dataflow</option>
+                        <option>Spark</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2 w-full items-center">
+                      <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5">RUN NOW</button>
+                      <button 
+                        className={`bg-slate-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
+                        disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
+                      >
+                        SCHEDULE
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Column 2 */}
+                  <div className="flex-1 flex flex-col gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold uppercase text-slate-500">Machine Type</label>
+                      <select 
+                        value={jobConfig.machineType} 
+                        onChange={(e) => setJobConfig({...jobConfig, machineType: e.target.value})}
+                        className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
+                      >
+                        <option>n1-standard-1</option>
+                        <option>n1-standard-2</option>
+                        <option>n1-standard-4</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold uppercase text-slate-500">Min</label>
+                        <input 
+                          type="number" 
+                          min={0} 
+                          max={999} 
+                          value={jobConfig.minInstances} 
+                          onChange={(e) => setJobConfig({...jobConfig, minInstances: parseInt(e.target.value, 10) || 0})}
+                          className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={jobConfig.runner === 'DirectRunner'}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold uppercase text-slate-500">Max</label>
+                        <input 
+                          type="number" 
+                          min={0} 
+                          max={999} 
+                          value={jobConfig.maxInstances} 
+                          onChange={(e) => setJobConfig({...jobConfig, maxInstances: parseInt(e.target.value, 10) || 0})}
+                          className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={jobConfig.runner === 'DirectRunner'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Side: Runtime Variables (1/3 width) */}
+                <div className="w-1/3 flex flex-col">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold uppercase text-slate-500">Runtime Variables</span>
+                    <button onClick={addVariable} className="text-blue-500 text-xs font-bold">+ Add</button>
+                  </div>
+                  <div className="bg-[#252836] rounded border border-slate-700 flex-1 overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
+                        <tr>
+                          <th className="text-left p-2">Key</th>
+                          <th className="text-left p-2">Value</th>
+                          <th className="text-left p-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {runtimeVariables.map((variable, index) => (
+                          <tr key={index} className="border-t border-slate-700">
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={variable.key}
+                                onChange={(e) => updateVariable(index, 'key', e.target.value)}
+                                className="bg-transparent text-white w-full focus:outline-none"
+                                disabled={variable.key === 'JOB_ID'}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={variable.value}
+                                onChange={(e) => updateVariable(index, 'value', e.target.value)}
+                                className={`bg-transparent w-full focus:outline-none ${variable.key === 'JOB_ID' && !isJobIdValid(variable.value) ? 'text-red-500' : 'text-white'}`}
+                              />
+                            </td>
+                            <td className="p-2">
+                              {variable.key !== 'JOB_ID' && (
+                                <button onClick={() => deleteVariable(index)} className="text-red-500 hover:text-red-400">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             )}
-            {activeTab === 'STEPS' && (
-              <>
-                <SidebarItem label="Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
-                <SidebarItem label="Groups" type="STEP" iconName="Layers" onDragStart={onDragStart} />
-                <SidebarItem label="Counts" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Batch" type="STEP" iconName="Box" onDragStart={onDragStart} />
-                <SidebarItem label="Scripts" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
-              </>
+
+            {bottomTab === 'RUNNING_INSTANCES' && (
+              <div className="h-full flex flex-col">
+                <div className="bg-[#252836] rounded border border-slate-700 flex-1 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
+                      <tr>
+                        <th className="text-left p-2">Instance Name</th>
+                        <th className="text-left p-2">Runner</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Duration</th>
+                        <th className="text-left p-2">Job ID</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-t border-slate-700">
+                        <td className="p-2">prod-analytics-etl</td>
+                        <td className="p-2">Dataflow</td>
+                        <td className="p-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          Running
+                        </td>
+                        <td className="p-2">12h 45m</td>
+                        <td className="p-2">df-89234</td>
+                      </tr>
+                      <tr className="border-t border-slate-700">
+                        <td className="p-2">batch-ringout-backfill</td>
+                        <td className="p-2">Dataflow</td>
+                        <td className="p-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          Canceled
+                        </td>
+                        <td className="p-2">45m</td>
+                        <td className="p-2">df-88322</td>
+                      </tr>
+                      <tr className="border-t border-slate-700">
+                        <td className="p-2">streaming-logs-archiver</td>
+                        <td className="p-2">Dataflow</td>
+                        <td className="p-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Stopped
+                        </td>
+                        <td className="p-2">15d 2h</td>
+                        <td className="p-2">df-77161</td>
+                      </tr>
+                      <tr className="border-t border-slate-700">
+                        <td className="p-2">ml-insight-generator</td>
+                        <td className="p-2">Serverless Spark</td>
+                        <td className="p-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                          Pending
+                        </td>
+                        <td className="p-2">1s</td>
+                        <td className="p-2">sp-11389</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
-            {activeTab === 'SINKS' && (
-              <>
-                <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
-                <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
-                <SidebarItem label="Kafka" type="SINK" iconName="Share2" onDragStart={onDragStart} />
-                <SidebarItem label="JDBC" type="SINK" iconName="Cable" onDragStart={onDragStart} />
-              </>
+
+            {bottomTab === 'SOURCE_CODE' && (
+              <div className="h-full bg-[#1E202A] rounded border border-slate-700 p-4">
+                <div className="text-slate-500 text-sm">Source code editor will be here...</div>
+              </div>
             )}
           </div>
         </div>
-
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          fitView
-          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-          onPaneClick={() => setSelectedNodeId(null)}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onNodeDragStop={() => takeSnapshot()}
-        >
-          <Controls />
-          <MiniMap
-            nodeColor={(node: any) => {
-              if (node.data?.type === 'SOURCE') return '#3b82f6';
-              if (node.data?.type === 'SINK') return '#10b981';
-              return '#f97316';
-            }}
-          />
-          <Background gap={12} size={1} />
-        </ReactFlow>
       </div>
 
       {/* Property Pane on Right */}

@@ -60,9 +60,9 @@ export function activate(context: vscode.ExtensionContext) {
                         case 'ready':
                             if (uri && fs.existsSync(uri.fsPath)) {
                                 const content = fs.readFileSync(uri.fsPath, 'utf-8');
-                                webview.postMessage({ command: 'loadPipeline', data: content });
+                                webview.postMessage({ command: 'loadPipeline', data: content, filename: pipelineName });
                             } else {
-                                webview.postMessage({ command: 'loadPipeline', data: null });
+                                webview.postMessage({ command: 'loadPipeline', data: null, filename: pipelineName });
                             }
                             return;
                         case 'savePipeline':
