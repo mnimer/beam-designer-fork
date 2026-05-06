@@ -21,6 +21,7 @@ describe('BigQuerySourceProperties', () => {
     expect(screen.getByDisplayValue('test-dataset')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('my-project:my_dataset.my_table')).toBeInTheDocument();
     expect(screen.getByDisplayValue('test-table')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('SELECT * FROM `my-project.my_dataset.my_table`')).toBeInTheDocument();
   });
 
   it('calls onChange when dataset input changes', () => {
@@ -53,5 +54,21 @@ describe('BigQuerySourceProperties', () => {
     fireEvent.change(tableInput, { target: { value: 'new-table' } });
 
     expect(mockOnChange).toHaveBeenCalledWith({ table: 'new-table' });
+  });
+
+  it('calls onChange when query input changes', () => {
+    const mockNode = {
+      data: {
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const queryInput = screen.getByPlaceholderText('SELECT * FROM `my-project.my_dataset.my_table`');
+    fireEvent.change(queryInput, { target: { value: 'SELECT * FROM test' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith({ query: 'SELECT * FROM test' });
   });
 });

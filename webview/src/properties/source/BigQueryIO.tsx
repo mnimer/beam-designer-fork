@@ -14,7 +14,7 @@ interface BigQuerySourcePropertiesProps {
 export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
@@ -31,6 +31,10 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" 
         />
       </div>
+      
+      {/* Divider */}
+      <div className="border-t border-slate-700"></div>
+      
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold uppercase text-slate-500">Table</label>
         <input 
@@ -40,6 +44,19 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
           onChange={handleChange} 
           placeholder="my-project:my_dataset.my_table" 
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" 
+        />
+      </div>
+      
+      <div className="text-xs font-bold uppercase text-slate-500">OR</div>
+      
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-bold uppercase text-slate-500">Query</label>
+        <textarea 
+          name="query" 
+          value={properties.query || ''} 
+          onChange={handleChange} 
+          placeholder="SELECT * FROM `my-project.my_dataset.my_table`" 
+          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm h-24 resize-none" 
         />
       </div>
     </div>
