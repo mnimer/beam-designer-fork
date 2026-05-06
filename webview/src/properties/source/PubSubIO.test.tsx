@@ -1,8 +1,7 @@
-
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { PubSubProperties } from './PubSub';
+import { PubSubProperties } from './PubSubIO';
 
 describe('PubSubProperties', () => {
   it('renders topic and subscription inputs', () => {
@@ -20,6 +19,10 @@ describe('PubSubProperties', () => {
 
     expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('projects/my-project/subscriptions/my-sub')).toBeInTheDocument();
+
+    // Check hints
+    expect(screen.getByText('Sample: projects/my-project/topics/my-topic')).toBeInTheDocument();
+    expect(screen.getByText('Sample: projects/my-project/subscriptions/my-sub')).toBeInTheDocument();
 
     // Check values
     expect(screen.getByDisplayValue('test-topic')).toBeInTheDocument();

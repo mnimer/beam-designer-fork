@@ -1,32 +1,25 @@
 import React from 'react';
 
 /**
- * BigQuery Properties Component
+ * BigQuery Sink Properties Component
  * 
- * This component renders the property panel for a BigQuery node.
+ * This component renders the property panel for a BigQuery sink node.
  * It allows users to configure the table, create disposition, and write disposition for BigQuery.
- * 
- * Architectural Decisions:
- * - Kept as a functional component.
- * - Uses standard input for table and selects for dispositions.
  */
-interface BigQueryPropertiesProps {
+interface BigQuerySinkPropertiesProps {
   node: any;
   onChange: (properties: any) => void;
 }
 
-export const BigQueryProperties: React.FC<BigQueryPropertiesProps> = ({ node, onChange }) => {
+export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
 
-  // Handle input and select changes and propagate up
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    // NOTE: We are creating a new properties object to avoid direct mutation
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Table Input */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold uppercase text-slate-500">Table</label>
         <input 
@@ -38,7 +31,6 @@ export const BigQueryProperties: React.FC<BigQueryPropertiesProps> = ({ node, on
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" 
         />
       </div>
-      {/* Create Disposition Select */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold uppercase text-slate-500">Create Disposition</label>
         <select 
@@ -51,7 +43,6 @@ export const BigQueryProperties: React.FC<BigQueryPropertiesProps> = ({ node, on
           <option>CREATE_NEVER</option>
         </select>
       </div>
-      {/* Write Disposition Select */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold uppercase text-slate-500">Write Disposition</label>
         <select 

@@ -1,10 +1,9 @@
-
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { BigQueryProperties } from './BigQuery';
+import { BigQuerySinkProperties } from './BigQueryIO';
 
-describe('BigQueryProperties', () => {
+describe('BigQuerySinkProperties', () => {
   it('renders table input and selects', () => {
     const mockNode = {
       data: {
@@ -17,7 +16,7 @@ describe('BigQueryProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQueryProperties node={mockNode} onChange={mockOnChange} />);
+    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByPlaceholderText('my-project:my_dataset.my_table')).toBeInTheDocument();
     expect(screen.getByDisplayValue('test-table')).toBeInTheDocument();
@@ -33,7 +32,7 @@ describe('BigQueryProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQueryProperties node={mockNode} onChange={mockOnChange} />);
+    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
     const tableInput = screen.getByPlaceholderText('my-project:my_dataset.my_table');
     fireEvent.change(tableInput, { target: { value: 'new-table' } });
@@ -49,11 +48,9 @@ describe('BigQueryProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQueryProperties node={mockNode} onChange={mockOnChange} />);
+    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Find by display value since we know default is CREATE_NEVER
     const createSelect = screen.getByDisplayValue('CREATE_NEVER');
-
     fireEvent.change(createSelect, { target: { value: 'CREATE_IF_NEEDED' } });
 
     expect(mockOnChange).toHaveBeenCalledWith({ createDisposition: 'CREATE_IF_NEEDED' });
