@@ -32,6 +32,7 @@ import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+(window as any).vscode = vscode;
 
 
 

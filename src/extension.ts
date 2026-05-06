@@ -23,11 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view', uri?: vscode.Uri) => {
             const savePipelineFiles = (targetUri: vscode.Uri, data: string, pythonCode?: string, requirements?: string, dockerfile?: string) => {
-                console.log('[@extension.ts] savePipelineFiles called', { targetUri: targetUri.fsPath, hasPython: !!pythonCode, hasReqs: !!requirements, hasDocker: !!dockerfile });
+
                 fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
                 if (pythonCode) {
                     const pyPath = targetUri.fsPath.replace('.pipeline', '.py');
-                    console.log('[@extension.ts] Saving python to', pyPath);
+
                     fs.writeFileSync(pyPath, pythonCode, 'utf-8');
 
                     const folderPath = path.dirname(targetUri.fsPath);
@@ -101,6 +101,44 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
             webview.onDidReceiveMessage(
                 message => {
                     switch (message.command) {
+                        case 'getDatasets':
+                            const exec = require('child_process').exec;
+                            exec('bq ls --format=json', (error: any, stdout: string, stderr: string) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    console.error(`stderr: ${stderr}`);
+                                    webview.postMessage({ command: 'datasetsLoaded', datasets: [] });
+                                    return;
+                                }
+                                try {
+                                    const datasetsJson = JSON.parse(stdout);
+                                    const datasets = datasetsJson.map((d: any) => d.datasetReference.datasetId);
+                                    webview.postMessage({ command: 'datasetsLoaded', datasets });
+                                } catch (e) {
+                                    console.error('Failed to parse bq output', e);
+                                    webview.postMessage({ command: 'datasetsLoaded', datasets: [] });
+                                }
+                            });
+                            return;
+                        case 'getTables':
+                            const execTables = require('child_process').exec;
+                            execTables(`bq ls --format=json ${message.dataset}`, (error: any, stdout: string, stderr: string) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    console.error(`stderr: ${stderr}`);
+                                    webview.postMessage({ command: 'tablesLoaded', tables: [] });
+                                    return;
+                                }
+                                try {
+                                    const tablesJson = JSON.parse(stdout);
+                                    const tables = tablesJson.map((t: any) => t.tableReference.tableId);
+                                    webview.postMessage({ command: 'tablesLoaded', tables });
+                                } catch (e) {
+                                    console.error('Failed to parse bq output', e);
+                                    webview.postMessage({ command: 'tablesLoaded', tables: [] });
+                                }
+                            });
+                            return;
                         case 'ready':
                             if (uri && fs.existsSync(uri.fsPath)) {
                                 const content = fs.readFileSync(uri.fsPath, 'utf-8');
@@ -110,9 +148,7 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                             }
                             return;
                         case 'savePipeline':
-                            console.log('[@extension.ts] savePipeline received', { hasUri: !!uri, hasPythonCode: !!message.pythonCode });
                             if (uri) {
-                                console.log('[@extension.ts] Saving to', uri.fsPath);
                                 savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile);
                                 vscode.window.setStatusBarMessage(`Saved ${pipelineName} and generated files`, 2000);
                             } else {
