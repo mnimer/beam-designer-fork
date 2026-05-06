@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -8,7 +8,7 @@ describe('NodesCard', () => {
   const mockOnDragStart = vi.fn();
 
   it('renders tabs and disables STEPS and SINKS when nodesCount is 0', () => {
-    const { rerender } = render(
+    render(
       <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} onDragStart={mockOnDragStart} />
     );
 

@@ -8,4 +8,4 @@ class MockResizeObserver {
   disconnect = vi.fn();
 }
 
-global.ResizeObserver = MockResizeObserver as any;
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
