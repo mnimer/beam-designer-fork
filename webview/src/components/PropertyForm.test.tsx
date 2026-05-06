@@ -30,7 +30,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('my-project:my_dataset.my_table')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
   });
 
   it('renders WindowingProperties when label contains Windowing', () => {
@@ -59,5 +59,32 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Generic properties for Unknown Node')).toBeInTheDocument();
+  });
+  it('renders ParseJSONProperties when label is Parse JSON', () => {
+    const mockNode = {
+      data: {
+        label: 'Parse JSON',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Parse PubSub JSON message and convert to Dict')).toBeInTheDocument();
+  });
+
+  it('renders ParseBase64Properties when label is Parse Base64', () => {
+    const mockNode = {
+      data: {
+        label: 'Parse Base64',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Parse PubSub Message and convert decode Base64 Bytes')).toBeInTheDocument();
   });
 });

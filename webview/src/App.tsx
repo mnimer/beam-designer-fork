@@ -89,8 +89,12 @@ function App() {
     runner: 'DirectRunner',
     machineType: 'n1-standard-1',
     minInstances: 1,
-    maxInstances: 10
+    maxInstances: 10,
+    gcsStagingPath: '',
+    subnetwork: ''
   });
+  const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
+  const [subnetworks, setSubnetworks] = useState<{name: string, region: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
   const { project, fitView } = useReactFlow();
@@ -140,7 +144,7 @@ function App() {
       console.log('[@App.tsx] YAML generated');
       
       const generator = new BeamGenerator();
-      const { python, requirements, dockerfile } = generator.generate(yamlStr, filename);
+      const { python, requirements, dockerfile, runScript, runDataflowScript, dockerIgnore, gcloudIgnore } = generator.generate(yamlStr, filename, projectId, jobConfig.gcsStagingPath);
       console.log('[@App.tsx] Python code generated, length:', python.length);
       setGeneratedCode(python);
       
@@ -149,15 +153,20 @@ function App() {
         data: yamlStr, 
         pythonCode: python,
         requirements: requirements,
-        dockerfile: dockerfile
+        dockerfile: dockerfile,
+        runScript: runScript,
+        runDataflowScript: runDataflowScript,
+        dockerIgnore: dockerIgnore,
+        gcloudIgnore: gcloudIgnore
       });
       console.log('[@App.tsx] Sent savePipeline message');
     }
-  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded, filename]);
+  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded, filename, projectId]);
 
   useEffect(() => {
     if (vscode) {
       vscode.postMessage({ command: 'ready' });
+      vscode.postMessage({ command: 'getSubnetworks' });
 
       const handleMessage = (event: MessageEvent) => {
         const message = event.data;
@@ -165,6 +174,9 @@ function App() {
           console.log('Received loadPipeline message:', message);
           console.log('Received loadPipeline message, data length:', message.data ? message.data.length : 0);
           setFilename(message.filename || 'default_job');
+          if (message.projectId) {
+            setProjectId(message.projectId);
+          }
           if (message.data) {
             try {
               const data = YAML.parse(message.data);
@@ -180,7 +192,7 @@ function App() {
                 variables.unshift({ key: 'JOB_ID', value: defaultJobId });
               }
               setRuntimeVariables(variables);
-              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
+              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
             } catch (e) {
               console.error('Failed to parse YAML', e);
             }
@@ -192,7 +204,7 @@ function App() {
               ? message.filename.replace('.pipeline', '').replace(/ /g, '_') 
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
-            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
+            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
           }
           setIsLoaded(true);
           
@@ -203,6 +215,8 @@ function App() {
           }, 100);
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
+        } else if (message.command === 'subnetworksLoaded') {
+          setSubnetworks(message.subnetworks);
         }
       };
       window.addEventListener('message', handleMessage);
@@ -437,6 +451,7 @@ function App() {
           isJobIdValid={isJobIdValid}
           generatedCode={generatedCode}
           onRunNow={handleRunNow}
+          subnetworks={subnetworks}
         />
       </div>
 

@@ -22,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view', uri?: vscode.Uri) => {
-            const savePipelineFiles = (targetUri: vscode.Uri, data: string, pythonCode?: string, requirements?: string, dockerfile?: string) => {
+            const savePipelineFiles = (targetUri: vscode.Uri, data: string, pythonCode?: string, requirements?: string, dockerfile?: string, runScript?: string, runDataflowScript?: string, dockerIgnore?: string, gcloudIgnore?: string) => {
 
                 fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
                 if (pythonCode) {
@@ -64,6 +64,36 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
 `;
                         fs.writeFileSync(dockerPath, dockerContent, 'utf-8');
+                    }
+
+                    const runScriptPath = path.join(folderPath, 'run_directrunner.sh');
+                    if (runScript) {
+                        fs.writeFileSync(runScriptPath, runScript, 'utf-8');
+                        try {
+                            fs.chmodSync(runScriptPath, '755');
+                        } catch (e) {
+                            console.error(`Failed to set executable permission on ${runScriptPath}`, e);
+                        }
+                    }
+
+                    const runDataflowScriptPath = path.join(folderPath, 'run_dataflow.sh');
+                    if (runDataflowScript) {
+                        fs.writeFileSync(runDataflowScriptPath, runDataflowScript, 'utf-8');
+                        try {
+                            fs.chmodSync(runDataflowScriptPath, '755');
+                        } catch (e) {
+                            console.error(`Failed to set executable permission on ${runDataflowScriptPath}`, e);
+                        }
+                    }
+
+                    const ignorePath = path.join(folderPath, '.dockerignore');
+                    if (dockerIgnore) {
+                        fs.writeFileSync(ignorePath, dockerIgnore, 'utf-8');
+                    }
+
+                    const gcloudIgnorePath = path.join(folderPath, '.gcloudignore');
+                    if (gcloudIgnore) {
+                        fs.writeFileSync(gcloudIgnorePath, gcloudIgnore, 'utf-8');
                     }
                 }
             };
@@ -113,7 +143,8 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                 try {
                                     const datasetsJson = JSON.parse(stdout);
                                     const datasets = datasetsJson.map((d: any) => d.datasetReference.datasetId);
-                                    webview.postMessage({ command: 'datasetsLoaded', datasets });
+                                    const projectId = datasetsJson.length > 0 ? datasetsJson[0].datasetReference.projectId : 'DEFAULT_PROJECT';
+                                    webview.postMessage({ command: 'datasetsLoaded', datasets, projectId });
                                 } catch (e) {
                                     console.error('Failed to parse bq output', e);
                                     webview.postMessage({ command: 'datasetsLoaded', datasets: [] });
@@ -177,17 +208,52 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                 }
                             });
                             return;
+                        case 'getSubnetworks':
+                            const execSubnets = require('child_process').exec;
+                            execSubnets('gcloud compute networks subnets list --format=json', (error: any, stdout: string, stderr: string) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    console.error(`stderr: ${stderr}`);
+                                    webview.postMessage({ command: 'subnetworksLoaded', subnetworks: [] });
+                                    return;
+                                }
+                                try {
+                                    const subnetsJson = JSON.parse(stdout);
+                                    const subnetworks = subnetsJson.map((s: any) => {
+                                        const regionParts = s.region.split('/');
+                                        const region = regionParts[regionParts.length - 1];
+                                        return {
+                                            name: s.name,
+                                            region: region,
+                                            value: `regions/${region}/subnetworks/${s.name}`
+                                        };
+                                    });
+                                    webview.postMessage({ command: 'subnetworksLoaded', subnetworks });
+                                } catch (e) {
+                                    console.error('Failed to parse subnetworks output', e);
+                                    webview.postMessage({ command: 'subnetworksLoaded', subnetworks: [] });
+                                }
+                            });
+                            return;
                         case 'ready':
+                            let gcloudProjectId = 'YOUR_PROJECT_ID';
+                            try {
+                                const { execSync } = require('child_process');
+                                gcloudProjectId = execSync('gcloud config get project').toString().trim();
+                            } catch (e) {
+                                console.error('Failed to get gcloud project', e);
+                            }
+
                             if (uri && fs.existsSync(uri.fsPath)) {
                                 const content = fs.readFileSync(uri.fsPath, 'utf-8');
-                                webview.postMessage({ command: 'loadPipeline', data: content, filename: pipelineName });
+                                webview.postMessage({ command: 'loadPipeline', data: content, filename: pipelineName, projectId: gcloudProjectId });
                             } else {
-                                webview.postMessage({ command: 'loadPipeline', data: null, filename: pipelineName });
+                                webview.postMessage({ command: 'loadPipeline', data: null, filename: pipelineName, projectId: gcloudProjectId });
                             }
                             return;
                         case 'savePipeline':
                             if (uri) {
-                                savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile);
+                                savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile, message.runScript, message.runDataflowScript, message.dockerIgnore, message.gcloudIgnore);
                                 vscode.window.setStatusBarMessage(`Saved ${pipelineName} and generated files`, 2000);
                             } else {
                                 console.log('[@extension.ts] No URI, prompting for save location');
@@ -197,7 +263,7 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                     if (fileUri) {
                                         console.log('[@extension.ts] User selected save location', fileUri.fsPath);
                                         uri = fileUri; // Update uri in closure
-                                        savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile);
+                                        savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile, message.runScript, message.runDataflowScript, message.dockerIgnore, message.gcloudIgnore);
                                         vscode.window.setStatusBarMessage(`Saved ${path.basename(uri.fsPath)} and generated files`, 2000);
                                         vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
                                     }
@@ -206,7 +272,7 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                             return;
                         case 'runPipeline':
                             console.log('[@extension.ts] runPipeline received', message);
-                            if (message.jobConfig.runner !== 'DirectRunner') {
+                            if (message.jobConfig.runner !== 'DirectRunner' && message.jobConfig.runner !== 'Dataflow') {
                                 vscode.window.showInformationMessage(`Running with ${message.jobConfig.runner} is not supported yet in this action.`);
                                 return;
                             }
@@ -219,8 +285,12 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                     const terminal = vscode.window.createTerminal("Apache Beam Runner");
                                     terminal.show();
 
-                                    // Construct the command
-                                    const command = `cd "${folderPath}" && if [ ! -d ".venv" ]; then python3 -m venv .venv; fi && source .venv/bin/activate && pip install -r requirements.txt && python -m "${pipelineBaseName}" --runner=DirectRunner --streaming`;
+                                    let command = '';
+                                    if (message.jobConfig.runner === 'DirectRunner') {
+                                        command = `cd "${folderPath}" && ./run_directrunner.sh`;
+                                    } else if (message.jobConfig.runner === 'Dataflow') {
+                                        command = `cd "${folderPath}" && ./run_dataflow.sh`;
+                                    }
 
                                     terminal.sendText(command);
                                 } else {

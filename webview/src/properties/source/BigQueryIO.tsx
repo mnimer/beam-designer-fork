@@ -21,6 +21,9 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
       const message = event.data;
       if (message.command === 'datasetsLoaded') {
         setDatasets(message.datasets);
+        if (message.projectId) {
+          onChange({ ...properties, projectId: message.projectId });
+        }
       } else if (message.command === 'tablesLoaded') {
         setTables(message.tables);
       }

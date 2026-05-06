@@ -3,6 +3,8 @@ import { PubSubProperties } from '../properties/source/PubSubIO';
 import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
 import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
 import { WindowingProperties } from '../properties/step/Windowing';
+import { ParseJSONProperties } from '../properties/step/ParseJSON';
+import { ParseBase64Properties } from '../properties/step/ParseBase64';
 
 /**
  * PropertyForm Component
@@ -34,8 +36,12 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange }) =>
     } else {
       formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label.includes('Windowing')) {
+  } else if (label.includes('Windowing') || label === 'Fixed Window') {
     formContent = <WindowingProperties node={node} onChange={onChange} />;
+  } else if (label === 'Parse JSON') {
+    formContent = <ParseJSONProperties node={node} onChange={onChange} />;
+  } else if (label === 'Parse Base64') {
+    formContent = <ParseBase64Properties node={node} onChange={onChange} />;
   } else {
     formContent = <div className="text-sm text-slate-400">Generic properties for {label}</div>;
   }

@@ -25,6 +25,7 @@ interface BottomPanelProps {
   isJobIdValid: (value: string) => boolean;
   generatedCode: string;
   onRunNow: () => void;
+  subnetworks: {name: string, region: string, value: string}[];
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -38,7 +39,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   deleteVariable,
   isJobIdValid,
   generatedCode,
-  onRunNow
+  onRunNow,
+  subnetworks
 }) => {
   return (
     <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
@@ -76,6 +78,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             deleteVariable={deleteVariable}
             isJobIdValid={isJobIdValid}
             onRunNow={onRunNow}
+            subnetworks={subnetworks}
           />
         )}
 
