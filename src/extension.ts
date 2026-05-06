@@ -77,13 +77,14 @@ export function activate(context: vscode.ExtensionContext) {
                                     // Create requirements.txt if it does not exist
                                     const reqPath = path.join(folderPath, 'requirements.txt');
                                     if (!fs.existsSync(reqPath)) {
-                                        fs.writeFileSync(reqPath, 'apache-beam\n', 'utf-8');
+                                        const reqContent = message.requirements || 'apache-beam\n';
+                                        fs.writeFileSync(reqPath, reqContent, 'utf-8');
                                     }
 
                                     // Create DataFlow Flex Template Docker file if it does not exist
                                     const dockerPath = path.join(folderPath, 'Dockerfile');
                                     if (!fs.existsSync(dockerPath)) {
-                                        const dockerContent = `ARG IMAGE_PYTHON_VERSION=3.11
+                                        const dockerContent = message.dockerfile || `ARG IMAGE_PYTHON_VERSION=3.11
 
 # --- Stage 1: Get Python Flex Template Launcher Binary ---
 FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher

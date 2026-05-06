@@ -38,6 +38,16 @@ export interface TransformGenerator {
 
 
 
+/**
+ * BeamGenerator
+ * 
+ * This class is responsible for generating Apache Beam Python code,
+ * requirements.txt, and Dockerfile from a YAML pipeline definition.
+ * 
+ * Architectural Decisions:
+ * - Moved content generation for requirements.txt and Dockerfile here to centralize generation logic.
+ * - Returns an object containing all generated file contents.
+ */
 export class BeamGenerator {
     private generators: Record<string, TransformGenerator> = {};
 
@@ -51,17 +61,102 @@ export class BeamGenerator {
         this.generators['Windows_STEP'] = new WindowGenerator();
     }
 
-    public generate(yamlStr: string): string {
+    /**
+     * Generates pipeline files from YAML string.
+     * @param yamlStr The YAML representation of the pipeline.
+     * @param filename The base name of the pipeline file.
+     * @returns Object containing python, requirements, and dockerfile content.
+     */
+    /**
+     * Generates pipeline files from YAML string.
+     * @param yamlStr The YAML representation of the pipeline.
+     * @param filename The base name of the pipeline file.
+     * @returns Object containing python, requirements, and dockerfile content.
+     */
+    public generate(yamlStr: string, filename: string): { python: string, requirements: string, dockerfile: string } {
+        // Parse YAML and generate files
         try {
             const data = YAML.parse(yamlStr) as PipelineData;
-            return this.generateFromData(data);
+            
+            // Generate Python code
+            const python = this.generateFromData(data);
+            
+            // Generate requirements.txt content, passing data to check for nodes
+            const requirements = this.generateRequirements(data);
+            
+            // Generate Dockerfile content, removing .pipeline extension from filename if present
+            const dockerfile = this.generateDockerfile(filename.replace('.pipeline', ''));
+            
+            return { python, requirements, dockerfile };
         } catch (e) {
             console.error('Failed to parse YAML in generator', e);
-            return `# Error parsing pipeline YAML: ${e}`;
+            return {
+                python: `# Error parsing pipeline YAML: ${e}`,
+                requirements: '',
+                dockerfile: ''
+            };
         }
     }
 
+    /**
+     * Generates content for requirements.txt based on nodes in the pipeline.
+     * @param data Parsed pipeline data.
+     */
+    private generateRequirements(data: PipelineData): string {
+        let reqs = 'apache-beam\n';
+        
+        // Check for PubSub nodes
+        const hasPubSub = data.nodes.some(n => n.data.label.includes('PubSub'));
+        // Check for BigQuery nodes
+        const hasBigQuery = data.nodes.some(n => n.data.label.includes('BigQuery'));
+        
+        if (hasPubSub) {
+            reqs += 'google-cloud-pubsub\n';
+        }
+        if (hasBigQuery) {
+            reqs += 'google-cloud-bigquery\n';
+        }
+        
+        return reqs;
+    }
+
+    /**
+     * Generates content for Dockerfile.
+     * @param pipelineBaseName Base name of the pipeline file.
+     */
+    private generateDockerfile(pipelineBaseName: string): string {
+        return `ARG IMAGE_PYTHON_VERSION=3.11
+
+# --- Stage 1: Get Python Flex Template Launcher Binary ---
+FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
+
+# --- Stage 2: Build Application Image ---
+FROM apache/beam_python\${IMAGE_PYTHON_VERSION}_sdk:2.55.0
+
+# 1. Copy Flex Template launcher binary (Path is STRICT)
+COPY --from=launcher /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
+
+# 2. Set working directory
+WORKDIR /template
+
+# 3. Copy files
+COPY requirements.txt .
+COPY ${pipelineBaseName}.py .
+
+# 4. Install Python Dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Specify Pipeline Entrypoint
+ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
+`;
+    }
+
+    /**
+     * Generates Python code from pipeline data.
+     * @param data Parsed pipeline data.
+     */
     private generateFromData(data: PipelineData): string {
+        // Initialize python code with imports
         let code = `import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 import argparse
@@ -88,7 +183,7 @@ def run(argv=None):
     with beam.Pipeline(options=options) as p:
 `;
 
-        // Find source nodes
+        // Find source nodes and generate branch for each
         const sources = data.nodes.filter(n => n.data.type === 'SOURCE');
 
         sources.forEach(source => {

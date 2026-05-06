@@ -38,6 +38,7 @@ export const PubSubProperties: React.FC<PubSubPropertiesProps> = ({ node, onChan
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm" 
         />
       </div>
+      <div>OR</div>
       {/* Subscription Input */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold uppercase text-slate-500">Subscription</label>

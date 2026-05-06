@@ -89,8 +89,9 @@ function App() {
     minInstances: 1,
     maxInstances: 10
   });
+  const [filename, setFilename] = useState('default_job');
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
-  const { project, fitView, zoomOut } = useReactFlow();
+  const { project, fitView } = useReactFlow();
 
   const [history, setHistory] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
   const [future, setFuture] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
@@ -137,14 +138,20 @@ function App() {
       console.log('[@App.tsx] YAML generated');
       
       const generator = new BeamGenerator();
-      const pythonCode = generator.generate(yamlStr);
-      console.log('[@App.tsx] Python code generated, length:', pythonCode.length);
-      setGeneratedCode(pythonCode);
+      const { python, requirements, dockerfile } = generator.generate(yamlStr, filename);
+      console.log('[@App.tsx] Python code generated, length:', python.length);
+      setGeneratedCode(python);
       
-      vscode.postMessage({ command: 'savePipeline', data: yamlStr, pythonCode: pythonCode });
+      vscode.postMessage({ 
+        command: 'savePipeline', 
+        data: yamlStr, 
+        pythonCode: python,
+        requirements: requirements,
+        dockerfile: dockerfile
+      });
       console.log('[@App.tsx] Sent savePipeline message');
     }
-  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded]);
+  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded, filename]);
 
   useEffect(() => {
     if (vscode) {
@@ -155,6 +162,7 @@ function App() {
         if (message.command === 'loadPipeline') {
           console.log('Received loadPipeline message:', message);
           console.log('Received loadPipeline message, data length:', message.data ? message.data.length : 0);
+          setFilename(message.filename || 'default_job');
           if (message.data) {
             try {
               const data = YAML.parse(message.data);
@@ -189,9 +197,7 @@ function App() {
           // Center diagram and zoom to fit, then zoom out 2 extra steps
           setTimeout(() => {
             console.log('Fitting view and zooming out');
-            fitView();
-            zoomOut();
-            zoomOut();
+            fitView({ duration: 0, padding: 1 });
           }, 100);
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
