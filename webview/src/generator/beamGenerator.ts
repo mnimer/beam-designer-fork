@@ -2,6 +2,8 @@ import YAML from 'yaml';
 import { PubSubSourceGenerator } from './sources/PubSubIO';
 import { BigQuerySinkGenerator } from './sinks/BigQueryIO';
 import { WindowGenerator } from './steps/Window';
+import { ParseJSONGenerator } from './steps/ParseJSON';
+import { ParseBase64Generator } from './steps/ParseBase64';
 
 export interface Node {
     id: string;
@@ -59,6 +61,9 @@ export class BeamGenerator {
         this.generators['PubSub_SOURCE'] = new PubSubSourceGenerator();
         this.generators['BigQuery_SINK'] = new BigQuerySinkGenerator();
         this.generators['Windows_STEP'] = new WindowGenerator();
+        this.generators['Fixed Window_STEP'] = new WindowGenerator();
+        this.generators['Parse JSON_STEP'] = new ParseJSONGenerator();
+        this.generators['Parse Base64_STEP'] = new ParseBase64Generator();
     }
 
     /**
@@ -160,7 +165,39 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
         let code = `import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 import argparse
+import json
+import logging
 
+`;
+
+        // Add custom functions if needed
+        const hasParseJson = data.nodes.some(n => n.data.label === 'Parse JSON');
+        const hasParseBase64 = data.nodes.some(n => n.data.label === 'Parse Base64');
+
+        if (hasParseJson) {
+            code += `
+class ParseJsonToDictFn(beam.DoFn):
+    def process(self, element):
+        try:
+            # element is a byte string from Pub/Sub
+            decoded_str = element.decode('utf-8')
+            data_dict = json.loads(decoded_str)
+            yield data_dict
+        except Exception as e:
+            logging.error(f"Failed to parse JSON: {e}")
+`;
+        }
+
+        if (hasParseBase64) {
+            code += `
+class ProcessBase64BytesFn(beam.DoFn):
+    def process(self, element):
+        # TODO: Implement base64 decoding
+        yield element
+`;
+        }
+
+        code += `
 def run(argv=None):
     parser = argparse.ArgumentParser()
 `;

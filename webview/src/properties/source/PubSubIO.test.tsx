@@ -44,23 +44,4 @@ describe('PubSubProperties', () => {
 
     expect(mockOnChange).toHaveBeenCalledWith({ topic: 'new-topic' });
   });
-  it('renders output format select and calls onChange', () => {
-    const mockNode = {
-      data: {
-        properties: {
-          outputFormat: 'JSON'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PubSubProperties node={mockNode} onChange={mockOnChange} />);
-
-    const select = screen.getByLabelText('Output Format');
-    expect(select).toBeInTheDocument();
-    expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
-
-    fireEvent.change(select, { target: { value: 'String' } });
-    expect(mockOnChange).toHaveBeenCalledWith({ outputFormat: 'String' });
-  });
 });

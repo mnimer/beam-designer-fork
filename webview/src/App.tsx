@@ -75,6 +75,7 @@ const initialEdges = [
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const hasPubSubSource = nodes.some(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
   const [activeTab, setActiveTab] = useState('SOURCES');
   const [bottomTab, setBottomTab] = useState('DEPLOYMENT');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -392,6 +393,7 @@ function App() {
             activeTab={activeTab} 
             setActiveTab={setActiveTab} 
             nodesCount={nodes.length} 
+            hasPubSubSource={hasPubSubSource}
             onDragStart={onDragStart} 
           />
 

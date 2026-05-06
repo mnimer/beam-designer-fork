@@ -100,23 +100,6 @@ export const PubSubProperties: React.FC<PubSubPropertiesProps> = ({ node, onChan
         <span className="text-xs text-slate-600">Sample: projects/my-project/subscriptions/my-sub</span>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-slate-700"></div>
-
-      {/* Output Format Section */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="outputFormat" className="text-xs font-bold uppercase text-slate-500">Output Format</label>
-        <select
-          id="outputFormat"
-          name="outputFormat"
-          value={properties.outputFormat || 'String'}
-          onChange={handleChange}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
-        >
-          <option value="String">String</option>
-          <option value="JSON">JSON</option>
-        </select>
-      </div>
     </div>
   );
 };
