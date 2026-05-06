@@ -90,7 +90,7 @@ function App() {
     maxInstances: 10
   });
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
-  const { project } = useReactFlow();
+  const { project, fitView, zoomOut } = useReactFlow();
 
   const [history, setHistory] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
   const [future, setFuture] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
@@ -185,6 +185,14 @@ function App() {
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10 });
           }
           setIsLoaded(true);
+          
+          // Center diagram and zoom to fit, then zoom out 2 extra steps
+          setTimeout(() => {
+            console.log('Fitting view and zooming out');
+            fitView();
+            zoomOut();
+            zoomOut();
+          }, 100);
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
         }
