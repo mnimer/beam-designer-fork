@@ -139,6 +139,44 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                 }
                             });
                             return;
+                        case 'getTopics':
+                            const execTopics = require('child_process').exec;
+                            execTopics('gcloud pubsub topics list --format=json', (error: any, stdout: string, stderr: string) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    console.error(`stderr: ${stderr}`);
+                                    webview.postMessage({ command: 'topicsLoaded', topics: [] });
+                                    return;
+                                }
+                                try {
+                                    const topicsJson = JSON.parse(stdout);
+                                    const topics = topicsJson.map((t: any) => t.name);
+                                    webview.postMessage({ command: 'topicsLoaded', topics });
+                                } catch (e) {
+                                    console.error('Failed to parse topics output', e);
+                                    webview.postMessage({ command: 'topicsLoaded', topics: [] });
+                                }
+                            });
+                            return;
+                        case 'getSubscriptions':
+                            const execSubs = require('child_process').exec;
+                            execSubs('gcloud pubsub subscriptions list --format=json', (error: any, stdout: string, stderr: string) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    console.error(`stderr: ${stderr}`);
+                                    webview.postMessage({ command: 'subscriptionsLoaded', subscriptions: [] });
+                                    return;
+                                }
+                                try {
+                                    const subsJson = JSON.parse(stdout);
+                                    const subscriptions = subsJson.map((s: any) => s.name);
+                                    webview.postMessage({ command: 'subscriptionsLoaded', subscriptions });
+                                } catch (e) {
+                                    console.error('Failed to parse subscriptions output', e);
+                                    webview.postMessage({ command: 'subscriptionsLoaded', subscriptions: [] });
+                                }
+                            });
+                            return;
                         case 'ready':
                             if (uri && fs.existsSync(uri.fsPath)) {
                                 const content = fs.readFileSync(uri.fsPath, 'utf-8');

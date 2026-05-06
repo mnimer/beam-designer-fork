@@ -37,7 +37,7 @@ describe('BigQuerySourceProperties', () => {
     const datasetInput = screen.getByPlaceholderText('my_dataset');
     fireEvent.change(datasetInput, { target: { value: 'new-dataset' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ dataset: 'new-dataset' });
+    expect(mockOnChange).toHaveBeenCalledWith({ dataset: 'new-dataset', table: '' });
   });
 
   it('calls onChange when table input changes', () => {
