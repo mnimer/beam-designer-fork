@@ -22,6 +22,51 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view', uri?: vscode.Uri) => {
+            const savePipelineFiles = (targetUri: vscode.Uri, data: string, pythonCode?: string, requirements?: string, dockerfile?: string) => {
+                console.log('[@extension.ts] savePipelineFiles called', { targetUri: targetUri.fsPath, hasPython: !!pythonCode, hasReqs: !!requirements, hasDocker: !!dockerfile });
+                fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
+                if (pythonCode) {
+                    const pyPath = targetUri.fsPath.replace('.pipeline', '.py');
+                    console.log('[@extension.ts] Saving python to', pyPath);
+                    fs.writeFileSync(pyPath, pythonCode, 'utf-8');
+
+                    const folderPath = path.dirname(targetUri.fsPath);
+                    const pipelineBaseName = path.basename(targetUri.fsPath, '.pipeline');
+
+                    const reqPath = path.join(folderPath, 'requirements.txt');
+                    const reqContent = requirements || 'apache-beam\n';
+                    fs.writeFileSync(reqPath, reqContent, 'utf-8');
+
+                    const dockerPath = path.join(folderPath, 'Dockerfile');
+                    if (!fs.existsSync(dockerPath)) {
+                        const dockerContent = dockerfile || `ARG IMAGE_PYTHON_VERSION=3.11
+
+# --- Stage 1: Get Python Flex Template Launcher Binary ---
+FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
+
+# --- Stage 2: Build Application Image ---
+FROM apache/beam_python\${IMAGE_PYTHON_VERSION}_sdk:2.55.0
+
+# 1. Copy Flex Template launcher binary (Path is STRICT)
+COPY --from=launcher /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
+
+# 2. Set working directory
+WORKDIR /template
+
+# 3. Copy files
+COPY requirements.txt .
+COPY ${pipelineBaseName}.py .
+
+# 4. Install Python Dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Specify Pipeline Entrypoint
+ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
+`;
+                        fs.writeFileSync(dockerPath, dockerContent, 'utf-8');
+                    }
+                }
+            };
             const panel = vscode.window.createWebviewPanel(
                 'beamPipelineEditor',
                 `Apache Beam Pipeline Editor - ${pipelineName} (${mode})`,
@@ -65,53 +110,24 @@ export function activate(context: vscode.ExtensionContext) {
                             }
                             return;
                         case 'savePipeline':
+                            console.log('[@extension.ts] savePipeline received', { hasUri: !!uri, hasPythonCode: !!message.pythonCode });
                             if (uri) {
-                                fs.writeFileSync(uri.fsPath, message.data, 'utf-8');
-                                if (message.pythonCode) {
-                                    const pyPath = uri.fsPath.replace('.pipeline', '.py');
-                                    fs.writeFileSync(pyPath, message.pythonCode, 'utf-8');
-
-                                    const folderPath = path.dirname(uri.fsPath);
-                                    const pipelineBaseName = path.basename(uri.fsPath, '.pipeline');
-
-                                    // Create requirements.txt if it does not exist
-                                    const reqPath = path.join(folderPath, 'requirements.txt');
-                                    if (!fs.existsSync(reqPath)) {
-                                        const reqContent = message.requirements || 'apache-beam\n';
-                                        fs.writeFileSync(reqPath, reqContent, 'utf-8');
+                                console.log('[@extension.ts] Saving to', uri.fsPath);
+                                savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile);
+                                vscode.window.setStatusBarMessage(`Saved ${pipelineName} and generated files`, 2000);
+                            } else {
+                                console.log('[@extension.ts] No URI, prompting for save location');
+                                vscode.window.showSaveDialog({
+                                    filters: { 'Pipeline': ['pipeline'] }
+                                }).then(fileUri => {
+                                    if (fileUri) {
+                                        console.log('[@extension.ts] User selected save location', fileUri.fsPath);
+                                        uri = fileUri; // Update uri in closure
+                                        savePipelineFiles(uri, message.data, message.pythonCode, message.requirements, message.dockerfile);
+                                        vscode.window.setStatusBarMessage(`Saved ${path.basename(uri.fsPath)} and generated files`, 2000);
+                                        vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
                                     }
-
-                                    // Create DataFlow Flex Template Docker file if it does not exist
-                                    const dockerPath = path.join(folderPath, 'Dockerfile');
-                                    if (!fs.existsSync(dockerPath)) {
-                                        const dockerContent = message.dockerfile || `ARG IMAGE_PYTHON_VERSION=3.11
-
-# --- Stage 1: Get Python Flex Template Launcher Binary ---
-FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
-
-# --- Stage 2: Build Application Image ---
-FROM apache/beam_python\${IMAGE_PYTHON_VERSION}_sdk:2.55.0
-
-# 1. Copy Flex Template launcher binary (Path is STRICT)
-COPY --from=launcher /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
-
-# 2. Set working directory
-WORKDIR /template
-
-# 3. Copy files
-COPY requirements.txt .
-COPY ${pipelineBaseName}.py .
-
-# 4. Install Python Dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 5. Specify Pipeline Entrypoint
-ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
-`;
-                                        fs.writeFileSync(dockerPath, dockerContent, 'utf-8');
-                                    }
-                                }
-                                vscode.window.setStatusBarMessage(`Saved \${pipelineName} and generated .py`, 2000);
+                                });
                             }
                             return;
                     }
