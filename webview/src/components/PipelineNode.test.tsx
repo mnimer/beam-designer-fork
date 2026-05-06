@@ -6,7 +6,7 @@ import { PipelineNode } from './PipelineNode';
 
 // Mock React Flow handles
 vi.mock('reactflow', () => ({
-  Handle: ({ type, position }: any) => <div data-testid={`handle-${type}-${position}`} />,
+  Handle: ({ type, position, id }: any) => <div data-testid={`handle-${type}-${position}${id ? `-${id}` : ''}`} />,
   Position: {
     Left: 'left',
     Right: 'right'
@@ -40,11 +40,18 @@ describe('PipelineNode', () => {
     expect(screen.queryByTestId('handle-target-left')).not.toBeInTheDocument();
   });
 
-  it('renders source handle if not sink', () => {
+  it('renders source handle for source node', () => {
+    render(<PipelineNode data={mockData} />); // mockData is SOURCE
+
+    expect(screen.getByTestId('handle-source-right')).toBeInTheDocument();
+  });
+
+  it('renders two source handles for step node', () => {
     const stepData = { ...mockData, type: 'STEP' };
     render(<PipelineNode data={stepData} />);
 
-    expect(screen.getByTestId('handle-source-right')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right-error')).toBeInTheDocument();
   });
 
   it('does not render source handle if sink', () => {
@@ -52,5 +59,7 @@ describe('PipelineNode', () => {
     render(<PipelineNode data={sinkData} />);
 
     expect(screen.queryByTestId('handle-source-right')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('handle-source-right-valid')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('handle-source-right-error')).not.toBeInTheDocument();
   });
 });

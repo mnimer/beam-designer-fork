@@ -79,6 +79,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('SOURCES');
   const [bottomTab, setBottomTab] = useState('DEPLOYMENT');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [runtimeVariables, setRuntimeVariables] = useState<{key: string, value: string}[]>([
@@ -247,18 +248,24 @@ function App() {
           (activeElement instanceof HTMLElement && activeElement.isContentEditable)
         );
 
-        if (!isInputFocused && selectedNodeId) {
-          takeSnapshot();
-          setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
-          setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
-          setSelectedNodeId(null);
+        if (!isInputFocused) {
+          if (selectedNodeId) {
+            takeSnapshot();
+            setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
+            setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
+            setSelectedNodeId(null);
+          } else if (selectedEdgeId) {
+            takeSnapshot();
+            setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdgeId));
+            setSelectedEdgeId(null);
+          }
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, setNodes, setEdges, takeSnapshot, undo, redo]);
+  }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, undo, redo]);
 
   const addVariable = () => {
     takeSnapshot();
@@ -346,11 +353,18 @@ function App() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
+  /**
+   * Handles the drop event when a node is dragged from the sidebar onto the canvas.
+   * It creates a new node at the drop position and automatically connects it to a source
+   * if it's the first step or if it's a PubSub specific step.
+   */
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
 
+      // Get the bounding rectangle of the flow canvas
       const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
+      // Get the dragged data
       const dataStr = event.dataTransfer.getData('application/reactflow');
 
       if (!dataStr || !reactFlowBounds) {
@@ -359,11 +373,13 @@ function App() {
 
       const data = JSON.parse(dataStr);
 
+      // Calculate the position of the new node relative to the canvas
       const position = project({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
 
+      // Create the new node object
       const newNode = {
         id: `${Date.now()}`,
         type: data.nodeType,
@@ -375,25 +391,44 @@ function App() {
         },
       };
 
+      // Save current state to history for undo/redo
       takeSnapshot();
+      // Add the new node to the state
       setNodes((nds) => nds.concat(newNode));
 
+      // Handle automatic connections for steps
       if (data.type === 'STEP') {
-        const hasStep = nodes.some(n => n.data.type === 'STEP');
-        if (!hasStep) {
-          const sourceNode = nodes.find(n => n.data.type === 'SOURCE');
-          if (sourceNode) {
+        // Special handling for PubSub specific steps: "Parse JSON" and "Parse Base64"
+        // These should automatically connect to the PubSub source if it exists
+        if (data.label === 'Parse JSON' || data.label === 'Parse Base64') {
+          const pubSubSource = nodes.find(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
+          if (pubSubSource) {
             const newEdge = {
-              id: `e-${sourceNode.id}-${newNode.id}`,
-              source: sourceNode.id,
+              id: `e-${pubSubSource.id}-${newNode.id}`,
+              source: pubSubSource.id,
               target: newNode.id,
             };
             setEdges((eds) => eds.concat(newEdge));
           }
+        } else {
+          // General handling for other steps:
+          // Connect to the first source node if this is the first step being added
+          const hasStep = nodes.some(n => n.data.type === 'STEP');
+          if (!hasStep) {
+            const sourceNode = nodes.find(n => n.data.type === 'SOURCE');
+            if (sourceNode) {
+              const newEdge = {
+                id: `e-${sourceNode.id}-${newNode.id}`,
+                source: sourceNode.id,
+                target: newNode.id,
+              };
+              setEdges((eds) => eds.concat(newEdge));
+            }
+          }
         }
       }
     },
-    [project, setNodes, setEdges, nodes]
+    [project, setNodes, setEdges, nodes, takeSnapshot]
   );
 
   return (
@@ -420,8 +455,9 @@ function App() {
             nodeTypes={nodeTypes}
             isValidConnection={isValidConnection}
             fitView
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            onPaneClick={() => setSelectedNodeId(null)}
+            onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
+            onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
+            onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onNodeDragStop={() => takeSnapshot()}

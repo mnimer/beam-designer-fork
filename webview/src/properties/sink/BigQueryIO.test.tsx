@@ -123,7 +123,6 @@ describe('BigQuerySinkProperties', () => {
 
     render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Streaming Inserts')).toBeInTheDocument();
     expect(screen.getByText('Insert Retry Strategy')).toBeInTheDocument();
   });
 

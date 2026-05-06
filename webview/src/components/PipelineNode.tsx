@@ -15,6 +15,7 @@ const iconComponentMap: Record<string, any> = {
  * Architectural Decisions:
  * - Custom node implementation for React Flow.
  * - Uses Lucide icons based on data.iconName.
+ * - Steps have two output handles: green for valid path, red for error path.
  */
 interface PipelineNodeProps {
   data: {
@@ -49,8 +50,30 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ data, selected }) =>
       </div>
 
       {/* Source handle for outgoing connections (not for sinks) */}
-      {!isSink && (
+      {!isSink && data.type !== 'STEP' && (
         <Handle type="source" position={Position.Right} className="w-2 h-2 bg-blue-500 border-none" />
+      )}
+
+      {/* For steps, add 2 output handles: Valid (Green) and Error (Red) */}
+      {data.type === 'STEP' && (
+        <>
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="valid" 
+            style={{ top: '30%', backgroundColor: '#10b981' }} 
+            className="w-2 h-2 border-none" 
+            title="Valid Path"
+          />
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="error" 
+            style={{ top: '70%', backgroundColor: '#ef4444' }} 
+            className="w-2 h-2 border-none" 
+            title="Error Path"
+          />
+        </>
       )}
     </div>
   );
