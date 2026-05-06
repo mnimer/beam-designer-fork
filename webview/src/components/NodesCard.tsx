@@ -55,14 +55,22 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
       {/* Tab Content */}
       <div className="grid grid-cols-3 gap-4 mt-2">
         {activeTab === 'SOURCES' && (
-          <>
-            <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
-            <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
-            <SidebarItem label="JDBC" type="SOURCE" iconName="Cable" onDragStart={onDragStart} />
-            <SidebarItem label="Kafka" type="SOURCE" iconName="Share2" onDragStart={onDragStart} />
-            <SidebarItem label="S3" type="SOURCE" iconName="HardDrive" onDragStart={onDragStart} />
-            <SidebarItem label="GCS" type="SOURCE" iconName="Cloud" onDragStart={onDragStart} />
-          </>
+          <div className="col-span-3 flex flex-col gap-2">
+            {/* Streaming Sources Section */}
+            <details className="bg-slate-700/50 rounded-md" open>
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Streaming Sources</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
+              </div>
+            </details>
+            {/* Batch Sources Section */}
+            <details className="bg-slate-700/50 rounded-md" open>
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Batch Sources</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
+              </div>
+            </details>
+          </div>
         )}
         {activeTab === 'STEPS' && (
           <>
@@ -74,12 +82,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
           </>
         )}
         {activeTab === 'SINKS' && (
-          <>
-            <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
-            <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
-            <SidebarItem label="Kafka" type="SINK" iconName="Share2" onDragStart={onDragStart} />
-            <SidebarItem label="JDBC" type="SINK" iconName="Cable" onDragStart={onDragStart} />
-          </>
+          <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
         )}
       </div>
     </div>

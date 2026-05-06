@@ -47,7 +47,9 @@ describe('NodesCard', () => {
       <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} onDragStart={mockOnDragStart} />
     );
 
-    expect(screen.getByText('S3')).toBeInTheDocument();
-    expect(screen.getByText('GCS')).toBeInTheDocument();
+    expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
+    expect(screen.getByText('Batch Sources')).toBeInTheDocument();
+    expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('BigQuery')).toBeInTheDocument();
   });
 });
