@@ -266,6 +266,19 @@ function App() {
     setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
   };
 
+  const handleRunNow = useCallback(() => {
+    console.log('[@App.tsx] handleRunNow called');
+    if (vscode) {
+      vscode.postMessage({ 
+        command: 'runPipeline',
+        jobConfig,
+        runtimeVariables
+      });
+    } else {
+      alert('VS Code API is not available. This feature only works when running inside the VS Code extension.');
+    }
+  }, [jobConfig, runtimeVariables]);
+
   const isValidConnection = useCallback(
     (connection: Connection) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
@@ -420,6 +433,7 @@ function App() {
           deleteVariable={deleteVariable}
           isJobIdValid={isJobIdValid}
           generatedCode={generatedCode}
+          onRunNow={handleRunNow}
         />
       </div>
 

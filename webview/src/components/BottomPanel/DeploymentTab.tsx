@@ -24,6 +24,7 @@ interface DeploymentTabProps {
   updateVariable: (index: number, field: 'key' | 'value', value: string) => void;
   deleteVariable: (index: number) => void;
   isJobIdValid: (value: string) => boolean;
+  onRunNow: () => void;
 }
 
 export const DeploymentTab: React.FC<DeploymentTabProps> = ({
@@ -33,7 +34,8 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
   addVariable,
   updateVariable,
   deleteVariable,
-  isJobIdValid
+  isJobIdValid,
+  onRunNow
 }) => {
   return (
     <div className="flex gap-6 h-full">
@@ -54,7 +56,12 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
             </select>
           </div>
           <div className="flex flex-col gap-2 w-full items-center">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5">RUN NOW</button>
+            <button 
+              onClick={onRunNow}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5"
+            >
+              RUN NOW
+            </button>
             <button 
               className={`bg-slate-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
               disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}

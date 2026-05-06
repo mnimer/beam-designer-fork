@@ -26,7 +26,8 @@ describe('BottomPanel', () => {
     updateVariable: vi.fn(),
     deleteVariable: vi.fn(),
     isJobIdValid: vi.fn().mockReturnValue(true),
-    generatedCode: 'print("hello")'
+    generatedCode: 'print("hello")',
+    onRunNow: vi.fn()
   };
 
   it('renders tab headers', () => {

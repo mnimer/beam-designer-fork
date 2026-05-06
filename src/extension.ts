@@ -130,6 +130,32 @@ ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
                                 });
                             }
                             return;
+                        case 'runPipeline':
+                            console.log('[@extension.ts] runPipeline received', message);
+                            if (message.jobConfig.runner !== 'DirectRunner') {
+                                vscode.window.showInformationMessage(`Running with ${message.jobConfig.runner} is not supported yet in this action.`);
+                                return;
+                            }
+                            if (uri) {
+                                const folderPath = path.dirname(uri.fsPath);
+                                const pipelineBaseName = path.basename(uri.fsPath, '.pipeline');
+                                const pyPath = path.join(folderPath, `${pipelineBaseName}.py`);
+
+                                if (fs.existsSync(pyPath)) {
+                                    const terminal = vscode.window.createTerminal("Apache Beam Runner");
+                                    terminal.show();
+
+                                    // Construct the command
+                                    const command = `cd "${folderPath}" && if [ ! -d ".venv" ]; then python3 -m venv .venv; fi && source .venv/bin/activate && pip install -r requirements.txt && python -m "${pipelineBaseName}" --runner=DirectRunner --streaming`;
+
+                                    terminal.sendText(command);
+                                } else {
+                                    vscode.window.showErrorMessage(`Python file not found: ${pyPath}. Please save the pipeline first.`);
+                                }
+                            } else {
+                                vscode.window.showErrorMessage("Please save the pipeline first to run it.");
+                            }
+                            return;
                     }
                 },
                 undefined,

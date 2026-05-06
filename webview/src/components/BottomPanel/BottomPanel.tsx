@@ -24,6 +24,7 @@ interface BottomPanelProps {
   deleteVariable: (index: number) => void;
   isJobIdValid: (value: string) => boolean;
   generatedCode: string;
+  onRunNow: () => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -36,7 +37,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   updateVariable,
   deleteVariable,
   isJobIdValid,
-  generatedCode
+  generatedCode,
+  onRunNow
 }) => {
   return (
     <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
@@ -73,6 +75,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             updateVariable={updateVariable}
             deleteVariable={deleteVariable}
             isJobIdValid={isJobIdValid}
+            onRunNow={onRunNow}
           />
         )}
 
