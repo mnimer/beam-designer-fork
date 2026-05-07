@@ -20,6 +20,8 @@ interface Edge {
     source: string;
     target: string;
     id: string;
+    sourceHandle?: string;
+    targetHandle?: string;
 }
 
 interface PipelineData {
@@ -52,6 +54,7 @@ export interface TransformGenerator {
  * - Moved content generation for requirements.txt and Dockerfile here to centralize generation logic.
  * - Returns an object containing all generated file contents.
  * - Added runScript generation to simplify local execution.
+ * - Uses topological sort and variable assignment for each step to support proper branching in Beam Python SDK.
  */
 export class BeamGenerator {
     private generators: Record<string, TransformGenerator> = {};
@@ -264,6 +267,7 @@ __pycache__
         // Initialize python code with imports
         let code = `import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.pvalue import TaggedOutput
 import argparse
 import json
 import logging
@@ -292,29 +296,132 @@ import logging
     with beam.Pipeline(options=options) as p:
 `;
 
-        // Find source nodes and generate branch for each
-        const sources = data.nodes.filter(n => n.data.type === 'SOURCE');
-
-        sources.forEach(source => {
-            code += `        # Branch starting from ${source.data.label}\n`;
-            code += `        (\n`;
-            code += `            p\n`;
-            code += `${this.generateNodeCode(source, data, 12)}`;
-            code += `        )\n\n`;
+        // Topological Sort to handle branching correctly
+        const inDegree: Record<string, number> = {};
+        data.nodes.forEach(n => inDegree[n.id] = 0);
+        data.edges.forEach(e => {
+            inDegree[e.target] = (inDegree[e.target] || 0) + 1;
         });
 
-        // Collect ParDos in order of usage
+        const queue: Node[] = data.nodes.filter(n => inDegree[n.id] === 0);
+        const codeLines: string[] = [];
         const parDoDefinitions: string[] = [];
         const seenParDos = new Set<string>();
-        const seenNodes = new Set<string>();
 
-        sources.forEach(source => {
-            this.collectParDos(source, data, parDoDefinitions, seenParDos, seenNodes);
-        });
+        while (queue.length > 0) {
+            const node = queue.shift()!;
+            
+            // Generate variable name for node
+            const varName = this.getVariableName(node);
+            
+            // Find input variable
+            const incomingEdges = data.edges.filter(e => e.target === node.id);
+            let inputVar = 'p';
+            
+            if (incomingEdges.length > 0) {
+                const edge = incomingEdges[0];
+                const sourceNode = data.nodes.find(n => n.id === edge.source);
+                if (sourceNode) {
+                    const sourceVarName = this.getVariableName(sourceNode);
+                    if (edge.sourceHandle === 'valid' || (!edge.sourceHandle && sourceNode.data.type === 'STEP')) {
+                        inputVar = `${sourceVarName}['good_${sourceNode.id}']`;
+                    } else if (edge.sourceHandle === 'error') {
+                        inputVar = `${sourceVarName}['bad_${sourceNode.id}']`;
+                    } else {
+                        inputVar = sourceVarName;
+                    }
+                }
+            }
+
+            const key = `${node.data.label}_${node.data.type}`;
+            const generator = this.generators[key];
+            let transformCode = '';
+            if (generator) {
+                transformCode = generator.generate(node, 0).trim();
+            } else {
+                transformCode = `| '# No generator for ${key}'`;
+            }
+
+            // Add comment above step
+            codeLines.push(`        # ${node.data.type}: ${node.data.label}`);
+            
+            // Add main transform line
+            codeLines.push(`        ${varName} = ${inputVar} ${transformCode}`);
+
+            // Add log messages for undefined connectors right after each step
+            if (node.data.type === 'STEP') {
+                // Check valid output
+                const hasValidEdge = data.edges.some(e => e.source === node.id && (e.sourceHandle === 'valid' || !e.sourceHandle));
+                if (!hasValidEdge) {
+                    codeLines.push(`        ${varName}['good_${node.id}'] | "Log Good ${node.id}" >> beam.Map(lambda x: logging.info(f"Valid: {x}"))`);
+                }
+                
+                // Check error output
+                const hasErrorEdge = data.edges.some(e => e.source === node.id && e.sourceHandle === 'error');
+                if (!hasErrorEdge) {
+                    codeLines.push(`        ${varName}['bad_${node.id}'] | "Log Bad ${node.id}" >> beam.Map(lambda x: print(f"Error: {x}"))`);
+                }
+            } else if (node.data.type === 'SOURCE') {
+                const hasEdge = data.edges.some(e => e.source === node.id);
+                if (!hasEdge) {
+                    codeLines.push(`        ${varName} | "Log Source ${node.id}" >> beam.Map(lambda x: logging.info(f"Source: {x}"))`);
+                }
+            }
+
+            // Add line break between steps
+            codeLines.push('');
+
+            // Collect ParDo definitions
+            if (node.data.label === 'Parse JSON' && !seenParDos.has('ParseJsonToDictFn')) {
+                seenParDos.add('ParseJsonToDictFn');
+                parDoDefinitions.push(`class ParseJsonToDictFn(beam.DoFn):
+    def __init__(self, bad_tag):
+        self.bad_tag = bad_tag
+
+    def process(self, element):
+        try:
+            # element is a byte string from Pub/Sub
+            decoded_str = element.decode('utf-8')
+            data_dict = json.loads(decoded_str)
+            yield data_dict
+        except Exception as e:
+            logging.error(f"Failed to parse JSON: {e}")
+            yield TaggedOutput(self.bad_tag, element)
+`);
+            } else if (node.data.label === 'Parse Base64' && !seenParDos.has('ProcessBase64BytesFn')) {
+                seenParDos.add('ProcessBase64BytesFn');
+                parDoDefinitions.push(`class ProcessBase64BytesFn(beam.DoFn):
+    def __init__(self, bad_tag):
+        self.bad_tag = bad_tag
+
+    def process(self, element):
+        try:
+            # TODO: Implement base64 decoding
+            yield element
+        except Exception as e:
+            logging.error(f"Failed to process base64: {e}")
+            yield TaggedOutput(self.bad_tag, element)
+`);
+            }
+
+            // Process outgoing edges
+            const outgoingEdges = data.edges.filter(e => e.source === node.id);
+            outgoingEdges.forEach(edge => {
+                inDegree[edge.target]--;
+                if (inDegree[edge.target] === 0) {
+                    const nextNode = data.nodes.find(n => n.id === edge.target);
+                    if (nextNode) {
+                        queue.push(nextNode);
+                    }
+                }
+            });
+        }
+
+        code += codeLines.join('\n');
+        code += '\n\n';
 
         // Append ParDo definitions
         if (parDoDefinitions.length > 0) {
-            code += '\n';
             code += parDoDefinitions.join('\n');
             code += '\n';
         }
@@ -325,61 +432,9 @@ import logging
         return code;
     }
 
-    private collectParDos(node: Node, data: PipelineData, collected: string[], seenParDos: Set<string>, seenNodes: Set<string>) {
-        if (seenNodes.has(node.id)) return;
-        seenNodes.add(node.id);
-
-        if (node.data.label === 'Parse JSON' && !seenParDos.has('ParseJsonToDictFn')) {
-            seenParDos.add('ParseJsonToDictFn');
-            collected.push(`class ParseJsonToDictFn(beam.DoFn):
-    def process(self, element):
-        try:
-            # element is a byte string from Pub/Sub
-            decoded_str = element.decode('utf-8')
-            data_dict = json.loads(decoded_str)
-            yield data_dict
-        except Exception as e:
-            logging.error(f"Failed to parse JSON: {e}")
-`);
-        } else if (node.data.label === 'Parse Base64' && !seenParDos.has('ProcessBase64BytesFn')) {
-            seenParDos.add('ProcessBase64BytesFn');
-            collected.push(`class ProcessBase64BytesFn(beam.DoFn):
-    def process(self, element):
-        # TODO: Implement base64 decoding
-        yield element
-`);
-        }
-
-        const outgoingEdges = data.edges.filter(e => e.source === node.id);
-        outgoingEdges.forEach(edge => {
-            const nextNode = data.nodes.find(n => n.id === edge.target);
-            if (nextNode) {
-                this.collectParDos(nextNode, data, collected, seenParDos, seenNodes);
-            }
-        });
-    }
-
-    private generateNodeCode(node: Node, data: PipelineData, indent: number): string {
-        const key = `${node.data.label}_${node.data.type}`;
-        const generator = this.generators[key];
-        
-        const indentStr = ' '.repeat(indent);
-        let code = '';
-        if (generator) {
-            code = `${indentStr}${generator.generate(node, indent)}\n`;
-        } else {
-            code = `${indentStr}# No generator for ${key}\n`;
-        }
-
-        // Find next nodes
-        const outgoingEdges = data.edges.filter(e => e.source === node.id);
-        outgoingEdges.forEach(edge => {
-            const nextNode = data.nodes.find(n => n.id === edge.target);
-            if (nextNode) {
-                code += this.generateNodeCode(nextNode, data, indent);
-            }
-        });
-
-        return code;
+    private getVariableName(node: Node): string {
+        // Replace non-alphanumeric chars with underscore and make lowercase
+        const sanitizedLabel = node.data.label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        return `${sanitizedLabel}_${node.id}`;
     }
 }
