@@ -66,7 +66,7 @@ This document provides essential context for AI models interacting with this pro
 
 
 ## GIT guidelines
-   * **Never commit code**  User will commit code after reviewing changes. 
+   * **GIT Commits**  Never commit code, user will commit code after reviewing changes. 
 
    * **Commit Messages:** 
     * Commit messages should be in the format: `<type>: <subject>`
