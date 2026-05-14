@@ -89,14 +89,14 @@ export class BeamGenerator {
             // Generate requirements.txt content, passing data to check for nodes
             const requirements = this.generateRequirements(data);
             
-            // Generate Dockerfile content, removing .pipeline extension from filename if present
-            const dockerfile = this.generateDockerfile(filename.replace('.pipeline', ''));
+            // Generate Dockerfile content, removing .beam extension from filename if present
+            const dockerfile = this.generateDockerfile(filename.replace('.beam', ''));
 
             // Generate run_directrunner.sh content, passing data to check for streaming sources
-            const runScript = this.generateRunScript(filename.replace('.pipeline', ''), data);
+            const runScript = this.generateRunScript(filename.replace('.beam', ''), data);
 
             // Generate run_dataflow.sh content, passing data to check for streaming sources
-            const runDataflowScript = this.generateDataflowScript(filename.replace('.pipeline', ''), data, projectId, gcsStagingPath);
+            const runDataflowScript = this.generateDataflowScript(filename.replace('.beam', ''), data, projectId, gcsStagingPath);
 
             // Generate .dockerignore content
             const dockerIgnore = this.generateDockerIgnore();
@@ -254,7 +254,7 @@ gcloud dataflow flex-template run "\${IMAGE_NAME}-\$(date +%Y%m%d-%H%M%S)" \\
 .venv
 node_modules
 __pycache__
-*.pipeline
+*.beam
 *.tf
 `;
     }

@@ -188,7 +188,7 @@ function App() {
               const hasJobId = variables.some((v: any) => v.key === 'JOB_ID');
               if (!hasJobId) {
                 const defaultJobId = message.filename 
-                  ? message.filename.replace('.pipeline', '').replace(/ /g, '_') 
+                  ? message.filename.replace('.beam', '').replace(/ /g, '_') 
                   : 'default_job';
                 variables.unshift({ key: 'JOB_ID', value: defaultJobId });
               }
@@ -202,7 +202,7 @@ function App() {
             setNodes([]);
             setEdges([]);
             const defaultJobId = message.filename 
-              ? message.filename.replace('.pipeline', '').replace(/ /g, '_') 
+              ? message.filename.replace('.beam', '').replace(/ /g, '_') 
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });

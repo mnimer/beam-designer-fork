@@ -15,6 +15,18 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "dataflow-pipeline-builder.beamEditor",
+        "displayName": "Beam Pipeline Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.beam"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "commands": [
       {
         "command": "dataflow-pipeline-builder.showEditor",
