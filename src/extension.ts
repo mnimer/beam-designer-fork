@@ -189,13 +189,18 @@ function deleteCodeFiles(folderPath: string, baseName: string) {
     const filesToDelete = [
         `${baseName}.py`,
         `${baseName}.java`,
+        `${baseName}_test.py`,
+        `${baseName}Test.java`,
         'requirements.txt',
         'pom.xml',
         'Dockerfile',
+        'metadata.json',
         'run_directrunner.sh',
         'run_dataflow.sh',
+        'run_spark.sh',
         '.dockerignore',
-        '.gcloudignore'
+        '.gcloudignore',
+        'gemini.log'
     ];
     for (const file of filesToDelete) {
         const filePath = path.join(folderPath, file);
@@ -686,6 +691,7 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                     title: "Generating code using Gemini...",
                     cancellable: false
                 }, async (_progress) => {
+                    let promptText = '';
                     try {
                         let gcloudProjectId = undefined;
                         try {
@@ -709,36 +715,15 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                             throw new Error(`Prompt template file not found at ${promptTemplatePath}`);
                         }
                         const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
-                        const promptText = promptTemplate
+                        promptText = promptTemplate
                             .replace(/\{\{language\}\}/g, languageVal)
                             .replace('{{pipeline}}', yamlData);
                         
-                        const responseSchema = {
-                            type: "object",
-                            properties: {
-                                pipelineCode: {
-                                    type: "string",
-                                    description: "The main Apache Beam pipeline code (Python or Java source)"
-                                },
-                                dependencies: {
-                                    type: "string",
-                                    description: "The package dependencies file. For Python, this is requirements.txt. For Java, this is maven pom.xml."
-                                },
-                                dockerfile: {
-                                    type: "string",
-                                    description: "The Dockerfile for building the Dataflow Flex Template container"
-                                },
-                                runLocalScript: {
-                                    type: "string",
-                                    description: "A bash script (run_directrunner.sh) to install dependencies and run the pipeline locally with DirectRunner"
-                                },
-                                runDataflowScript: {
-                                    type: "string",
-                                    description: "A bash script (run_dataflow.sh) to build the Flex Template, upload it to Artifact Registry / GCS, and execute the job on Dataflow"
-                                }
-                            },
-                            required: ["pipelineCode", "dependencies", "dockerfile", "runLocalScript", "runDataflowScript"]
-                        };
+                        const responseSchemaPath = path.join(__dirname, '..', 'src', 'code-gen-schema.json');
+                        if (!fs.existsSync(responseSchemaPath)) {
+                            throw new Error(`Response schema file not found at ${responseSchemaPath}`);
+                        }
+                        const responseSchema = JSON.parse(fs.readFileSync(responseSchemaPath, 'utf-8'));
                         
                         const response = await ai.models.generateContent({
                             model: 'gemini-3.1-pro-preview',
@@ -749,49 +734,108 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                             }
                         });
                         
+                        // Log successful request and usage data to gemini.log
+                        try {
+                            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+                            const logData = {
+                                timestamp: new Date().toISOString(),
+                                model: 'gemini-3.1-pro-preview',
+                                prompt: promptText,
+                                responseSchema: responseSchema,
+                                tokenUsage: response.usageMetadata ? {
+                                    inputTokens: response.usageMetadata.promptTokenCount,
+                                    outputTokens: response.usageMetadata.candidatesTokenCount,
+                                    totalTokens: (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0)
+                                } : 'Unavailable',
+                                rawResponse: response.text
+                            };
+                            fs.writeFileSync(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+                        } catch (logErr) {
+                            console.error('Failed to write request log to gemini.log', logErr);
+                        }
+
                         if (!response.text) {
                             throw new Error("Empty response from Gemini model.");
                         }
                         const responseObj = JSON.parse(response.text);
                         
+                        let mainPipelineCode = '';
                         const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
-                        const pipelineFilePath = path.join(targetFolderPath, `${baseName}.${fileExt}`);
-                        fs.writeFileSync(pipelineFilePath, responseObj.pipelineCode, 'utf-8');
+                        const mainPipelineFileName = `${baseName}.${fileExt}`;
                         
-                        const depFileName = languageVal.toLowerCase() === 'python' ? 'requirements.txt' : 'pom.xml';
-                        fs.writeFileSync(path.join(targetFolderPath, depFileName), responseObj.dependencies, 'utf-8');
-                        
-                        fs.writeFileSync(path.join(targetFolderPath, 'Dockerfile'), responseObj.dockerfile, 'utf-8');
-                        
-                        const runLocalPath = path.join(targetFolderPath, 'run_directrunner.sh');
-                        fs.writeFileSync(runLocalPath, responseObj.runLocalScript, 'utf-8');
-                        try {
-                            fs.chmodSync(runLocalPath, '755');
-                        } catch (e) {
-                            console.error(`Failed to set executable permission on ${runLocalPath}`, e);
+                        if (responseObj.files && Array.isArray(responseObj.files)) {
+                            for (const file of responseObj.files) {
+                                if (!file.filename || file.content === undefined) {
+                                    continue;
+                                }
+                                
+                                // Normalize standard names to match diagrams
+                                let normalizedFilename = file.filename;
+                                if (normalizedFilename.toLowerCase() === 'pipeline.py' || normalizedFilename.toLowerCase() === 'pipeline.java') {
+                                    normalizedFilename = `${baseName}.${fileExt}`;
+                                } else if (normalizedFilename.toLowerCase() === 'pipeline_test.py' || normalizedFilename.toLowerCase() === 'pipelinetest.java') {
+                                    const testExt = fileExt === 'py' ? '_test.py' : 'Test.java';
+                                    normalizedFilename = `${baseName}${testExt}`;
+                                }
+                                
+                                const filePath = path.join(targetFolderPath, normalizedFilename);
+                                fs.writeFileSync(filePath, file.content, 'utf-8');
+                                
+                                if (file.executable) {
+                                    try {
+                                        fs.chmodSync(filePath, '755');
+                                    } catch (e) {
+                                        console.error(`Failed to set executable permission on ${filePath}`, e);
+                                    }
+                                }
+                                
+                                if (normalizedFilename === mainPipelineFileName) {
+                                    mainPipelineCode = file.content;
+                                }
+                            }
+                        } else {
+                            throw new Error("Invalid response format from Gemini: 'files' array is missing.");
                         }
                         
-                        const runDataflowPath = path.join(targetFolderPath, 'run_dataflow.sh');
-                        fs.writeFileSync(runDataflowPath, responseObj.runDataflowScript, 'utf-8');
-                        try {
-                            fs.chmodSync(runDataflowPath, '755');
-                        } catch (e) {
-                            console.error(`Failed to set executable permission on ${runDataflowPath}`, e);
+                        // Default code if the main pipeline file wasn't found in the generated list
+                        if (!mainPipelineCode && responseObj.files.length > 0) {
+                            mainPipelineCode = responseObj.files[0].content;
                         }
                         
-                        const ignoreContent = `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`;
-                        fs.writeFileSync(path.join(targetFolderPath, '.dockerignore'), ignoreContent, 'utf-8');
-                        fs.writeFileSync(path.join(targetFolderPath, '.gcloudignore'), ignoreContent, 'utf-8');
+                        // Write default ignore files if not present in generated files
+                        const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
+                        if (!fs.existsSync(dockerIgnorePath)) {
+                            fs.writeFileSync(dockerIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
+                        }
+                        const gcloudIgnorePath = path.join(targetFolderPath, '.gcloudignore');
+                        if (!fs.existsSync(gcloudIgnorePath)) {
+                            fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
+                        }
                         
                         vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
                         
                         webview.postMessage({ 
                             command: 'codeRegenerated', 
                             success: true, 
-                            code: responseObj.pipelineCode 
+                            code: mainPipelineCode 
                         });
                         
                     } catch (err: any) {
+                        // Log failure to gemini.log
+                        try {
+                            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+                            const logData = {
+                                timestamp: new Date().toISOString(),
+                                model: 'gemini-3.1-pro-preview',
+                                prompt: promptText,
+                                error: err.message,
+                                stack: err.stack
+                            };
+                            fs.writeFileSync(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+                        } catch (logErr) {
+                            console.error('Failed to write failure details to gemini.log', logErr);
+                        }
+
                         vscode.window.showErrorMessage(`Gemini Code Generation Error: ${err.message}`);
                         webview.postMessage({ command: 'codeRegenerated', success: false, error: err.message });
                     }

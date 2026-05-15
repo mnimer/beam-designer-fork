@@ -124,26 +124,22 @@ sequenceDiagram
     Ext-->>Webview: folderFilesLoaded (Updates sidebar file list)
 ```
 
-1. **Clean Target Path**: The backend resolves the output folder path and deletes any existing pipeline files to ensure a clean state (e.g. deleting old `.py` / `.java` files, `Dockerfile`, scripts).
+1. **Clean Target Path**: The backend resolves the output folder path and deletes any existing pipeline source files, Dockerfiles, run scripts, the Java target folder, and previous log files to ensure a clean state.
 2. **Dynamic Prompting**: The backend constructs a prompt containing the selected language and the pipeline's YAML representation.
-3. **Structured Schema**: The call is executed with `responseMimeType: 'application/json'` using a pre-defined JSON schema requiring:
-   - `pipelineCode`: The compiled Python or Java pipeline script.
-   - `dependencies`: The `requirements.txt` or maven `pom.xml`.
-   - `dockerfile`: A Dockerfile configured to containerize the code as a Dataflow Flex Template.
-   - `runLocalScript`: A bash script (`run_directrunner.sh`) for local test execution.
-   - `runDataflowScript`: A bash script (`run_dataflow.sh`) to build the template and launch the job on Google Cloud.
-4. **Writing and Notifying**: The backend writes the files to disk, sets execute permissions on the shell scripts, and sends a `codeRegenerated` message back to the webview containing the main source code. The webview resets `needsRebuild` to `false` and refreshes the directory listing.
+3. **Structured Schema**: The call is executed with `responseMimeType: 'application/json'` using a pre-defined generic files list JSON schema. The schema instructs Gemini to return a JSON object containing an array of files, each specifying `filename`, `content`, and `executable` properties.
+4. **Writing, Logging, and Notifying**: The backend loops through the returned array, dynamically writes each file to the target output directory, sets execute permissions on any files marked `executable` (e.g. shell scripts), logs request details and token usage to `gemini.log`, and sends a `codeRegenerated` message back to the webview with the main pipeline file content. The webview resets `needsRebuild` to `false` and refreshes the directory listing.
 
-### Customizing the Gemini Prompt
+### Customizing the Gemini Prompt & Response Schema
 
-The prompt template utilized for translating the YAML graph structure into execution code is defined in a standalone file. It is read dynamically on each invocation, allowing prompt adjustments to take effect immediately without restarting the extension.
+Both the prompt instructions and the response schema are defined in standalone files and read dynamically on each code generation run. This allows you to add new generated files or fine-tune instructions on-the-fly without modifying extension source code or restarting VSCode.
 
-- **File Path**: [src/code-gen-prompt.txt](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/code-gen-prompt.txt)
-- **Placeholders**: 
-  - `{{language}}`: Replaced dynamically with the selected language (`Python` or `Java`).
-  - `{{pipeline}}`: Replaced dynamically with the YAML representation of the pipeline graph.
+- **Prompt Template**: [src/code-gen-prompt.txt](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/code-gen-prompt.txt)
+  - **Placeholders**: 
+    - `{{language}}`: Selected language (`Python` or `Java`).
+    - `{{pipeline}}`: YAML graph representation of the pipeline.
+- **Response JSON Schema**: [src/code-gen-schema.json](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/code-gen-schema.json)
 
-#### How to Fine-Tune the Output
-To adjust the code output characteristics (e.g., adding specific Beam coding guidelines, fixing preferred dependency versions, or changing the base Docker image for the Flex Template), edit the template text directly in `src/code-gen-prompt.txt`.
-
-Ensure that any modifications to the instructions still ask the model to supply an output that conforms to the JSON schema specified under `responseSchema` in `src/extension.ts` (requiring fields: `pipelineCode`, `dependencies`, `dockerfile`, `runLocalScript`, `runDataflowScript`).
+#### How to Add a New Generated File
+1. Edit `src/code-gen-prompt.txt` to tell Gemini to generate the new file (e.g. "Generate a README.md file in the folder...").
+2. The response schema `src/code-gen-schema.json` defines a dynamic file structure, so it handles any new files automatically.
+3. The extension host backend will dynamically parse, write, and manage the new file.
