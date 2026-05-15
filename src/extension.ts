@@ -779,6 +779,10 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                                 }
                                 
                                 const filePath = path.join(targetFolderPath, normalizedFilename);
+                                const parentDir = path.dirname(filePath);
+                                if (!fs.existsSync(parentDir)) {
+                                    fs.mkdirSync(parentDir, { recursive: true });
+                                }
                                 fs.writeFileSync(filePath, file.content, 'utf-8');
                                 
                                 if (file.executable) {
