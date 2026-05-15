@@ -1,0 +1,29 @@
+I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in {{language}}, using the latest version of all libraries. I will also need a valid requirements.txt file or maven pom.xml file and a Dockerfile for the pipeline so I can deploy it as a DataFlow Flex Template. 
+
+## Code instructions
+- If the pipeline has an output that goes no where (invalid beam pipeline) include a simple Logger step to print the output message.
+- Only generate the pipeline code. I do not need any extra helper applications generated. 
+- Use the latest version of all libraries
+- Generate pipeline file
+- Generate dependency file for pipeline (requirements.txt or maven pom.xml)
+- Generate a valid Dataflow Flex Template Dockerfile for the selected language. 
+- Generate a shell script to run the job locally, with the DirectRunner
+- Generate a shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner
+- Generate a shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner
+
+
+## Test instructions
+- Generate unit tests for the pipeline code
+- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass
+
+## Compile instructions
+- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully
+
+
+
+Language: {{language}}
+
+Pipeline:
+```yaml
+{{pipeline}}
+```

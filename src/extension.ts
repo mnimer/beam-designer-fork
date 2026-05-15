@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { GoogleGenAI } from '@google/genai';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Apache Beam Pipeline Builder is now active!');
@@ -184,77 +185,115 @@ class DataItem extends vscode.TreeItem {
 
 export function deactivate() { }
 
-function savePipelineFiles(targetUri: vscode.Uri, data: string, pythonCode?: string, requirements?: string, dockerfile?: string, runScript?: string, runDataflowScript?: string, dockerIgnore?: string, gcloudIgnore?: string) {
+function deleteCodeFiles(folderPath: string, baseName: string) {
+    const filesToDelete = [
+        `${baseName}.py`,
+        `${baseName}.java`,
+        'requirements.txt',
+        'pom.xml',
+        'Dockerfile',
+        'run_directrunner.sh',
+        'run_dataflow.sh',
+        '.dockerignore',
+        '.gcloudignore'
+    ];
+    for (const file of filesToDelete) {
+        const filePath = path.join(folderPath, file);
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+            } catch (err) {
+                console.error(`Failed to delete ${filePath}`, err);
+            }
+        }
+    }
+    
+    // Delete Java target directory if it exists
+    const targetDir = path.join(folderPath, 'target');
+    if (fs.existsSync(targetDir)) {
+        try {
+            fs.rmSync(targetDir, { recursive: true, force: true });
+        } catch (err) {
+            console.error(`Failed to delete target directory: ${targetDir}`, err);
+        }
+    }
+}
+
+function savePipelineFiles(
+    targetUri: vscode.Uri,
+    data: string,
+    code?: string,
+    fileExtension: string = 'py',
+    outputFolder?: string,
+    requirements?: string,
+    dockerfile?: string,
+    runScript?: string,
+    runDataflowScript?: string,
+    dockerIgnore?: string,
+    gcloudIgnore?: string
+) {
     fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
-    if (pythonCode) {
-        const pyPath = targetUri.fsPath.replace('.beam', '.py');
+    if (code) {
+        let folderPath = path.dirname(targetUri.fsPath);
+        if (outputFolder) {
+            if (path.isAbsolute(outputFolder)) {
+                folderPath = outputFolder;
+            } else {
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                if (workspaceFolder) {
+                    folderPath = path.join(workspaceFolder, outputFolder);
+                }
+            }
+        }
 
-        fs.writeFileSync(pyPath, pythonCode, 'utf-8');
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
 
-        const folderPath = path.dirname(targetUri.fsPath);
         const pipelineBaseName = path.basename(targetUri.fsPath, '.beam');
+        const codePath = path.join(folderPath, `${pipelineBaseName}.${fileExtension}`);
+        fs.writeFileSync(codePath, code, 'utf-8');
 
-        const reqPath = path.join(folderPath, 'requirements.txt');
-        const reqContent = requirements || 'apache-beam\n';
-        fs.writeFileSync(reqPath, reqContent, 'utf-8');
+        // Only write python-specific files if fileExtension is py
+        if (fileExtension === 'py') {
+            const reqPath = path.join(folderPath, 'requirements.txt');
+            const reqContent = requirements || 'apache-beam\n';
+            fs.writeFileSync(reqPath, reqContent, 'utf-8');
 
-        const dockerPath = path.join(folderPath, 'Dockerfile');
-        if (!fs.existsSync(dockerPath)) {
-            const dockerContent = dockerfile || `ARG IMAGE_PYTHON_VERSION=3.11
-
-# --- Stage 1: Get Python Flex Template Launcher Binary ---
-FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
-
-# --- Stage 2: Build Application Image ---
-FROM apache/beam_python\${IMAGE_PYTHON_VERSION}_sdk:2.55.0
-
-# 1. Copy Flex Template launcher binary (Path is STRICT)
-COPY --from=launcher /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
-
-# 2. Set working directory
-WORKDIR /template
-
-# 3. Copy files
-COPY requirements.txt .
-COPY ${pipelineBaseName}.py .
-
-# 4. Install Python Dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 5. Specify Pipeline Entrypoint
-ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
-`;
-            fs.writeFileSync(dockerPath, dockerContent, 'utf-8');
-        }
-
-        const runScriptPath = path.join(folderPath, 'run_directrunner.sh');
-        if (runScript) {
-            fs.writeFileSync(runScriptPath, runScript, 'utf-8');
-            try {
-                fs.chmodSync(runScriptPath, '755');
-            } catch (e) {
-                console.error(`Failed to set executable permission on ${runScriptPath}`, e);
+            const dockerPath = path.join(folderPath, 'Dockerfile');
+            if (!fs.existsSync(dockerPath) && dockerfile) {
+                fs.writeFileSync(dockerPath, dockerfile, 'utf-8');
             }
-        }
 
-        const runDataflowScriptPath = path.join(folderPath, 'run_dataflow.sh');
-        if (runDataflowScript) {
-            fs.writeFileSync(runDataflowScriptPath, runDataflowScript, 'utf-8');
-            try {
-                fs.chmodSync(runDataflowScriptPath, '755');
-            } catch (e) {
-                console.error(`Failed to set executable permission on ${runDataflowScriptPath}`, e);
+            const runScriptPath = path.join(folderPath, 'run_directrunner.sh');
+            if (runScript) {
+                fs.writeFileSync(runScriptPath, runScript, 'utf-8');
+                try {
+                    fs.chmodSync(runScriptPath, '755');
+                } catch (e) {
+                    console.error(`Failed to set executable permission on ${runScriptPath}`, e);
+                }
             }
-        }
 
-        const ignorePath = path.join(folderPath, '.dockerignore');
-        if (dockerIgnore) {
-            fs.writeFileSync(ignorePath, dockerIgnore, 'utf-8');
-        }
+            const runDataflowScriptPath = path.join(folderPath, 'run_dataflow.sh');
+            if (runDataflowScript) {
+                fs.writeFileSync(runDataflowScriptPath, runDataflowScript, 'utf-8');
+                try {
+                    fs.chmodSync(runDataflowScriptPath, '755');
+                } catch (e) {
+                    console.error(`Failed to set executable permission on ${runDataflowScriptPath}`, e);
+                }
+            }
 
-        const gcloudIgnorePath = path.join(folderPath, '.gcloudignore');
-        if (gcloudIgnore) {
-            fs.writeFileSync(gcloudIgnorePath, gcloudIgnore, 'utf-8');
+            const ignorePath = path.join(folderPath, '.dockerignore');
+            if (dockerIgnore) {
+                fs.writeFileSync(ignorePath, dockerIgnore, 'utf-8');
+            }
+
+            const gcloudIgnorePath = path.join(folderPath, '.gcloudignore');
+            if (gcloudIgnore) {
+                fs.writeFileSync(gcloudIgnorePath, gcloudIgnore, 'utf-8');
+            }
         }
     }
 }
@@ -430,45 +469,333 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
             case 'savePipeline':
                 const targetUri = document ? document.uri : uri;
                 if (targetUri) {
-                    savePipelineFiles(targetUri, message.data, message.pythonCode, message.requirements, message.dockerfile, message.runScript, message.runDataflowScript, message.dockerIgnore, message.gcloudIgnore);
+                    savePipelineFiles(
+                        targetUri,
+                        message.data,
+                        message.code,
+                        message.fileExtension,
+                        message.outputFolder,
+                        message.requirements,
+                        message.dockerfile,
+                        message.runScript,
+                        message.runDataflowScript,
+                        message.dockerIgnore,
+                        message.gcloudIgnore
+                    );
                     vscode.window.setStatusBarMessage(`Saved ${path.basename(targetUri.fsPath)} and generated files`, 2000);
                 } else {
                     vscode.window.showSaveDialog({
                         filters: { 'Beam Pipeline': ['beam'] }
                     }).then(fileUri => {
                         if (fileUri) {
-                            savePipelineFiles(fileUri, message.data, message.pythonCode, message.requirements, message.dockerfile, message.runScript, message.runDataflowScript, message.dockerIgnore, message.gcloudIgnore);
+                            savePipelineFiles(
+                                fileUri,
+                                message.data,
+                                message.code,
+                                message.fileExtension,
+                                message.outputFolder,
+                                message.requirements,
+                                message.dockerfile,
+                                message.runScript,
+                                message.runDataflowScript,
+                                message.dockerIgnore,
+                                message.gcloudIgnore
+                            );
                             vscode.window.setStatusBarMessage(`Saved ${path.basename(fileUri.fsPath)} and generated files`, 2000);
                             vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
                         }
                     });
                 }
                 return;
+            case 'pickFolder':
+                vscode.window.showOpenDialog({
+                    canSelectFiles: false,
+                    canSelectFolders: true,
+                    canSelectMany: false,
+                    title: 'Select Output Folder'
+                }).then(uris => {
+                    if (uris && uris.length > 0) {
+                        let selectedPath = uris[0].fsPath;
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        if (workspaceFolder && selectedPath.startsWith(workspaceFolder)) {
+                            selectedPath = path.relative(workspaceFolder, selectedPath);
+                        }
+                        webview.postMessage({
+                            command: 'folderSelected',
+                            path: selectedPath
+                        });
+                    }
+                });
+                return;
+            case 'readFolderFiles':
+                let folderPath = message.folderPath;
+                if (!folderPath) {
+                    const activeUri = document ? document.uri : uri;
+                    if (activeUri) {
+                        folderPath = path.dirname(activeUri.fsPath);
+                    }
+                } else if (!path.isAbsolute(folderPath)) {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    if (workspaceFolder) {
+                        folderPath = path.join(workspaceFolder, folderPath);
+                    }
+                }
+                if (folderPath && fs.existsSync(folderPath)) {
+                    try {
+                        const files = fs.readdirSync(folderPath).filter(file => {
+                            const fullPath = path.join(folderPath, file);
+                            return fs.statSync(fullPath).isFile() && !file.startsWith('.');
+                        });
+                        webview.postMessage({
+                            command: 'folderFilesLoaded',
+                            folderPath: folderPath,
+                            files: files
+                        });
+                    } catch (e) {
+                        console.error('Failed to read folder files', e);
+                        webview.postMessage({ command: 'folderFilesLoaded', folderPath, files: [] });
+                    }
+                } else {
+                    webview.postMessage({ command: 'folderFilesLoaded', folderPath: folderPath || '', files: [] });
+                }
+                return;
+            case 'readFileContent':
+                let readFolder = message.folderPath;
+                if (!readFolder) {
+                    const activeUri = document ? document.uri : uri;
+                    if (activeUri) {
+                        readFolder = path.dirname(activeUri.fsPath);
+                    }
+                } else if (!path.isAbsolute(readFolder)) {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    if (workspaceFolder) {
+                        readFolder = path.join(workspaceFolder, readFolder);
+                    }
+                }
+
+                if (readFolder) {
+                    const fullFilePath = path.isAbsolute(message.filePath) 
+                        ? message.filePath 
+                        : path.join(readFolder, message.filePath);
+                    
+                    if (fs.existsSync(fullFilePath)) {
+                        try {
+                            const content = fs.readFileSync(fullFilePath, 'utf-8');
+                            webview.postMessage({
+                                command: 'fileContentLoaded',
+                                filePath: message.filePath,
+                                content: content
+                            });
+                        } catch (e) {
+                            console.error('Failed to read file content', e);
+                        }
+                    }
+                }
+                return;
             case 'runPipeline':
                 const runUri = document ? document.uri : uri;
                 if (runUri) {
-                    const folderPath = path.dirname(runUri.fsPath);
-                    const pipelineBaseName = path.basename(runUri.fsPath, '.beam');
-                    const pyPath = path.join(folderPath, `${pipelineBaseName}.py`);
-
-                    if (fs.existsSync(pyPath)) {
-                        const terminal = vscode.window.createTerminal("Apache Beam Runner");
-                        terminal.show();
-
-                        let command = '';
-                        if (message.jobConfig.runner === 'DirectRunner') {
-                            command = `cd "${folderPath}" && ./run_directrunner.sh`;
-                        } else if (message.jobConfig.runner === 'Dataflow') {
-                            command = `cd "${folderPath}" && ./run_dataflow.sh`;
+                    let folderPath = path.dirname(runUri.fsPath);
+                    const outputFolder = message.pipelineConfig?.outputFolder;
+                    if (outputFolder) {
+                        if (path.isAbsolute(outputFolder)) {
+                            folderPath = outputFolder;
+                        } else {
+                            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                            if (workspaceFolder) {
+                                folderPath = path.join(workspaceFolder, outputFolder);
+                            }
                         }
+                    }
 
-                        terminal.sendText(command);
+                    const pipelineBaseName = path.basename(runUri.fsPath, '.beam');
+                    const isPython = !message.pipelineConfig || message.pipelineConfig.language.toLowerCase() === 'python';
+
+                    if (isPython) {
+                        const pyPath = path.join(folderPath, `${pipelineBaseName}.py`);
+                        if (fs.existsSync(pyPath)) {
+                            const terminal = vscode.window.createTerminal("Apache Beam Runner");
+                            terminal.show();
+
+                            let command = '';
+                            if (message.jobConfig.runner === 'DirectRunner') {
+                                command = `cd "${folderPath}" && ./run_directrunner.sh`;
+                            } else if (message.jobConfig.runner === 'Dataflow') {
+                                command = `cd "${folderPath}" && ./run_dataflow.sh`;
+                            }
+
+                            terminal.sendText(command);
+                        } else {
+                            vscode.window.showErrorMessage(`Python file not found: ${pyPath}. Please save the pipeline first.`);
+                        }
                     } else {
-                        vscode.window.showErrorMessage(`Python file not found: ${pyPath}. Please save the pipeline first.`);
+                        const javaPath = path.join(folderPath, `${pipelineBaseName}.java`);
+                        if (fs.existsSync(javaPath)) {
+                            vscode.window.showInformationMessage(`Java runner execution not fully configured. Found file at ${javaPath}`);
+                        } else {
+                            vscode.window.showErrorMessage(`Java file not found: ${javaPath}. Please save the pipeline first.`);
+                        }
                     }
                 } else {
                     vscode.window.showErrorMessage("Please save the pipeline first to run it.");
                 }
+                return;
+            case 'regenerateCode':
+                const yamlData = message.data;
+                const filenameVal = message.filename;
+                const languageVal = message.language;
+                const outputFolderVal = message.outputFolder;
+                const targetActiveUri = document ? document.uri : uri;
+                
+                let targetFolderPath = '';
+                if (targetActiveUri) {
+                    targetFolderPath = path.dirname(targetActiveUri.fsPath);
+                }
+                if (outputFolderVal) {
+                    if (path.isAbsolute(outputFolderVal)) {
+                        targetFolderPath = outputFolderVal;
+                    } else {
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        if (workspaceFolder) {
+                            targetFolderPath = path.join(workspaceFolder, outputFolderVal);
+                        }
+                    }
+                }
+                
+                if (!targetFolderPath) {
+                    vscode.window.showErrorMessage('Could not determine output folder.');
+                    webview.postMessage({ command: 'codeRegenerated', success: false, error: 'Could not determine output folder.' });
+                    return;
+                }
+                
+                if (!fs.existsSync(targetFolderPath)) {
+                    try {
+                        fs.mkdirSync(targetFolderPath, { recursive: true });
+                    } catch (e: any) {
+                        vscode.window.showErrorMessage(`Failed to create directory: ${targetFolderPath}`);
+                        webview.postMessage({ command: 'codeRegenerated', success: false, error: `Failed to create directory: ${targetFolderPath}. ${e.message}` });
+                        return;
+                    }
+                }
+                
+                const baseName = filenameVal.replace('.beam', '');
+                deleteCodeFiles(targetFolderPath, baseName);
+                
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Generating code using Gemini...",
+                    cancellable: false
+                }, async (_progress) => {
+                    try {
+                        let gcloudProjectId = undefined;
+                        try {
+                            const { execSync } = require('child_process');
+                            gcloudProjectId = execSync('gcloud config get project').toString().trim();
+                        } catch (e) {
+                            console.error('Failed to get gcloud project for Gemini', e);
+                        }
+                        
+                        const aiOptions: any = {};
+                        if (gcloudProjectId) {
+                            aiOptions.vertexai = true;
+                            aiOptions.project = gcloudProjectId;
+                            aiOptions.location = 'global';
+                        }
+                        
+                        const ai = new GoogleGenAI(aiOptions);
+                        
+                        const promptTemplatePath = path.join(__dirname, '..', 'src', 'code-gen-prompt.txt');
+                        if (!fs.existsSync(promptTemplatePath)) {
+                            throw new Error(`Prompt template file not found at ${promptTemplatePath}`);
+                        }
+                        const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
+                        const promptText = promptTemplate
+                            .replace(/\{\{language\}\}/g, languageVal)
+                            .replace('{{pipeline}}', yamlData);
+                        
+                        const responseSchema = {
+                            type: "object",
+                            properties: {
+                                pipelineCode: {
+                                    type: "string",
+                                    description: "The main Apache Beam pipeline code (Python or Java source)"
+                                },
+                                dependencies: {
+                                    type: "string",
+                                    description: "The package dependencies file. For Python, this is requirements.txt. For Java, this is maven pom.xml."
+                                },
+                                dockerfile: {
+                                    type: "string",
+                                    description: "The Dockerfile for building the Dataflow Flex Template container"
+                                },
+                                runLocalScript: {
+                                    type: "string",
+                                    description: "A bash script (run_directrunner.sh) to install dependencies and run the pipeline locally with DirectRunner"
+                                },
+                                runDataflowScript: {
+                                    type: "string",
+                                    description: "A bash script (run_dataflow.sh) to build the Flex Template, upload it to Artifact Registry / GCS, and execute the job on Dataflow"
+                                }
+                            },
+                            required: ["pipelineCode", "dependencies", "dockerfile", "runLocalScript", "runDataflowScript"]
+                        };
+                        
+                        const response = await ai.models.generateContent({
+                            model: 'gemini-3.1-pro-preview',
+                            contents: promptText,
+                            config: {
+                                responseMimeType: 'application/json',
+                                responseSchema: responseSchema
+                            }
+                        });
+                        
+                        if (!response.text) {
+                            throw new Error("Empty response from Gemini model.");
+                        }
+                        const responseObj = JSON.parse(response.text);
+                        
+                        const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
+                        const pipelineFilePath = path.join(targetFolderPath, `${baseName}.${fileExt}`);
+                        fs.writeFileSync(pipelineFilePath, responseObj.pipelineCode, 'utf-8');
+                        
+                        const depFileName = languageVal.toLowerCase() === 'python' ? 'requirements.txt' : 'pom.xml';
+                        fs.writeFileSync(path.join(targetFolderPath, depFileName), responseObj.dependencies, 'utf-8');
+                        
+                        fs.writeFileSync(path.join(targetFolderPath, 'Dockerfile'), responseObj.dockerfile, 'utf-8');
+                        
+                        const runLocalPath = path.join(targetFolderPath, 'run_directrunner.sh');
+                        fs.writeFileSync(runLocalPath, responseObj.runLocalScript, 'utf-8');
+                        try {
+                            fs.chmodSync(runLocalPath, '755');
+                        } catch (e) {
+                            console.error(`Failed to set executable permission on ${runLocalPath}`, e);
+                        }
+                        
+                        const runDataflowPath = path.join(targetFolderPath, 'run_dataflow.sh');
+                        fs.writeFileSync(runDataflowPath, responseObj.runDataflowScript, 'utf-8');
+                        try {
+                            fs.chmodSync(runDataflowPath, '755');
+                        } catch (e) {
+                            console.error(`Failed to set executable permission on ${runDataflowPath}`, e);
+                        }
+                        
+                        const ignoreContent = `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`;
+                        fs.writeFileSync(path.join(targetFolderPath, '.dockerignore'), ignoreContent, 'utf-8');
+                        fs.writeFileSync(path.join(targetFolderPath, '.gcloudignore'), ignoreContent, 'utf-8');
+                        
+                        vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
+                        
+                        webview.postMessage({ 
+                            command: 'codeRegenerated', 
+                            success: true, 
+                            code: responseObj.pipelineCode 
+                        });
+                        
+                    } catch (err: any) {
+                        vscode.window.showErrorMessage(`Gemini Code Generation Error: ${err.message}`);
+                        webview.postMessage({ command: 'codeRegenerated', success: false, error: err.message });
+                    }
+                });
                 return;
         }
     };

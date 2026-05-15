@@ -28,6 +28,7 @@ interface DeploymentTabProps {
   isJobIdValid: (value: string) => boolean;
   onRunNow: () => void;
   subnetworks: {name: string, region: string, value: string}[];
+  needsRebuild?: boolean;
 }
 
 export const DeploymentTab: React.FC<DeploymentTabProps> = ({
@@ -39,7 +40,8 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
   deleteVariable,
   isJobIdValid,
   onRunNow,
-  subnetworks
+  subnetworks,
+  needsRebuild = false
 }) => {
   return (
     <div className="flex gap-6 h-full">
@@ -74,13 +76,14 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
           <div className="flex flex-col gap-2 w-full items-center">
             <button 
               onClick={onRunNow}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5"
+              disabled={needsRebuild}
+              className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 transition cursor-pointer ${needsRebuild ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               RUN NOW
             </button>
             <button 
-              className={`bg-slate-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
-              disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
+              className={`bg-slate-700 text-white px-4 py-2 rounded text-sm font-bold w-3/5 transition cursor-pointer ${needsRebuild || jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
+              disabled={needsRebuild || jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
             >
               SCHEDULE
             </button>

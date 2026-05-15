@@ -11,7 +11,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
-import { BeamGenerator } from './generator/beamGenerator';
+
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -97,16 +97,39 @@ function App() {
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [subnetworks, setSubnetworks] = useState<{name: string, region: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
+  
+  // Custom pipeline config state
+  const [pipelineConfig, setPipelineConfig] = useState<{ language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean }>({
+    language: 'Python',
+    outputFolder: '',
+    needsRebuild: false
+  });
+  const [folderFiles, setFolderFiles] = useState<string[]>([]);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
+
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
   const { project, fitView } = useReactFlow();
 
-  const [history, setHistory] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
-  const [future, setFuture] = useState<{ nodes: any[], edges: any[], runtimeVariables: {key: string, value: string}[], jobConfig: any }[]>([]);
+  const [history, setHistory] = useState<{ 
+    nodes: any[], 
+    edges: any[], 
+    runtimeVariables: {key: string, value: string}[], 
+    jobConfig: any,
+    pipelineConfig: any
+  }[]>([]);
+  const [future, setFuture] = useState<{ 
+    nodes: any[], 
+    edges: any[], 
+    runtimeVariables: {key: string, value: string}[], 
+    jobConfig: any,
+    pipelineConfig: any
+  }[]>([]);
 
-  const stateRef = useRef({ nodes, edges, runtimeVariables, jobConfig });
+  const stateRef = useRef({ nodes, edges, runtimeVariables, jobConfig, pipelineConfig });
   useEffect(() => {
-    stateRef.current = { nodes, edges, runtimeVariables, jobConfig };
-  }, [nodes, edges, runtimeVariables, jobConfig]);
+    stateRef.current = { nodes, edges, runtimeVariables, jobConfig, pipelineConfig };
+  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig]);
 
   const takeSnapshot = useCallback(() => {
     setHistory((prev) => [...prev, stateRef.current]);
@@ -116,53 +139,64 @@ function App() {
   const undo = useCallback(() => {
     if (history.length === 0) return;
     const previousState = history[history.length - 1];
-    setFuture((prev) => [{ nodes, edges, runtimeVariables, jobConfig }, ...prev]);
+    setFuture((prev) => [{ nodes, edges, runtimeVariables, jobConfig, pipelineConfig }, ...prev]);
     setNodes(previousState.nodes);
     setEdges(previousState.edges);
     setRuntimeVariables(previousState.runtimeVariables);
     setJobConfig(previousState.jobConfig);
+    setPipelineConfig(previousState.pipelineConfig);
     setHistory((prev) => prev.slice(0, -1));
-  }, [history, nodes, edges, runtimeVariables, jobConfig, setNodes, setEdges]);
+  }, [history, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, setNodes, setEdges]);
 
   const redo = useCallback(() => {
     if (future.length === 0) return;
     const nextState = future[0];
-    setHistory((prev) => [...prev, { nodes, edges, runtimeVariables, jobConfig }]);
+    setHistory((prev) => [...prev, { nodes, edges, runtimeVariables, jobConfig, pipelineConfig }]);
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
     setRuntimeVariables(nextState.runtimeVariables);
     setJobConfig(nextState.jobConfig);
+    setPipelineConfig(nextState.pipelineConfig);
     setFuture((prev) => prev.slice(1));
-  }, [future, nodes, edges, runtimeVariables, jobConfig, setNodes, setEdges]);
+  }, [future, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, setNodes, setEdges]);
+
+  // Refresh files in the selected output folder
+  const refreshFolderFiles = useCallback((folderPath: string = pipelineConfig.outputFolder) => {
+    if (vscode) {
+      vscode.postMessage({ command: 'readFolderFiles', folderPath });
+    }
+  }, [pipelineConfig.outputFolder]);
 
   useEffect(() => {
     console.log('[@App.tsx] Save effect checked, isLoaded=', isLoaded);
     if (!isLoaded) return;
     console.log('[@App.tsx] Save effect triggered');
-    if (vscode) {
-      const state = { nodes, edges, runtimeVariables, jobConfig };
+    if (vscode && pipelineConfig.needsRebuild) {
+      const state = { 
+        nodes, 
+        edges, 
+        runtimeVariables, 
+        jobConfig,
+        pipelineConfig
+      };
       const yamlStr = YAML.stringify(state);
       console.log('[@App.tsx] YAML generated');
       
-      const generator = new BeamGenerator();
-      const { python, requirements, dockerfile, runScript, runDataflowScript, dockerIgnore, gcloudIgnore } = generator.generate(yamlStr, filename, projectId, jobConfig.gcsStagingPath);
-      console.log('[@App.tsx] Python code generated, length:', python.length);
-      setGeneratedCode(python);
-      
+      // Only save YAML configuration
       vscode.postMessage({ 
         command: 'savePipeline', 
-        data: yamlStr, 
-        pythonCode: python,
-        requirements: requirements,
-        dockerfile: dockerfile,
-        runScript: runScript,
-        runDataflowScript: runDataflowScript,
-        dockerIgnore: dockerIgnore,
-        gcloudIgnore: gcloudIgnore
+        data: yamlStr
       });
-      console.log('[@App.tsx] Sent savePipeline message');
+      console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
     }
-  }, [nodes, edges, runtimeVariables, jobConfig, isLoaded, filename, projectId]);
+  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isLoaded, filename, projectId]);
+
+  // Read files whenever bottom tab switches to SOURCE_CODE
+  useEffect(() => {
+    if (bottomTab === 'SOURCE_CODE' && isLoaded && !pipelineConfig.needsRebuild) {
+      refreshFolderFiles();
+    }
+  }, [bottomTab, isLoaded, pipelineConfig.needsRebuild, refreshFolderFiles]);
 
   useEffect(() => {
     if (vscode) {
@@ -173,7 +207,6 @@ function App() {
         const message = event.data;
         if (message.command === 'loadPipeline') {
           console.log('Received loadPipeline message:', message);
-          console.log('Received loadPipeline message, data length:', message.data ? message.data.length : 0);
           setFilename(message.filename || 'default_job');
           if (message.projectId) {
             setProjectId(message.projectId);
@@ -194,6 +227,12 @@ function App() {
               }
               setRuntimeVariables(variables);
               setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
+              
+              const config = data.pipelineConfig || { language: 'Python', outputFolder: '', needsRebuild: false };
+              if (config.needsRebuild === undefined) {
+                config.needsRebuild = false;
+              }
+              setPipelineConfig(config);
             } catch (e) {
               console.error('Failed to parse YAML', e);
             }
@@ -206,18 +245,33 @@ function App() {
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
+            setPipelineConfig({ language: 'Python', outputFolder: '', needsRebuild: false });
           }
           setIsLoaded(true);
           
-          // Center diagram and zoom to fit, then zoom out 2 extra steps
           setTimeout(() => {
-            console.log('Fitting view and zooming out');
             fitView({ duration: 0, padding: 1 });
           }, 100);
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
+        } else if (message.command === 'codeRegenerated') {
+          if (message.success) {
+            setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
+            setGeneratedCode(message.code || '');
+            refreshFolderFiles();
+          }
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
+        } else if (message.command === 'folderFilesLoaded') {
+          setFolderFiles(message.files || []);
+        } else if (message.command === 'fileContentLoaded') {
+          setSelectedFileContent(message.content);
+        } else if (message.command === 'folderSelected') {
+          setPipelineConfig(prev => ({
+            ...prev,
+            outputFolder: message.path,
+            needsRebuild: true
+          }));
         }
       };
       window.addEventListener('message', handleMessage);
@@ -254,10 +308,12 @@ function App() {
             setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
             setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
             setSelectedNodeId(null);
+            setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
           } else if (selectedEdgeId) {
             takeSnapshot();
             setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdgeId));
             setSelectedEdgeId(null);
+            setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
           }
         }
       }
@@ -267,9 +323,33 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, undo, redo]);
 
+  // Wrap state changes to set needsRebuild: true
+  const handleNodesChange = useCallback((changes: any) => {
+    onNodesChange(changes);
+    const requiresRebuild = changes.some((c: any) => c.type === 'add' || c.type === 'remove');
+    if (requiresRebuild) {
+      setPipelineConfig(prev => prev.needsRebuild ? prev : { ...prev, needsRebuild: true });
+    }
+  }, [onNodesChange]);
+
+  const handleEdgesChange = useCallback((changes: any) => {
+    onEdgesChange(changes);
+    const requiresRebuild = changes.some((c: any) => c.type === 'remove');
+    if (requiresRebuild) {
+      setPipelineConfig(prev => prev.needsRebuild ? prev : { ...prev, needsRebuild: true });
+    }
+  }, [onEdgesChange]);
+
+  const handleSetJobConfig = useCallback((config: any) => {
+    takeSnapshot();
+    setJobConfig(config);
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+  }, [takeSnapshot]);
+
   const addVariable = () => {
     takeSnapshot();
     setRuntimeVariables([...runtimeVariables, { key: 'NEW_VAR', value: 'value' }]);
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
   };
 
   const updateVariable = (index: number, field: 'key' | 'value', value: string) => {
@@ -277,6 +357,7 @@ function App() {
     setRuntimeVariables(
       runtimeVariables.map((v, i) => (i === index ? { ...v, [field]: value } : v))
     );
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
   };
 
   const isJobIdValid = (value: string) => {
@@ -287,6 +368,7 @@ function App() {
   const deleteVariable = (index: number) => {
     takeSnapshot();
     setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
   };
 
   const handleRunNow = useCallback(() => {
@@ -295,12 +377,13 @@ function App() {
       vscode.postMessage({ 
         command: 'runPipeline',
         jobConfig,
-        runtimeVariables
+        runtimeVariables,
+        pipelineConfig
       });
     } else {
       alert('VS Code API is not available. This feature only works when running inside the VS Code extension.');
     }
-  }, [jobConfig, runtimeVariables]);
+  }, [jobConfig, runtimeVariables, pipelineConfig]);
 
   const isValidConnection = useCallback(
     (connection: Connection) => {
@@ -320,6 +403,7 @@ function App() {
     (params: Connection | Edge) => {
       takeSnapshot();
       setEdges((eds) => addEdge(params, eds));
+      setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
     },
     [setEdges, takeSnapshot]
   );
@@ -341,7 +425,45 @@ function App() {
         return node;
       })
     );
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
   }, [setNodes]);
+
+  const handleRegenerate = useCallback(() => {
+    if (vscode) {
+      const state = { 
+        nodes, 
+        edges, 
+        runtimeVariables, 
+        jobConfig,
+        pipelineConfig: { ...pipelineConfig, needsRebuild: false }
+      };
+      const yamlStr = YAML.stringify(state);
+      vscode.postMessage({
+        command: 'regenerateCode',
+        data: yamlStr,
+        filename: filename,
+        language: pipelineConfig.language,
+        outputFolder: pipelineConfig.outputFolder
+      });
+    }
+  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, filename]);
+
+  const handlePickFolder = useCallback(() => {
+    if (vscode) {
+      vscode.postMessage({ command: 'pickFolder' });
+    }
+  }, []);
+
+  const handleSelectFile = useCallback((fileName: string) => {
+    setSelectedFileName(fileName);
+    if (vscode) {
+      vscode.postMessage({ 
+        command: 'readFileContent', 
+        filePath: fileName,
+        folderPath: pipelineConfig.outputFolder
+      });
+    }
+  }, [pipelineConfig.outputFolder]);
 
   const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => {
     event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName }));
@@ -357,14 +479,11 @@ function App() {
    * Handles the drop event when a node is dragged from the sidebar onto the canvas.
    * It creates a new node at the drop position and automatically connects it to a source
    * if it's the first step or if it's a PubSub specific step.
-   */
-  const onDrop = useCallback(
+   */  const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      // Get the bounding rectangle of the flow canvas
       const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-      // Get the dragged data
       const dataStr = event.dataTransfer.getData('application/reactflow');
 
       if (!dataStr || !reactFlowBounds) {
@@ -373,13 +492,11 @@ function App() {
 
       const data = JSON.parse(dataStr);
 
-      // Calculate the position of the new node relative to the canvas
       const position = project({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
 
-      // Create the new node object
       const newNode = {
         id: `${Date.now()}`,
         type: data.nodeType,
@@ -391,15 +508,11 @@ function App() {
         },
       };
 
-      // Save current state to history for undo/redo
       takeSnapshot();
-      // Add the new node to the state
       setNodes((nds) => nds.concat(newNode));
+      setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
 
-      // Handle automatic connections for steps
       if (data.type === 'STEP') {
-        // Special handling for PubSub specific steps: "Parse JSON" and "Parse Base64"
-        // These should automatically connect to the PubSub source if it exists
         if (data.label === 'Parse JSON' || data.label === 'Parse Base64') {
           const pubSubSource = nodes.find(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
           if (pubSubSource) {
@@ -411,8 +524,6 @@ function App() {
             setEdges((eds) => eds.concat(newEdge));
           }
         } else {
-          // General handling for other steps:
-          // Connect to the first source node if this is the first step being added
           const hasStep = nodes.some(n => n.data.type === 'STEP');
           if (!hasStep) {
             const sourceNode = nodes.find(n => n.data.type === 'SOURCE');
@@ -449,8 +560,8 @@ function App() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             isValidConnection={isValidConnection}
@@ -479,7 +590,7 @@ function App() {
           bottomTab={bottomTab}
           setBottomTab={setBottomTab}
           jobConfig={jobConfig}
-          setJobConfig={setJobConfig}
+          setJobConfig={handleSetJobConfig}
           runtimeVariables={runtimeVariables}
           addVariable={addVariable}
           updateVariable={updateVariable}
@@ -488,6 +599,14 @@ function App() {
           generatedCode={generatedCode}
           onRunNow={handleRunNow}
           subnetworks={subnetworks}
+          pipelineConfig={pipelineConfig}
+          setPipelineConfig={setPipelineConfig}
+          onRegenerate={handleRegenerate}
+          folderFiles={folderFiles}
+          selectedFileName={selectedFileName}
+          selectedFileContent={selectedFileContent}
+          onPickFolder={handlePickFolder}
+          onSelectFile={handleSelectFile}
         />
       </div>
 

@@ -26,6 +26,14 @@ interface BottomPanelProps {
   generatedCode: string;
   onRunNow: () => void;
   subnetworks: {name: string, region: string, value: string}[];
+  pipelineConfig: { language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean };
+  setPipelineConfig: (config: any) => void;
+  onRegenerate: () => void;
+  folderFiles: string[];
+  selectedFileName: string | null;
+  selectedFileContent: string | null;
+  onPickFolder: () => void;
+  onSelectFile: (fileName: string) => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -40,26 +48,34 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   isJobIdValid,
   generatedCode,
   onRunNow,
-  subnetworks
+  subnetworks,
+  pipelineConfig,
+  setPipelineConfig,
+  onRegenerate,
+  folderFiles,
+  selectedFileName,
+  selectedFileContent,
+  onPickFolder,
+  onSelectFile
 }) => {
   return (
     <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
       {/* Tab Headers */}
       <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
           onClick={() => setBottomTab('DEPLOYMENT')}
         >
           DEPLOYMENT
         </button>
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'RUNNING_INSTANCES' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_INSTANCES' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
           onClick={() => setBottomTab('RUNNING_INSTANCES')}
         >
           RUNNING INSTANCES
         </button>
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
           onClick={() => setBottomTab('SOURCE_CODE')}
         >
           SOURCE CODE
@@ -79,6 +95,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             isJobIdValid={isJobIdValid}
             onRunNow={onRunNow}
             subnetworks={subnetworks}
+            needsRebuild={pipelineConfig.needsRebuild}
           />
         )}
 
@@ -87,7 +104,20 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         )}
 
         {bottomTab === 'SOURCE_CODE' && (
-          <SourceCodeTab generatedCode={generatedCode} />
+          <SourceCodeTab 
+            generatedCode={generatedCode}
+            language={pipelineConfig.language}
+            setLanguage={(lang) => setPipelineConfig({ ...pipelineConfig, language: lang })}
+            outputFolder={pipelineConfig.outputFolder}
+            setOutputFolder={(folder) => setPipelineConfig({ ...pipelineConfig, outputFolder: folder })}
+            onPickFolder={onPickFolder}
+            onRegenerate={onRegenerate}
+            needsRebuild={pipelineConfig.needsRebuild}
+            files={folderFiles}
+            selectedFile={selectedFileName}
+            onSelectFile={onSelectFile}
+            selectedFileContent={selectedFileContent}
+          />
         )}
       </div>
     </div>

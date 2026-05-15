@@ -28,7 +28,15 @@ describe('BottomPanel', () => {
     isJobIdValid: vi.fn().mockReturnValue(true),
     generatedCode: 'print("hello")',
     onRunNow: vi.fn(),
-    subnetworks: []
+    subnetworks: [],
+    pipelineConfig: { language: 'Python' as const, outputFolder: '', needsRebuild: false },
+    setPipelineConfig: vi.fn(),
+    onRegenerate: vi.fn(),
+    folderFiles: [],
+    selectedFileName: null,
+    selectedFileContent: null,
+    onPickFolder: vi.fn(),
+    onSelectFile: vi.fn()
   };
 
   it('renders tab headers', () => {

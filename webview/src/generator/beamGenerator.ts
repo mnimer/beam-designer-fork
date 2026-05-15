@@ -76,36 +76,38 @@ export class BeamGenerator {
      * Generates pipeline files from YAML string.
      * @param yamlStr The YAML representation of the pipeline.
      * @param filename The base name of the pipeline file.
-     * @returns Object containing python, requirements, dockerfile, and runScript content.
+     * @returns Object containing generated code, file extension, and other configuration files.
      */
-    public generate(yamlStr: string, filename: string, projectId?: string, gcsStagingPath?: string): { python: string, requirements: string, dockerfile: string, runScript: string, runDataflowScript: string, dockerIgnore: string, gcloudIgnore: string } {
+    public generate(yamlStr: string, filename: string, projectId?: string, gcsStagingPath?: string, language: string = 'Python'): { code: string, fileExtension: string, requirements: string, dockerfile: string, runScript: string, runDataflowScript: string, dockerIgnore: string, gcloudIgnore: string } {
         // Parse YAML and generate files
         try {
             const data = YAML.parse(yamlStr) as PipelineData;
+            const isPython = language.toLowerCase() === 'python';
             
-            // Generate Python code
-            const python = this.generateFromData(data);
+            const code = isPython ? this.generateFromData(data) : this.generateJavaFromData(data, filename);
+            const fileExtension = isPython ? 'py' : 'java';
             
             // Generate requirements.txt content, passing data to check for nodes
-            const requirements = this.generateRequirements(data);
+            const requirements = isPython ? this.generateRequirements(data) : 'maven-dependencies-here';
             
             // Generate Dockerfile content, removing .beam extension from filename if present
-            const dockerfile = this.generateDockerfile(filename.replace('.beam', ''));
+            const dockerfile = isPython ? this.generateDockerfile(filename.replace('.beam', '')) : '# Java Dockerfile';
 
             // Generate run_directrunner.sh content, passing data to check for streaming sources
-            const runScript = this.generateRunScript(filename.replace('.beam', ''), data);
+            const runScript = isPython ? this.generateRunScript(filename.replace('.beam', ''), data) : '# Java Run Script';
 
             // Generate run_dataflow.sh content, passing data to check for streaming sources
-            const runDataflowScript = this.generateDataflowScript(filename.replace('.beam', ''), data, projectId, gcsStagingPath);
+            const runDataflowScript = isPython ? this.generateDataflowScript(filename.replace('.beam', ''), data, projectId, gcsStagingPath) : '# Java Dataflow Run Script';
 
             // Generate .dockerignore content
-            const dockerIgnore = this.generateDockerIgnore();
+            const dockerIgnore = isPython ? this.generateDockerIgnore() : '';
             
-            return { python, requirements, dockerfile, runScript, runDataflowScript, dockerIgnore, gcloudIgnore: dockerIgnore };
+            return { code, fileExtension, requirements, dockerfile, runScript, runDataflowScript, dockerIgnore, gcloudIgnore: dockerIgnore };
         } catch (e) {
             console.error('Failed to parse YAML in generator', e);
             return {
-                python: `# Error parsing pipeline YAML: ${e}`,
+                code: `# Error parsing pipeline YAML: ${e}`,
+                fileExtension: language.toLowerCase() === 'python' ? 'py' : 'java',
                 requirements: '',
                 dockerfile: '',
                 runScript: '',
@@ -148,26 +150,26 @@ export class BeamGenerator {
      */
     private generateDockerfile(pipelineBaseName: string): string {
         return `ARG IMAGE_PYTHON_VERSION=3.11
-
+ 
 # --- Stage 1: Get Python Flex Template Launcher Binary ---
 FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
-
+ 
 # --- Stage 2: Build Application Image ---
 FROM apache/beam_python\${IMAGE_PYTHON_VERSION}_sdk:2.55.0
-
+ 
 # 1. Copy Flex Template launcher binary (Path is STRICT)
 COPY --from=launcher /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
-
+ 
 # 2. Set working directory
 WORKDIR /template
-
+ 
 # 3. Copy files
 COPY requirements.txt .
 COPY ${pipelineBaseName}.py .
-
+ 
 # 4. Install Python Dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
+ 
 # 5. Specify Pipeline Entrypoint
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
 `;
@@ -428,6 +430,61 @@ import logging
 
         code += `if __name__ == '__main__':
     run()
+`;
+        return code;
+    }
+
+    /**
+     * Generates Java code from pipeline data.
+     * @param data Parsed pipeline data.
+     * @param filename Base name of the pipeline.
+     */
+    private generateJavaFromData(data: PipelineData, filename: string): string {
+        const className = filename.replace('.beam', '').replace(/[^a-zA-Z0-9]/g, '');
+        let code = `package com.example;
+
+import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.values.PCollection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ${className || 'BeamPipeline'} {
+    private static final Logger LOG = LoggerFactory.getLogger(${className || 'BeamPipeline'}.class);
+
+    public static void main(String[] args) {
+        PipelineOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().create();
+        Pipeline p = Pipeline.create(options);
+
+`;
+
+        data.nodes.forEach(node => {
+            code += `        // ${node.data.type}: ${node.data.label}\n`;
+            if (node.data.type === 'SOURCE') {
+                if (node.data.label.includes('PubSub')) {
+                    const topic = node.data.properties?.topic || 'projects/your-project/topics/your-topic';
+                    code += `        // PCollection<String> ${this.getVariableName(node)} = p.apply(PubsubIO.readStrings().fromTopic("${topic}"));\n`;
+                } else {
+                    code += `        // PCollection<String> ${this.getVariableName(node)} = p.apply(...);\n`;
+                }
+            } else if (node.data.type === 'STEP') {
+                code += `        // PCollection<String> ${this.getVariableName(node)} = ...\n`;
+            } else if (node.data.type === 'SINK') {
+                if (node.data.label.includes('BigQuery')) {
+                    const table = `${node.data.properties?.projectId || 'your-project'}:${node.data.properties?.dataset || 'your-dataset'}.${node.data.properties?.table || 'your-table'}`;
+                    code += `        // ${this.getVariableName(node)}.apply(BigQueryIO.writeTableRows().to("${table}"));\n`;
+                } else {
+                    code += `        // ${this.getVariableName(node)}.apply(...);\n`;
+                }
+            }
+            code += '\n';
+        });
+
+        code += `        p.run().waitUntilFinish();
+    }
+}
 `;
         return code;
     }
