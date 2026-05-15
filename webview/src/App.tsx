@@ -77,7 +77,7 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const hasPubSubSource = nodes.some(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
   const [activeTab, setActiveTab] = useState('SOURCES');
-  const [bottomTab, setBottomTab] = useState('DEPLOYMENT');
+  const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -107,6 +107,47 @@ function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
+
+  // Resize state for Bottom Panel
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = mainContentRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      let newHeight = containerRect.bottom - e.clientY;
+      
+      const minHeight = 100;
+      const maxHeight = containerRect.height - 150;
+      if (newHeight < minHeight) newHeight = minHeight;
+      if (newHeight > maxHeight) newHeight = maxHeight;
+
+      setBottomPanelHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
   const { project, fitView } = useReactFlow();
@@ -255,6 +296,7 @@ function App() {
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
         } else if (message.command === 'codeRegenerated') {
+          setIsGenerating(false);
           if (message.success) {
             setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
             setGeneratedCode(message.code || '');
@@ -430,6 +472,7 @@ function App() {
 
   const handleRegenerate = useCallback(() => {
     if (vscode) {
+      setIsGenerating(true);
       const state = { 
         nodes, 
         edges, 
@@ -545,7 +588,7 @@ function App() {
   return (
     <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A]">
       {/* Main Content Area (Canvas + Bottom Panel) */}
-      <div className="flex-1 flex flex-col">
+      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0">
         {/* Canvas */}
         <div className="flex-1 relative">
           {/* Floating Card on Left */}
@@ -585,6 +628,12 @@ function App() {
           </ReactFlow>
         </div>
 
+        {/* Resizable Divider */}
+        <div 
+          className="h-1 bg-slate-700 hover:bg-blue-500 cursor-row-resize transition-colors z-50 relative"
+          onMouseDown={handleMouseDown}
+        />
+
         {/* Bottom Panel */}
         <BottomPanel 
           bottomTab={bottomTab}
@@ -607,6 +656,8 @@ function App() {
           selectedFileContent={selectedFileContent}
           onPickFolder={handlePickFolder}
           onSelectFile={handleSelectFile}
+          height={bottomPanelHeight}
+          isGenerating={isGenerating}
         />
       </div>
 

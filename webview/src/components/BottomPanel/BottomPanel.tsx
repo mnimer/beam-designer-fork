@@ -34,6 +34,8 @@ interface BottomPanelProps {
   selectedFileContent: string | null;
   onPickFolder: () => void;
   onSelectFile: (fileName: string) => void;
+  height?: number;
+  isGenerating?: boolean;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -56,12 +58,23 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   selectedFileName,
   selectedFileContent,
   onPickFolder,
-  onSelectFile
+  onSelectFile,
+  height,
+  isGenerating
 }) => {
   return (
-    <div className="h-1/3 bg-[#151722] border-t border-slate-700 flex flex-col">
+    <div 
+      className="bg-[#151722] flex flex-col"
+      style={height ? { height: `${height}px` } : { height: '33.3333%' }}
+    >
       {/* Tab Headers */}
       <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
+        <button
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          onClick={() => setBottomTab('SOURCE_CODE')}
+        >
+          SOURCE CODE
+        </button>
         <button
           className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
           onClick={() => setBottomTab('DEPLOYMENT')}
@@ -69,16 +82,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           DEPLOYMENT
         </button>
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_INSTANCES' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-          onClick={() => setBottomTab('RUNNING_INSTANCES')}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_JOBS' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          onClick={() => setBottomTab('RUNNING_JOBS')}
         >
-          RUNNING INSTANCES
-        </button>
-        <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-          onClick={() => setBottomTab('SOURCE_CODE')}
-        >
-          SOURCE CODE
+          RUNNING JOBS
         </button>
       </div>
 
@@ -99,7 +106,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           />
         )}
 
-        {bottomTab === 'RUNNING_INSTANCES' && (
+        {bottomTab === 'RUNNING_JOBS' && (
           <InstancesTab />
         )}
 
@@ -117,6 +124,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             selectedFile={selectedFileName}
             onSelectFile={onSelectFile}
             selectedFileContent={selectedFileContent}
+            isGenerating={isGenerating}
           />
         )}
       </div>

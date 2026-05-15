@@ -43,7 +43,7 @@ describe('BottomPanel', () => {
     render(<BottomPanel {...mockProps} />);
 
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
-    expect(screen.getByText('RUNNING INSTANCES')).toBeInTheDocument();
+    expect(screen.getByText('RUNNING JOBS')).toBeInTheDocument();
     expect(screen.getByText('SOURCE CODE')).toBeInTheDocument();
   });
 
@@ -53,8 +53,8 @@ describe('BottomPanel', () => {
     expect(screen.getByTestId('deployment-tab')).toBeInTheDocument();
   });
 
-  it('renders InstancesTab when bottomTab is RUNNING_INSTANCES', () => {
-    render(<BottomPanel {...mockProps} bottomTab="RUNNING_INSTANCES" />);
+  it('renders InstancesTab when bottomTab is RUNNING_JOBS', () => {
+    render(<BottomPanel {...mockProps} bottomTab="RUNNING_JOBS" />);
 
     expect(screen.getByTestId('instances-tab')).toBeInTheDocument();
   });
@@ -69,7 +69,7 @@ describe('BottomPanel', () => {
   it('calls setBottomTab when clicking tabs', () => {
     render(<BottomPanel {...mockProps} />);
 
-    fireEvent.click(screen.getByText('RUNNING INSTANCES'));
-    expect(mockProps.setBottomTab).toHaveBeenCalledWith('RUNNING_INSTANCES');
+    fireEvent.click(screen.getByText('RUNNING JOBS'));
+    expect(mockProps.setBottomTab).toHaveBeenCalledWith('RUNNING_JOBS');
   });
 });

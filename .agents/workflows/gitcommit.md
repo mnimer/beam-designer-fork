@@ -2,7 +2,7 @@
 description: Generate a git message
 ---
 
-Automatically stage the modified files (git add .), but do not commit.  Write a consolidated git commit message for the changes made to the modified files.
+Automatically stage all of the modified files 'git add .', but do not commit.  Write a consolidated git commit message for the changes made to the modified files. Use 'git diff' and the work done in the current session to figure out what has been done in the staged files.
 
 **Critical Rules**
 - Do not run the git commit command, generate the message only. The user will copy/paste this message and run the command.

@@ -33,6 +33,9 @@ describe('SourceCodeTab', () => {
     // Check action buttons
     expect(screen.getByText('GENERATE CODE')).toBeInTheDocument();
 
+    // Switch to Generated Code tab
+    fireEvent.click(screen.getByText('Generated Code'));
+
     // Check files are shown
     expect(screen.getByText('job.py')).toBeInTheDocument();
     expect(screen.getByText('requirements.txt')).toBeInTheDocument();
@@ -76,12 +79,18 @@ describe('SourceCodeTab', () => {
   it('calls onSelectFile when clicking a file from the list', () => {
     render(<SourceCodeTab {...mockProps} />);
 
+    // Switch to Generated Code tab
+    fireEvent.click(screen.getByText('Generated Code'));
+
     fireEvent.click(screen.getByText('job.py'));
     expect(mockProps.onSelectFile).toHaveBeenCalledWith('job.py');
   });
 
   it('renders rebuild warning and hides file list/code preview when needsRebuild is true', () => {
     render(<SourceCodeTab {...mockProps} needsRebuild={true} />);
+
+    // Switch to Generated Code tab
+    fireEvent.click(screen.getByText('Generated Code'));
 
     // Warning text should be visible
     expect(screen.getByText(/Pipeline has unsaved changes/)).toBeInTheDocument();

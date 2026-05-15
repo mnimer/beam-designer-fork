@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FolderOpen, RefreshCw } from 'lucide-react';
 
 interface SourceCodeTabProps {
@@ -14,6 +14,7 @@ interface SourceCodeTabProps {
   selectedFile: string | null;
   onSelectFile: (fileName: string) => void;
   selectedFileContent: string | null;
+  isGenerating?: boolean;
 }
 
 const highlightCode = (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => {
@@ -93,104 +94,149 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   files,
   selectedFile,
   onSelectFile,
-  selectedFileContent
+  selectedFileContent,
+  isGenerating = false
 }) => {
+  const [activeLeftTab, setActiveLeftTab] = useState<'GENERATION' | 'FILES'>('GENERATION');
+
+  // Auto-switch to files tab when code generation completes
+  const prevNeedsRebuild = React.useRef(needsRebuild);
+  React.useEffect(() => {
+    if (prevNeedsRebuild.current && !needsRebuild) {
+      setActiveLeftTab('FILES');
+    }
+    prevNeedsRebuild.current = needsRebuild;
+  }, [needsRebuild]);
+
   return (
     <div className="flex h-full gap-6 text-slate-300">
       {/* Left Column (25% width) */}
-      <div className="w-1/4 flex flex-col bg-[#1E202A] rounded border border-slate-700 p-4">
-        {/* Language selector */}
-        <div className="mb-4">
-          <label className="text-xs font-bold uppercase text-slate-500 block mb-2">Language</label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="radio"
-                name="language"
-                value="Python"
-                checked={language === 'Python'}
-                onChange={() => setLanguage('Python')}
-                className="accent-blue-500"
-              />
-              Python
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="radio"
-                name="language"
-                value="Java"
-                checked={language === 'Java'}
-                onChange={() => setLanguage('Java')}
-                className="accent-blue-500"
-              />
-              Java
-            </label>
-          </div>
+      <div className="w-1/4 flex flex-col bg-[#1E202A] rounded border border-slate-700 overflow-hidden">
+        {/* Nested Tab Headers */}
+        <div className="flex border-b border-slate-700 bg-[#151722]">
+          <button
+            type="button"
+            className={`flex-1 py-2 px-3 text-xs font-semibold tracking-wider transition cursor-pointer text-center ${activeLeftTab === 'GENERATION'
+                ? 'text-white bg-[#1E202A] border-b-2 border-blue-500'
+                : 'text-slate-500 hover:text-slate-300 bg-[#151722]'
+              }`}
+            onClick={() => setActiveLeftTab('GENERATION')}
+          >
+            Code Generation
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-2 px-3 text-xs font-semibold tracking-wider transition cursor-pointer text-center ${activeLeftTab === 'FILES'
+                ? 'text-white bg-[#1E202A] border-b-2 border-blue-500'
+                : 'text-slate-500 hover:text-slate-300 bg-[#151722]'
+              }`}
+            onClick={() => setActiveLeftTab('FILES')}
+          >
+            Generated Code
+          </button>
         </div>
 
-        {/* Output Folder Picker */}
-        <div className="mb-4 flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase text-slate-500 block">Output Folder</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={outputFolder}
-              onChange={(e) => setOutputFolder(e.target.value)}
-              placeholder="Default (pipeline directory)"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm flex-1 min-w-0"
-            />
-            <button
-              type="button"
-              onClick={onPickFolder}
-              className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded border border-slate-600 flex items-center justify-center shrink-0"
-              title="Browse Folder"
-            >
-              <FolderOpen className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        {/* Nested Tab Content */}
+        <div className="flex-1 flex flex-col p-4 min-h-0 overflow-y-auto">
+          {activeLeftTab === 'GENERATION' && (
+            <div className="flex flex-col gap-4">
+              {/* Language selector */}
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500 block mb-2">Language</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="language"
+                      value="Python"
+                      checked={language === 'Python'}
+                      onChange={() => setLanguage('Python')}
+                      className="accent-blue-500"
+                    />
+                    Python
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="language"
+                      value="Java"
+                      checked={language === 'Java'}
+                      onChange={() => setLanguage('Java')}
+                      className="accent-blue-500"
+                    />
+                    Java
+                  </label>
+                </div>
+              </div>
 
-        {/* Regenerate Button */}
-        <button
-          type="button"
-          onClick={onRegenerate}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-bold w-full cursor-pointer transition ${needsRebuild
-              ? 'bg-blue-600 hover:bg-blue-700 text-white animate-pulse'
-              : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-            }`}
-        >
-          <RefreshCw className="w-4 h-4" />
-          GENERATE CODE
-        </button>
+              {/* Output Folder Picker */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-500 block">Output Folder</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={outputFolder}
+                    onChange={(e) => setOutputFolder(e.target.value)}
+                    placeholder="Default (pipeline directory)"
+                    className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm flex-1 min-w-0"
+                  />
+                  <button
+                    type="button"
+                    onClick={onPickFolder}
+                    className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded border border-slate-600 flex items-center justify-center shrink-0"
+                    title="Browse Folder"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-        <hr className="border-slate-700 my-4" />
-
-        {/* File List */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <label className="text-xs font-bold uppercase text-slate-500 mb-2 block">Generated Files</label>
-          {needsRebuild ? (
-            <div className="text-xs text-amber-500 italic p-2 bg-amber-950/30 rounded border border-amber-900/50">
-              Pipeline has unsaved changes. Click "GENERATE CODE" to update the file list.
+              {/* Regenerate Button */}
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={isGenerating}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-bold w-full cursor-pointer transition ${isGenerating
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : needsRebuild
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white animate-pulse'
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                  }`}
+              >
+                <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                {isGenerating ? 'GENERATING...' : 'GENERATE CODE'}
+              </button>
             </div>
-          ) : files.length === 0 ? (
-            <div className="text-xs text-slate-500 italic">No files found in folder.</div>
-          ) : (
-            <div className="flex-1 overflow-y-auto pr-1">
-              <ul className="flex flex-col gap-1">
-                {files.map((file) => (
-                  <li key={file}>
-                    <button
-                      onClick={() => onSelectFile(file)}
-                      className={`text-left text-sm w-full py-1.5 px-3 rounded hover:bg-slate-800 transition cursor-pointer ${selectedFile === file
-                          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold'
-                          : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                    >
-                      {file}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          )}
+
+          {activeLeftTab === 'FILES' && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <label className="text-xs font-bold uppercase text-slate-500 mb-2 block">Generated Files</label>
+              {needsRebuild ? (
+                <div className="text-xs text-amber-500 italic p-2 bg-amber-950/30 rounded border border-amber-900/50">
+                  Pipeline has unsaved changes. Click "GENERATE CODE" to update the file list.
+                </div>
+              ) : files.length === 0 ? (
+                <div className="text-xs text-slate-500 italic">No files found in folder.</div>
+              ) : (
+                <div className="flex-1 overflow-y-auto pr-1">
+                  <ul className="flex flex-col gap-1">
+                    {files.map((file) => (
+                      <li key={file}>
+                        <button
+                          onClick={() => onSelectFile(file)}
+                          className={`text-left text-sm w-full py-1.5 px-3 rounded hover:bg-slate-800 transition cursor-pointer ${selectedFile === file
+                              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold'
+                              : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                          {file}
+                        </button>
+                      </li>
+                    ))}
+                      </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -198,9 +244,15 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
 
       {/* Right Column (75% width) */}
       <div className="w-3/4 flex flex-col bg-[#1E202A] rounded border border-slate-700 overflow-hidden">
-        {needsRebuild ? (
+        {isGenerating ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">
-            <RefreshCw className="w-12 h-12 text-slate-600 mb-4 animate-spin" style={{ animationDuration: '3s' }} />
+            <RefreshCw className="w-12 h-12 text-slate-600 mb-4 animate-spin" />
+            <p className="text-sm font-semibold mb-1 text-slate-400">Generating Code...</p>
+            <p className="text-xs max-w-sm">Gemini is generating all of the source code files. This may take a few minutes...</p>
+          </div>
+        ) : needsRebuild ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">
+            <RefreshCw className="w-12 h-12 text-slate-600 mb-4" />
             <p className="text-sm font-semibold mb-1 text-slate-400">Unsaved Pipeline Changes</p>
             <p className="text-xs max-w-sm">The source code files are out of date. Please configure output options and click "GENERATE CODE" on the left to see the updated code.</p>
           </div>
