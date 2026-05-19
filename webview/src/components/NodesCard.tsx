@@ -93,7 +93,9 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
             <details className="bg-slate-700/50 rounded-md" open>
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Windows</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Fixed Window" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+                <SidebarItem label="Fixed Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+                <SidebarItem label="Sliding Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+                <SidebarItem label="User Windows" type="STEP" iconName="Clock" onDragStart={onDragStart} />
               </div>
             </details>
           </div>

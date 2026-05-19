@@ -4,6 +4,9 @@ import { BigQuerySinkGenerator } from './sinks/BigQueryIO';
 import { WindowGenerator } from './steps/Window';
 import { ParseJSONGenerator } from './steps/ParseJSON';
 import { ParseBase64Generator } from './steps/ParseBase64';
+import { FixedWindowsGenerator } from './steps/FixedWindows';
+import { SlidingWindowsGenerator } from './steps/SlidingWindows';
+import { UserWindowsGenerator } from './steps/UserWindows';
 
 export interface Node {
     id: string;
@@ -68,6 +71,9 @@ export class BeamGenerator {
         this.generators['BigQuery_SINK'] = new BigQuerySinkGenerator();
         this.generators['Windows_STEP'] = new WindowGenerator();
         this.generators['Fixed Window_STEP'] = new WindowGenerator();
+        this.generators['Fixed Windows_STEP'] = new FixedWindowsGenerator();
+        this.generators['Sliding Windows_STEP'] = new SlidingWindowsGenerator();
+        this.generators['User Windows_STEP'] = new UserWindowsGenerator();
         this.generators['Parse JSON_STEP'] = new ParseJSONGenerator();
         this.generators['Parse Base64_STEP'] = new ParseBase64Generator();
     }
