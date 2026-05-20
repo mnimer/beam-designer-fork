@@ -726,7 +726,7 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         const responseSchema = JSON.parse(fs.readFileSync(responseSchemaPath, 'utf-8'));
                         
                         const response = await ai.models.generateContent({
-                            model: 'gemini-3.1-pro-preview',
+                            model: 'gemini-3.5-flash',
                             contents: promptText,
                             config: {
                                 responseMimeType: 'application/json',
@@ -739,7 +739,7 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
                             const logData = {
                                 timestamp: new Date().toISOString(),
-                                model: 'gemini-3.1-pro-preview',
+                                model: 'gemini-3.5-flash',
                                 prompt: promptText,
                                 responseSchema: responseSchema,
                                 tokenUsage: response.usageMetadata ? {
@@ -830,7 +830,7 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
                             const logData = {
                                 timestamp: new Date().toISOString(),
-                                model: 'gemini-3.1-pro-preview',
+                                model: 'gemini-3.5-flash',
                                 prompt: promptText,
                                 error: err.message,
                                 stack: err.stack

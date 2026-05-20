@@ -94,7 +94,7 @@ Pipeline configurations are persisted as YAML data inside `*.beam` files. The vi
 3. While `needsRebuild` is `true`, execution and deployment buttons are disabled, and a warning is shown on the Source Code tab indicating that generated files are out of sync.
 
 ### Code Generation Flow (Gemini Integration)
-When the user clicks **"GENERATE CODE"**, code generation is delegated entirely to the Gemini API (`gemini-3.1-pro-preview`) running on the backend.
+When the user clicks **"GENERATE CODE"**, code generation is delegated entirely to the Gemini API (`gemini-3.5-flash`) running on the backend.
 
 ```mermaid
 sequenceDiagram
@@ -102,7 +102,7 @@ sequenceDiagram
     actor User
     participant Webview as Webview (React)
     participant Ext as Extension Host (Node.js)
-    participant Gemini as Gemini API (3.1 Pro)
+    participant Gemini as Gemini API (3.5 Flash)
     participant Disk as Filesystem
 
     User->>Webview: Edit Pipeline Canvas

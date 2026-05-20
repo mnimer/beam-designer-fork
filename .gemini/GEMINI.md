@@ -15,7 +15,7 @@ This document provides essential context for AI models interacting with this pro
 * **Databases:** Google BigQuery and PubSub (send application events for changes)
 * **Key Libraries/Dependencies:** The project is heavily reliant on the Google Cloud SDK
 * **Package Manager(s):** pip (for Python, via `requirements.txt` files), NPM for node.
-* **Gemini libraries:** when calling gemini sdk, use the "@google/genai" library and the 'gemini-3-flash-preview' model.
+* **Gemini libraries:** when calling gemini sdk, use the "@google/genai" library and the 'gemini-3.5-flash' model.
 
 ## Architectural Patterns
 
@@ -91,4 +91,4 @@ This document provides essential context for AI models interacting with this pro
    
 ## Working with AI
    - While working, using tools, thinking, reading files, you are to write out a running narration of what you are doing and why. You must include the user as you work by outputting thoughts and analysis between tool calls.
-   - **Model selection**: You are to always use the most powerful model available to you.  Currently, gamini 1.x and 2.x models have been deprecated. do not use these.  Use this model at a minimum "gemini-3.1-flash-image-preview"
+   - **Model selection**: You are to always use the most powerful model available to you.  Currently, gamini 1.x and 2.x models have been deprecated. do not use these.  Use this model at a minimum "gemini-3.5-flash"
