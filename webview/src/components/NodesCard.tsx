@@ -90,9 +90,29 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md" open>
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="Add Timestamp" type="STEP" iconName="Calendar" onDragStart={onDragStart} />
+                <SidebarItem label="Filter" type="STEP" iconName="Filter" onDragStart={onDragStart} />
+                <SidebarItem label="FlatMap" type="STEP" iconName="GitMerge" onDragStart={onDragStart} />
+                <SidebarItem label="Keys" type="STEP" iconName="Key" onDragStart={onDragStart} />
+                <SidebarItem label="KV Mapper" type="STEP" iconName="Hash" onDragStart={onDragStart} />
+                <SidebarItem label="KV Swap" type="STEP" iconName="Shuffle" onDragStart={onDragStart} />
+                <SidebarItem label="Map" type="STEP" iconName="Activity" onDragStart={onDragStart} />
+                <SidebarItem label="To String" type="STEP" iconName="Type" onDragStart={onDragStart} />
+                <SidebarItem label="Values" type="STEP" iconName="Grid" onDragStart={onDragStart} />
+              </div>
+            </details>
+            <details className="bg-slate-700/50 rounded-md" open>
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Windows</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
                 <SidebarItem label="Window" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+              </div>
+            </details>
+            <details className="bg-slate-700/50 rounded-md" open>
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Logging</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="Log Message" type="STEP" iconName="Terminal" onDragStart={onDragStart} />
               </div>
             </details>
           </div>

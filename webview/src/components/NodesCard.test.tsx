@@ -61,4 +61,45 @@ describe('NodesCard', () => {
     expect(screen.getByText('PubSub Messages')).toBeInTheDocument();
     expect(screen.getByText('Parse Message')).toBeInTheDocument();
   });
+
+  it('renders Logging section in STEPS tab', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('Logging')).toBeInTheDocument();
+    expect(screen.getByText('Log Message')).toBeInTheDocument();
+  });
+
+  it('renders Element Transforms section in STEPS tab with alphabetically sorted items', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('Element Transforms')).toBeInTheDocument();
+    
+    const expectedItems = [
+      'Add Timestamp',
+      'Filter',
+      'FlatMap',
+      'Keys',
+      'KV Mapper',
+      'KV Swap',
+      'Map',
+      'To String',
+      'Values'
+    ];
+
+    expectedItems.forEach(item => {
+      expect(screen.getByText(item)).toBeInTheDocument();
+    });
+
+    // Verify alphabetical sorting order of text contents inside the section
+    const elementTransformsSummary = screen.getByText('Element Transforms');
+    const sectionContainer = elementTransformsSummary.nextElementSibling; // This is the grid container
+    const renderedItems = Array.from(sectionContainer?.querySelectorAll('span') || [])
+      .map(el => el.textContent);
+
+    expect(renderedItems).toEqual(expectedItems);
+  });
 });

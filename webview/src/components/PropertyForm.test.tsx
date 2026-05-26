@@ -143,4 +143,76 @@ describe('PropertyForm', () => {
     expect(screen.getByText('Window Type')).toBeInTheDocument();
     expect(screen.getByDisplayValue('User Window')).toBeInTheDocument();
   });
+
+  it('renders LogMessageProperties when label is Log Message', () => {
+    const mockNode = {
+      data: {
+        label: 'Log Message',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Log Level')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
+    expect(screen.getByText('Standard operational message logs highlighting progress or status changes.')).toBeInTheDocument();
+  });
+
+  it('renders KVMapperProperties when label is KV Mapper', () => {
+    const mockNode = {
+      data: {
+        label: 'KV Mapper',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Key Property Name')).toBeInTheDocument();
+  });
+
+  it('renders FilterProperties when label is Filter', () => {
+    const mockNode = {
+      data: {
+        label: 'Filter',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Filter properties are currently empty/i)).toBeInTheDocument();
+  });
+
+  it('renders FlatMapProperties when label is FlatMap', () => {
+    const mockNode = {
+      data: {
+        label: 'FlatMap',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/FlatMap properties are currently empty/i)).toBeInTheDocument();
+  });
+
+  it('renders MapProperties when label is Map', () => {
+    const mockNode = {
+      data: {
+        label: 'Map',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Map properties are currently empty/i)).toBeInTheDocument();
+  });
 });

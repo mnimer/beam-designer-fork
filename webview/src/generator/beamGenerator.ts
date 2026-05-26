@@ -6,6 +6,16 @@ import { ParseMessageGenerator } from './steps/ParseMessage';
 import { FixedWindowsGenerator } from './steps/FixedWindows';
 import { SlidingWindowsGenerator } from './steps/SlidingWindows';
 import { UserWindowsGenerator } from './steps/UserWindows';
+import { LogMessageGenerator } from './steps/LogMessage';
+import { AddTimestampGenerator } from './steps/AddTimestamp';
+import { FilterGenerator } from './steps/Filter';
+import { FlatMapGenerator } from './steps/FlatMap';
+import { KeysGenerator } from './steps/Keys';
+import { KVMapperGenerator } from './steps/KVMapper';
+import { KVSwapGenerator } from './steps/KVSwap';
+import { MapGenerator } from './steps/Map';
+import { ToStringGenerator } from './steps/ToString';
+import { ValuesGenerator } from './steps/Values';
 
 export interface Node {
     id: string;
@@ -74,6 +84,16 @@ export class BeamGenerator {
         this.generators['Sliding Windows_STEP'] = new SlidingWindowsGenerator();
         this.generators['User Windows_STEP'] = new UserWindowsGenerator();
         this.generators['Parse Message_STEP'] = new ParseMessageGenerator();
+        this.generators['Log Message_STEP'] = new LogMessageGenerator();
+        this.generators['Add Timestamp_STEP'] = new AddTimestampGenerator();
+        this.generators['Filter_STEP'] = new FilterGenerator();
+        this.generators['FlatMap_STEP'] = new FlatMapGenerator();
+        this.generators['Keys_STEP'] = new KeysGenerator();
+        this.generators['KV Mapper_STEP'] = new KVMapperGenerator();
+        this.generators['KV Swap_STEP'] = new KVSwapGenerator();
+        this.generators['Map_STEP'] = new MapGenerator();
+        this.generators['To String_STEP'] = new ToStringGenerator();
+        this.generators['Values_STEP'] = new ValuesGenerator();
     }
 
     /**
@@ -425,6 +445,31 @@ import logging
             yield decoded_str
         except Exception as e:
             logging.error(f"Failed to parse String: {e}")
+            yield TaggedOutput(self.bad_tag, element)
+`);
+                }
+            } else if (node.data.label === 'Log Message') {
+                if (!seenParDos.has('LogMessageFn')) {
+                    seenParDos.add('LogMessageFn');
+                    parDoDefinitions.push(`class LogMessageFn(beam.DoFn):
+    def __init__(self, log_level, bad_tag):
+        self.log_level = log_level
+        self.bad_tag = bad_tag
+
+    def process(self, element):
+        try:
+            msg = f"LogMessage: {element}"
+            if self.log_level == 'Debug':
+                logging.debug(msg)
+            elif self.log_level == 'Warning':
+                logging.warning(msg)
+            elif self.log_level == 'Error':
+                logging.error(msg)
+            else:
+                logging.info(msg)
+            yield element
+        except Exception as e:
+            logging.error(f"Failed to log message: {e}")
             yield TaggedOutput(self.bad_tag, element)
 `);
                 }
