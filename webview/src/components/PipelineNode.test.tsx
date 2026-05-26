@@ -46,12 +46,20 @@ describe('PipelineNode', () => {
     expect(screen.getByTestId('handle-source-right')).toBeInTheDocument();
   });
 
-  it('renders two source handles for step node', () => {
-    const stepData = { ...mockData, type: 'STEP' };
+  it('renders two source handles for regular step node', () => {
+    const stepData = { ...mockData, type: 'STEP', label: 'Regular Step' };
     render(<PipelineNode data={stepData} />);
 
     expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
     expect(screen.getByTestId('handle-source-right-error')).toBeInTheDocument();
+  });
+
+  it('renders only one valid source handle for Log Message step node', () => {
+    const logStepData = { ...mockData, type: 'STEP', label: 'Log Message' };
+    render(<PipelineNode data={logStepData} />);
+
+    expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
+    expect(screen.queryByTestId('handle-source-right-error')).not.toBeInTheDocument();
   });
 
   it('does not render source handle if sink', () => {

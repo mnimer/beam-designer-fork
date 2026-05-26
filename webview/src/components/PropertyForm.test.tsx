@@ -157,7 +157,7 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText('Log Level')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
-    expect(screen.getByText('Standard operational message logs highlighting progress or status changes.')).toBeInTheDocument();
+    expect(screen.queryByText('Standard operational message logs highlighting progress or status changes.')).not.toBeInTheDocument();
   });
 
   it('renders KVMapperProperties when label is KV Mapper', () => {

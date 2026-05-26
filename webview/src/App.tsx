@@ -11,10 +11,12 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
+import { LayoutTemplate } from 'lucide-react';
 
 import ReactFlow, {
   MiniMap,
   Controls,
+  ControlButton,
   Background,
   useNodesState,
   useEdgesState,
@@ -427,6 +429,98 @@ function App() {
     }
   }, [jobConfig, runtimeVariables, pipelineConfig]);
 
+  const onLayout = useCallback(() => {
+    // 1. Build adjacency lists
+    const adj: Record<string, string[]> = {};
+    const inDegree: Record<string, number> = {};
+    
+    nodes.forEach(n => {
+      adj[n.id] = [];
+      inDegree[n.id] = 0;
+    });
+    
+    edges.forEach(e => {
+      if (adj[e.source] && adj[e.target] !== undefined) {
+        adj[e.source].push(e.target);
+        inDegree[e.target]++;
+      }
+    });
+
+    // 2. Queue for Kahn's topological sort to compute columns (ranks)
+    const ranks: Record<string, number> = {};
+    const queue: string[] = [];
+    
+    // Find all root nodes (in-degree = 0)
+    nodes.forEach(n => {
+      if (inDegree[n.id] === 0) {
+        queue.push(n.id);
+        ranks[n.id] = 0;
+      }
+    });
+    
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      const currRank = ranks[curr];
+      
+      adj[curr].forEach(neighbor => {
+        ranks[neighbor] = Math.max(ranks[neighbor] || 0, currRank + 1);
+        inDegree[neighbor]--;
+        if (inDegree[neighbor] === 0) {
+          queue.push(neighbor);
+        }
+      });
+    }
+
+    // If there are leftover nodes due to cycles, assign fallback ranks
+    nodes.forEach(n => {
+      if (ranks[n.id] === undefined) {
+        if (n.data.type === 'SOURCE') ranks[n.id] = 0;
+        else if (n.data.type === 'SINK') ranks[n.id] = 2;
+        else ranks[n.id] = 1;
+      }
+    });
+
+    // 3. Group nodes by their calculated column rank
+    const columns: Record<number, string[]> = {};
+    nodes.forEach(n => {
+      const r = ranks[n.id];
+      if (!columns[r]) columns[r] = [];
+      columns[r].push(n.id);
+    });
+
+    // 4. Calculate new positions
+    const newNodes = nodes.map(node => {
+      const rank = ranks[node.id];
+      const colNodes = columns[rank];
+      const index = colNodes.indexOf(node.id);
+      
+      // Spacing constants
+      const colWidth = 300;
+      const rowHeight = 120;
+      const startX = 80;
+      const startY = 150;
+      
+      const x = startX + rank * colWidth;
+      // Center the column vertically
+      const totalHeight = (colNodes.length - 1) * rowHeight;
+      const y = startY + index * rowHeight - totalHeight / 2;
+      
+      return {
+        ...node,
+        position: { x, y }
+      };
+    });
+
+    takeSnapshot();
+    setNodes(newNodes);
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+    
+    // Auto fit view after positioning
+    setTimeout(() => {
+      fitView({ duration: 300, padding: 1 });
+    }, 100);
+  }, [nodes, edges, setNodes, fitView, takeSnapshot]);
+
   const isValidConnection = useCallback(
     (connection: Connection) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
@@ -616,7 +710,11 @@ function App() {
             onDragOver={onDragOver}
             onNodeDragStop={() => takeSnapshot()}
           >
-            <Controls />
+            <Controls>
+              <ControlButton onClick={onLayout} title="Auto Layout Diagram">
+                <LayoutTemplate style={{ width: '14px', height: '14px' }} />
+              </ControlButton>
+            </Controls>
             <MiniMap
               nodeColor={(node: any) => {
                 if (node.data?.type === 'SOURCE') return '#3b82f6';

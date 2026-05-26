@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { LogMessageProperties } from './LogMessage';
 
 describe('LogMessageProperties', () => {
-  it('renders dropdown with Debug, Info, Warning, and Error options and defaults to Info', () => {
+  it('renders dropdown with Debug, Info, Warning, and Error options and defaults to Info without any helper text', () => {
     const mockNode = {
       data: {
         properties: {}
@@ -16,7 +16,7 @@ describe('LogMessageProperties', () => {
 
     expect(screen.getByText('Log Level')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
-    expect(screen.getByText('Standard operational message logs highlighting progress or status changes.')).toBeInTheDocument();
+    expect(screen.queryByText('Standard operational message logs highlighting progress or status changes.')).not.toBeInTheDocument();
   });
 
   it('renders appropriate helper text based on logLevel property', () => {

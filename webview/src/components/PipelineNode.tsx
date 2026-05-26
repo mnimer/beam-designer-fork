@@ -55,26 +55,37 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ data, selected }) =>
         <Handle type="source" position={Position.Right} className="w-2 h-2 bg-blue-500 border-none" />
       )}
 
-      {/* For steps, add 2 output handles: Valid (Green) and Error (Red) */}
+      {/* For steps, add 2 output handles: Valid (Green) and Error (Red) (Log Message only has Valid) */}
       {data.type === 'STEP' && (
-        <>
+        data.label === 'Log Message' ? (
           <Handle 
             type="source" 
             position={Position.Right} 
             id="valid" 
-            style={{ top: '30%', backgroundColor: '#10b981' }} 
+            style={{ top: '50%', backgroundColor: '#10b981' }} 
             className="w-2 h-2 border-none" 
             title="Valid Path"
           />
-          <Handle 
-            type="source" 
-            position={Position.Right} 
-            id="error" 
-            style={{ top: '70%', backgroundColor: '#ef4444' }} 
-            className="w-2 h-2 border-none" 
-            title="Error Path"
-          />
-        </>
+        ) : (
+          <>
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              id="valid" 
+              style={{ top: '30%', backgroundColor: '#10b981' }} 
+              className="w-2 h-2 border-none" 
+              title="Valid Path"
+            />
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              id="error" 
+              style={{ top: '70%', backgroundColor: '#ef4444' }} 
+              className="w-2 h-2 border-none" 
+              title="Error Path"
+            />
+          </>
+        )
       )}
     </div>
   );

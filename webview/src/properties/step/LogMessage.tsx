@@ -28,7 +28,7 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
       case 'Debug':
         return 'Output detailed debugging information, typically only useful in non-production environments.';
       case 'Info':
-        return 'Standard operational message logs highlighting progress or status changes.';
+        return '';
       case 'Warning':
         return 'Indicate potential issues or unusual events that do not stop pipeline execution.';
       case 'Error':
@@ -55,9 +55,11 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
         </select>
       </div>
 
-      <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
-        {getHelperText()}
-      </div>
+      {getHelperText() && (
+        <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
+          {getHelperText()}
+        </div>
+      )}
     </div>
   );
 };
