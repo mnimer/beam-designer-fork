@@ -55,7 +55,7 @@ const initialNodes = [
     id: '2',
     type: 'pipeline',
     position: { x: 400, y: 200 },
-    data: { label: 'Windowing', type: 'STEP', iconName: 'Clock' }
+    data: { label: 'Window', type: 'STEP', iconName: 'Clock' }
   },
   {
     id: '3',

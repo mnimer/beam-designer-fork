@@ -5,9 +5,6 @@ import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
 import { WindowingProperties } from '../properties/step/Windowing';
 import { ParseJSONProperties } from '../properties/step/ParseJSON';
 import { ParseBase64Properties } from '../properties/step/ParseBase64';
-import { FixedWindowsProperties } from '../properties/step/FixedWindows';
-import { SlidingWindowsProperties } from '../properties/step/SlidingWindows';
-import { UserWindowsProperties } from '../properties/step/UserWindows';
 
 /**
  * PropertyForm Component
@@ -39,13 +36,14 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange }) =>
     } else {
       formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label === 'Fixed Windows') {
-    formContent = <FixedWindowsProperties node={node} onChange={onChange} />;
-  } else if (label === 'Sliding Windows') {
-    formContent = <SlidingWindowsProperties node={node} onChange={onChange} />;
-  } else if (label === 'User Windows') {
-    formContent = <UserWindowsProperties node={node} onChange={onChange} />;
-  } else if (label.includes('Windowing') || label === 'Fixed Window') {
+  } else if (
+    label === 'Window' || 
+    label.includes('Windowing') || 
+    label === 'Fixed Window' || 
+    label === 'Fixed Windows' || 
+    label === 'Sliding Windows' || 
+    label === 'User Windows'
+  ) {
     formContent = <WindowingProperties node={node} onChange={onChange} />;
   } else if (label === 'Parse JSON') {
     formContent = <ParseJSONProperties node={node} onChange={onChange} />;

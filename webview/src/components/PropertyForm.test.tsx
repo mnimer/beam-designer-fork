@@ -88,45 +88,54 @@ describe('PropertyForm', () => {
     expect(screen.getByText('Parse PubSub Message and convert decode Base64 Bytes')).toBeInTheDocument();
   });
 
-  it('renders FixedWindowsProperties when label is Fixed Windows', () => {
+  it('renders WindowingProperties when label is Fixed Windows', () => {
     const mockNode = {
       data: {
         label: 'Fixed Windows',
-        properties: {}
+        properties: {
+          windowType: 'Fixed Window' as const
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Duration (seconds)')).toBeInTheDocument();
+    expect(screen.getByText('Window Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Fixed Window')).toBeInTheDocument();
   });
 
-  it('renders SlidingWindowsProperties when label is Sliding Windows', () => {
+  it('renders WindowingProperties when label is Sliding Windows', () => {
     const mockNode = {
       data: {
         label: 'Sliding Windows',
-        properties: {}
+        properties: {
+          windowType: 'Sliding Window' as const
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Window Size (seconds)')).toBeInTheDocument();
+    expect(screen.getByText('Window Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Sliding Window')).toBeInTheDocument();
   });
 
-  it('renders UserWindowsProperties when label is User Windows', () => {
+  it('renders WindowingProperties when label is User Windows', () => {
     const mockNode = {
       data: {
         label: 'User Windows',
-        properties: {}
+        properties: {
+          windowType: 'User Window' as const
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Window Function')).toBeInTheDocument();
+    expect(screen.getByText('Window Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('User Window')).toBeInTheDocument();
   });
 });

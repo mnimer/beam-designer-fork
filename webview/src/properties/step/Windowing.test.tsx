@@ -1,16 +1,14 @@
-
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { WindowingProperties } from './Windowing';
 
 describe('WindowingProperties', () => {
-  it('renders window type select and duration input', () => {
+  it('renders dropdown with Fixed Window, Sliding Window, and User Window options', () => {
     const mockNode = {
       data: {
         properties: {
-          windowType: 'Sliding Window',
-          duration: '120'
+          windowType: 'Fixed Window' as const
         }
       }
     };
@@ -18,41 +16,90 @@ describe('WindowingProperties', () => {
 
     render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByDisplayValue('Sliding Window')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('120')).toBeInTheDocument();
+    expect(screen.getByText('Fixed Window')).toBeInTheDocument();
+    expect(screen.getByText('Sliding Window')).toBeInTheDocument();
+    expect(screen.getByText('User Window')).toBeInTheDocument();
   });
 
-  it('calls onChange when duration input changes', () => {
+  it('renders Fixed Window properties correctly and handles changes', () => {
     const mockNode = {
       data: {
-        properties: {}
+        properties: {
+          windowType: 'Fixed Window' as const,
+          fixedDuration: '120',
+          fixedDurationUnit: 'Minutes' as const
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Default duration is '60'
-    const durationInput = screen.getByDisplayValue('60');
-    fireEvent.change(durationInput, { target: { value: '30' } });
+    const durationInput = screen.getByDisplayValue('120');
+    const unitSelect = screen.getByDisplayValue('Minutes');
 
-    expect(mockOnChange).toHaveBeenCalledWith({ duration: '30' });
+    expect(durationInput).toBeInTheDocument();
+    expect(unitSelect).toBeInTheDocument();
+
+    fireEvent.change(durationInput, { target: { name: 'fixedDuration', value: '150' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      fixedDuration: '150'
+    }));
   });
 
-  it('calls onChange when windowType changes', () => {
+  it('renders Sliding Window properties correctly and handles changes', () => {
     const mockNode = {
       data: {
-        properties: {}
+        properties: {
+          windowType: 'Sliding Window' as const,
+          slidingDuration: '600',
+          slidingPeriod: '300',
+          slidingOffset: '60'
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Default windowType is 'Fixed Window'
-    const select = screen.getByDisplayValue('Fixed Window');
-    fireEvent.change(select, { target: { value: 'Session Window' } });
+    const durationInput = screen.getByDisplayValue('600');
+    const periodInput = screen.getByDisplayValue('300');
+    const offsetInput = screen.getByDisplayValue('60');
 
-    expect(mockOnChange).toHaveBeenCalledWith({ windowType: 'Session Window' });
+    expect(durationInput).toBeInTheDocument();
+    expect(periodInput).toBeInTheDocument();
+    expect(offsetInput).toBeInTheDocument();
+    expect(screen.getByText(/Example of a 10-minute window/i)).toBeInTheDocument();
+
+    fireEvent.change(periodInput, { target: { name: 'slidingPeriod', value: '150' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      slidingPeriod: '150'
+    }));
+  });
+
+  it('renders User Window (Session) properties correctly and handles changes', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          windowType: 'User Window' as const,
+          sessionGapDuration: '45',
+          sessionGapDurationUnit: 'Minutes' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
+
+    const gapInput = screen.getByDisplayValue('45');
+    const unitSelect = screen.getByDisplayValue('Minutes');
+
+    expect(gapInput).toBeInTheDocument();
+    expect(unitSelect).toBeInTheDocument();
+
+    fireEvent.change(gapInput, { target: { name: 'sessionGapDuration', value: '10' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      sessionGapDuration: '10'
+    }));
   });
 });
