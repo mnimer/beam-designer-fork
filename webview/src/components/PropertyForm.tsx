@@ -2,6 +2,7 @@ import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
 import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
 import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
+import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
 import { WindowingProperties } from '../properties/step/Windowing';
 import { ParseMessageProperties } from '../properties/step/ParseMessage';
 import { LogMessageProperties } from '../properties/step/LogMessage';
@@ -35,7 +36,11 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
   // Determine which form to show based on the node label
   // NOTE: This assumes naming conventions in labels.
   if (label.includes('PubSub')) {
-    formContent = <PubSubProperties node={node} onChange={onChange} />;
+    if (node.data.type === 'SOURCE') {
+      formContent = <PubSubProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
+    }
   } else if (label.includes('BigQuery')) {
     if (node.data.type === 'SOURCE') {
       formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;

@@ -1,6 +1,7 @@
 import YAML from 'yaml';
 import { PubSubSourceGenerator } from './sources/PubSubIO';
 import { BigQuerySinkGenerator } from './sinks/BigQueryIO';
+import { PubSubSinkGenerator } from './sinks/PubSubIO';
 import { WindowGenerator } from './steps/Window';
 import { ParseMessageGenerator } from './steps/ParseMessage';
 import { FixedWindowsGenerator } from './steps/FixedWindows';
@@ -77,6 +78,7 @@ export class BeamGenerator {
 
     private registerGenerators() {
         this.generators['PubSub_SOURCE'] = new PubSubSourceGenerator();
+        this.generators['PubSub_SINK'] = new PubSubSinkGenerator();
         this.generators['BigQuery_SINK'] = new BigQuerySinkGenerator();
         this.generators['Windows_STEP'] = new WindowGenerator();
         this.generators['Fixed Window_STEP'] = new WindowGenerator();

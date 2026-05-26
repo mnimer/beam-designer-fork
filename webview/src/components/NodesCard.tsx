@@ -134,7 +134,10 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
           </div>
         )}
         {activeTab === 'SINKS' && (
-          <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
+          <div className="col-span-3 flex flex-col gap-2">
+            <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
+            <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
+          </div>
         )}
       </div>
     </div>
