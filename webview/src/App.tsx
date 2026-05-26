@@ -556,7 +556,7 @@ function App() {
       setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
 
       if (data.type === 'STEP') {
-        if (data.label === 'Parse JSON' || data.label === 'Parse Base64') {
+        if (data.label === 'Parse Message') {
           const pubSubSource = nodes.find(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
           if (pubSubSource) {
             const newEdge = {

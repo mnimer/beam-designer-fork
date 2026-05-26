@@ -2,8 +2,7 @@ import YAML from 'yaml';
 import { PubSubSourceGenerator } from './sources/PubSubIO';
 import { BigQuerySinkGenerator } from './sinks/BigQueryIO';
 import { WindowGenerator } from './steps/Window';
-import { ParseJSONGenerator } from './steps/ParseJSON';
-import { ParseBase64Generator } from './steps/ParseBase64';
+import { ParseMessageGenerator } from './steps/ParseMessage';
 import { FixedWindowsGenerator } from './steps/FixedWindows';
 import { SlidingWindowsGenerator } from './steps/SlidingWindows';
 import { UserWindowsGenerator } from './steps/UserWindows';
@@ -74,8 +73,7 @@ export class BeamGenerator {
         this.generators['Fixed Windows_STEP'] = new FixedWindowsGenerator();
         this.generators['Sliding Windows_STEP'] = new SlidingWindowsGenerator();
         this.generators['User Windows_STEP'] = new UserWindowsGenerator();
-        this.generators['Parse JSON_STEP'] = new ParseJSONGenerator();
-        this.generators['Parse Base64_STEP'] = new ParseBase64Generator();
+        this.generators['Parse Message_STEP'] = new ParseMessageGenerator();
     }
 
     /**
@@ -380,9 +378,11 @@ import logging
             codeLines.push('');
 
             // Collect ParDo definitions
-            if (node.data.label === 'Parse JSON' && !seenParDos.has('ParseJsonToDictFn')) {
-                seenParDos.add('ParseJsonToDictFn');
-                parDoDefinitions.push(`class ParseJsonToDictFn(beam.DoFn):
+            if (node.data.label === 'Parse Message') {
+                const messageType = node.data.properties?.messageType || 'JSON';
+                if (messageType === 'JSON' && !seenParDos.has('ParseJsonToDictFn')) {
+                    seenParDos.add('ParseJsonToDictFn');
+                    parDoDefinitions.push(`class ParseJsonToDictFn(beam.DoFn):
     def __init__(self, bad_tag):
         self.bad_tag = bad_tag
 
@@ -396,20 +396,38 @@ import logging
             logging.error(f"Failed to parse JSON: {e}")
             yield TaggedOutput(self.bad_tag, element)
 `);
-            } else if (node.data.label === 'Parse Base64' && !seenParDos.has('ProcessBase64BytesFn')) {
-                seenParDos.add('ProcessBase64BytesFn');
-                parDoDefinitions.push(`class ProcessBase64BytesFn(beam.DoFn):
+                } else if (messageType === 'Base64' && !seenParDos.has('ProcessBase64BytesFn')) {
+                    seenParDos.add('ProcessBase64BytesFn');
+                    parDoDefinitions.push(`class ProcessBase64BytesFn(beam.DoFn):
     def __init__(self, bad_tag):
         self.bad_tag = bad_tag
 
     def process(self, element):
         try:
-            # TODO: Implement base64 decoding
-            yield element
+            import base64
+            # element is a byte string from Pub/Sub
+            decoded_bytes = base64.b64decode(element)
+            yield decoded_bytes
         except Exception as e:
             logging.error(f"Failed to process base64: {e}")
             yield TaggedOutput(self.bad_tag, element)
 `);
+                } else if (messageType === 'String' && !seenParDos.has('ParseStringToStrFn')) {
+                    seenParDos.add('ParseStringToStrFn');
+                    parDoDefinitions.push(`class ParseStringToStrFn(beam.DoFn):
+    def __init__(self, bad_tag):
+        self.bad_tag = bad_tag
+
+    def process(self, element):
+        try:
+            # element is a byte string from Pub/Sub
+            decoded_str = element.decode('utf-8')
+            yield decoded_str
+        except Exception as e:
+            logging.error(f"Failed to parse String: {e}")
+            yield TaggedOutput(self.bad_tag, element)
+`);
+                }
             }
 
             // Process outgoing edges

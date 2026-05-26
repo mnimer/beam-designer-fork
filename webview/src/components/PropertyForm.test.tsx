@@ -60,10 +60,10 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText('Generic properties for Unknown Node')).toBeInTheDocument();
   });
-  it('renders ParseJSONProperties when label is Parse JSON', () => {
+  it('renders ParseMessageProperties when label is Parse Message', () => {
     const mockNode = {
       data: {
-        label: 'Parse JSON',
+        label: 'Parse Message',
         properties: {}
       }
     };
@@ -71,21 +71,26 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Parse PubSub JSON message and convert to Dict')).toBeInTheDocument();
+    expect(screen.getByText('Message Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
+    expect(screen.getByText('Parse PubSub JSON message and convert it to a dictionary (Dict) format.')).toBeInTheDocument();
   });
 
-  it('renders ParseBase64Properties when label is Parse Base64', () => {
+  it('renders appropriate helper text based on messageType property', () => {
     const mockNode = {
       data: {
-        label: 'Parse Base64',
-        properties: {}
+        label: 'Parse Message',
+        properties: {
+          messageType: 'Base64' as const
+        }
       }
     };
     const mockOnChange = vi.fn();
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Parse PubSub Message and convert decode Base64 Bytes')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Base64')).toBeInTheDocument();
+    expect(screen.getByText('Decode PubSub Message and decode Base64 bytes.')).toBeInTheDocument();
   });
 
   it('renders WindowingProperties when label is Fixed Windows', () => {

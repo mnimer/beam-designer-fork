@@ -79,8 +79,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
               <details className="bg-slate-700/50 rounded-md" open>
                 <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">PubSub Messages</summary>
                 <div className="grid grid-cols-3 gap-4 p-2">
-                  <SidebarItem label="Parse JSON" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
-                  <SidebarItem label="Parse Base64" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
+                  <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
                 </div>
               </details>
             )}

@@ -59,7 +59,7 @@ describe('App', () => {
     expect(screen.getByTestId('react-flow')).toBeInTheDocument();
   });
 
-  it('connects Parse JSON step to PubSub source on drop', () => {
+  it('connects Parse Message step to PubSub source on drop', () => {
     render(<AppWithProvider />);
 
     const reactFlow = screen.getByTestId('react-flow');
@@ -76,7 +76,7 @@ describe('App', () => {
           if (key === 'application/reactflow') {
             return JSON.stringify({
               nodeType: 'pipeline',
-              label: 'Parse JSON',
+              label: 'Parse Message',
               type: 'STEP',
               iconName: 'FileCode'
             });

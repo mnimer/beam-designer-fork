@@ -59,7 +59,6 @@ describe('NodesCard', () => {
     );
 
     expect(screen.getByText('PubSub Messages')).toBeInTheDocument();
-    expect(screen.getByText('Parse JSON')).toBeInTheDocument();
-    expect(screen.getByText('Parse Base64')).toBeInTheDocument();
+    expect(screen.getByText('Parse Message')).toBeInTheDocument();
   });
 });
