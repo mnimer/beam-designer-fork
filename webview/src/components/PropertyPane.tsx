@@ -21,9 +21,10 @@ interface PropertyPaneProps {
   node: any;
   onChange: (properties: any) => void;
   runtimeVariables: { key: string, value: string }[];
+  onAddKVMapper?: (windowNodeId: string) => void;
 }
 
-export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, runtimeVariables }) => {
+export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, runtimeVariables, onAddKVMapper }) => {
   const IconComponent = iconComponentMap[node.data.iconName];
 
   return (
@@ -43,7 +44,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, runt
         </div>
       </div>
 
-      <PropertyForm node={node} onChange={onChange} />
+      <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />
       
       {/* Spacer to push content to bottom */}
       <div className="flex-1" />

@@ -23,9 +23,10 @@ import { MapProperties } from '../properties/step/Map';
 interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
+  onAddKVMapper?: (windowNodeId: string) => void;
 }
 
-export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange }) => {
+export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
   const { label } = node.data;
 
   let formContent = null;
@@ -48,7 +49,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange }) =>
     label === 'Sliding Windows' || 
     label === 'User Windows'
   ) {
-    formContent = <WindowingProperties node={node} onChange={onChange} />;
+    formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
   } else if (label === 'Parse Message') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
   } else if (label === 'Log Message') {

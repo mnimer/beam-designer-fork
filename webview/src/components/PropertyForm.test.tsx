@@ -132,7 +132,7 @@ describe('PropertyForm', () => {
       data: {
         label: 'User Windows',
         properties: {
-          windowType: 'User Window' as const
+          windowType: 'Session Window' as const
         }
       }
     };
@@ -141,7 +141,7 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Window Type')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('User Window')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Session Window')).toBeInTheDocument();
   });
 
   it('renders LogMessageProperties when label is Log Message', () => {

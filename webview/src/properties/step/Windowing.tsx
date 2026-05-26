@@ -1,9 +1,10 @@
 import React from 'react';
 
 interface WindowingNode {
+  id: string;
   data: {
     properties?: {
-      windowType?: 'Fixed Window' | 'Sliding Window' | 'User Window';
+      windowType?: 'Fixed Window' | 'Sliding Window' | 'Session Window';
       fixedDuration?: string;
       fixedDurationUnit?: 'Seconds' | 'Minutes' | 'Hours';
       slidingDuration?: string;
@@ -22,15 +23,16 @@ interface WindowingNode {
  * Windowing Properties Component
  * 
  * This component renders the property panel for the unified Window step.
- * It allows users to choose between Fixed Window, Sliding Window, and User Window,
+ * It allows users to choose between Fixed Window, Sliding Window, and Session Window,
  * and configures details like Durations, Periods, Offsets, and Gap Durations with unit selectors.
  */
 interface WindowingPropertiesProps {
   node: WindowingNode;
   onChange: (properties: any) => void;
+  onAddKVMapper?: (windowNodeId: string) => void;
 }
 
-export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, onChange }) => {
+export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, onChange, onAddKVMapper }) => {
   const properties = node.data.properties || {};
   const windowType = properties.windowType || 'Fixed Window';
 
@@ -52,7 +54,7 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
         >
           <option value="Fixed Window">Fixed Window</option>
           <option value="Sliding Window">Sliding Window</option>
-          <option value="User Window">User Window</option>
+          <option value="Session Window">Session Window</option>
         </select>
       </div>
 
@@ -170,8 +172,8 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
         </div>
       )}
 
-      {/* User Window / Session Window Form */}
-      {windowType === 'User Window' && (
+      {/* Session Window Form */}
+      {windowType === 'Session Window' && (
         <div className="flex flex-col gap-4 border-t border-slate-700/50 pt-3">
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold uppercase text-slate-500">Gap Duration</label>
@@ -195,6 +197,20 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
                 <option value="Hours">Hours</option>
               </select>
             </div>
+          </div>
+
+          {/* Warning Message & Button */}
+          <div className="flex flex-col gap-2 mt-2 p-3 rounded bg-amber-500/10 border border-amber-500/30">
+            <span className="text-xs text-amber-400 font-medium">
+              This option requires a KV Input value.
+            </span>
+            <button
+              type="button"
+              onClick={() => onAddKVMapper && onAddKVMapper(node.id)}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-1.5 px-3 rounded transition-colors cursor-pointer"
+            >
+              Add KV Mapper
+            </button>
           </div>
         </div>
       )}

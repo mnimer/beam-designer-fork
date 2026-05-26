@@ -564,6 +564,60 @@ function App() {
     setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
   }, [setNodes]);
 
+  const handleAddKVMapper = useCallback((windowNodeId: string) => {
+    const windowNode = nodes.find(n => n.id === windowNodeId);
+    if (!windowNode) return;
+
+    const kvMapperId = `kv_mapper_${Date.now()}`;
+    const newKVMapperNode = {
+      id: kvMapperId,
+      type: 'pipeline',
+      position: {
+        x: windowNode.position.x - 250,
+        y: windowNode.position.y
+      },
+      data: {
+        label: 'KV Mapper',
+        type: 'STEP',
+        iconName: 'Hash',
+        properties: {
+          keyPropertyName: 'id'
+        }
+      }
+    };
+
+    takeSnapshot();
+
+    // Find if there's an incoming edge to the window node
+    const incomingEdgeIndex = edges.findIndex(e => e.target === windowNodeId);
+    
+    let updatedEdges = [...edges];
+    if (incomingEdgeIndex !== -1) {
+      // Redirect the incoming edge to target the new KV Mapper instead
+      const oldEdge = edges[incomingEdgeIndex];
+      const redirectedEdge = {
+        ...oldEdge,
+        target: kvMapperId,
+        targetHandle: undefined
+      };
+      updatedEdges[incomingEdgeIndex] = redirectedEdge;
+    }
+
+    // Add the new edge connecting KV Mapper valid output to Window input
+    const connectorEdge = {
+      id: `e-${kvMapperId}-${windowNodeId}`,
+      source: kvMapperId,
+      sourceHandle: 'valid',
+      target: windowNodeId
+    };
+    updatedEdges.push(connectorEdge);
+
+    // Update both nodes and edges states
+    setNodes(nds => nds.concat(newKVMapperNode));
+    setEdges(updatedEdges);
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+  }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
+
   const handleRegenerate = useCallback(() => {
     if (vscode) {
       setIsGenerating(true);
@@ -765,6 +819,7 @@ function App() {
           node={nodes.find(n => n.id === selectedNodeId)!} 
           onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
           runtimeVariables={runtimeVariables} 
+          onAddKVMapper={handleAddKVMapper}
         />
       )}
     </div>

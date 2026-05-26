@@ -4,8 +4,9 @@ import '@testing-library/jest-dom';
 import { WindowingProperties } from './Windowing';
 
 describe('WindowingProperties', () => {
-  it('renders dropdown with Fixed Window, Sliding Window, and User Window options', () => {
+  it('renders dropdown with Fixed Window, Sliding Window, and Session Window options', () => {
     const mockNode = {
+      id: 'window-node-id',
       data: {
         properties: {
           windowType: 'Fixed Window' as const
@@ -18,11 +19,12 @@ describe('WindowingProperties', () => {
 
     expect(screen.getByText('Fixed Window')).toBeInTheDocument();
     expect(screen.getByText('Sliding Window')).toBeInTheDocument();
-    expect(screen.getByText('User Window')).toBeInTheDocument();
+    expect(screen.getByText('Session Window')).toBeInTheDocument();
   });
 
   it('renders Fixed Window properties correctly and handles changes', () => {
     const mockNode = {
+      id: 'window-node-id',
       data: {
         properties: {
           windowType: 'Fixed Window' as const,
@@ -49,6 +51,7 @@ describe('WindowingProperties', () => {
 
   it('renders Sliding Window properties correctly and handles changes', () => {
     const mockNode = {
+      id: 'window-node-id',
       data: {
         properties: {
           windowType: 'Sliding Window' as const,
@@ -77,25 +80,34 @@ describe('WindowingProperties', () => {
     }));
   });
 
-  it('renders User Window (Session) properties correctly and handles changes', () => {
+  it('renders Session Window properties correctly and handles changes', () => {
     const mockNode = {
+      id: 'window-node-id',
       data: {
         properties: {
-          windowType: 'User Window' as const,
+          windowType: 'Session Window' as const,
           sessionGapDuration: '45',
           sessionGapDurationUnit: 'Minutes' as const
         }
       }
     };
     const mockOnChange = vi.fn();
+    const mockOnAddKVMapper = vi.fn();
 
-    render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
+    render(<WindowingProperties node={mockNode} onChange={mockOnChange} onAddKVMapper={mockOnAddKVMapper} />);
 
     const gapInput = screen.getByDisplayValue('45');
     const unitSelect = screen.getByDisplayValue('Minutes');
 
     expect(gapInput).toBeInTheDocument();
     expect(unitSelect).toBeInTheDocument();
+    expect(screen.getByText('This option requires a KV Input value.')).toBeInTheDocument();
+    
+    const addKVMapperBtn = screen.getByRole('button', { name: 'Add KV Mapper' });
+    expect(addKVMapperBtn).toBeInTheDocument();
+    
+    fireEvent.click(addKVMapperBtn);
+    expect(mockOnAddKVMapper).toHaveBeenCalled();
 
     fireEvent.change(gapInput, { target: { name: 'sessionGapDuration', value: '10' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

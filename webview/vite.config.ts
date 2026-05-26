@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
   build: {
+    chunkSizeWarningLimit: 1000, // Set limit to 1000 kB to hide warning
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].js`,
