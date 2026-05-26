@@ -215,4 +215,18 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText(/Map properties are currently empty/i)).toBeInTheDocument();
   });
+
+  it('renders AggregationProperties when label is Approximate Quantiles', () => {
+    const mockNode = {
+      data: {
+        label: 'Approximate Quantiles',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Approximate Quantiles properties are currently empty\. Computes approximate quantiles of the elements in a collection\./i)).toBeInTheDocument();
+  });
 });

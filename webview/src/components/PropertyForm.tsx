@@ -9,6 +9,7 @@ import { KVMapperProperties } from '../properties/step/KVMapper';
 import { FilterProperties } from '../properties/step/Filter';
 import { FlatMapProperties } from '../properties/step/FlatMap';
 import { MapProperties } from '../properties/step/Map';
+import { AggregationProperties } from '../properties/step/Aggregations';
 
 /**
  * PropertyForm Component
@@ -62,6 +63,26 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     formContent = <FlatMapProperties node={node} onChange={onChange} />;
   } else if (label === 'Map') {
     formContent = <MapProperties node={node} onChange={onChange} />;
+  } else if (
+    label === 'Approximate Quantiles' ||
+    label === 'Approximate Unique' ||
+    label === 'Co Group By Key' ||
+    label === 'Combine' ||
+    label === 'Combine With Context' ||
+    label === 'Count' ||
+    label === 'Distinct' ||
+    label === 'Group By Key' ||
+    label === 'Group Into Batches' ||
+    label === 'Batch Elements' ||
+    label === 'Latest' ||
+    label === 'Max' ||
+    label === 'Mean' ||
+    label === 'Min' ||
+    label === 'Sample' ||
+    label === 'Sum' ||
+    label === 'Top'
+  ) {
+    formContent = <AggregationProperties node={node} onChange={onChange} />;
   } else {
     formContent = <div className="text-sm text-slate-400">Generic properties for {label}</div>;
   }

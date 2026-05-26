@@ -84,12 +84,6 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
               </details>
             )}
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Transformers</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
-                {/* Empty for now */}
-              </div>
-            </details>
-            <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
                 <SidebarItem label="Add Timestamp" type="STEP" iconName="Calendar" onDragStart={onDragStart} />
@@ -101,6 +95,28 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
                 <SidebarItem label="Map" type="STEP" iconName="Activity" onDragStart={onDragStart} />
                 <SidebarItem label="To String" type="STEP" iconName="Type" onDragStart={onDragStart} />
                 <SidebarItem label="Values" type="STEP" iconName="Grid" onDragStart={onDragStart} />
+              </div>
+            </details>
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Aggregations</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="Approximate Quantiles" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Approximate Unique" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Batch Elements" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Co Group By Key" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Combine" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Combine With Context" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Count" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Distinct" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Group By Key" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Group Into Batches" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Latest" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Max" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Mean" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Min" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Sample" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Sum" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Top" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">

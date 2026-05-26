@@ -102,4 +102,44 @@ describe('NodesCard', () => {
 
     expect(renderedItems).toEqual(expectedItems);
   });
+
+  it('renders Aggregations section in STEPS tab with alphabetically sorted items', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('Aggregations')).toBeInTheDocument();
+    
+    const expectedItems = [
+      'Approximate Quantiles',
+      'Approximate Unique',
+      'Batch Elements',
+      'Co Group By Key',
+      'Combine',
+      'Combine With Context',
+      'Count',
+      'Distinct',
+      'Group By Key',
+      'Group Into Batches',
+      'Latest',
+      'Max',
+      'Mean',
+      'Min',
+      'Sample',
+      'Sum',
+      'Top'
+    ];
+
+    expectedItems.forEach(item => {
+      expect(screen.getByText(item)).toBeInTheDocument();
+    });
+
+    // Verify alphabetical sorting order of text contents inside the section
+    const aggregationsSummary = screen.getByText('Aggregations');
+    const sectionContainer = aggregationsSummary.nextElementSibling; // This is the grid container
+    const renderedItems = Array.from(sectionContainer?.querySelectorAll('span') || [])
+      .map(el => el.textContent);
+
+    expect(renderedItems).toEqual(expectedItems);
+  });
 });
