@@ -7,11 +7,12 @@ I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
 - Generate pipeline file
 - Generate Unit Tests for the different steps in the pipeline
 - Generate dependency file for pipeline (requirements.txt or maven pom.xml)
+- Generate the follow shell scripts & DockerFile in the root folder
 - Generate a valid Dataflow Flex Template Dockerfile for the selected language. 
 - Generate a valid Dataflow Flex Template JSON schema for the pipeline. 
-- Generate a shell script to run the job locally, with the DirectRunner
-- Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner
-- Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner
+- Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh)
+- Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner (name=run_dataflowrunner.sh)
+- Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh)
 
 
 ## Compile instructions

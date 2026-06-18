@@ -1,6 +1,7 @@
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
 import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
+import { CreateProperties } from '../properties/source/CreateIO';
 import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
 import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
 import { WindowingProperties } from '../properties/step/Windowing';
@@ -41,6 +42,8 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     } else {
       formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
     }
+  } else if (label === 'Create') {
+    formContent = <CreateProperties node={node} onChange={onChange} />;
   } else if (label.includes('BigQuery')) {
     if (node.data.type === 'SOURCE') {
       formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;

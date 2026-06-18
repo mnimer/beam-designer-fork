@@ -229,4 +229,18 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText(/Approximate Quantiles properties are currently empty\. Computes approximate quantiles of the elements in a collection\./i)).toBeInTheDocument();
   });
+
+  it('renders CreateProperties when label is Create', () => {
+    const mockNode = {
+      data: {
+        label: 'Create',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('In-Memory Elements')).toBeInTheDocument();
+  });
 });

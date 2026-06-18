@@ -71,6 +71,13 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
                 <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
               </div>
             </details>
+            {/* Other Sources Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="Create" type="SOURCE" iconName="Box" onDragStart={onDragStart} />
+              </div>
+            </details>
           </div>
         )}
         {activeTab === 'STEPS' && (
