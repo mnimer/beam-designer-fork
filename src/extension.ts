@@ -730,6 +730,7 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         }
                         const responseSchema = JSON.parse(fs.readFileSync(responseSchemaPath, 'utf-8'));
                         
+                        //'gemini-3.5-flash', //antigravity-preview-05-2026
                         const response = await ai.models.generateContent({
                             model: 'gemini-3.5-flash',
                             contents: promptText,
