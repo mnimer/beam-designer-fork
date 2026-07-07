@@ -4,11 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AppWithProvider from './App.tsx';
 
-// Mock window.acquireVsCodeApi
-const mockPostMessage = vi.fn();
-(window as any).acquireVsCodeApi = () => ({
-  postMessage: mockPostMessage
-});
+
 
 let capturedEdges: any[] = [];
 
@@ -123,4 +119,41 @@ describe('App', () => {
     // we can assert that no errors were thrown and fitView was invoked successfully.
     expect(layoutBtn).toBeInTheDocument();
   });
+
+  it('updates output folder when receiving loadPipeline and updateOutputFolder messages', () => {
+    render(<AppWithProvider />);
+
+    // Switch to SOURCE CODE tab
+    const sourceCodeTabBtn = screen.getByText('SOURCE CODE');
+    fireEvent.click(sourceCodeTabBtn);
+
+    // Verify initial output folder is empty (placeholder is visible)
+    const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
+    expect(outputFolderInput.value).toBe('');
+
+    // Simulate receiving loadPipeline message with relativeFolder
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'my-pipeline.beam',
+        relativeFolder: 'src/pipelines',
+        data: 'nodes: []\nedges: []\npipelineConfig:\n  language: Python\n  outputFolder: ""\n  needsRebuild: false'
+      }
+    }));
+
+    // Expect the input to be updated to the relative folder
+    expect(outputFolderInput.value).toBe('src/pipelines');
+
+    // Simulate receiving updateOutputFolder message
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'updateOutputFolder',
+        outputFolder: 'src/other-pipelines'
+      }
+    }));
+
+    // Expect the input to be updated to the new path
+    expect(outputFolderInput.value).toBe('src/other-pipelines');
+  });
 });
+

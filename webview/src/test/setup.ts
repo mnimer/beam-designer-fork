@@ -9,3 +9,10 @@ class MockResizeObserver {
 }
 
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+// Mock window.acquireVsCodeApi globally for all tests
+const mockPostMessage = vi.fn();
+(window as any).acquireVsCodeApi = () => ({
+  postMessage: mockPostMessage
+});
+

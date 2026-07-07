@@ -67,6 +67,21 @@ export function activate(context: vscode.ExtensionContext) {
                 undefined,
                 context.subscriptions
             );
+
+            panel.onDidChangeViewState(() => {
+                if (panel.active && uri) {
+                    const beamFileDir = path.dirname(uri.fsPath);
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    let relativeFolder = '';
+                    if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
+                        relativeFolder = path.relative(workspaceFolder, beamFileDir);
+                    }
+                    webview.postMessage({
+                        command: 'updateOutputFolder',
+                        outputFolder: relativeFolder
+                    });
+                }
+            }, null, context.subscriptions);
         })
     );
 }
@@ -343,6 +358,22 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
         webview.onDidReceiveMessage(
             handleMessages(webview, document)
         );
+
+        webviewPanel.onDidChangeViewState(() => {
+            if (webviewPanel.active) {
+                const beamUri = document.uri;
+                const beamFileDir = path.dirname(beamUri.fsPath);
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                let relativeFolder = '';
+                if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
+                    relativeFolder = path.relative(workspaceFolder, beamFileDir);
+                }
+                webview.postMessage({
+                    command: 'updateOutputFolder',
+                    outputFolder: relativeFolder
+                });
+            }
+        });
     }
 }
 
@@ -462,18 +493,41 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                     console.error('Failed to get gcloud project', e);
                 }
 
+                const activeUri = document ? document.uri : uri;
+                let relativeFolder = '';
+                if (activeUri) {
+                    const beamFileDir = path.dirname(activeUri.fsPath);
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
+                        relativeFolder = path.relative(workspaceFolder, beamFileDir);
+                    }
+                }
+
                 if (document) {
                     webview.postMessage({ 
                         command: 'loadPipeline', 
                         data: document.getText(), 
                         filename: path.basename(document.uri.fsPath), 
-                        projectId: gcloudProjectId 
+                        projectId: gcloudProjectId,
+                        relativeFolder: relativeFolder
                     });
                 } else if (uri && fs.existsSync(uri.fsPath)) {
                     const content = fs.readFileSync(uri.fsPath, 'utf-8');
-                    webview.postMessage({ command: 'loadPipeline', data: content, filename: pipelineName, projectId: gcloudProjectId });
+                    webview.postMessage({ 
+                        command: 'loadPipeline', 
+                        data: content, 
+                        filename: pipelineName, 
+                        projectId: gcloudProjectId,
+                        relativeFolder: relativeFolder
+                    });
                 } else {
-                    webview.postMessage({ command: 'loadPipeline', data: null, filename: pipelineName, projectId: gcloudProjectId });
+                    webview.postMessage({ 
+                        command: 'loadPipeline', 
+                        data: null, 
+                        filename: pipelineName, 
+                        projectId: gcloudProjectId,
+                        relativeFolder: relativeFolder
+                    });
                 }
                 return;
             case 'savePipeline':

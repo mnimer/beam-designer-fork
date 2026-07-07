@@ -272,6 +272,13 @@ function App() {
               setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
               
               const config = data.pipelineConfig || { language: 'Python', outputFolder: '', needsRebuild: false };
+              if (message.relativeFolder !== undefined) {
+                const prevFolder = config.outputFolder;
+                config.outputFolder = message.relativeFolder;
+                if (prevFolder !== '' && prevFolder !== message.relativeFolder) {
+                  config.needsRebuild = true;
+                }
+              }
               if (config.needsRebuild === undefined) {
                 config.needsRebuild = false;
               }
@@ -288,7 +295,7 @@ function App() {
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
-            setPipelineConfig({ language: 'Python', outputFolder: '', needsRebuild: false });
+            setPipelineConfig({ language: 'Python', outputFolder: message.relativeFolder || '', needsRebuild: false });
           }
           setIsLoaded(true);
           
@@ -316,6 +323,20 @@ function App() {
             outputFolder: message.path,
             needsRebuild: true
           }));
+        } else if (message.command === 'updateOutputFolder') {
+          setPipelineConfig(prev => {
+            const prevFolder = prev.outputFolder;
+            const newFolder = message.outputFolder;
+            if (prevFolder !== newFolder) {
+              const needsRebuild = (prevFolder !== '' && prevFolder !== newFolder) ? true : prev.needsRebuild;
+              return {
+                ...prev,
+                outputFolder: newFolder,
+                needsRebuild
+              };
+            }
+            return prev;
+          });
         }
       };
       window.addEventListener('message', handleMessage);

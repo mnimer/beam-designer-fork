@@ -15,7 +15,7 @@ I will also need a valid requirements.txt file or maven pom.xml file and a Docke
 - Generate the following shell scripts & DockerFile in the root folder.  Validate all generated files are valid after creation
     - Generate a valid Dataflow Flex Template Dockerfile for the selected language. 
     - Generate a valid Dataflow Flex Template metadata.json file for the pipeline. 
-    - Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh)
+    - Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh). 
     - Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner (name=run_dataflowrunner.sh)
     - Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh)
 
@@ -53,6 +53,15 @@ Pipeline:
     -   You MUST configure the application logging backend (`slf4j-simple`,
         `logback-classic`, etc.) to exactly match the major/minor version of the
         resolved `slf4j-api`.
+
+## Python projects
+-   Run this job in a python venv with all requirements installed.  Update local shell script(s) to use this venv.
+-   **Python 3.12+ Compatibility and Dependency Pinning**:
+    -   In `requirements.txt`, do NOT pin packages to old, outdated versions (such as `grpcio-tools==1.62.1`) that require `pkg_resources` during installation/build.
+    -   Starting in Python 3.12+ (and setuptools 70+), the `pkg_resources` module is deprecated/removed by default. Trying to compile old packages from source distributions (which happens automatically if there are no prebuilt wheels for the active Python version) will fail with `ModuleNotFoundError: No module named 'pkg_resources'`.
+    -   Always use the latest versions of libraries that are compatible with the active Python version (e.g., Python 3.14 requires newer versions like `apache-beam>=2.74.0` and `grpcio-tools>=1.67` which have prebuilt wheels or do not rely on `pkg_resources` during build).
+    -   In generated shell scripts, make sure the virtual environment creation step also upgrades `pip` (i.e. `pip install --upgrade pip`) to ensure the latest compatible wheels can be resolved.
+
 
 ## Packaging a pipeline as a Flex Template
 
