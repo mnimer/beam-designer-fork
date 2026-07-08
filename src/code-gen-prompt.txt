@@ -15,9 +15,9 @@ I will also need a valid requirements.txt file or maven pom.xml file and a Docke
 - Generate the following shell scripts & DockerFile in the root folder.  Validate all generated files are valid after creation
     - Generate a valid Dataflow Flex Template Dockerfile for the selected language. 
     - Generate a valid Dataflow Flex Template metadata.json file for the pipeline. 
-    - Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh). 
+    - Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh). In this script, to prevent build failures on systems where the default `python3` command is Python 3.13+ (which does not have prebuilt wheels for older `apache-beam` versions and hangs trying to compile it from source), you MUST write a check at the beginning of the script to find a compatible python version (preferring `python3.12` or `python3.11` if available in the path, and falling back to `python3` only if neither are found) and use that version to initialize the `venv`. To bypass private artifact repositories that might lack prebuilt wheels in corporate environments, all `pip install` commands in the script MUST specify the public PyPI index using the `--index-url https://pypi.org/simple` flag.
     - Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner (name=run_dataflowrunner.sh). In this script, retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the `gcloud dataflow flex-template run` command using the `--subnetwork` flag. For any GCS staging/uploading operations, use the `gcsStagingPath` value from `jobConfig` (do NOT attempt to create a new GCS bucket).
-    - Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh). Note that when running a Python-based Spark script on GCP Serverless Spark, you MUST use the `gcloud dataproc batches submit pyspark` command (NOT `submit spark`), passing the main Python file GCS URI as the first positional argument (e.g. `gcloud dataproc batches submit pyspark gs://<bucket>/<path-to-script>.py`). Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading the python script (do NOT attempt to create a new GCS bucket in the script). If a subnetwork is configured in `jobConfig`, pass it to the command using the `--subnet` flag. Note that Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so you MUST prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in the `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"` where `${subnetwork}` is the subnetwork value from `jobConfig`). In this script, you MUST also add the `--properties=spark.pip.packages="apache-beam[gcp]"` flag to install the Apache Beam SDK on Dataproc Serverless.
+    -   Generate a 3rd shell script ONLY if the language is Java, to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh). Note that when running a Java-based Spark job on GCP Serverless Spark, you MUST use the `gcloud dataproc batches submit spark` command (NOT `submit pyspark`), passing the main compiled JAR file via the `--jars` flag, and the main class name via the `--class` flag. Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading the jar file (do NOT attempt to create a new GCS bucket in the script). If a subnetwork is configured in `jobConfig`, pass it to the command using the `--subnet` flag. Note that Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so you MUST prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in the `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"` where `${subnetwork}` is the subnetwork value from `jobConfig`).
 
 
 ## Compile instructions
@@ -59,35 +59,9 @@ Pipeline:
 -   **Python 3.12+ Compatibility and Dependency Pinning**:
     -   In `requirements.txt`, do NOT pin packages to old, outdated versions (such as `grpcio-tools==1.62.1`) that require `pkg_resources` during installation/build.
     -   Starting in Python 3.12+ (and setuptools 70+), the `pkg_resources` module is deprecated/removed by default. Trying to compile old packages from source distributions (which happens automatically if there are no prebuilt wheels for the active Python version) will fail with `ModuleNotFoundError: No module named 'pkg_resources'`.
-    -   Always use the latest versions of libraries that are compatible with the active Python version (e.g., Python 3.14 requires newer versions like `apache-beam>=2.74.0` and `grpcio-tools>=1.67` which have prebuilt wheels or do not rely on `pkg_resources` during build).
+    -   Always use the latest versions of libraries that are compatible with the active Python version. You MUST specify `apache-beam[gcp]>=2.74.0` in the generated `requirements.txt` to ensure native macOS Apple Silicon (arm64) prebuilt wheels are available for installation without compilation.
+    -   In `requirements.txt`, you MUST NOT include `pyspark` as a dependency.
     -   In generated shell scripts, make sure the virtual environment creation step also upgrades `pip` (i.e. `pip install --upgrade pip`) to ensure the latest compatible wheels can be resolved.
--   **Dataproc Serverless PySpark Executor Dependency Bootstrapping**:
-    -   When generating a Python pipeline that runs on Spark (via Dataproc Serverless), python dependencies (like `apache-beam[gcp]`) are not pre-installed on the serverless driver and executor nodes.
-    -   To ensure they are installed, YOU MUST prepend a self-contained bootstrap block to the very top of the main pipeline python file (before importing `apache_beam` or any other custom libraries):
-        ```python
-        import sys
-        import subprocess
-
-        def install_dependencies(x):
-            import subprocess
-            import sys
-            try:
-                import apache_beam
-            except ImportError:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "apache-beam[gcp]"])
-            return x
-
-        try:
-            from pyspark import SparkContext, SparkConf
-            conf = SparkConf().setAppName("InstallDependenciesBootstrap")
-            sc = SparkContext.getOrCreate(conf=conf)
-            sc.parallelize(range(10), 10).map(install_dependencies).collect()
-            sc.stop()
-        except Exception as e:
-            pass
-
-        install_dependencies(0)
-        ```
 
 
 ## Packaging a pipeline as a Flex Template

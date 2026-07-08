@@ -730,10 +730,24 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                     }
 
                     if (scriptExists) {
-                        const terminal = vscode.window.createTerminal("Apache Beam Runner");
-                        terminal.show();
-                        const command = `cd "${folderPath}" && ./${scriptName}`;
-                        terminal.sendText(command);
+                        try {
+                            const task = new vscode.Task(
+                                { type: 'shell', task: 'Apache Beam Runner' },
+                                vscode.TaskScope.Workspace,
+                                "Apache Beam Runner",
+                                "Beam Extension",
+                                new vscode.ShellExecution(`./${scriptName}`, { cwd: folderPath })
+                            );
+                            task.presentationOptions = {
+                                focus: true,
+                                reveal: vscode.TaskRevealKind.Always,
+                                panel: vscode.TaskPanelKind.Dedicated
+                            };
+                            vscode.tasks.executeTask(task);
+                        } catch (e) {
+                            console.error('Failed to run script task', e);
+                            vscode.window.showErrorMessage(`Failed to run script: ${e}`);
+                        }
                     } else {
                         const namesStr = possibleNames.join(' or ');
                         vscode.window.showErrorMessage(`Runner script not found (${namesStr}) in ${folderPath}. Please save and/or generate code first.`);
