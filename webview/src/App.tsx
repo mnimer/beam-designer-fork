@@ -417,8 +417,20 @@ function App() {
 
   const handleSetJobConfig = useCallback((config: any) => {
     takeSnapshot();
-    setJobConfig(config);
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+    setJobConfig(prev => {
+      const configChanged = 
+        prev.machineType !== config.machineType ||
+        prev.minInstances !== config.minInstances ||
+        prev.maxInstances !== config.maxInstances ||
+        prev.gcsStagingPath !== config.gcsStagingPath ||
+        prev.network !== config.network ||
+        prev.subnetwork !== config.subnetwork;
+
+      if (configChanged) {
+        setPipelineConfig(p => p.needsRebuild ? p : { ...p, needsRebuild: true });
+      }
+      return config;
+    });
   }, [takeSnapshot]);
 
   const addVariable = () => {
