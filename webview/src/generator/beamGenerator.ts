@@ -48,6 +48,7 @@ interface PipelineData {
         minInstances: number;
         maxInstances: number;
         gcsStagingPath?: string;
+        network?: string;
         subnetwork?: string;
     };
 }
@@ -243,6 +244,8 @@ python -m "${pipelineBaseName}" --runner=DirectRunner${streamingFlag}
         const project = projectId || 'YOUR_PROJECT_ID';
         const bucket = gcsStagingPath ? gcsStagingPath.replace('gs://', '') : 'YOUR_TEMPLATE_BUCKET';
         
+        const network = data.jobConfig?.network;
+        const networkFlag = network ? ` \\\n    --network="${network}"` : '';
         const subnetwork = data.jobConfig?.subnetwork;
         const subnetworkFlag = subnetwork ? ` \\\n    --subnetwork="${subnetwork}"` : '';
         
@@ -271,7 +274,7 @@ gcloud dataflow flex-template build "\${TEMPLATE_PATH}" \\
 echo "Running Flex Template..."
 gcloud dataflow flex-template run "\${IMAGE_NAME}-\$(date +%Y%m%d-%H%M%S)" \\
     --template-file-gcs-location "\${TEMPLATE_PATH}" \\
-    --region "\${REGION}"${subnetworkFlag} \\
+    --region "\${REGION}"${networkFlag}${subnetworkFlag} \\
     --parameters runner=DataflowRunner${streamingParam}
 `;
     }

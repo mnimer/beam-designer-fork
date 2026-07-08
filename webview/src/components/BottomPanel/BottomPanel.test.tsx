@@ -28,6 +28,7 @@ describe('BottomPanel', () => {
     isJobIdValid: vi.fn().mockReturnValue(true),
     generatedCode: 'print("hello")',
     onRunNow: vi.fn(),
+    networks: [],
     subnetworks: [],
     pipelineConfig: { language: 'Python' as const, outputFolder: '', needsRebuild: false },
     setPipelineConfig: vi.fn(),

@@ -18,6 +18,7 @@ interface DeploymentTabProps {
     minInstances: number;
     maxInstances: number;
     gcsStagingPath?: string;
+    network?: string;
     subnetwork?: string;
   };
   setJobConfig: (config: any) => void;
@@ -27,7 +28,7 @@ interface DeploymentTabProps {
   deleteVariable: (index: number) => void;
   isJobIdValid: (value: string) => boolean;
   onRunNow: () => void;
-  subnetworks: {name: string, region: string, value: string}[];
+  subnetworks: {name: string, region: string, network: string, value: string}[];
   needsRebuild?: boolean;
 }
 
@@ -92,21 +93,6 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
 
         {/* Column 2 */}
         <div className="flex-1 flex flex-col gap-4">
-          {jobConfig.runner === 'Dataflow' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold uppercase text-slate-500">Subnetwork</label>
-              <select 
-                value={jobConfig.subnetwork || ''} 
-                onChange={(e) => setJobConfig({...jobConfig, subnetwork: e.target.value})}
-                className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
-              >
-                <option value="">Select Subnetwork</option>
-                {subnetworks.map((sub, index) => (
-                  <option key={index} value={sub.value}>{sub.name} ({sub.region})</option>
-                ))}
-              </select>
-            </div>
-          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-bold uppercase text-slate-500">Machine Type</label>
             <select 
@@ -146,6 +132,21 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
               />
             </div>
           </div>
+          {(jobConfig.runner === 'Dataflow' || jobConfig.runner === 'Spark') && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold uppercase text-slate-500">Subnetwork</label>
+              <select 
+                value={jobConfig.subnetwork || ''} 
+                onChange={(e) => setJobConfig({...jobConfig, subnetwork: e.target.value})}
+                className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
+              >
+                <option value="">Select Subnetwork</option>
+                {subnetworks.map((sub, index) => (
+                  <option key={index} value={sub.value}>{sub.name} ({sub.region})</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

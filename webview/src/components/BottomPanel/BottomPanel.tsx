@@ -25,7 +25,7 @@ interface BottomPanelProps {
   isJobIdValid: (value: string) => boolean;
   generatedCode: string;
   onRunNow: () => void;
-  subnetworks: {name: string, region: string, value: string}[];
+  subnetworks: {name: string, region: string, network: string, value: string}[];
   pipelineConfig: { language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean };
   setPipelineConfig: (config: any) => void;
   onRegenerate: () => void;

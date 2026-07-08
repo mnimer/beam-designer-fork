@@ -457,6 +457,30 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                     }
                 });
                 return;
+            case 'getNetworks':
+                const execNetworks = require('child_process').exec;
+                execNetworks('gcloud compute networks list --format=json', (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`exec error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        webview.postMessage({ command: 'networksLoaded', networks: [] });
+                        return;
+                    }
+                    try {
+                        const networksJson = JSON.parse(stdout);
+                        const networks = networksJson.map((n: any) => {
+                            return {
+                                name: n.name,
+                                value: n.name
+                            };
+                        });
+                        webview.postMessage({ command: 'networksLoaded', networks });
+                    } catch (e) {
+                        console.error('Failed to parse networks output', e);
+                        webview.postMessage({ command: 'networksLoaded', networks: [] });
+                    }
+                });
+                return;
             case 'getSubnetworks':
                 const execSubnets = require('child_process').exec;
                 execSubnets('gcloud compute networks subnets list --format=json', (error: any, stdout: string, stderr: string) => {
@@ -471,9 +495,12 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         const subnetworks = subnetsJson.map((s: any) => {
                             const regionParts = s.region.split('/');
                             const region = regionParts[regionParts.length - 1];
+                            const networkParts = s.network.split('/');
+                            const network = networkParts[networkParts.length - 1];
                             return {
                                 name: s.name,
                                 region: region,
+                                network: network,
                                 value: `regions/${region}/subnetworks/${s.name}`
                             };
                         });
@@ -672,33 +699,36 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         }
                     }
 
-                    const pipelineBaseName = path.basename(runUri.fsPath, '.beam');
-                    const isPython = !message.pipelineConfig || message.pipelineConfig.language.toLowerCase() === 'python';
+                    const runner = message.jobConfig?.runner;
+                    let scriptName = '';
+                    let possibleNames: string[] = [];
 
-                    if (isPython) {
-                        const pyPath = path.join(folderPath, `${pipelineBaseName}.py`);
-                        if (fs.existsSync(pyPath)) {
-                            const terminal = vscode.window.createTerminal("Apache Beam Runner");
-                            terminal.show();
+                    if (runner === 'DirectRunner') {
+                        possibleNames = ['run_directrunner.sh'];
+                    } else if (runner === 'Dataflow') {
+                        possibleNames = ['run_dataflowrunner.sh', 'run_dataflow.sh'];
+                    } else if (runner === 'Spark') {
+                        possibleNames = ['run_sparkrunner.sh', 'run_spark.sh'];
+                    }
 
-                            let command = '';
-                            if (message.jobConfig.runner === 'DirectRunner') {
-                                command = `cd "${folderPath}" && ./run_directrunner.sh`;
-                            } else if (message.jobConfig.runner === 'Dataflow') {
-                                command = `cd "${folderPath}" && ./run_dataflow.sh`;
-                            }
-
-                            terminal.sendText(command);
-                        } else {
-                            vscode.window.showErrorMessage(`Python file not found: ${pyPath}. Please save the pipeline first.`);
+                    let scriptExists = false;
+                    for (const name of possibleNames) {
+                        const scriptPath = path.join(folderPath, name);
+                        if (fs.existsSync(scriptPath)) {
+                            scriptName = name;
+                            scriptExists = true;
+                            break;
                         }
+                    }
+
+                    if (scriptExists) {
+                        const terminal = vscode.window.createTerminal("Apache Beam Runner");
+                        terminal.show();
+                        const command = `cd "${folderPath}" && ./${scriptName}`;
+                        terminal.sendText(command);
                     } else {
-                        const javaPath = path.join(folderPath, `${pipelineBaseName}.java`);
-                        if (fs.existsSync(javaPath)) {
-                            vscode.window.showInformationMessage(`Java runner execution not fully configured. Found file at ${javaPath}`);
-                        } else {
-                            vscode.window.showErrorMessage(`Java file not found: ${javaPath}. Please save the pipeline first.`);
-                        }
+                        const namesStr = possibleNames.join(' or ');
+                        vscode.window.showErrorMessage(`Runner script not found (${namesStr}) in ${folderPath}. Please save and/or generate code first.`);
                     }
                 } else {
                     vscode.window.showErrorMessage("Please save the pipeline first to run it.");

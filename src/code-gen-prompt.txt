@@ -16,8 +16,8 @@ I will also need a valid requirements.txt file or maven pom.xml file and a Docke
     - Generate a valid Dataflow Flex Template Dockerfile for the selected language. 
     - Generate a valid Dataflow Flex Template metadata.json file for the pipeline. 
     - Generate a shell script to run the job locally, with the DirectRunner (name=run_directrunner.sh). 
-    - Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner (name=run_dataflowrunner.sh)
-    - Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh)
+    - Generate a 2nd shell script to run the build, deploy, and run the code on Dataflow, with the DataFlow Runner (name=run_dataflowrunner.sh). In this script, retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the `gcloud dataflow flex-template run` command using the `--subnetwork` flag.
+    - Generate a 3rd shell script to run the build, deploy, and run the code on GCP Serverless Spark, with the Spark Runner (name=run_sparkrunner.sh). Note that when running a Python-based Spark script on GCP Serverless Spark, you MUST use the `gcloud dataproc batches submit pyspark` command (NOT `submit spark`), passing the main Python file GCS URI as the first positional argument (e.g. `gcloud dataproc batches submit pyspark gs://<bucket>/<path-to-script>.py`). If a subnetwork is configured in `jobConfig`, pass it to the command using the `--subnet` flag. Note that Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so you MUST prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in the `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"` where `${subnetwork}` is the subnetwork value from `jobConfig`).
 
 
 ## Compile instructions

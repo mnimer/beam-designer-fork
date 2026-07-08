@@ -94,10 +94,11 @@ function App() {
     minInstances: 1,
     maxInstances: 10,
     gcsStagingPath: '',
+    network: '',
     subnetwork: ''
   });
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
-  const [subnetworks, setSubnetworks] = useState<{name: string, region: string, value: string}[]>([]);
+  const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
   
   // Custom pipeline config state
@@ -269,7 +270,7 @@ function App() {
                 variables.unshift({ key: 'JOB_ID', value: defaultJobId });
               }
               setRuntimeVariables(variables);
-              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
+              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
               
               const config = data.pipelineConfig || { language: 'Python', outputFolder: '', needsRebuild: false };
               if (message.relativeFolder !== undefined) {
@@ -294,7 +295,7 @@ function App() {
               ? message.filename.replace('.beam', '').replace(/ /g, '_') 
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
-            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', subnetwork: '' });
+            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
             setPipelineConfig({ language: 'Python', outputFolder: message.relativeFolder || '', needsRebuild: false });
           }
           setIsLoaded(true);
