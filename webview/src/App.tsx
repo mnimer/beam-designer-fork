@@ -273,11 +273,20 @@ function App() {
               setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
               
               const config = data.pipelineConfig || { language: 'Python', outputFolder: '', needsRebuild: false };
-              if (message.relativeFolder !== undefined) {
-                const prevFolder = config.outputFolder;
-                config.outputFolder = message.relativeFolder;
-                if (prevFolder !== '' && prevFolder !== message.relativeFolder) {
+              const nameWithoutExt = message.filename 
+                ? message.filename.replace('.beam', '') 
+                : '';
+              if (nameWithoutExt) {
+                let folder = config.outputFolder ? config.outputFolder.trim() : '';
+                if (!folder && message.defaultOutputFolder) {
+                  folder = message.defaultOutputFolder;
+                }
+                const normFolder = folder.replace(/\/$/, '');
+                if (!normFolder.endsWith(nameWithoutExt)) {
+                  config.outputFolder = normFolder ? `${normFolder}/${nameWithoutExt}` : nameWithoutExt;
                   config.needsRebuild = true;
+                } else {
+                  config.outputFolder = folder;
                 }
               }
               if (config.needsRebuild === undefined) {
@@ -296,7 +305,7 @@ function App() {
               : 'default_job';
             setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
             setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
-            setPipelineConfig({ language: 'Python', outputFolder: message.relativeFolder || '', needsRebuild: false });
+            setPipelineConfig({ language: 'Python', outputFolder: message.defaultOutputFolder || '', needsRebuild: false });
           }
           setIsLoaded(true);
           

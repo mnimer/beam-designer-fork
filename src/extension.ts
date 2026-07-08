@@ -76,9 +76,11 @@ export function activate(context: vscode.ExtensionContext) {
                     if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
                         relativeFolder = path.relative(workspaceFolder, beamFileDir);
                     }
+                    const filenameWithoutExt = path.basename(uri.fsPath, '.beam');
+                    const defaultOutputFolder = relativeFolder ? path.join(relativeFolder, filenameWithoutExt) : filenameWithoutExt;
                     webview.postMessage({
                         command: 'updateOutputFolder',
-                        outputFolder: relativeFolder
+                        outputFolder: defaultOutputFolder
                     });
                 }
             }, null, context.subscriptions);
@@ -522,12 +524,15 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
 
                 const activeUri = document ? document.uri : uri;
                 let relativeFolder = '';
+                let defaultOutputFolder = '';
                 if (activeUri) {
                     const beamFileDir = path.dirname(activeUri.fsPath);
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
                     if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
                         relativeFolder = path.relative(workspaceFolder, beamFileDir);
                     }
+                    const filenameWithoutExt = path.basename(activeUri.fsPath, '.beam');
+                    defaultOutputFolder = relativeFolder ? path.join(relativeFolder, filenameWithoutExt) : filenameWithoutExt;
                 }
 
                 if (document) {
@@ -536,7 +541,8 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         data: document.getText(), 
                         filename: path.basename(document.uri.fsPath), 
                         projectId: gcloudProjectId,
-                        relativeFolder: relativeFolder
+                        relativeFolder: relativeFolder,
+                        defaultOutputFolder: defaultOutputFolder
                     });
                 } else if (uri && fs.existsSync(uri.fsPath)) {
                     const content = fs.readFileSync(uri.fsPath, 'utf-8');
@@ -545,7 +551,8 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         data: content, 
                         filename: pipelineName, 
                         projectId: gcloudProjectId,
-                        relativeFolder: relativeFolder
+                        relativeFolder: relativeFolder,
+                        defaultOutputFolder: defaultOutputFolder
                     });
                 } else {
                     webview.postMessage({ 
@@ -553,7 +560,8 @@ function handleMessages(webview: vscode.Webview, document?: vscode.TextDocument,
                         data: null, 
                         filename: pipelineName, 
                         projectId: gcloudProjectId,
-                        relativeFolder: relativeFolder
+                        relativeFolder: relativeFolder,
+                        defaultOutputFolder: defaultOutputFolder
                     });
                 }
                 return;

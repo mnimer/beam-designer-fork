@@ -131,29 +131,30 @@ describe('App', () => {
     const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
     expect(outputFolderInput.value).toBe('');
 
-    // Simulate receiving loadPipeline message with relativeFolder
+    // Simulate receiving loadPipeline message with relativeFolder and defaultOutputFolder
     fireEvent(window, new MessageEvent('message', {
       data: {
         command: 'loadPipeline',
         filename: 'my-pipeline.beam',
         relativeFolder: 'src/pipelines',
+        defaultOutputFolder: 'src/pipelines/my-pipeline',
         data: 'nodes: []\nedges: []\npipelineConfig:\n  language: Python\n  outputFolder: ""\n  needsRebuild: false'
       }
     }));
 
-    // Expect the input to be updated to the relative folder
-    expect(outputFolderInput.value).toBe('src/pipelines');
+    // Expect the input to be updated to the default output folder (with filename appended)
+    expect(outputFolderInput.value).toBe('src/pipelines/my-pipeline');
 
     // Simulate receiving updateOutputFolder message
     fireEvent(window, new MessageEvent('message', {
       data: {
         command: 'updateOutputFolder',
-        outputFolder: 'src/other-pipelines'
+        outputFolder: 'src/other-pipelines/my-pipeline'
       }
     }));
 
     // Expect the input to be updated to the new path
-    expect(outputFolderInput.value).toBe('src/other-pipelines');
+    expect(outputFolderInput.value).toBe('src/other-pipelines/my-pipeline');
   });
 });
 
