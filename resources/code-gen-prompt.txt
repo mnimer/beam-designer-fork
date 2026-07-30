@@ -14,8 +14,11 @@ I will also need you to generate:
 
 ## Project code instructions
 - Only generate the pipeline code. I do not need any extra helper application code generated. 
-- Generate the code in a new sub-folder that is the same name as the *.beam filename (ex:  foorbar.beam is generated in a 'foobar/' sub-folder)
-- Delete all files and folders in generate sub-folder before generating the new code.
+- Directory & Subfolder Structure Rules:
+  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
+  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder (e.g., 'Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt' / 'pom.xml', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'run_sparkrunner.sh', 'README.md').
+  - Pipeline source code files: All actual Python/Java pipeline code files, custom transform modules, and unit tests MUST be generated inside a 'src/' subfolder (e.g., 'src/pipeline.py' or 'src/foobar.py', 'src/pipeline_test.py' or 'src/foobar_test.py').
+- Delete all files and folders in output folder before generating the new code.
 - Validate all generated files are valid after creation
 - Generate Unit Tests for the different steps in the pipeline
 - Validate all unit tests run and pass locally using the DirectRunner

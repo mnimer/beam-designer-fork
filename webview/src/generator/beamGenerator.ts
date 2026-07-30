@@ -194,13 +194,13 @@ WORKDIR /template
  
 # 3. Copy files
 COPY requirements.txt .
-COPY ${pipelineBaseName}.py .
+COPY src/ ./src/
  
 # 4. Install Python Dependencies
 RUN pip install --no-cache-dir -r requirements.txt
  
 # 5. Specify Pipeline Entrypoint
-ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/${pipelineBaseName}.py
+ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/src/${pipelineBaseName}.py
 `;
     }
 
@@ -228,7 +228,7 @@ echo "Installing dependencies..."
 pip install -r requirements.txt
 
 echo "Running pipeline..."
-python -m "${pipelineBaseName}" --runner=DirectRunner${streamingFlag}
+python "src/${pipelineBaseName}.py" --runner=DirectRunner${streamingFlag}
 `;
     }
 

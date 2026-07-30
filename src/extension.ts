@@ -129,9 +129,9 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
         files.forEach(file => {
             const relativePath = path.relative(workspacePath, file.fsPath);
             const parts = relativePath.split(path.sep);
-            
+
             let currentLevel = root;
-            
+
             for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
                 let folder = currentLevel.find(item => item.label === part && item.contextValue === 'folder');
@@ -141,7 +141,7 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
                 }
                 currentLevel = folder.children!;
             }
-            
+
             const fileName = parts[parts.length - 1];
             currentLevel.push(new DataItem(fileName, vscode.TreeItemCollapsibleState.None, 'pipeline-edit', undefined, file));
         });
@@ -283,12 +283,12 @@ function deleteCodeFiles(folderPath: string) {
             if (item.startsWith('.') && item !== '.dockerignore' && item !== '.gcloudignore') {
                 continue;
             }
-            
+
             // Never delete .beam files containing source designs
             if (item.endsWith('.beam')) {
                 continue;
             }
-            
+
             const itemPath = path.join(resolvedFolderPath, item);
             if (fs.existsSync(itemPath)) {
                 try {
@@ -343,7 +343,11 @@ function savePipelineFiles(
         }
 
         const pipelineBaseName = path.basename(targetUri.fsPath, '.beam');
-        const codePath = path.join(folderPath, `${pipelineBaseName}.${fileExtension}`);
+        const srcFolderPath = path.join(folderPath, 'src');
+        if (!fs.existsSync(srcFolderPath)) {
+            fs.mkdirSync(srcFolderPath, { recursive: true });
+        }
+        const codePath = path.join(srcFolderPath, `${pipelineBaseName}.${fileExtension}`);
         fs.writeFileSync(codePath, code, 'utf-8');
 
         if (fileExtension === 'py') {
@@ -394,7 +398,7 @@ function savePipelineFiles(
  * Custom Text Editor provider for `.beam` visual pipeline design files.
  */
 class BeamEditorProvider implements vscode.CustomTextEditorProvider {
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    constructor(private readonly context: vscode.ExtensionContext) { }
 
     public async resolveCustomTextEditor(
         document: vscode.TextDocument,
@@ -452,10 +456,10 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
  * Provides safe parameter handling and non-blocking shell executions.
  */
 function handleMessages(
-    webview: vscode.Webview, 
-    context: vscode.ExtensionContext, 
-    document?: vscode.TextDocument, 
-    uri?: vscode.Uri, 
+    webview: vscode.Webview,
+    context: vscode.ExtensionContext,
+    document?: vscode.TextDocument,
+    uri?: vscode.Uri,
     pipelineName?: string
 ) {
     return async (message: any) => {
@@ -607,29 +611,29 @@ function handleMessages(
                 }
 
                 if (document) {
-                    webview.postMessage({ 
-                        command: 'loadPipeline', 
-                        data: document.getText(), 
-                        filename: path.basename(document.uri.fsPath), 
+                    webview.postMessage({
+                        command: 'loadPipeline',
+                        data: document.getText(),
+                        filename: path.basename(document.uri.fsPath),
                         projectId: gcloudProjectId,
                         relativeFolder: relativeFolder,
                         defaultOutputFolder: defaultOutputFolder
                     });
                 } else if (uri && fs.existsSync(uri.fsPath)) {
                     const content = fs.readFileSync(uri.fsPath, 'utf-8');
-                    webview.postMessage({ 
-                        command: 'loadPipeline', 
-                        data: content, 
-                        filename: pipelineName, 
+                    webview.postMessage({
+                        command: 'loadPipeline',
+                        data: content,
+                        filename: pipelineName,
                         projectId: gcloudProjectId,
                         relativeFolder: relativeFolder,
                         defaultOutputFolder: defaultOutputFolder
                     });
                 } else {
-                    webview.postMessage({ 
-                        command: 'loadPipeline', 
-                        data: null, 
-                        filename: pipelineName, 
+                    webview.postMessage({
+                        command: 'loadPipeline',
+                        data: null,
+                        filename: pipelineName,
                         projectId: gcloudProjectId,
                         relativeFolder: relativeFolder,
                         defaultOutputFolder: defaultOutputFolder
@@ -712,10 +716,23 @@ function handleMessages(
                 }
                 if (folderPath && fs.existsSync(folderPath)) {
                     try {
-                        const files = fs.readdirSync(folderPath).filter(file => {
-                            const fullPath = path.join(folderPath, file);
-                            return fs.statSync(fullPath).isFile() && !file.startsWith('.');
-                        });
+                        const getFilesRecursively = (dir: string, baseDir: string = dir): string[] => {
+                            let results: string[] = [];
+                            const list = fs.readdirSync(dir);
+                            for (const item of list) {
+                                if (item.startsWith('.')) continue;
+                                const fullPath = path.join(dir, item);
+                                const stat = fs.statSync(fullPath);
+                                if (stat.isDirectory()) {
+                                    results = results.concat(getFilesRecursively(fullPath, baseDir));
+                                } else if (stat.isFile()) {
+                                    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+                                    results.push(relPath);
+                                }
+                            }
+                            return results;
+                        };
+                        const files = getFilesRecursively(folderPath);
                         webview.postMessage({
                             command: 'folderFilesLoaded',
                             folderPath: folderPath,
@@ -746,8 +763,8 @@ function handleMessages(
                 if (readFolder && message.filePath && typeof message.filePath === 'string') {
                     const resolvedReadFolder = path.resolve(readFolder);
                     const fullFilePath = path.resolve(
-                        path.isAbsolute(message.filePath) 
-                            ? message.filePath 
+                        path.isAbsolute(message.filePath)
+                            ? message.filePath
                             : path.join(resolvedReadFolder, message.filePath)
                     );
 
@@ -842,7 +859,7 @@ function handleMessages(
                 const languageVal = message.language;
                 const outputFolderVal = message.outputFolder;
                 const targetActiveUri = document ? document.uri : uri;
-                
+
                 let targetFolderPath = '';
                 if (targetActiveUri) {
                     targetFolderPath = path.dirname(targetActiveUri.fsPath);
@@ -857,13 +874,13 @@ function handleMessages(
                         }
                     }
                 }
-                
+
                 if (!targetFolderPath) {
                     vscode.window.showErrorMessage('Could not determine output folder.');
                     webview.postMessage({ command: 'codeRegenerated', success: false, error: 'Could not determine output folder.' });
                     return;
                 }
-                
+
                 if (!fs.existsSync(targetFolderPath)) {
                     try {
                         fs.mkdirSync(targetFolderPath, { recursive: true });
@@ -873,10 +890,10 @@ function handleMessages(
                         return;
                     }
                 }
-                
+
                 const baseName = filenameVal.replace('.beam', '');
                 deleteCodeFiles(targetFolderPath);
-                
+
                 vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
                     title: "Generating code using Gemini...",
@@ -885,23 +902,23 @@ function handleMessages(
                     let promptText = '';
                     try {
                         const gcloudProjectId = await getGcloudProject();
-                        
+
                         const aiOptions: any = {};
                         if (gcloudProjectId) {
                             aiOptions.vertexai = true;
                             aiOptions.project = gcloudProjectId;
                             aiOptions.location = 'global';
                         }
-                        
+
                         const ai = new GoogleGenAI(aiOptions);
-                        
+
                         const promptTemplate = readResourceFile(context, 'code-gen-prompt.txt');
                         promptText = promptTemplate
                             .replace(/\{\{language\}\}/g, languageVal)
                             .replace('{{pipeline}}', yamlData);
-                        
+
                         const responseSchema = JSON.parse(readResourceFile(context, 'code-gen-schema.json'));
-                        
+
                         const response = await ai.models.generateContent({
                             model: 'gemini-3.5-flash',
                             contents: promptText,
@@ -910,7 +927,7 @@ function handleMessages(
                                 responseSchema: responseSchema
                             }
                         });
-                        
+
                         // Log successful request and usage data to gemini.log
                         try {
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
@@ -935,33 +952,47 @@ function handleMessages(
                             throw new Error("Empty response from Gemini model.");
                         }
                         const responseObj = JSON.parse(response.text);
-                        
+
                         let mainPipelineCode = '';
                         const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
                         const mainPipelineFileName = `${baseName}.${fileExt}`;
-                        
+
                         if (responseObj.files && Array.isArray(responseObj.files)) {
                             for (const file of responseObj.files) {
                                 if (!file.filename || file.content === undefined) {
                                     continue;
                                 }
-                                
-                                // Normalize standard names to match diagrams
+
+                                // Normalize standard names to match diagrams and directory structure
                                 let normalizedFilename = file.filename;
-                                if (normalizedFilename.toLowerCase() === 'pipeline.py' || normalizedFilename.toLowerCase() === 'pipeline.java') {
-                                    normalizedFilename = `${baseName}.${fileExt}`;
-                                } else if (normalizedFilename.toLowerCase() === 'pipeline_test.py' || normalizedFilename.toLowerCase() === 'pipelinetest.java') {
-                                    const testExt = fileExt === 'py' ? '_test.py' : 'Test.java';
-                                    normalizedFilename = `${baseName}${testExt}`;
+
+                                // Strip redundant top-level folder matching baseName if model included it (e.g. "foobar/Dockerfile" -> "Dockerfile")
+                                if (normalizedFilename.startsWith(`${baseName}/`)) {
+                                    normalizedFilename = normalizedFilename.substring(baseName.length + 1);
                                 }
-                                
+
+                                const fileNameOnly = path.basename(normalizedFilename);
+                                const dirNameOnly = path.dirname(normalizedFilename);
+
+                                // Route pipeline code and test files to src/ subfolder
+                                if (fileNameOnly.toLowerCase() === 'pipeline.py' || fileNameOnly.toLowerCase() === 'pipeline.java' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}.${fileExt}`) {
+                                    normalizedFilename = `src/${baseName}.${fileExt}`;
+                                } else if (fileNameOnly.toLowerCase() === 'pipeline_test.py' || fileNameOnly.toLowerCase() === 'pipelinetest.java' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}_test.py` || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}test.java`) {
+                                    const testExt = fileExt === 'py' ? '_test.py' : 'Test.java';
+                                    normalizedFilename = `src/${baseName}${testExt}`;
+                                } else if ((fileExt === 'py' && fileNameOnly.endsWith('.py')) || (fileExt === 'java' && fileNameOnly.endsWith('.java'))) {
+                                    if (dirNameOnly === '.' || dirNameOnly === '') {
+                                        normalizedFilename = `src/${fileNameOnly}`;
+                                    }
+                                }
+
                                 const filePath = path.join(targetFolderPath, normalizedFilename);
                                 const parentDir = path.dirname(filePath);
                                 if (!fs.existsSync(parentDir)) {
                                     fs.mkdirSync(parentDir, { recursive: true });
                                 }
                                 fs.writeFileSync(filePath, file.content, 'utf-8');
-                                
+
                                 if (file.executable) {
                                     try {
                                         fs.chmodSync(filePath, '755');
@@ -969,20 +1000,20 @@ function handleMessages(
                                         console.error(`Failed to set executable permission on ${filePath}`, e);
                                     }
                                 }
-                                
-                                if (normalizedFilename === mainPipelineFileName) {
+
+                                if (path.basename(normalizedFilename) === mainPipelineFileName || normalizedFilename === `src/${mainPipelineFileName}`) {
                                     mainPipelineCode = file.content;
                                 }
                             }
                         } else {
                             throw new Error("Invalid response format from Gemini: 'files' array is missing.");
                         }
-                        
+
                         // Default code if the main pipeline file wasn't found in the generated list
                         if (!mainPipelineCode && responseObj.files.length > 0) {
                             mainPipelineCode = responseObj.files[0].content;
                         }
-                        
+
                         // Write default ignore files if not present in generated files
                         const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
                         if (!fs.existsSync(dockerIgnorePath)) {
@@ -992,15 +1023,15 @@ function handleMessages(
                         if (!fs.existsSync(gcloudIgnorePath)) {
                             fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
                         }
-                        
+
                         vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
-                        
-                        webview.postMessage({ 
-                            command: 'codeRegenerated', 
-                            success: true, 
-                            code: mainPipelineCode 
+
+                        webview.postMessage({
+                            command: 'codeRegenerated',
+                            success: true,
+                            code: mainPipelineCode
                         });
-                        
+
                     } catch (err: any) {
                         // Log failure to gemini.log
                         try {
