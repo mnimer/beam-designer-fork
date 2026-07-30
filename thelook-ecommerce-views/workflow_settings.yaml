@@ -1,0 +1,6 @@
+dataformCoreVersion: 3.0.50
+defaultProject: argolis-playground
+defaultLocation: US
+defaultDataset: mikenimer_demo
+defaultAssertionDataset: mikenimer_demo_assertions
+
