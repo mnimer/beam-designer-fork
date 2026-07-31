@@ -1,0 +1,176 @@
+I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+
+I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in {{language}}, using the latest version of all libraries. 
+
+I will also need you to generate:
+- A valid dependecy file (requirements.txt file or maven pom.xml) 
+- A valid Dataflow Flex Template Dockerfile for the selected language. 
+- A valid Dataflow Flex Template metadata.json file for the pipeline. Allowing users to override all pipeline options that were provided in the input yaml. 
+- A shell script to run the job locally (name=run_directrunner.sh)    
+- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
+- A shell script to run the job on GCP Serverless Spark (name=run_sparkrunner.sh)
+- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
+- A detailed Readme documenting the pipeline, how to build it, and how to run it (locally, on Dataflow, and on Serverless Spark)
+
+## Project code instructions
+- Only generate the pipeline code. I do not need any extra helper application code generated. 
+- Generate the code in a new sub-folder that is the same name as the *.beam filename (ex:  foorbar.beam is generated in a 'foobar/' sub-folder)
+- Delete all files and folders in generate sub-folder before generating the new code.
+- Validate all generated files are valid after creation
+- Generate Unit Tests for the different steps in the pipeline
+- Validate all unit tests run and pass locally using the DirectRunner
+- Use Cloud Build to build all artifacts
+
+## Pipeline Instructions
+- Every node in the yaml, might have a 'systemInstructions' attribute.  If it does, use this to customize the code generation for that specific node. 
+- If the pipeline has an output that goes no where (invalid beam pipeline) include a simple Logger step to print the output message.    
+- Use the latest version of all libraries
+
+## DOCKERFILE instructions
+- Generate the dockerfile to support the Beam pipeline using Flex Templates.
+
+## 'run_directrunner.sh' shell script instructions
+In this script, to prevent build failures on systems where the default `python3` command is Python 3.13+ (which does not have prebuilt wheels for older `apache-beam` versions and hangs trying to compile from source),
+-  you MUST write a check at the beginning of the script to find a compatible python version (preferring `python3.12` or `python3.11` if available in the path, and falling back to `python3` only if neither are found) and use that version to initialize the `venv`. To bypass private artifact repositories that might lack prebuilt wheels in corporate environments, all `pip install` commands in the script MUST specify the public PyPI index using the `--index-url https://pypi.org/simple` flag.
+
+## 'run_dataflow.sh' shell script instructions
+- retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the `gcloud dataflow flex-template run` command using the `--subnetwork` flag. 
+- For any GCS staging/uploading operations, use the `gcsStagingPath` value from `jobConfig` (do NOT attempt to create a new GCS bucket).
+
+## 'run_sparkrunner.sh' shell script instructions
+- Generate a 3rd shell script ONLY if the language is Java, 
+- Write this script to only support GCP Serverless Spark. 
+- Use the `gcloud dataproc batches submit spark` command (NOT `submit pyspark`).
+- Pass the main compiled JAR file via the `--jars` flag.
+- Pass the main class name via the `--class` flag. 
+- Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading the jar file (do NOT attempt to create a new GCS bucket in the script). 
+- If a subnetwork is configured in `jobConfig`, pass it to the command using the `--subnet` flag. 
+- Note that Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so you MUST prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in the `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"` where `${subnetwork}` is the subnetwork value from `jobConfig`).
+
+
+## Compile instructions
+- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully
+- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass
+
+
+Language: {{language}}
+
+Pipeline:
+```yaml
+{{pipeline}}
+```
+
+
+
+
+## General DataFlow Instructions
+
+## Create a new pipeline from scratch
+
+-   Determine which version of Beam SDK should be used by searching for the most
+    recently released version of Apache Beam, unless the user already uses a
+    particular version.
+    -   **Action**: Run a web search for the latest Apache Beam SDK release.
+-   YOU MUST use same version of Apache Beam consistently throughout the project
+    in Dockerfiles, `requirements.txt`, and other similar files where versions
+    are specified.
+
+## Java projects
+-   **SLF4J Logging Dependency Alignment**:
+    -   Verify the `slf4j-api` version pulled transitively by Apache Beam.
+    -   You MUST configure the application logging backend (`slf4j-simple`,
+        `logback-classic`, etc.) to exactly match the major/minor version of the
+        resolved `slf4j-api`.
+
+## Python projects
+-   Run this job in a python venv with all requirements installed.  Update local shell script(s) to use this venv.
+-   **Python 3.12+ Compatibility and Dependency Pinning**:
+    -   In `requirements.txt`, do NOT pin packages to old, outdated versions (such as `grpcio-tools==1.62.1`) that require `pkg_resources` during installation/build.
+    -   Starting in Python 3.12+ (and setuptools 70+), the `pkg_resources` module is deprecated/removed by default. Trying to compile old packages from source distributions (which happens automatically if there are no prebuilt wheels for the active Python version) will fail with `ModuleNotFoundError: No module named 'pkg_resources'`.
+    -   Always use the latest versions of libraries that are compatible with the active Python version. You MUST specify `apache-beam[gcp]>=2.74.0` in the generated `requirements.txt` to ensure native macOS Apple Silicon (arm64) prebuilt wheels are available for installation without compilation.
+    -   In `requirements.txt`, you MUST NOT include `pyspark` as a dependency.
+    -   In generated shell scripts, make sure the virtual environment creation step also upgrades `pip` (i.e. `pip install --upgrade pip`) to ensure the latest compatible wheels can be resolved.
+
+
+## Packaging a pipeline as a Flex Template
+
+Flex Templates offer a hermetic and reproducible launch environment for a
+pipeline. They are easy to launch with `gcloud` or with orchestrators like Cloud
+Composer. You **MUST** package the pipeline as a Flex Template when creating new
+Dataflow pipeline projects.
+
+Follow the steps below:
+
+-   **Provide Instructions**: Provide instructions on rebuilding and running
+    Flex Templates to the user in the Readme.md file.
+-   **Use Single Docker Image for Python pipelines**: For Python Flex Templates,
+    it is better to use a single image for the template launcher image and for
+    the worker runtime environment (`--sdk_container_image`). Does the Python
+    pipeline require extra dependencies (e.g., using `--requirements_file`,
+    `--setup_file`, or `--extra_package`)? If so, **YOU MUST recommend the**
+    **Single Docker Image Configuration** for the Flex Template. See
+    [python_flex_template_reference.md][py-flex-ref] for details.
+-   **Python Dockerfile Configuration**:
+    -   When generating a Dockerfile for a Python Flex Template, you MUST set the environment variable `FLEX_TEMPLATE_PYTHON_PY_FILE` to point to the absolute path of the main Python script inside the container (e.g. `ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/template/src/pipeline.py"` or wherever the pipeline code is copied). Do NOT use `FLEX_TEMPLATE_PYTHON_MAIN_FILE` or any other environment variable name, as the standard launcher base image strictly requires `FLEX_TEMPLATE_PYTHON_PY_FILE` to determine the script to execute.
+-   **Prefer Cloud Build over Local Docker**:
+    -   Do NOT assume local Docker availability on the workspace machine.
+    -   **Action**: Suggest and provide `cloudbuild.yaml` out-of-the-box for
+        building and pushing images unless local setup is explicitly requested.
+    -   When building images with Cloud Build in the background you MUST provide
+        the link where the user can monitor the long-running operation.
+-   **Providing SSL certificates and Secrets to Workers**:
+    -   If certificates or keys are stored in Secret Manager, **NEVER** bake
+        them into the Docker image layers. Instead, retrieve them dynamically at
+        runtime inside the Apache Beam `DoFn.setup()` lifecycle using the Secret
+        Manager client library (writing them to ephemeral worker disk like
+        `/tmp` only if physical file paths are strictly required). Ensure the
+        Dataflow Worker Service Account has the
+        `roles/secretmanager.secretAccessor` role.
+
+## Identify required parameters and prepare resources**
+
+    -   Extract required parameters from the template metadata.
+    -   > [!IMPORTANT]
+    -   > **Strict parameter validation**: Any parameter in the metadata JSON
+    -   > that does **NOT** explicitly have  a default value is **strictly required** by the Dataflow API.
+
+
+### Lookup environment resources instead of using placeholder values
+
+-   Avoid using generic placeholders (e.g., `your-gcp-project-id`) for GCP
+    resources when drafting run scripts or configs. **Action**: If values are
+    unknown, proactively run commands like `gcloud config get-value project` to
+    find active resources to pre-fill scripts for the user. Confirm the values
+    with the user before proceeding.
+
+### Job Execution
+
+Use this section when configuration is complete and you are ready to launch any
+Dataflow job (Google-provided template, Custom Flex template, or standalone
+pipeline).
+
+### Universal Execution Workflow
+
+1.  **Construct Launch Command**: Draft the full launch command based on the
+    pipeline type (e.g., `gcloud dataflow flex-template run` or `python main.py
+    --runner=DataflowRunner`). Ensure workers default to private IP
+    configuration unless specified otherwise, and verify target project
+    permissions.
+2.  **Mandatory Pre-Launch Confirmation**: Present the *entire* drafted command
+    to the user at once. Explain the purpose of all parameters (including
+    experimental flags) and allow the user to review and correct the command as
+    a batch instead of confirming piecemeal. **Do NOT proceed** with execution
+    until explicitly approved.
+3.  **Trigger Job**: Once approved, execute the command and note the resulting
+    Job ID (displaying it to the user).
+4.  **Display Console URL**: Construct and present the direct Cloud Console
+    monitoring URL:
+    https://console.cloud.google.com/dataflow/jobs/<region>/<job_id>?project=<project_id>
+
+
+## Documentation References
+
+- Apache BeamIO: https://beam.apache.org/documentation/io/connectors/
+- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Run a template: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates
+

@@ -15,6 +15,18 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "dataflow-pipeline-builder.beamEditor",
+        "displayName": "Beam Pipeline Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.beam"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "commands": [
       {
         "command": "dataflow-pipeline-builder.showEditor",
@@ -62,11 +74,16 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/node": "16.x",
-    "typescript": "^4.9.4",
-    "eslint": "^8.28.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
-    "@typescript-eslint/eslint-plugin": "^5.45.0"
+    "eslint": "^8.28.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@google/genai": "^2.2.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "undici-types": "^8.3.0"
   }
 }

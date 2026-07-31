@@ -1,0 +1,103 @@
+import React from 'react';
+import { PubSubProperties } from '../properties/source/PubSubIO';
+import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
+import { CreateProperties } from '../properties/source/CreateIO';
+import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
+import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
+import { WindowingProperties } from '../properties/step/Windowing';
+import { ParseMessageProperties } from '../properties/step/ParseMessage';
+import { LogMessageProperties } from '../properties/step/LogMessage';
+import { KVMapperProperties } from '../properties/step/KVMapper';
+import { FilterProperties } from '../properties/step/Filter';
+import { FlatMapProperties } from '../properties/step/FlatMap';
+import { MapProperties } from '../properties/step/Map';
+import { AggregationProperties } from '../properties/step/Aggregations';
+
+/**
+ * PropertyForm Component
+ * 
+ * This component acts as a container for specific node property forms.
+ * It determines which property form to display based on the node's label.
+ * 
+ * Architectural Decisions:
+ * - Delegated specific forms to individual components in subfolders.
+ * - Uses string matching on labels to identify node types (could be improved to use a type field).
+ */
+interface PropertyFormProps {
+  node: any;
+  onChange: (properties: any) => void;
+  onAddKVMapper?: (windowNodeId: string) => void;
+}
+
+export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
+  const { label } = node.data;
+
+  let formContent = null;
+
+  // Determine which form to show based on the node label
+  // NOTE: This assumes naming conventions in labels.
+  if (label.includes('PubSub')) {
+    if (node.data.type === 'SOURCE') {
+      formContent = <PubSubProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (label === 'Create') {
+    formContent = <CreateProperties node={node} onChange={onChange} />;
+  } else if (label.includes('BigQuery')) {
+    if (node.data.type === 'SOURCE') {
+      formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    label === 'Window' || 
+    label.includes('Windowing') || 
+    label === 'Fixed Window' || 
+    label === 'Fixed Windows' || 
+    label === 'Sliding Windows' || 
+    label === 'User Windows'
+  ) {
+    formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
+  } else if (label === 'Parse Message') {
+    formContent = <ParseMessageProperties node={node} onChange={onChange} />;
+  } else if (label === 'Log Message') {
+    formContent = <LogMessageProperties node={node} onChange={onChange} />;
+  } else if (label === 'KV Mapper') {
+    formContent = <KVMapperProperties node={node} onChange={onChange} />;
+  } else if (label === 'Filter') {
+    formContent = <FilterProperties node={node} onChange={onChange} />;
+  } else if (label === 'FlatMap') {
+    formContent = <FlatMapProperties node={node} onChange={onChange} />;
+  } else if (label === 'Map') {
+    formContent = <MapProperties node={node} onChange={onChange} />;
+  } else if (
+    label === 'Approximate Quantiles' ||
+    label === 'Approximate Unique' ||
+    label === 'Co Group By Key' ||
+    label === 'Combine' ||
+    label === 'Combine With Context' ||
+    label === 'Count' ||
+    label === 'Distinct' ||
+    label === 'Group By Key' ||
+    label === 'Group Into Batches' ||
+    label === 'Batch Elements' ||
+    label === 'Latest' ||
+    label === 'Max' ||
+    label === 'Mean' ||
+    label === 'Min' ||
+    label === 'Sample' ||
+    label === 'Sum' ||
+    label === 'Top'
+  ) {
+    formContent = <AggregationProperties node={node} onChange={onChange} />;
+  } else {
+    formContent = <div className="text-sm text-slate-400">Generic properties for {label}</div>;
+  }
+
+  return (
+    <>
+      {formContent}
+    </>
+  );
+};
