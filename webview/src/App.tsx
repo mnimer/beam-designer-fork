@@ -214,25 +214,29 @@ function App() {
   useEffect(() => {
     console.log('[@App.tsx] Save effect checked, isLoaded=', isLoaded);
     if (!isLoaded) return;
-    console.log('[@App.tsx] Save effect triggered');
-    if (vscode && pipelineConfig.needsRebuild) {
-      const state = { 
-        nodes, 
-        edges, 
-        runtimeVariables, 
-        jobConfig,
-        pipelineConfig
-      };
-      const yamlStr = YAML.stringify(state);
-      console.log('[@App.tsx] YAML generated');
-      
-      // Only save YAML configuration
-      vscode.postMessage({ 
-        command: 'savePipeline', 
-        data: yamlStr
-      });
-      console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
-    }
+    console.log('[@App.tsx] Save effect scheduled');
+    const timer = setTimeout(() => {
+      if (vscode) {
+        const state = { 
+          nodes, 
+          edges, 
+          runtimeVariables, 
+          jobConfig,
+          pipelineConfig
+        };
+        const yamlStr = YAML.stringify(state);
+        console.log('[@App.tsx] YAML generated & saved');
+        
+        // Only save YAML configuration
+        vscode.postMessage({ 
+          command: 'savePipeline', 
+          data: yamlStr
+        });
+        console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
+      }
+    }, 1000); // 1-second debounce
+
+    return () => clearTimeout(timer);
   }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isLoaded, filename, projectId]);
 
   // Read files whenever bottom tab switches to SOURCE_CODE
@@ -556,7 +560,6 @@ function App() {
 
     takeSnapshot();
     setNodes(newNodes);
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
     
     // Auto fit view after positioning
     setTimeout(() => {

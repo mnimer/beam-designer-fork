@@ -72,23 +72,6 @@ export function activate(context: vscode.ExtensionContext) {
                 undefined,
                 context.subscriptions
             );
-
-            panel.onDidChangeViewState(() => {
-                if (panel.active && uri) {
-                    const beamFileDir = path.dirname(uri.fsPath);
-                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-                    let relativeFolder = '';
-                    if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
-                        relativeFolder = path.relative(workspaceFolder, beamFileDir);
-                    }
-                    const filenameWithoutExt = path.basename(uri.fsPath, '.beam');
-                    const defaultOutputFolder = relativeFolder ? path.join(relativeFolder, filenameWithoutExt) : filenameWithoutExt;
-                    webview.postMessage({
-                        command: 'updateOutputFolder',
-                        outputFolder: defaultOutputFolder
-                    });
-                }
-            }, null, context.subscriptions);
         })
     );
 }
@@ -216,6 +199,63 @@ class DataItem extends vscode.TreeItem {
 export function deactivate() { }
 
 /**
+ * Safely parses JSON response string from Gemini model.
+ * Handles markdown code fences and automatically repairs truncated JSON responses by
+ * salvaging all completely generated file objects from the 'files' array.
+ * 
+ * @param rawText Raw output text from Gemini model.
+ * @returns Parsed JSON object containing generated files array.
+ */
+function parseOrRepairJson(rawText: string): any {
+    if (!rawText || !rawText.trim()) {
+        throw new Error("Empty response from Gemini model.");
+    }
+
+    // Strip markdown code fences if model wrapped response in ```json ... ```
+    let cleaned = rawText.trim();
+    if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    try {
+        return JSON.parse(cleaned);
+    } catch (firstErr) {
+        console.warn('[parseOrRepairJson] Standard JSON.parse failed on response. Attempting repair for truncated output...', firstErr);
+
+        // Truncation repair: search backwards for '}' characters that close completed file objects in 'files' array
+        let lastIndex = cleaned.lastIndexOf('}');
+        while (lastIndex > 0) {
+            let candidate = cleaned.substring(0, lastIndex + 1).trim();
+            // Remove trailing comma if present before closing brackets
+            if (candidate.endsWith(',')) {
+                candidate = candidate.substring(0, candidate.length - 1).trim();
+            }
+            // Append closing array and object brackets
+            const testJson = candidate + ']}';
+            try {
+                const parsed = JSON.parse(testJson);
+                if (parsed && Array.isArray(parsed.files) && parsed.files.length > 0) {
+                    console.log(`[parseOrRepairJson] Successfully repaired truncated JSON response and salvaged ${parsed.files.length} file(s).`);
+                    return parsed;
+                }
+            } catch (_) {
+                // Try previous '}' occurrence
+            }
+            lastIndex = cleaned.lastIndexOf('}', lastIndex - 1);
+        }
+
+        // If structural repair could not salvage any completed file objects, rethrow original syntax error
+        throw firstErr;
+    }
+}
+
+/**
  * Asynchronously retrieves the active GCP project ID from gcloud CLI.
  * Returns undefined if gcloud is unavailable or fails.
  */
@@ -326,8 +366,9 @@ function savePipelineFiles(
 ) {
     fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
     if (code) {
-        let folderPath = path.dirname(targetUri.fsPath);
-        if (outputFolder) {
+        const pipelineBaseName = path.basename(targetUri.fsPath, '.beam');
+        let folderPath = path.join(path.dirname(targetUri.fsPath), pipelineBaseName);
+        if (outputFolder && outputFolder.trim()) {
             if (path.isAbsolute(outputFolder)) {
                 folderPath = outputFolder;
             } else {
@@ -338,12 +379,13 @@ function savePipelineFiles(
             }
         }
 
+
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
         }
 
-        const pipelineBaseName = path.basename(targetUri.fsPath, '.beam');
         const srcFolderPath = path.join(folderPath, 'src');
+
         if (!fs.existsSync(srcFolderPath)) {
             fs.mkdirSync(srcFolderPath, { recursive: true });
         }
@@ -432,22 +474,6 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
         webview.onDidReceiveMessage(
             handleMessages(webview, this.context, document)
         );
-
-        webviewPanel.onDidChangeViewState(() => {
-            if (webviewPanel.active) {
-                const beamUri = document.uri;
-                const beamFileDir = path.dirname(beamUri.fsPath);
-                const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-                let relativeFolder = '';
-                if (workspaceFolder && beamFileDir.startsWith(workspaceFolder)) {
-                    relativeFolder = path.relative(workspaceFolder, beamFileDir);
-                }
-                webview.postMessage({
-                    command: 'updateOutputFolder',
-                    outputFolder: relativeFolder
-                });
-            }
-        });
     }
 }
 
@@ -702,13 +728,13 @@ function handleMessages(
                 });
                 return;
             case 'readFolderFiles':
+
                 let folderPath = message.folderPath;
-                if (!folderPath) {
-                    const activeUri = document ? document.uri : uri;
-                    if (activeUri) {
-                        folderPath = path.dirname(activeUri.fsPath);
-                    }
-                } else if (!path.isAbsolute(folderPath)) {
+                const activeUriForFolder = document ? document.uri : uri;
+                if (!folderPath && activeUriForFolder) {
+                    const baseName = path.basename(activeUriForFolder.fsPath, '.beam');
+                    folderPath = path.join(path.dirname(activeUriForFolder.fsPath), baseName);
+                } else if (folderPath && !path.isAbsolute(folderPath)) {
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
                     if (workspaceFolder) {
                         folderPath = path.join(workspaceFolder, folderPath);
@@ -734,31 +760,40 @@ function handleMessages(
                         };
                         const files = getFilesRecursively(folderPath);
                         webview.postMessage({
-                            command: 'folderFilesLoaded',
-                            folderPath: folderPath,
-                            files: files
+                            command: 'folderFilesRead',
+                            files: files,
+                            folderPath: folderPath
                         });
                     } catch (e) {
                         console.error('Failed to read folder files', e);
-                        webview.postMessage({ command: 'folderFilesLoaded', folderPath, files: [] });
+                        webview.postMessage({
+                            command: 'folderFilesRead',
+                            files: [],
+                            folderPath: folderPath
+                        });
                     }
                 } else {
-                    webview.postMessage({ command: 'folderFilesLoaded', folderPath: folderPath || '', files: [] });
+                    webview.postMessage({
+                        command: 'folderFilesRead',
+                        files: [],
+                        folderPath: folderPath
+                    });
                 }
                 return;
             case 'readFileContent':
                 let readFolder = message.folderPath;
-                if (!readFolder) {
-                    const activeUri = document ? document.uri : uri;
-                    if (activeUri) {
-                        readFolder = path.dirname(activeUri.fsPath);
-                    }
-                } else if (!path.isAbsolute(readFolder)) {
+
+                const activeUriForRead = document ? document.uri : uri;
+                if (!readFolder && activeUriForRead) {
+                    const baseName = path.basename(activeUriForRead.fsPath, '.beam');
+                    readFolder = path.join(path.dirname(activeUriForRead.fsPath), baseName);
+                } else if (readFolder && !path.isAbsolute(readFolder)) {
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
                     if (workspaceFolder) {
                         readFolder = path.join(workspaceFolder, readFolder);
                     }
                 }
+
 
                 if (readFolder && message.filePath && typeof message.filePath === 'string') {
                     const resolvedReadFolder = path.resolve(readFolder);
@@ -791,13 +826,15 @@ function handleMessages(
             case 'runPipeline':
                 const runUri = document ? document.uri : uri;
                 if (runUri) {
-                    let folderPath = path.dirname(runUri.fsPath);
+                    const pipelineBaseName = path.basename(runUri.fsPath, '.beam');
+                    let folderPath = path.join(path.dirname(runUri.fsPath), pipelineBaseName);
                     const outputFolder = message.pipelineConfig?.outputFolder;
-                    if (outputFolder) {
+                    if (outputFolder && outputFolder.trim()) {
                         if (path.isAbsolute(outputFolder)) {
                             folderPath = outputFolder;
                         } else {
                             const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
                             if (workspaceFolder) {
                                 folderPath = path.join(workspaceFolder, outputFolder);
                             }
@@ -862,9 +899,10 @@ function handleMessages(
 
                 let targetFolderPath = '';
                 if (targetActiveUri) {
-                    targetFolderPath = path.dirname(targetActiveUri.fsPath);
+                    const pipelineBaseName = path.basename(targetActiveUri.fsPath, '.beam');
+                    targetFolderPath = path.join(path.dirname(targetActiveUri.fsPath), pipelineBaseName);
                 }
-                if (outputFolderVal) {
+                if (outputFolderVal && outputFolderVal.trim()) {
                     if (path.isAbsolute(outputFolderVal)) {
                         targetFolderPath = outputFolderVal;
                     } else {
@@ -874,6 +912,7 @@ function handleMessages(
                         }
                     }
                 }
+
 
                 if (!targetFolderPath) {
                     vscode.window.showErrorMessage('Could not determine output folder.');
@@ -913,11 +952,34 @@ function handleMessages(
                         const ai = new GoogleGenAI(aiOptions);
 
                         const promptTemplate = readResourceFile(context, 'code-gen-prompt.txt');
+
+                        // Determine target language subfolder for template loading
+                        const langSubfolder = languageVal.toLowerCase() === 'java' ? 'java' : 'python';
+
+                        // Load static file templates for Dockerfile and runner scripts
+                        const dockerfileTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'Dockerfile'));
+                        const directRunnerTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'run_directrunner.sh'));
+                        const dataflowRunnerTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'run_dataflowrunner.sh'));
+
+                        let sparkRunnerSection = '';
+                        if (langSubfolder === 'java') {
+                            const sparkRunnerTemplate = readResourceFile(context, path.join('templates', 'java', 'run_sparkrunner.sh'));
+                            sparkRunnerSection = `### 'run_sparkrunner.sh' Template\n\`\`\`\n${sparkRunnerTemplate}\n\`\`\``;
+                        }
+
+                        // Substitute placeholders, pipeline definitions, and templates into final prompt text
                         promptText = promptTemplate
                             .replace(/\{\{language\}\}/g, languageVal)
-                            .replace('{{pipeline}}', yamlData);
+                            .replace('{{pipeline}}', yamlData)
+                            .replace('{{dockerfile_template}}', dockerfileTemplate)
+                            .replace('{{run_directrunner_template}}', directRunnerTemplate)
+                            .replace('{{run_dataflowrunner_template}}', dataflowRunnerTemplate)
+                            .replace('{{sparkrunner_template_section}}', sparkRunnerSection);
+
+
 
                         const responseSchema = JSON.parse(readResourceFile(context, 'code-gen-schema.json'));
+
 
                         const response = await ai.models.generateContent({
                             model: 'gemini-3.5-flash',
@@ -951,7 +1013,8 @@ function handleMessages(
                         if (!response.text) {
                             throw new Error("Empty response from Gemini model.");
                         }
-                        const responseObj = JSON.parse(response.text);
+                        const responseObj = parseOrRepairJson(response.text);
+
 
                         let mainPipelineCode = '';
                         const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
@@ -970,20 +1033,60 @@ function handleMessages(
                                 if (normalizedFilename.startsWith(`${baseName}/`)) {
                                     normalizedFilename = normalizedFilename.substring(baseName.length + 1);
                                 }
+                                // Strip leading relative path traversal (../ or ..\) to ensure files remain strictly inside targetFolderPath
+                                normalizedFilename = normalizedFilename.replace(/^(\.\.[\/\\])+/, '');
 
                                 const fileNameOnly = path.basename(normalizedFilename);
                                 const dirNameOnly = path.dirname(normalizedFilename);
 
-                                // Route pipeline code and test files to src/ subfolder
-                                if (fileNameOnly.toLowerCase() === 'pipeline.py' || fileNameOnly.toLowerCase() === 'pipeline.java' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}.${fileExt}`) {
-                                    normalizedFilename = `src/${baseName}.${fileExt}`;
-                                } else if (fileNameOnly.toLowerCase() === 'pipeline_test.py' || fileNameOnly.toLowerCase() === 'pipelinetest.java' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}_test.py` || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}test.java`) {
-                                    const testExt = fileExt === 'py' ? '_test.py' : 'Test.java';
-                                    normalizedFilename = `src/${baseName}${testExt}`;
-                                } else if ((fileExt === 'py' && fileNameOnly.endsWith('.py')) || (fileExt === 'java' && fileNameOnly.endsWith('.java'))) {
-                                    if (dirNameOnly === '.' || dirNameOnly === '') {
-                                        normalizedFilename = `src/${fileNameOnly}`;
+
+                                // Filter out files mismatched with target language
+                                if (fileExt === 'py') {
+                                    if (fileNameOnly.toLowerCase() === 'pom.xml' || fileNameOnly.toLowerCase() === 'run_sparkrunner.sh' || normalizedFilename.includes('target/')) {
+                                        console.log(`[regenerateCode] Skipping Java artifact '${normalizedFilename}' for Python project.`);
+                                        continue;
                                     }
+                                } else if (fileExt === 'java') {
+                                    if (fileNameOnly.toLowerCase() === 'requirements.txt') {
+                                        console.log(`[regenerateCode] Skipping Python artifact '${normalizedFilename}' for Java project.`);
+                                        continue;
+                                    }
+                                }
+
+
+                                // Route pipeline code and test files to appropriate subfolders
+                                const pascalBaseName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+                                if (fileExt === 'java') {
+                                    const lowerName = fileNameOnly.toLowerCase();
+                                    if (lowerName === 'pipeline.java' || lowerName === `${baseName.toLowerCase()}.java` || lowerName === `${pascalBaseName.toLowerCase()}.java`) {
+                                        normalizedFilename = `src/main/java/com/example/${pascalBaseName}.java`;
+                                    } else if (lowerName === 'pipelinetest.java' || lowerName === 'pipeline_test.java' || lowerName === `${baseName.toLowerCase()}test.java` || lowerName === `${pascalBaseName.toLowerCase()}test.java`) {
+                                        normalizedFilename = `src/test/java/com/example/${pascalBaseName}Test.java`;
+                                    } else if (fileNameOnly.endsWith('.java')) {
+                                        if (!normalizedFilename.startsWith('src/main/java/') && !normalizedFilename.startsWith('src/test/java/')) {
+                                            normalizedFilename = `src/main/java/com/example/${fileNameOnly}`;
+                                        }
+                                    }
+                                } else {
+                                    if (fileNameOnly.toLowerCase() === 'pipeline.py' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}.py`) {
+                                        normalizedFilename = `src/${baseName}.py`;
+                                    } else if (fileNameOnly.toLowerCase() === 'pipeline_test.py' || fileNameOnly.toLowerCase() === `${baseName.toLowerCase()}_test.py`) {
+                                        normalizedFilename = `src/${baseName}_test.py`;
+                                    } else if (fileNameOnly.endsWith('.py')) {
+                                        if (dirNameOnly === '.' || dirNameOnly === '') {
+                                            normalizedFilename = `src/${fileNameOnly}`;
+                                        }
+                                    }
+                                }
+
+
+                                let fileContent = file.content;
+                                // If the project language is Python and baseName is not 'pipeline', fix references to src.pipeline / pipeline in generated files
+                                if (fileExt === 'py' && baseName.toLowerCase() !== 'pipeline' && fileContent) {
+                                    fileContent = fileContent.replace(/\bfrom\s+src\.pipeline\b/g, `from src.${baseName}`)
+                                                             .replace(/\bimport\s+src\.pipeline\b/g, `import src.${baseName}`)
+                                                             .replace(/\bfrom\s+pipeline\b/g, `from src.${baseName}`)
+                                                             .replace(/\bimport\s+pipeline\b/g, `import src.${baseName}`);
                                 }
 
                                 const filePath = path.join(targetFolderPath, normalizedFilename);
@@ -991,7 +1094,7 @@ function handleMessages(
                                 if (!fs.existsSync(parentDir)) {
                                     fs.mkdirSync(parentDir, { recursive: true });
                                 }
-                                fs.writeFileSync(filePath, file.content, 'utf-8');
+                                fs.writeFileSync(filePath, fileContent, 'utf-8');
 
                                 if (file.executable) {
                                     try {
@@ -1002,8 +1105,9 @@ function handleMessages(
                                 }
 
                                 if (path.basename(normalizedFilename) === mainPipelineFileName || normalizedFilename === `src/${mainPipelineFileName}`) {
-                                    mainPipelineCode = file.content;
+                                    mainPipelineCode = fileContent;
                                 }
+
                             }
                         } else {
                             throw new Error("Invalid response format from Gemini: 'files' array is missing.");
@@ -1014,6 +1118,20 @@ function handleMessages(
                             mainPipelineCode = responseObj.files[0].content;
                         }
 
+                        // Ensure src/__init__.py exists for Python projects so unittest recognizes src as a package
+                        if (fileExt === 'py') {
+                            const initPyPath = path.join(targetFolderPath, 'src', '__init__.py');
+                            if (!fs.existsSync(initPyPath)) {
+                                const srcDir = path.dirname(initPyPath);
+                                if (!fs.existsSync(srcDir)) {
+                                    fs.mkdirSync(srcDir, { recursive: true });
+                                }
+                                fs.writeFileSync(initPyPath, '# Package init\n', 'utf-8');
+                            }
+                        }
+
+
+
                         // Write default ignore files if not present in generated files
                         const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
                         if (!fs.existsSync(dockerIgnorePath)) {
@@ -1023,6 +1141,7 @@ function handleMessages(
                         if (!fs.existsSync(gcloudIgnorePath)) {
                             fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
                         }
+
 
                         vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
 

@@ -3,52 +3,74 @@ I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format.
 I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in {{language}}, using the latest version of all libraries. 
 
 I will also need you to generate:
-- A valid dependecy file (requirements.txt file or maven pom.xml) 
-- A valid Dataflow Flex Template Dockerfile for the selected language. 
+- A valid dependency file (requirements.txt for Python, pom.xml for Java) 
+- A valid Dataflow Flex Template Dockerfile for {{language}}. 
 - A valid Dataflow Flex Template metadata.json file for the pipeline. Allowing users to override all pipeline options that were provided in the input yaml. 
 - A shell script to run the job locally (name=run_directrunner.sh)    
 - A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
-- A shell script to run the job on GCP Serverless Spark (name=run_sparkrunner.sh)
+- ONLY if {{language}} is Java: A shell script to run the job on GCP Serverless Spark (name=run_sparkrunner.sh)
 - A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
-- A detailed Readme documenting the pipeline, how to build it, and how to run it (locally, on Dataflow, and on Serverless Spark)
+- A detailed Readme documenting the pipeline, how to build it, and how to run it.
 
 ## Project code instructions
 - Only generate the pipeline code. I do not need any extra helper application code generated. 
 - Directory & Subfolder Structure Rules:
   - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
-  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder (e.g., 'Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt' / 'pom.xml', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'run_sparkrunner.sh', 'README.md').
-  - Pipeline source code files: All actual Python/Java pipeline code files, custom transform modules, and unit tests MUST be generated inside a 'src/' subfolder (e.g., 'src/pipeline.py' or 'src/foobar.py', 'src/pipeline_test.py' or 'src/foobar_test.py').
+  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder (e.g., 'Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt' for Python or 'pom.xml' for Java, 'run_directrunner.sh', 'run_dataflowrunner.sh', 'README.md').
+  - Pipeline source code files:
+    - For Python: All code files and tests MUST be generated inside 'src/' (e.g. 'src/foobar.py', 'src/foobar_test.py').
+    - For Java: All source files MUST follow standard Maven package layout inside 'src/main/java/com/example/<PipelineName>.java' (e.g. 'src/main/java/com/example/Foobar.java') and unit tests inside 'src/test/java/com/example/<PipelineName>Test.java' (e.g. 'src/test/java/com/example/FoobarTest.java'). Class names and filenames MUST use PascalCase matching the pipeline base name.
 - Delete all files and folders in output folder before generating the new code.
 - Validate all generated files are valid after creation
 - Generate Unit Tests for the different steps in the pipeline
 - Validate all unit tests run and pass locally using the DirectRunner
 - Use Cloud Build to build all artifacts
+- For Python projects: generate 'requirements.txt'. Do NOT generate 'pom.xml', 'run_sparkrunner.sh', or any Java build directories (such as 'target/').
+- For Python projects, you MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
+
+- For Python unit test files, import statements MUST reference the actual pipeline module name matching the target pipeline filename (e.g., if the main pipeline file is named 'foobar.py', unit tests MUST import transforms using 'from src.foobar import ...' or 'from foobar import ...', NOT hardcoded 'from src.pipeline import ...').
+- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+
+
 
 ## Pipeline Instructions
+- Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py") for python jobs and "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java") for java jobs.
+
 - Every node in the yaml, might have a 'systemInstructions' attribute.  If it does, use this to customize the code generation for that specific node. 
+
 - If the pipeline has an output that goes no where (invalid beam pipeline) include a simple Logger step to print the output message.    
 - Use the latest version of all libraries
 
-## DOCKERFILE instructions
-- Generate the dockerfile to support the Beam pipeline using Flex Templates.
+## Reference File Templates
+Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as pipeline module names, class names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
 
-## 'run_directrunner.sh' shell script instructions
-In this script, to prevent build failures on systems where the default `python3` command is Python 3.13+ (which does not have prebuilt wheels for older `apache-beam` versions and hangs trying to compile from source),
--  you MUST write a check at the beginning of the script to find a compatible python version (preferring `python3.12` or `python3.11` if available in the path, and falling back to `python3` only if neither are found) and use that version to initialize the `venv`. To bypass private artifact repositories that might lack prebuilt wheels in corporate environments, all `pip install` commands in the script MUST specify the public PyPI index using the `--index-url https://pypi.org/simple` flag.
+### Dockerfile Template
+```
+{{dockerfile_template}}
+```
 
-## 'run_dataflow.sh' shell script instructions
-- retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the `gcloud dataflow flex-template run` command using the `--subnetwork` flag. 
-- For any GCS staging/uploading operations, use the `gcsStagingPath` value from `jobConfig` (do NOT attempt to create a new GCS bucket).
+### 'run_directrunner.sh' Template
+```
+{{run_directrunner_template}}
+```
 
-## 'run_sparkrunner.sh' shell script instructions
-- Generate a 3rd shell script ONLY if the language is Java, 
-- Write this script to only support GCP Serverless Spark. 
-- Use the `gcloud dataproc batches submit spark` command (NOT `submit pyspark`).
-- Pass the main compiled JAR file via the `--jars` flag.
-- Pass the main class name via the `--class` flag. 
-- Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading the jar file (do NOT attempt to create a new GCS bucket in the script). 
-- If a subnetwork is configured in `jobConfig`, pass it to the command using the `--subnet` flag. 
-- Note that Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so you MUST prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in the `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"` where `${subnetwork}` is the subnetwork value from `jobConfig`).
+### 'run_dataflowrunner.sh' Template
+```
+{{run_dataflowrunner_template}}
+```
+
+{{sparkrunner_template_section}}
+
+
+
+## Script & Dockerfile Generation Instructions
+- Use the provided `run_directrunner.sh` template as the baseline. Do NOT execute or run unit tests inside `run_directrunner.sh` (it MUST focus strictly on virtual environment activation, dependency installation, and executing the main pipeline with DirectRunner).
+- Retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the Dataflow launch command using the `--subnetwork` flag.
+- For any GCS staging/uploading operations, use the `gcsStagingPath` value from `jobConfig` (do NOT attempt to create a new GCS bucket in scripts).
+- Generate `run_sparkrunner.sh` ONLY if the language is Java, using the provided Spark template.
+- Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading jars or artifacts (do NOT attempt to create a new GCS bucket in scripts).
+- If a subnetwork is configured in `jobConfig`, Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"`).
+
 
 
 ## Compile instructions
@@ -79,11 +101,16 @@ Pipeline:
     are specified.
 
 ## Java projects
+-   **Jackson Dependency Alignment (`StreamReadConstraints`)**:
+    - Apache Beam 2.50+ requires Jackson 2.15+ (`jackson-core`, `jackson-databind`, `jackson-annotations`).
+    - Older versions of `jackson-core` pulled transitively miss `com.fasterxml.jackson.core.StreamReadConstraints` and cause `NoClassDefFoundError` at runtime.
+    - In `pom.xml`, you MUST explicitly declare all three Jackson artifacts (`com.fasterxml.jackson.core:jackson-core`, `com.fasterxml.jackson.core:jackson-databind`, `com.fasterxml.jackson.core:jackson-annotations`) with version `2.15.3` (or `2.15.2`).
 -   **SLF4J Logging Dependency Alignment**:
     -   Verify the `slf4j-api` version pulled transitively by Apache Beam.
     -   You MUST configure the application logging backend (`slf4j-simple`,
         `logback-classic`, etc.) to exactly match the major/minor version of the
         resolved `slf4j-api`.
+
 
 ## Python projects
 -   Run this job in a python venv with all requirements installed.  Update local shell script(s) to use this venv.
