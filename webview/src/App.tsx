@@ -92,24 +92,38 @@ const nodeTypes = {
 
 
 
-const initialNodes = [
+export interface PipelineNodeData {
+  label: string;
+  type: string;
+  iconName: string;
+  beam_transform?: string;
+  special_instructions?: string;
+  properties?: Record<string, any>;
+}
+
+const initialNodes: Array<{
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: PipelineNodeData;
+}> = [
   {
     id: '1',
     type: 'pipeline',
     position: { x: 100, y: 200 },
-    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio' }
+    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio', beam_transform: 'PubSubIO' }
   },
   {
     id: '2',
     type: 'pipeline',
     position: { x: 400, y: 200 },
-    data: { label: 'Window', type: 'STEP', iconName: 'Clock' }
+    data: { label: 'Window', type: 'STEP', iconName: 'Clock', beam_transform: 'WindowInto' }
   },
   {
     id: '3',
     type: 'pipeline',
     position: { x: 700, y: 200 },
-    data: { label: 'BigQuery_Out', type: 'SINK', iconName: 'Database' }
+    data: { label: 'BigQuery_Out', type: 'SINK', iconName: 'Database', beam_transform: 'BigQueryIO' }
   },
 ];
 
@@ -723,6 +737,7 @@ function App() {
         label: 'KV Mapper',
         type: 'STEP',
         iconName: 'Hash',
+        beam_transform: 'KVMapper',
         properties: {
           keyPropertyName: 'id'
         }
@@ -799,8 +814,8 @@ function App() {
     }
   }, [pipelineConfig.outputFolder]);
 
-  const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => {
-    event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName }));
+  const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
+    event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName, beamTransform }));
     event.dataTransfer.effectAllowed = 'move';
   }, []);
 
@@ -838,7 +853,8 @@ function App() {
         data: {
           label: data.label,
           type: data.type,
-          iconName: data.iconName
+          iconName: data.iconName,
+          ...(data.beamTransform ? { beam_transform: data.beamTransform } : {})
         },
       };
 

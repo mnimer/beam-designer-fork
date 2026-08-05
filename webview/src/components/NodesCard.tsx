@@ -18,7 +18,7 @@ interface NodesCardProps {
   setActiveTab: (tab: string) => void;
   nodesCount: number;
   hasPubSubSource?: boolean;
-  onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => void;
+  onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => void;
 }
 
 export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, nodesCount, onDragStart }) => {
@@ -61,21 +61,21 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Streaming Sources</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" onDragStart={onDragStart} />
+                <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* Batch Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Batch Sources</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" onDragStart={onDragStart} />
+                <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* Other Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Create" type="SOURCE" iconName="Box" onDragStart={onDragStart} />
+                <SidebarItem label="Create" type="SOURCE" iconName="Box" beamTransform="Create" onDragStart={onDragStart} />
               </div>
             </details>
           </div>
@@ -85,63 +85,63 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Message Parsers</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
+                <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" beamTransform="ParseMessage" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Add Timestamp" type="STEP" iconName="Calendar" onDragStart={onDragStart} />
-                <SidebarItem label="Filter" type="STEP" iconName="Filter" onDragStart={onDragStart} />
-                <SidebarItem label="FlatMap" type="STEP" iconName="GitMerge" onDragStart={onDragStart} />
-                <SidebarItem label="Keys" type="STEP" iconName="Key" onDragStart={onDragStart} />
-                <SidebarItem label="KV Mapper" type="STEP" iconName="Hash" onDragStart={onDragStart} />
-                <SidebarItem label="KV Swap" type="STEP" iconName="Shuffle" onDragStart={onDragStart} />
-                <SidebarItem label="Map" type="STEP" iconName="Activity" onDragStart={onDragStart} />
-                <SidebarItem label="To String" type="STEP" iconName="Type" onDragStart={onDragStart} />
-                <SidebarItem label="Values" type="STEP" iconName="Grid" onDragStart={onDragStart} />
+                <SidebarItem label="Add Timestamp" type="STEP" iconName="Calendar" beamTransform="WithTimestamps" onDragStart={onDragStart} />
+                <SidebarItem label="Filter" type="STEP" iconName="Filter" beamTransform="Filter" onDragStart={onDragStart} />
+                <SidebarItem label="FlatMap" type="STEP" iconName="GitMerge" beamTransform="FlatMap" onDragStart={onDragStart} />
+                <SidebarItem label="Keys" type="STEP" iconName="Key" beamTransform="Keys" onDragStart={onDragStart} />
+                <SidebarItem label="KV Mapper" type="STEP" iconName="Hash" beamTransform="KVMapper" onDragStart={onDragStart} />
+                <SidebarItem label="KV Swap" type="STEP" iconName="Shuffle" beamTransform="KvSwap" onDragStart={onDragStart} />
+                <SidebarItem label="Map" type="STEP" iconName="Activity" beamTransform="Map" onDragStart={onDragStart} />
+                <SidebarItem label="To String" type="STEP" iconName="Type" beamTransform="ToString" onDragStart={onDragStart} />
+                <SidebarItem label="Values" type="STEP" iconName="Grid" beamTransform="Values" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Aggregations</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Approximate Quantiles" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Approximate Unique" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Batch Elements" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Co Group By Key" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Combine" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Combine With Context" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Count" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Distinct" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Group By Key" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Group Into Batches" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Latest" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Max" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Mean" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Min" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Sample" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Sum" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
-                <SidebarItem label="Top" type="STEP" iconName="BarChart" onDragStart={onDragStart} />
+                <SidebarItem label="Approximate Quantiles" type="STEP" iconName="BarChart" beamTransform="ApproximateQuantiles" onDragStart={onDragStart} />
+                <SidebarItem label="Approximate Unique" type="STEP" iconName="BarChart" beamTransform="ApproximateUnique" onDragStart={onDragStart} />
+                <SidebarItem label="Batch Elements" type="STEP" iconName="BarChart" beamTransform="BatchElements" onDragStart={onDragStart} />
+                <SidebarItem label="Co Group By Key" type="STEP" iconName="BarChart" beamTransform="CoGroupByKey" onDragStart={onDragStart} />
+                <SidebarItem label="Combine" type="STEP" iconName="BarChart" beamTransform="Combine" onDragStart={onDragStart} />
+                <SidebarItem label="Combine With Context" type="STEP" iconName="BarChart" beamTransform="CombineWithContext" onDragStart={onDragStart} />
+                <SidebarItem label="Count" type="STEP" iconName="BarChart" beamTransform="Count" onDragStart={onDragStart} />
+                <SidebarItem label="Distinct" type="STEP" iconName="BarChart" beamTransform="Distinct" onDragStart={onDragStart} />
+                <SidebarItem label="Group By Key" type="STEP" iconName="BarChart" beamTransform="GroupByKey" onDragStart={onDragStart} />
+                <SidebarItem label="Group Into Batches" type="STEP" iconName="BarChart" beamTransform="GroupIntoBatches" onDragStart={onDragStart} />
+                <SidebarItem label="Latest" type="STEP" iconName="BarChart" beamTransform="Latest" onDragStart={onDragStart} />
+                <SidebarItem label="Max" type="STEP" iconName="BarChart" beamTransform="Max" onDragStart={onDragStart} />
+                <SidebarItem label="Mean" type="STEP" iconName="BarChart" beamTransform="Mean" onDragStart={onDragStart} />
+                <SidebarItem label="Min" type="STEP" iconName="BarChart" beamTransform="Min" onDragStart={onDragStart} />
+                <SidebarItem label="Sample" type="STEP" iconName="BarChart" beamTransform="Sample" onDragStart={onDragStart} />
+                <SidebarItem label="Sum" type="STEP" iconName="BarChart" beamTransform="Sum" onDragStart={onDragStart} />
+                <SidebarItem label="Top" type="STEP" iconName="BarChart" beamTransform="Top" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Windows</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Window" type="STEP" iconName="Clock" onDragStart={onDragStart} />
+                <SidebarItem label="Window" type="STEP" iconName="Clock" beamTransform="WindowInto" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Logging</summary>
               <div className="grid grid-cols-3 gap-4 p-2">
-                <SidebarItem label="Log Message" type="STEP" iconName="Terminal" onDragStart={onDragStart} />
+                <SidebarItem label="Log Message" type="STEP" iconName="Terminal" beamTransform="LogMessage" onDragStart={onDragStart} />
               </div>
             </details>
           </div>
         )}
         {activeTab === 'SINKS' && (
           <div className="col-span-3 flex flex-col gap-2">
-            <SidebarItem label="BigQuery" type="SINK" iconName="Database" onDragStart={onDragStart} />
-            <SidebarItem label="PubSub" type="SINK" iconName="Radio" onDragStart={onDragStart} />
+            <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
+            <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
           </div>
         )}
       </div>
