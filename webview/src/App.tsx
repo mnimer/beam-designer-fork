@@ -40,6 +40,52 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 
 
 
+export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java', filename?: string): string | null => {
+  if (!files || files.length === 0) return null;
+
+  const baseName = filename ? filename.replace(/\.beam$/, '').toLowerCase() : '';
+  const pascalBaseName = baseName ? baseName.charAt(0).toUpperCase() + baseName.slice(1) : '';
+
+  // Filter code files by language preference, but fall back to the other language if preferred language has no files
+  let codeFiles = files.filter(f => {
+    const lower = f.toLowerCase();
+    if (language === 'Java') {
+      return lower.endsWith('.java') && !lower.includes('test');
+    } else {
+      return lower.endsWith('.py') && !lower.includes('test') && !lower.endsWith('__init__.py');
+    }
+  });
+
+  // If preferred language returned no code files, check if the other language has code files in the directory
+  if (codeFiles.length === 0) {
+    codeFiles = files.filter(f => {
+      const lower = f.toLowerCase();
+      return (lower.endsWith('.java') || lower.endsWith('.py')) && !lower.includes('test') && !lower.endsWith('__init__.py');
+    });
+  }
+
+  if (codeFiles.length === 0) {
+    // If still no code files found, try any .java or .py file
+    codeFiles = files.filter(f => f.endsWith('.java') || f.endsWith('.py'));
+  }
+
+  if (codeFiles.length === 0) {
+    // No code files exist in folder at all
+    return files[0];
+  }
+
+  // Find best match among codeFiles matching baseName or pascalBaseName or pipeline
+  const match = codeFiles.find(f => {
+    const lower = f.toLowerCase();
+    return (baseName && lower.includes(baseName)) || 
+           (pascalBaseName && lower.includes(pascalBaseName.toLowerCase())) ||
+           lower.includes('pipeline.java') ||
+           lower.includes('pipeline.py');
+  });
+
+  return match || codeFiles[0];
+};
+
 const nodeTypes = {
   pipeline: PipelineNode,
 };
@@ -110,6 +156,15 @@ function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
+
+  const pipelineConfigRef = useRef(pipelineConfig);
+  const filenameRef = useRef(filename);
+  useEffect(() => {
+    pipelineConfigRef.current = pipelineConfig;
+  }, [pipelineConfig]);
+  useEffect(() => {
+    filenameRef.current = filename;
+  }, [filename]);
 
   // Resize state for Bottom Panel
   const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
@@ -323,12 +378,31 @@ function App() {
           if (message.success) {
             setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
             setGeneratedCode(message.code || '');
+            setSelectedFileName(null);
+            setSelectedFileContent(null);
             refreshFolderFiles();
           }
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
-        } else if (message.command === 'folderFilesLoaded') {
-          setFolderFiles(message.files || []);
+        } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
+          const loadedFiles: string[] = message.files || [];
+          setFolderFiles(loadedFiles);
+          if (loadedFiles.length > 0) {
+            const currentLang = pipelineConfigRef.current.language;
+            const currentName = filenameRef.current;
+            const currentFolder = pipelineConfigRef.current.outputFolder;
+            const mainFile = findMainPipelineFile(loadedFiles, currentLang, currentName);
+            if (mainFile) {
+              setSelectedFileName(mainFile);
+              if (vscode) {
+                vscode.postMessage({ 
+                  command: 'readFileContent', 
+                  filePath: mainFile,
+                  folderPath: currentFolder
+                });
+              }
+            }
+          }
         } else if (message.command === 'fileContentLoaded') {
           setSelectedFileContent(message.content);
         } else if (message.command === 'folderSelected') {

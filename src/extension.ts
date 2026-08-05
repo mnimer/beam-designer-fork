@@ -1018,7 +1018,6 @@ function handleMessages(
 
                         let mainPipelineCode = '';
                         const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
-                        const mainPipelineFileName = `${baseName}.${fileExt}`;
 
                         if (responseObj.files && Array.isArray(responseObj.files)) {
                             for (const file of responseObj.files) {
@@ -1104,8 +1103,27 @@ function handleMessages(
                                     }
                                 }
 
-                                if (path.basename(normalizedFilename) === mainPipelineFileName || normalizedFilename === `src/${mainPipelineFileName}`) {
-                                    mainPipelineCode = fileContent;
+                                const lowerNorm = normalizedFilename.toLowerCase();
+                                const lowerBase = path.basename(normalizedFilename).toLowerCase();
+                                if (fileExt === 'java') {
+                                    if (lowerNorm.endsWith('.java') && !lowerNorm.includes('test')) {
+                                        if (lowerBase === `${pascalBaseName.toLowerCase()}.java` || 
+                                            lowerBase === `${baseName.toLowerCase()}.java` || 
+                                            lowerBase === 'pipeline.java' || 
+                                            normalizedFilename.startsWith('src/main/java/') ||
+                                            !mainPipelineCode) {
+                                            mainPipelineCode = fileContent;
+                                        }
+                                    }
+                                } else {
+                                    if (lowerNorm.endsWith('.py') && !lowerNorm.includes('test') && !lowerBase.endsWith('__init__.py')) {
+                                        if (lowerBase === `${baseName.toLowerCase()}.py` || 
+                                            lowerBase === 'pipeline.py' || 
+                                            normalizedFilename.startsWith('src/') ||
+                                            !mainPipelineCode) {
+                                            mainPipelineCode = fileContent;
+                                        }
+                                    }
                                 }
 
                             }
@@ -1115,7 +1133,14 @@ function handleMessages(
 
                         // Default code if the main pipeline file wasn't found in the generated list
                         if (!mainPipelineCode && responseObj.files.length > 0) {
-                            mainPipelineCode = responseObj.files[0].content;
+                            const codeFile = responseObj.files.find((f: any) => 
+                                f.filename && f.filename.endsWith(`.${fileExt}`) && !f.filename.toLowerCase().includes('test')
+                            ) || responseObj.files.find((f: any) => f.filename && f.filename.endsWith(`.${fileExt}`));
+                            if (codeFile) {
+                                mainPipelineCode = codeFile.content;
+                            } else {
+                                mainPipelineCode = responseObj.files[0].content;
+                            }
                         }
 
                         // Ensure src/__init__.py exists for Python projects so unittest recognizes src as a package
