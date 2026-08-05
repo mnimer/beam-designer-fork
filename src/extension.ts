@@ -10,8 +10,13 @@ import { GoogleGenAI } from '@google/genai';
  * 
  * @param context The extension context provided by VS Code
  */
+let designerOutputChannel: vscode.OutputChannel | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Apache Beam Pipeline Builder is now active!');
+    designerOutputChannel = vscode.window.createOutputChannel('Dataflow Designer');
+    context.subscriptions.push(designerOutputChannel);
+    designerOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Apache Beam Designer initialized.`);
 
     const treeDataProvider = new DataFlowTreeProvider();
     vscode.window.registerTreeDataProvider('dataflowExplorer', treeDataProvider);
@@ -256,12 +261,33 @@ function parseOrRepairJson(rawText: string): any {
 }
 
 /**
+ * Helper to find the absolute path to gcloud CLI binary.
+ */
+function findGcloudPath(): string {
+    const candidates = [
+        '/Users/mikenimer/Development/libraries/google-cloud-sdk/bin/gcloud',
+        path.join(process.env.HOME || '', 'Development/libraries/google-cloud-sdk/bin/gcloud'),
+        path.join(process.env.HOME || '', 'google-cloud-sdk/bin/gcloud'),
+        '/opt/homebrew/bin/gcloud',
+        '/usr/local/bin/gcloud',
+        'gcloud'
+    ];
+    for (const cand of candidates) {
+        if (cand !== 'gcloud' && fs.existsSync(cand)) {
+            return cand;
+        }
+    }
+    return 'gcloud';
+}
+
+/**
  * Asynchronously retrieves the active GCP project ID from gcloud CLI.
  * Returns undefined if gcloud is unavailable or fails.
  */
 function getGcloudProject(): Promise<string | undefined> {
     return new Promise((resolve) => {
-        execFile('gcloud', ['config', 'get', 'project'], (error, stdout) => {
+        const gcloudBin = findGcloudPath();
+        execFile(gcloudBin, ['config', 'get-value', 'project'], { timeout: 5000 }, (error, stdout) => {
             if (error || !stdout) {
                 resolve(undefined);
             } else {
@@ -820,6 +846,90 @@ function handleMessages(
                         } catch (e) {
                             console.error('Failed to read file content', e);
                         }
+                    }
+                }
+                return;
+            case 'showOutputChannel':
+                if (!designerOutputChannel) {
+                    designerOutputChannel = vscode.window.createOutputChannel('Dataflow Designer');
+                }
+                designerOutputChannel.show(true);
+                designerOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Log channel requested from Webview.`);
+                return;
+            case 'getRunningJobs':
+                if (!designerOutputChannel) {
+                    designerOutputChannel = vscode.window.createOutputChannel('Dataflow Designer');
+                }
+                designerOutputChannel.show(true);
+
+                let targetProject = message.projectId;
+                if (!targetProject || targetProject === 'YOUR_PROJECT_ID') {
+                    designerOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Resolving active project from gcloud...`);
+                    targetProject = await getGcloudProject();
+                }
+                const targetRegion = message.region || 'us-central1';
+                const gcloudBin = findGcloudPath();
+                const gcloudArgs = ['dataflow', 'jobs', 'list', '--format=json'];
+                
+                if (targetRegion && targetRegion !== 'ALL') {
+                    gcloudArgs.push(`--region=${targetRegion}`);
+                }
+                if (targetProject && targetProject !== 'YOUR_PROJECT_ID') {
+                    gcloudArgs.push(`--project=${targetProject}`);
+                }
+
+                const logMsg = `[${new Date().toLocaleTimeString()}] Executing CLI: ${gcloudBin} ${gcloudArgs.join(' ')}`;
+                console.log('[@extension.ts]', logMsg);
+                designerOutputChannel.appendLine(logMsg);
+                
+                execFile(gcloudBin, gcloudArgs, { timeout: 15000, maxBuffer: 1024 * 1024 * 10 }, (err: any, stdout: string, stderr: string) => {
+                    if (err) {
+                        const errText = `Failed to list Dataflow jobs via gcloud: ${err.message}. Stderr: ${stderr || 'none'}`;
+                        console.error('[@extension.ts]', errText);
+                        designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] ERROR: ${errText}`);
+                        
+                        const errMsg = err.killed ? 'Request timed out waiting for gcloud CLI response. Try selecting a specific region.' : (stderr || err.message);
+                        webview.postMessage({
+                            command: 'runningJobsLoaded',
+                            jobs: [],
+                            error: `Failed to query Dataflow jobs: ${errMsg}`,
+                            debugLog: `Command: ${gcloudBin} ${gcloudArgs.join(' ')}\nError: ${err.message}\nStderr: ${stderr || ''}`
+                        });
+                        return;
+                    }
+                    try {
+                        const successMsg = `gcloud jobs retrieved successfully. Output size: ${(stdout || '').length} bytes.`;
+                        console.log('[@extension.ts]', successMsg);
+                        designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] SUCCESS: ${successMsg}`);
+                        designerOutputChannel?.appendLine(stdout || '[]');
+                        
+                        const parsedJobs = JSON.parse(stdout || '[]');
+                        webview.postMessage({
+                            command: 'runningJobsLoaded',
+                            jobs: Array.isArray(parsedJobs) ? parsedJobs : [],
+                            projectId: targetProject,
+                            debugLog: `Command: ${gcloudBin} ${gcloudArgs.join(' ')}\nRetrieved ${parsedJobs.length} jobs.`
+                        });
+                    } catch (e: any) {
+                        const parseErrMsg = `Failed to parse gcloud JSON output: ${e.message}`;
+                        console.error('[@extension.ts]', parseErrMsg);
+                        designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] ERROR: ${parseErrMsg}`);
+                        
+                        webview.postMessage({
+                            command: 'runningJobsLoaded',
+                            jobs: [],
+                            error: parseErrMsg,
+                            debugLog: `Command: ${gcloudBin} ${gcloudArgs.join(' ')}\nOutput: ${stdout}`
+                        });
+                    }
+                });
+                return;
+            case 'openExternal':
+                if (message.url) {
+                    try {
+                        vscode.env.openExternal(vscode.Uri.parse(message.url));
+                    } catch (e) {
+                        console.error('Failed to open URL', e);
                     }
                 }
                 return;

@@ -146,6 +146,12 @@ function App() {
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
+
+  // Running Jobs state
+  const [runningJobs, setRunningJobs] = useState<any[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [dataflowRegion, setDataflowRegion] = useState<string>('us-central1');
   
   // Custom pipeline config state
   const [pipelineConfig, setPipelineConfig] = useState<{ language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean }>({
@@ -159,6 +165,10 @@ function App() {
 
   const pipelineConfigRef = useRef(pipelineConfig);
   const filenameRef = useRef(filename);
+  const projectIdRef = useRef(projectId);
+  useEffect(() => {
+    projectIdRef.current = projectId;
+  }, [projectId]);
   useEffect(() => {
     pipelineConfigRef.current = pipelineConfig;
   }, [pipelineConfig]);
@@ -382,6 +392,14 @@ function App() {
             setSelectedFileContent(null);
             refreshFolderFiles();
           }
+        } else if (message.command === 'runningJobsLoaded') {
+          if (jobsTimeoutRef.current) {
+            clearTimeout(jobsTimeoutRef.current);
+            jobsTimeoutRef.current = null;
+          }
+          setIsLoadingJobs(false);
+          setRunningJobs(message.jobs || []);
+          setJobsError(message.error || null);
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
         } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
@@ -851,12 +869,60 @@ function App() {
               };
               setEdges((eds) => eds.concat(newEdge));
             }
-          }
         }
       }
-    },
-    [project, setNodes, setEdges, nodes, takeSnapshot]
-  );
+    }
+  },
+  [project, setNodes, setEdges, nodes, takeSnapshot]
+);
+  const jobsTimeoutRef = useRef<any>(null);
+
+  const refreshRunningJobs = useCallback((regionToUse?: string) => {
+    const reg = regionToUse || dataflowRegion || 'us-central1';
+    console.log('[@App.tsx] refreshRunningJobs called, projectId=', projectIdRef.current, 'region=', reg);
+    setIsLoadingJobs(true);
+    setJobsError(null);
+
+    if (jobsTimeoutRef.current) {
+      clearTimeout(jobsTimeoutRef.current);
+    }
+
+    jobsTimeoutRef.current = setTimeout(() => {
+      setIsLoadingJobs(false);
+      setJobsError('Timed out waiting for Dataflow jobs from gcloud CLI. Please verify gcloud CLI login or region settings.');
+    }, 16000);
+
+    if (vscode) {
+      vscode.postMessage({ 
+        command: 'getRunningJobs', 
+        projectId: projectIdRef.current || projectId,
+        region: reg
+      });
+    } else {
+      if (jobsTimeoutRef.current) {
+        clearTimeout(jobsTimeoutRef.current);
+        jobsTimeoutRef.current = null;
+      }
+      setIsLoadingJobs(false);
+    }
+  }, [projectId, dataflowRegion]);
+
+  useEffect(() => {
+    if (bottomTab === 'RUNNING_JOBS' && isLoaded) {
+      refreshRunningJobs();
+    }
+  }, [bottomTab, isLoaded, refreshRunningJobs]);
+
+  const handleOpenJob = useCallback((job: any) => {
+    const loc = job.location || 'us-central1';
+    const proj = projectIdRef.current || projectId || '';
+    const url = `https://console.cloud.google.com/dataflow/jobs/${loc}/${job.id}${proj ? `?project=${proj}` : ''}`;
+    if (vscode) {
+      vscode.postMessage({ command: 'openExternal', url });
+    } else {
+      window.open(url, '_blank');
+    }
+  }, [projectId]);
 
   return (
     <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A]">
@@ -935,6 +1001,14 @@ function App() {
           onSelectFile={handleSelectFile}
           height={bottomPanelHeight}
           isGenerating={isGenerating}
+          runningJobs={runningJobs}
+          isLoadingJobs={isLoadingJobs}
+          jobsError={jobsError}
+          onRefreshRunningJobs={refreshRunningJobs}
+          onOpenJob={handleOpenJob}
+          projectId={projectId}
+          dataflowRegion={dataflowRegion}
+          onRegionChange={(reg) => setDataflowRegion(reg)}
         />
       </div>
 
