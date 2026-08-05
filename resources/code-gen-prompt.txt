@@ -110,6 +110,12 @@ Pipeline:
     -   You MUST configure the application logging backend (`slf4j-simple`,
         `logback-classic`, etc.) to exactly match the major/minor version of the
         resolved `slf4j-api`.
+-   **Testing Dependencies (`SerializableMatcher` & `TestRule`)**:
+    - Apache Beam's `TestPipeline` and `PAssert` implement JUnit 4's `TestRule` and use Hamcrest matchers (`SerializableMatcher`).
+    - In `pom.xml`, you MUST include `junit:junit:4.13.2`, `org.hamcrest:hamcrest:2.2`, `org.hamcrest:hamcrest-library:2.2`, and `org.junit.vintage:junit-vintage-engine:${junit.version}` under `<scope>test</scope>`. Missing `junit:junit` or `hamcrest` causes `java.lang.NoClassDefFoundError: org/apache/beam/sdk/testing/SerializableMatcher` or `cannot access org.junit.rules.TestRule`.
+-   **Coder for Maps / Generic Objects**:
+    - Apache Beam Java cannot infer a default `Coder` for `Map<String, Object>` or generic `Object`.
+    - Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. When returning custom maps or objects, set `.setCoder(KvCoder.of(...))` or `.setCoder(SerializableCoder.of(...))` explicitly, or use Beam `Row` schema (`PCollection<Row>`).
 
 
 ## Python projects
