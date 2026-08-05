@@ -97,7 +97,7 @@ export interface PipelineNodeData {
   type: string;
   iconName: string;
   beam_transform?: string;
-  special_instructions?: string;
+  system_instructions?: string;
   properties?: Record<string, any>;
 }
 
@@ -702,13 +702,14 @@ function App() {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
-          const { special_instructions, ...restProperties } = properties;
+          const { system_instructions, special_instructions, ...restProperties } = properties;
           const updatedData: any = {
             ...node.data,
             properties: restProperties,
           };
-          if (special_instructions !== undefined) {
-            updatedData.special_instructions = special_instructions;
+          const instructionsValue = system_instructions !== undefined ? system_instructions : special_instructions;
+          if (instructionsValue !== undefined) {
+            updatedData.system_instructions = instructionsValue;
           }
           return {
             ...node,

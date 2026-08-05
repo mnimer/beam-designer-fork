@@ -58,7 +58,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Generic properties for Unknown Node')).toBeInTheDocument();
+    expect(screen.getByText('Nothing to customize')).toBeInTheDocument();
   });
   it('renders ParseMessageProperties when label is Parse Message', () => {
     const mockNode = {
@@ -74,11 +74,11 @@ describe('PropertyForm', () => {
     expect(screen.getByText('Message Type')).toBeInTheDocument();
     expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
     expect(screen.getByText('Parse PubSub JSON message and convert it to a dictionary (Dict) format.')).toBeInTheDocument();
-    expect(screen.getByText('Special Instructions')).toBeInTheDocument();
+    expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
 
-    const textarea = screen.getByPlaceholderText('Enter special instructions...');
-    fireEvent.change(textarea, { target: { name: 'special_instructions', value: 'Parse custom field' } });
-    expect(mockOnChange).toHaveBeenCalledWith({ special_instructions: 'Parse custom field' });
+    const textarea = screen.getByPlaceholderText('Enter code generation instructions...');
+    fireEvent.change(textarea, { target: { name: 'system_instructions', value: 'Parse custom field' } });
+    expect(mockOnChange).toHaveBeenCalledWith({ system_instructions: 'Parse custom field' });
   });
 
   it('renders appropriate helper text based on messageType property', () => {

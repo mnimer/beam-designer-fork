@@ -12,6 +12,7 @@ import { FilterProperties } from '../properties/step/Filter';
 import { FlatMapProperties } from '../properties/step/FlatMap';
 import { MapProperties } from '../properties/step/Map';
 import { AggregationProperties } from '../properties/step/Aggregations';
+import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
 
 /**
  * PropertyForm Component
@@ -61,6 +62,8 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
   } else if (label === 'Parse Message') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
+  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || node.data.beam_transform === 'WithTimestamps') {
+    formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
   } else if (label === 'Log Message') {
     formContent = <LogMessageProperties node={node} onChange={onChange} />;
   } else if (label === 'KV Mapper') {
@@ -92,7 +95,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
   ) {
     formContent = <AggregationProperties node={node} onChange={onChange} />;
   } else {
-    formContent = <div className="text-sm text-slate-400">Generic properties for {label}</div>;
+    formContent = <div className="text-sm text-slate-400">Nothing to customize</div>;
   }
 
   return (

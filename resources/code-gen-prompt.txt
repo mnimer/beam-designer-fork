@@ -36,7 +36,7 @@ I will also need you to generate:
 ## Pipeline Instructions
 - Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py") for python jobs and "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java") for java jobs.
 
-- Every node in the yaml, might have a 'systemInstructions' attribute.  If it does, use this to customize the code generation for that specific node. 
+- Every node in the yaml, might have a 'system_instructions' attribute.  If it does, use this to customize the code generation for that specific node. 
 
 - If the pipeline has an output that goes no where (invalid beam pipeline) include a simple Logger step to print the output message.    
 - Use the latest version of all libraries
@@ -50,7 +50,7 @@ Language: {{language}}
 
 ## Built-in Beam Transform Rules & Syntax Reference
 - **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
-- **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `systemInstructions`.
+- **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
 - **SDK SYNTAX OVERRIDES**:
   - **Python `WithTimestamps`**: Use `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (with `import time`). Do NOT use `beam.WithTimestamps()`.
 
@@ -75,7 +75,7 @@ Language: {{language}}
 - **`WithTimestamps`** (Add Timestamp):
   - Python: `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (import `time`)
   - Java: `WithTimestamps.of((element) -> org.joda.time.Instant.now())` or `WithTimestamps.of(...)`
-  - Default Instruction: Attach current system time (`time.time()` in Python, `Instant.now()` in Java) to each element/message unless custom `systemInstructions` are provided.
+  - Default Instruction: Attach current system time (`time.time()` in Python, `Instant.now()` in Java) to each element/message unless custom `system_instructions` are provided.
 - **`Filter`**:
   - Python: `beam.Filter(lambda x: ...)`
   - Java: `Filter.by(...)`

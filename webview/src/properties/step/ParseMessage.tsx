@@ -2,9 +2,11 @@ import React from 'react';
 
 interface ParseMessageNode {
   data: {
+    system_instructions?: string;
     special_instructions?: string;
     properties?: {
       messageType?: 'JSON' | 'Base64' | 'String';
+      system_instructions?: string;
       special_instructions?: string;
     };
   };
@@ -18,7 +20,7 @@ interface ParseMessagePropertiesProps {
 export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const messageType = properties.messageType || 'JSON';
-  const specialInstructions = node.data.special_instructions ?? properties.special_instructions ?? '';
+  const systemInstructions = node.data.system_instructions ?? node.data.special_instructions ?? properties.system_instructions ?? properties.special_instructions ?? '';
 
   // Handle select or textarea change and propagate up
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -60,16 +62,16 @@ export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ 
         {getHelperText()}
       </div>
 
-      {/* Flexible Spacer taking up all free space to bottom-align Special Instructions */}
+      {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
       <div className="flex-1" />
 
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">Special Instructions</label>
+        <label className="text-xs font-bold uppercase text-slate-500">Code Generation Instructions</label>
         <textarea
-          name="special_instructions"
-          value={specialInstructions}
+          name="system_instructions"
+          value={systemInstructions}
           onChange={handleChange}
-          placeholder="Enter special instructions..."
+          placeholder="Enter code generation instructions..."
           rows={3}
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
         />
@@ -77,3 +79,4 @@ export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ 
     </div>
   );
 };
+
