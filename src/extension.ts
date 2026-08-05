@@ -869,7 +869,7 @@ function handleMessages(
                 }
                 const targetRegion = message.region || 'us-central1';
                 const gcloudBin = findGcloudPath();
-                const gcloudArgs = ['dataflow', 'jobs', 'list', '--format=json'];
+                const gcloudArgs = ['dataflow', 'jobs', 'list', '--status=all', '--format=json'];
                 
                 if (targetRegion && targetRegion !== 'ALL') {
                     gcloudArgs.push(`--region=${targetRegion}`);

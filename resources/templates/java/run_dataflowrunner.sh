@@ -5,7 +5,7 @@ set -euo pipefail
 PROJECT_ID=$(gcloud config get-value project)
 REGION="${REGION:-us-central1}"
 SUBNETWORK="${SUBNETWORK:-regions/us-central1/subnetworks/default}"
-GCS_STAGING_PATH="${GCS_STAGING_PATH:-gs://${PROJECT_ID}-dataflow/staging}"
+GCS_STAGING_PATH="${GCS_STAGING_PATH:-{{gcs_staging_path}}}"
 IMAGE_NAME="{{pipeline_name}}"
 TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:latest"
 TEMPLATE_SPEC_PATH="${GCS_STAGING_PATH}/${IMAGE_NAME}-template.json"

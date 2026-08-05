@@ -64,9 +64,11 @@ Use the following static templates as exact starting points when generating the 
 
 
 ## Script & Dockerfile Generation Instructions
+- Ensure `ENV FLEX_TEMPLATE_JAVA_CLASSPATH=/template/main.jar` and `ENV FLEX_TEMPLATE_JAVA_MAIN_CLASS` in Java `Dockerfile` match the jar path and the EXACT fully-qualified class name containing the `main` method (e.g. `com.example.Foobar`, NOT `com.example.FoobarPipeline` if the class is `Foobar`). Missing `FLEX_TEMPLATE_JAVA_CLASSPATH` causes Dataflow launcher error `could not determine java classpath from env`.
+- Ensure `ENV FLEX_TEMPLATE_PYTHON_PY_FILE` in Python `Dockerfile` matches the EXACT path to the Python entrypoint script inside the container (e.g. `/template/src/foobar.py`).
 - Use the provided `run_directrunner.sh` template as the baseline. Do NOT execute or run unit tests inside `run_directrunner.sh` (it MUST focus strictly on virtual environment activation, dependency installation, and executing the main pipeline with DirectRunner).
 - Retrieve the `subnetwork` configuration from the input YAML's `jobConfig` and supply it to the Dataflow launch command using the `--subnetwork` flag.
-- For any GCS staging/uploading operations, use the `gcsStagingPath` value from `jobConfig` (do NOT attempt to create a new GCS bucket in scripts).
+- For any GCS staging/uploading operations, use the exact `gcsStagingPath` value from `jobConfig` (e.g., `GCS_STAGING_PATH="${GCS_STAGING_PATH:-gs://argolis-playground_dataflow/beam-pipeline-designer}"`) in `run_dataflowrunner.sh` instead of defaulting to `gs://${PROJECT_ID}-dataflow/staging`.
 - Generate `run_sparkrunner.sh` ONLY if the language is Java, using the provided Spark template.
 - Retrieve the `gcsStagingPath` value from `jobConfig` to use as the staging GCS location for uploading jars or artifacts (do NOT attempt to create a new GCS bucket in scripts).
 - If a subnetwork is configured in `jobConfig`, Dataproc Serverless requires a fully qualified Compute subnetwork resource URI, so prepend `projects/${PROJECT_ID}/` to the subnetwork value if it is in `regions/<region>/subnetworks/<subnet>` format (e.g., `--subnet="projects/\${PROJECT_ID}/${subnetwork}"`).
@@ -101,6 +103,8 @@ Pipeline:
     are specified.
 
 ## Java projects
+-   **Strict XML Syntax (`pom.xml`)**:
+    - Ensure `pom.xml` contains strictly valid XML syntax. Never output stray text, node property labels, or random words (such as `hardware` or `balance`) after closing tags like `</groupId>` or `</artifactId>`.
 -   **Jackson Dependency Alignment (`StreamReadConstraints`)**:
     - Apache Beam 2.50+ requires Jackson 2.15+ (`jackson-core`, `jackson-databind`, `jackson-annotations`).
     - Older versions of `jackson-core` pulled transitively miss `com.fasterxml.jackson.core.StreamReadConstraints` and cause `NoClassDefFoundError` at runtime.
@@ -113,9 +117,19 @@ Pipeline:
 -   **Testing Dependencies (`SerializableMatcher` & `TestRule`)**:
     - Apache Beam's `TestPipeline` and `PAssert` implement JUnit 4's `TestRule` and use Hamcrest matchers (`SerializableMatcher`).
     - In `pom.xml`, you MUST include `junit:junit:4.13.2`, `org.hamcrest:hamcrest:2.2`, `org.hamcrest:hamcrest-library:2.2`, and `org.junit.vintage:junit-vintage-engine:${junit.version}` under `<scope>test</scope>`. Missing `junit:junit` or `hamcrest` causes `java.lang.NoClassDefFoundError: org/apache/beam/sdk/testing/SerializableMatcher` or `cannot access org.junit.rules.TestRule`.
+-   **Maven Shade Plugin Output Jar (`target/main.jar`)**:
+    - In `pom.xml`, configure `<outputFile>${project.build.directory}/main.jar</outputFile>` inside `maven-shade-plugin`.
+    - In Java `Dockerfile`, use `COPY --from=builder /app/target/main.jar /template/main.jar`. This prevents Cloud Build from failing with "COPY with more than one source file" errors when multiple jars exist in `target/`.
 -   **Coder for Maps / Generic Objects**:
     - Apache Beam Java cannot infer a default `Coder` for `Map<String, Object>` or generic `Object`.
     - Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. When returning custom maps or objects, set `.setCoder(KvCoder.of(...))` or `.setCoder(SerializableCoder.of(...))` explicitly, or use Beam `Row` schema (`PCollection<Row>`).
+-   **BigQueryIO.readTableRows() Return Type**:
+    - `BigQueryIO.readTableRows()` returns `BigQueryIO.TypedRead<TableRow>` (`com.google.api.services.bigquery.model.TableRow`), NOT `BigQueryIO.TypedRead<String>`.
+-   **String Coder API (`StringUtf8Coder`)**:
+    - In Apache Beam Java SDK, there is NO `StringCoder` class. You MUST use `StringUtf8Coder.of()` (`org.apache.beam.sdk.coders.StringUtf8Coder`).
+-   **Side Output Emission API (`c.output(tag, value)`)**:
+    - In Apache Beam Java `DoFn.ProcessContext`, there is NO `sideOutput` method.
+    - To emit an element to a side output tag, call `c.output(tag, value)` (e.g., `c.output(ERROR_TAG, "Error message")`).
 
 
 ## Python projects
