@@ -17,11 +17,11 @@ interface NodesCardProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   nodesCount: number;
-  hasPubSubSource: boolean;
+  hasPubSubSource?: boolean;
   onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => void;
 }
 
-export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, nodesCount, hasPubSubSource, onDragStart }) => {
+export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, nodesCount, onDragStart }) => {
   return (
     <div className="absolute top-4 left-4 z-10 w-64 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
       <div className="flex justify-between items-center">
@@ -82,14 +82,12 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
         )}
         {activeTab === 'STEPS' && (
           <div className="col-span-3 flex flex-col gap-2">
-            {hasPubSubSource && (
-              <details className="bg-slate-700/50 rounded-md">
-                <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">PubSub Messages</summary>
-                <div className="grid grid-cols-3 gap-4 p-2">
-                  <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
-                </div>
-              </details>
-            )}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Message Parsers</summary>
+              <div className="grid grid-cols-3 gap-4 p-2">
+                <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" onDragStart={onDragStart} />
+              </div>
+            </details>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
               <div className="grid grid-cols-3 gap-4 p-2">

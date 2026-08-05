@@ -53,12 +53,12 @@ describe('NodesCard', () => {
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
   });
 
-  it('renders PubSub Messages in STEPS tab when hasPubSubSource is true', () => {
+  it('renders Message Parsers in STEPS tab regardless of hasPubSubSource', () => {
     render(
-      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={true} onDragStart={mockOnDragStart} />
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
     );
 
-    expect(screen.getByText('PubSub Messages')).toBeInTheDocument();
+    expect(screen.getByText('Message Parsers')).toBeInTheDocument();
     expect(screen.getByText('Parse Message')).toBeInTheDocument();
   });
 

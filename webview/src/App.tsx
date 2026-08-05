@@ -670,12 +670,17 @@ function App() {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
+          const { special_instructions, ...restProperties } = properties;
+          const updatedData: any = {
+            ...node.data,
+            properties: restProperties,
+          };
+          if (special_instructions !== undefined) {
+            updatedData.special_instructions = special_instructions;
+          }
           return {
             ...node,
-            data: {
-              ...node.data,
-              properties,
-            },
+            data: updatedData,
           };
         }
         return node;

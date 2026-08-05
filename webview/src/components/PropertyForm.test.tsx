@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PropertyForm } from './PropertyForm';
 
@@ -74,6 +74,11 @@ describe('PropertyForm', () => {
     expect(screen.getByText('Message Type')).toBeInTheDocument();
     expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
     expect(screen.getByText('Parse PubSub JSON message and convert it to a dictionary (Dict) format.')).toBeInTheDocument();
+    expect(screen.getByText('Special Instructions')).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText('Enter special instructions...');
+    fireEvent.change(textarea, { target: { name: 'special_instructions', value: 'Parse custom field' } });
+    expect(mockOnChange).toHaveBeenCalledWith({ special_instructions: 'Parse custom field' });
   });
 
   it('renders appropriate helper text based on messageType property', () => {

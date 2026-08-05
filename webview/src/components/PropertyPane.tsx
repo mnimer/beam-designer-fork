@@ -44,10 +44,9 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, runt
         </div>
       </div>
 
-      <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />
-      
-      {/* Spacer to push content to bottom */}
-      <div className="flex-1" />
+      <div className="flex-1 flex flex-col min-h-0">
+        <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />
+      </div>
 
       {/* Runtime Variables at the bottom */}
       <div className="border-t border-slate-700 pt-4">
