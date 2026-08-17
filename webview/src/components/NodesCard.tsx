@@ -1,52 +1,52 @@
 import React from 'react';
-import { Search } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 
-/**
- * NodesCard Component
- * 
- * This component renders the floating card containing the list of available nodes
- * that can be dragged onto the canvas. It includes tabs to filter by type (Sources, Steps, Sinks).
- * 
- * Architectural Decisions:
- * - Floating card positioned on the left side of the canvas.
- * - Uses SidebarItem for individual node items.
- * - Disables Steps and Sinks tabs if no nodes are present (as per original logic).
- */
 interface NodesCardProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: any) => void;
   nodesCount: number;
-  hasPubSubSource?: boolean;
+  hasPubSubSource: boolean;
   onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => void;
 }
 
-export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, nodesCount, onDragStart }) => {
+export const NodesCard: React.FC<NodesCardProps> = ({
+  activeTab,
+  setActiveTab,
+  nodesCount,
+  onDragStart,
+}) => {
   return (
-    <div className="absolute top-4 left-4 z-10 w-72 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
-      <div className="flex justify-between items-center">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Nodes</h2>
-        <Search className="w-4 h-4 text-slate-400 cursor-pointer" />
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-slate-700">
+    <div className="absolute top-4 left-4 z-10 w-80 bg-[#1A1D26]/90 backdrop-blur border border-slate-700/80 rounded-xl p-3 shadow-2xl flex flex-col gap-3 max-h-[calc(100vh-80px)] overflow-y-auto">
+      {/* Tabs Header */}
+      <div className="flex bg-[#0F111A] p-1 rounded-lg border border-slate-800">
         <button
-          className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${activeTab === 'SOURCES' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
           onClick={() => setActiveTab('SOURCES')}
+          className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+            activeTab === 'SOURCES'
+              ? 'bg-blue-600 text-white shadow'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
         >
           SOURCES
         </button>
         <button
-          className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodesCount === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'STEPS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-          onClick={() => nodesCount > 0 && setActiveTab('STEPS')}
+          onClick={() => setActiveTab('STEPS')}
+          className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+            activeTab === 'STEPS'
+              ? 'bg-blue-600 text-white shadow'
+              : 'text-slate-400 hover:text-slate-200'
+          } ${nodesCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
           disabled={nodesCount === 0}
         >
           STEPS
         </button>
         <button
-          className={`flex-1 pb-2 text-xs font-semibold tracking-wider ${nodesCount === 0 ? 'text-slate-600 cursor-not-allowed' : activeTab === 'SINKS' ? 'text-white border-b-2 border-white' : 'text-slate-500'}`}
-          onClick={() => nodesCount > 0 && setActiveTab('SINKS')}
+          onClick={() => setActiveTab('SINKS')}
+          className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+            activeTab === 'SINKS'
+              ? 'bg-blue-600 text-white shadow'
+              : 'text-slate-400 hover:text-slate-200'
+          } ${nodesCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
           disabled={nodesCount === 0}
         >
           SINKS
@@ -64,9 +64,9 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
                 <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>
-            {/* Batch Sources Section */}
+            {/* Database Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Batch Sources</summary>
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Database Sources</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
               </div>
@@ -158,20 +158,26 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
         )}
         {activeTab === 'SINKS' && (
           <div className="col-span-3 flex flex-col gap-2">
+            {/* Streaming Sinks Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Streaming Sinks</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
+              </div>
+            </details>
+            {/* Database Sinks Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Database Sinks</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
+              </div>
+            </details>
             {/* File Sinks Section */}
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">File Sinks</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="FileIO" type="SINK" iconName="Folder" beamTransform="FileIO" onDragStart={onDragStart} />
                 <SidebarItem label="TextIO" type="SINK" iconName="FileText" beamTransform="TextIO" onDragStart={onDragStart} />
-              </div>
-            </details>
-            {/* Other Sinks Section */}
-            <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
-              <div className="grid grid-cols-3 gap-2 p-2">
-                <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
-                <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>
           </div>

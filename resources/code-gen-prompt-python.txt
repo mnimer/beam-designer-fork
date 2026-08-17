@@ -58,9 +58,10 @@ Language: Python
   - Source: `beam.io.ReadFromText(file_pattern=..., skip_header_lines=..., compression_type=..., delimiter=...)`
   - Sink: `beam.io.WriteToText(file_path_prefix=..., file_name_suffix=..., num_shards=..., compression_type=..., header=..., footer=...)`
 - **`FileIO`**:
-  - Match Source (`FileIO.match`): `beam.io.fileio.MatchFiles(file_pattern)` / `beam.io.fileio.MatchAll()`
-  - Read Matches Step (`FileIO.readMatches`): `beam.io.fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
-  - Sink (`FileIO.write`): `beam.io.fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
+  - Required Import: `from apache_beam.io import fileio` (or `import apache_beam.io.fileio as fileio`)
+  - Match Source (`FileIO.match`): `fileio.MatchFiles(file_pattern)` / `fileio.MatchAll()`
+  - Read Matches Step (`FileIO.readMatches`): `fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
+  - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
 - **`Create`**:
   - Source: `beam.Create([...])`
 
@@ -176,6 +177,8 @@ Use the following static templates as exact starting points when generating the 
 ### Python Projects
 - **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.
 - **Package Marker**: Always generate `src/__init__.py`.
+- **Pipeline Options & Argument Parsing**: Always use standard `parser.add_argument(...)` when defining custom `PipelineOptions` or `argparse`. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
+- **FileIO Imports**: When using FileIO (`MatchFiles`, `ReadMatches`, `WriteToFiles`), always include `from apache_beam.io import fileio` because `apache_beam.io` does not automatically expose `fileio` as an attribute on `beam.io` without an explicit import.
 - **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
 
 ## Documentation References

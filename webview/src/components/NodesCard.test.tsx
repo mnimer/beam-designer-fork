@@ -48,7 +48,7 @@ describe('NodesCard', () => {
     );
 
     expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
-    expect(screen.getByText('Batch Sources')).toBeInTheDocument();
+    expect(screen.getByText('Database Sources')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
   });
@@ -179,7 +179,11 @@ describe('NodesCard', () => {
       <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
     );
 
+    expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+    expect(screen.getByText('Database Sinks')).toBeInTheDocument();
     expect(screen.getByText('File Sinks')).toBeInTheDocument();
+    expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('FileIO')).toBeInTheDocument();
     expect(screen.getByText('TextIO')).toBeInTheDocument();
   });

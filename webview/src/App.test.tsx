@@ -51,7 +51,7 @@ describe('App', () => {
   it('renders Nodes card and Bottom panel', () => {
     render(<AppWithProvider />);
 
-    expect(screen.getByText('Nodes')).toBeInTheDocument();
+    expect(screen.getByText('SOURCES')).toBeInTheDocument();
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
     expect(screen.getByTestId('react-flow')).toBeInTheDocument();
   });
