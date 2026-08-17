@@ -31,8 +31,8 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ label, type, iconName,
       draggable
       onDragStart={(e) => onDragStart(e, 'pipeline', label, type, iconName, beamTransform)}
     >
-      {IconComponent && <IconComponent className="w-6 h-6 text-slate-300 mb-1" />}
-      <span className="text-xs text-slate-300 mt-1">{label}</span>
+      {IconComponent && <IconComponent className="w-5 h-5 text-slate-300 mb-1.5 shrink-0" />}
+      <span className="text-[11px] leading-tight font-medium text-slate-300 text-center max-w-full px-0.5 break-words">{label}</span>
     </div>
   );
 };

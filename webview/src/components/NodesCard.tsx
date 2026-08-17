@@ -54,27 +54,27 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
       </div>
 
       {/* Tab Content */}
-      <div className="grid grid-cols-3 gap-4 mt-2">
+      <div className="grid grid-cols-3 gap-2.5 mt-2">
         {activeTab === 'SOURCES' && (
           <div className="col-span-3 flex flex-col gap-2">
             {/* Streaming Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Streaming Sources</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Streaming Sources</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* Batch Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Batch Sources</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Batch Sources</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* Other Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Create" type="SOURCE" iconName="Box" beamTransform="Create" onDragStart={onDragStart} />
               </div>
             </details>
@@ -83,14 +83,14 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
         {activeTab === 'STEPS' && (
           <div className="col-span-3 flex flex-col gap-2">
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Message Parsers</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Message Parsers</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Parse Message" type="STEP" iconName="FileCode" beamTransform="ParseMessage" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Element Transforms</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Add Timestamp" type="STEP" iconName="Calendar" beamTransform="WithTimestamps" onDragStart={onDragStart} />
                 <SidebarItem label="Filter" type="STEP" iconName="Filter" beamTransform="Filter" onDragStart={onDragStart} />
                 <SidebarItem label="FlatMap" type="STEP" iconName="GitMerge" beamTransform="FlatMap" onDragStart={onDragStart} />
@@ -103,8 +103,8 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Aggregations</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Aggregations</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Approximate Quantiles" type="STEP" iconName="BarChart" beamTransform="ApproximateQuantiles" onDragStart={onDragStart} />
                 <SidebarItem label="Approximate Unique" type="STEP" iconName="BarChart" beamTransform="ApproximateUnique" onDragStart={onDragStart} />
                 <SidebarItem label="Batch Elements" type="STEP" iconName="BarChart" beamTransform="BatchElements" onDragStart={onDragStart} />
@@ -125,14 +125,14 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Windows</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Windows</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Window" type="STEP" iconName="Clock" beamTransform="WindowInto" onDragStart={onDragStart} />
               </div>
             </details>
             <details className="bg-slate-700/50 rounded-md">
-              <summary className="p-2 cursor-pointer text-xs font-semibold text-slate-300 uppercase tracking-wider">Logging</summary>
-              <div className="grid grid-cols-3 gap-4 p-2">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Logging</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Log Message" type="STEP" iconName="Terminal" beamTransform="LogMessage" onDragStart={onDragStart} />
               </div>
             </details>
