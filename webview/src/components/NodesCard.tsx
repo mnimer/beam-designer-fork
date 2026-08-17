@@ -139,6 +139,13 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
                 <SidebarItem label="Log Message" type="STEP" iconName="Terminal" beamTransform="LogMessage" onDragStart={onDragStart} />
               </div>
             </details>
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="Flatten" type="STEP" iconName="Layers" beamTransform="Flatten" onDragStart={onDragStart} />
+                <SidebarItem label="ReShuffle" type="STEP" iconName="Shuffle" beamTransform="Reshuffle" onDragStart={onDragStart} />
+              </div>
+            </details>
           </div>
         )}
         {activeTab === 'SINKS' && (

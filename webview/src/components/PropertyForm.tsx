@@ -14,16 +14,18 @@ import { MapProperties } from '../properties/step/Map';
 import { AggregationProperties } from '../properties/step/Aggregations';
 import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
 import { ParDoProperties } from '../properties/step/ParDo';
+import { OtherProperties } from '../properties/step/Other';
 
 /**
  * PropertyForm Component
  * 
  * This component acts as a container for specific node property forms.
- * It determines which property form to display based on the node's label.
+ * It determines which property form to display based on the node's label and beam_transform.
  * 
  * Architectural Decisions:
  * - Delegated specific forms to individual components in subfolders.
- * - Uses string matching on labels to identify node types (could be improved to use a type field).
+ * - Uses string matching on labels and beam_transform attributes to identify node types.
+ * - Includes OtherProperties for miscellaneous transforms (e.g. Flatten, ReShuffle).
  */
 interface PropertyFormProps {
   node: any;
@@ -97,6 +99,15 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     label === 'Top'
   ) {
     formContent = <AggregationProperties node={node} onChange={onChange} />;
+  } else if (
+    label === 'Flatten' ||
+    label === 'ReShuffle' ||
+    label === 'Reshuffle' ||
+    node.data.beam_transform === 'Flatten' ||
+    node.data.beam_transform === 'Reshuffle' ||
+    node.data.beam_transform === 'ReShuffle'
+  ) {
+    formContent = <OtherProperties node={node} onChange={onChange} />;
   } else {
     formContent = <div className="text-sm text-slate-400">Nothing to customize</div>;
   }

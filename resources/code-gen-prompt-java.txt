@@ -122,6 +122,14 @@ Language: Java
 - **`LogMessage`**:
   - Syntax: `ParDo.of(new LogDoFn())`
 
+#### 5. Other Transforms
+- **`Flatten`**:
+  - Syntax: `PCollectionList.of(pcoll1).and(pcoll2).apply(Flatten.pCollections())`
+  - Rules: Merges multiple `PCollection` objects containing elements of the same data type into a single logical `PCollection`. Input `PCollection` objects are combined into a `PCollectionList` before applying `Flatten.pCollections()`.
+- **`Reshuffle`** / **`ReShuffle`**:
+  - Syntax: `Reshuffle.of()`
+  - Rules: Redistributes elements across workers by assigning temporary random keys to break runner stage fusion and balance parallel workload.
+
 Language: Java
 
 Pipeline YAML:
@@ -173,4 +181,5 @@ Use the following static templates as exact starting points when generating the 
 ## Documentation References
 - Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
 - Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Beam Flatten (Java): https://beam.apache.org/documentation/transforms/java/other/flatten/
 - Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates

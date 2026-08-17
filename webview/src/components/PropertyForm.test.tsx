@@ -264,4 +264,34 @@ describe('PropertyForm', () => {
     expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
     expect(screen.getByText('System Instructions')).toBeInTheDocument();
   });
+
+  it('renders OtherProperties when label is Flatten', () => {
+    const mockNode = {
+      data: {
+        label: 'Flatten',
+        beam_transform: 'Flatten',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Flatten properties are currently empty\. Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
+  });
+
+  it('renders OtherProperties when label is ReShuffle', () => {
+    const mockNode = {
+      data: {
+        label: 'ReShuffle',
+        beam_transform: 'Reshuffle',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/ReShuffle properties are currently empty\. Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
+  });
 });

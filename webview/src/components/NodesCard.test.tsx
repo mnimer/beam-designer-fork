@@ -150,4 +150,17 @@ describe('NodesCard', () => {
 
     expect(renderedItems).toEqual(expectedItems);
   });
+
+  it('renders Other section in STEPS tab with Flatten and ReShuffle', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    // Get the 'Other' section summary in STEPS tab
+    const otherSummaries = screen.getAllByText('Other');
+    expect(otherSummaries.length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getByText('Flatten')).toBeInTheDocument();
+    expect(screen.getByText('ReShuffle')).toBeInTheDocument();
+  });
 });

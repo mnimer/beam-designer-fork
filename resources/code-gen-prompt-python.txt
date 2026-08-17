@@ -125,6 +125,14 @@ Language: Python
 - **`LogMessage`**:
   - Syntax: `beam.Map(lambda x: logging.info(f"Log: {x}"))`
 
+#### 5. Other Transforms
+- **`Flatten`**:
+  - Syntax: `(pcoll1, pcoll2) | beam.Flatten()` or `[pcoll1, pcoll2] | beam.Flatten()`
+  - Rules: Merges multiple `PCollection` objects containing elements of the same data type into a single logical `PCollection`. Pass a tuple or list of `PCollection` objects into `beam.Flatten()`.
+- **`Reshuffle`** / **`ReShuffle`**:
+  - Syntax: `beam.Reshuffle()` or `beam.Reshuffle(num_buckets=...)`
+  - Rules: Redistributes elements across workers by assigning temporary random keys to break runner stage fusion and balance parallel workload.
+
 Language: Python
 
 Pipeline YAML:
@@ -166,4 +174,5 @@ Use the following static templates as exact starting points when generating the 
 ## Documentation References
 - Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
 - Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Beam Flatten (Python): https://beam.apache.org/documentation/transforms/python/other/flatten/
 - Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates
