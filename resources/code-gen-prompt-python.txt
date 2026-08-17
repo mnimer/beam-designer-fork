@@ -1,0 +1,169 @@
+I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+
+I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Python, using the latest version of all libraries. 
+
+I will also need you to generate:
+- A valid dependency file (requirements.txt)
+- A valid Dataflow Flex Template Dockerfile for Python. 
+- A valid Dataflow Flex Template metadata.json file for the pipeline. Allowing users to override all pipeline options that were provided in the input yaml. 
+- A shell script to run the job locally (name=run_directrunner.sh)    
+- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
+- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
+- A detailed Readme documenting the pipeline, how to build it, and how to run it.
+
+## Project code instructions
+- Only generate the pipeline code. I do not need any extra helper application code generated. 
+- Directory & Subfolder Structure Rules:
+  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
+  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder ('Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'README.md').
+  - Pipeline source code files: All code files and tests MUST be generated inside 'src/' (e.g. 'src/foobar.py', 'src/foobar_test.py').
+- Delete all files and folders in output folder before generating the new code.
+- Validate all generated files are valid after creation
+- Generate Unit Tests for the different steps in the pipeline
+- Validate all unit tests run and pass locally using the DirectRunner
+- Use Cloud Build to build all artifacts
+- For Python projects: generate 'requirements.txt'. Do NOT generate 'pom.xml', 'run_sparkrunner.sh', or any Java build directories (such as 'target/').
+- You MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
+- For Python unit test files, import statements MUST reference the actual pipeline module name matching the target pipeline filename (e.g., if the main pipeline file is named 'foobar.py', unit tests MUST import transforms using 'from src.foobar import ...' or 'from foobar import ...', NOT hardcoded 'from src.pipeline import ...').
+- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+
+## Pipeline Instructions
+- Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
+- Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+- If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
+- Use the latest version of all libraries.
+
+## Compile instructions
+- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
+- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
+
+Language: Python
+
+## Built-in Beam Transform Rules & Syntax Reference
+- **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
+- **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
+- **SDK SYNTAX OVERRIDES**:
+  - **Python `WithTimestamps`**: Use `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (with `import time`). Do NOT use `beam.WithTimestamps()`.
+
+### Python SDK Syntax & Behavioral Reference:
+
+#### 1. Sources & Sinks (I/O Connectors)
+- **`PubSubIO`**:
+  - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
+  - Sink: `beam.io.WriteToPubSub(topic=...)`
+- **`BigQueryIO`**:
+  - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
+  - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
+- **`Create`**:
+  - Source: `beam.Create([...])`
+
+#### 2. Element-Wise Transforms
+- **`WithTimestamps`** (Add Timestamp):
+  - Syntax: `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (import `time`)
+  - Default Instruction: Attach current system time (`time.time()`) to each element/message unless custom `system_instructions` are provided.
+- **`Filter`**:
+  - Syntax: `beam.Filter(lambda x: ...)`
+  - Default Instruction: Create a custom function with a todo comment and return true unless custom `system_instructions` are provided.
+- **`FlatMap`**:
+  - Syntax: `beam.FlatMap(lambda x: x.split(','))` or `beam.FlatMap(lambda x: re.findall(r'[A-Za-z]+', x))`
+- **`Keys`**:
+  - Syntax: `beam.Keys()`
+- **`KVMapper`**:
+  - Syntax: `beam.Map(lambda x: (x.get('id'), x))`
+  - Default Instruction: Map incoming dictionary/object into a `(key, value)` tuple using the configured key property (defaults to `'id'`).
+- **`KvSwap`**:
+  - Syntax: `beam.KvSwap()`
+  - Default Instruction: Swap key and value of incoming `(K, V)` pairs into `(V, K)`.
+- **`Map`**:
+  - Syntax: `beam.Map(lambda x: ...)`
+- **`ToString`**:
+  - Syntax: `beam.ToString.Element()` / `beam.ToString.KVs()`
+- **`Values`**:
+  - Syntax: `beam.Values()`
+
+#### 3. Aggregations & Combining
+- **`ApproximateQuantiles`**:
+  - Syntax: `beam.approximatequantiles.ApproximateQuantiles.Globally(...)` / `.PerKey(...)`
+- **`ApproximateUnique`**:
+  - Syntax: `beam.ApproximateUnique.Globally(...)` / `.PerKey(...)`
+- **`BatchElements`**:
+  - Syntax: `beam.BatchElements(min_batch_size=..., max_batch_size=...)`
+- **`CoGroupByKey`**:
+  - Syntax: `beam.CoGroupByKey()`
+- **`Combine`**:
+  - Syntax: `beam.CombineGlobally(...)` / `beam.CombinePerKey(...)`
+- **`CombineWithContext`**:
+  - Syntax: `beam.CombineGlobally(...).with_defaults()`
+- **`Count`**:
+  - Syntax: `beam.combiners.Count.PerElement()` / `beam.combiners.Count.PerKey()` / `beam.combiners.Count.Globally()`
+- **`Distinct`**:
+  - Syntax: `beam.Distinct()`
+- **`GroupByKey`**:
+  - Syntax: `beam.GroupByKey()`
+- **`GroupIntoBatches`**:
+  - Syntax: `beam.GroupIntoBatches(batch_size=...)`
+- **`Latest`**:
+  - Syntax: `beam.combiners.Latest.PerKey()` / `beam.combiners.Latest.Globally()`
+- **`Max`**:
+  - Syntax: `beam.combiners.Top.Of(...)` or `beam.Max.PerKey()` / `beam.Max.Globally()`
+- **`Mean`**:
+  - Syntax: `beam.combiners.Mean.PerKey()` / `beam.combiners.Mean.Globally()`
+- **`Min`**:
+  - Syntax: `beam.Min.PerKey()` / `beam.Min.Globally()`
+- **`Sample`**:
+  - Syntax: `beam.combiners.Sample.FixedSizeGlobally(...)` / `.FixedSizePerKey(...)`
+- **`Sum`**:
+  - Syntax: `beam.combiners.Sum.PerKey()` / `beam.combiners.Sum.Globally()`
+- **`Top`**:
+  - Syntax: `beam.combiners.Top.Of(...)` / `beam.combiners.Top.PerKey(...)`
+
+#### 4. Windowing, Parsing & Utility Transforms
+- **`WindowInto`**:
+  - Syntax: `beam.WindowInto(window.FixedWindows(...))` / `SlidingWindows` / `Sessions`
+- **`ParseMessage`**:
+  - Parse Pub/Sub bytes string into JSON / String / Base64.
+- **`LogMessage`**:
+  - Syntax: `beam.Map(lambda x: logging.info(f"Log: {x}"))`
+
+Language: Python
+
+Pipeline YAML:
+```yaml
+{{pipeline}}
+```
+
+## Reference File Templates
+Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as pipeline module names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
+
+### Dockerfile Template
+```
+{{dockerfile_template}}
+```
+
+### 'run_directrunner.sh' Template
+```
+{{run_directrunner_template}}
+```
+
+### 'run_dataflowrunner.sh' Template
+```
+{{run_dataflowrunner_template}}
+```
+
+## Template Customization Rules
+- **Template Substitution**: Use the provided static templates below as exact baselines for Dockerfile, `run_directrunner.sh`, and `run_dataflowrunner.sh`. Fill in placeholders matching the pipeline base name.
+- **`jobConfig` Mapping**:
+  - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
+  - Pre-fill `--subnetwork` in Dataflow run script using `jobConfig.subnetwork` from the input YAML.
+
+## Language SDK Best Practices & Gotchas
+
+### Python Projects
+- **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.
+- **Package Marker**: Always generate `src/__init__.py`.
+- **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
+
+## Documentation References
+- Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
+- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates

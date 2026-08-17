@@ -13,6 +13,8 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
 import { LayoutTemplate } from 'lucide-react';
 
+import { computeUpdatedOutputFolder } from './utils/outputFolder';
+
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -359,18 +361,20 @@ function App() {
               const nameWithoutExt = message.filename 
                 ? message.filename.replace('.beam', '') 
                 : '';
-              if (nameWithoutExt) {
-                let folder = config.outputFolder ? config.outputFolder.trim() : '';
-                if (!folder && message.defaultOutputFolder) {
-                  folder = message.defaultOutputFolder;
-                }
-                const normFolder = folder.replace(/\/$/, '');
-                if (!normFolder.endsWith(nameWithoutExt)) {
-                  config.outputFolder = normFolder ? `${normFolder}/${nameWithoutExt}` : nameWithoutExt;
-                  config.needsRebuild = true;
-                } else {
-                  config.outputFolder = folder;
-                }
+              const relativeFolder = message.relativeFolder || '';
+              const defaultOutputFolder = message.defaultOutputFolder || (relativeFolder ? `${relativeFolder}/${nameWithoutExt}` : nameWithoutExt);
+              
+              const prevOutputFolder = config.outputFolder;
+              const updatedOutputFolder = computeUpdatedOutputFolder(
+                config.outputFolder,
+                relativeFolder,
+                nameWithoutExt,
+                defaultOutputFolder
+              );
+
+              config.outputFolder = updatedOutputFolder;
+              if (prevOutputFolder && prevOutputFolder !== updatedOutputFolder) {
+                config.needsRebuild = true;
               }
               if (config.needsRebuild === undefined) {
                 config.needsRebuild = false;

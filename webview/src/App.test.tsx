@@ -156,5 +156,30 @@ describe('App', () => {
     // Expect the input to be updated to the new path
     expect(outputFolderInput.value).toBe('src/other-pipelines/my-pipeline');
   });
+
+  it('updates output folder when a renamed pipeline is loaded via loadPipeline message', () => {
+    render(<AppWithProvider />);
+
+    // Switch to SOURCE CODE tab
+    const sourceCodeTabBtn = screen.getByText('SOURCE CODE');
+    fireEvent.click(sourceCodeTabBtn);
+
+    const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
+
+    // Simulate loading renamed file test/parse message/parse-message-pipeline.beam
+    // with stale output folder test/job1/job1 in saved YAML
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'parse-message-pipeline.beam',
+        relativeFolder: 'test/parse message',
+        defaultOutputFolder: 'test/parse message/parse-message-pipeline',
+        data: 'nodes: []\nedges: []\npipelineConfig:\n  language: Python\n  outputFolder: "test/job1/job1"\n  needsRebuild: false'
+      }
+    }));
+
+    // Expect the output folder to be updated relative to the new .beam file location and name
+    expect(outputFolderInput.value).toBe('test/parse message/parse-message-pipeline');
+  });
 });
 

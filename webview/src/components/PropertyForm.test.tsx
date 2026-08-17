@@ -190,7 +190,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/Filter properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Compare')).toBeInTheDocument();
   });
 
   it('renders FlatMapProperties when label is FlatMap', () => {
@@ -204,7 +204,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/FlatMap properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Split via')).toBeInTheDocument();
   });
 
   it('renders MapProperties when label is Map', () => {

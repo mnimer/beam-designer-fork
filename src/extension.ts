@@ -40,6 +40,13 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Refresh tree view on file rename or move
+    context.subscriptions.push(
+        vscode.workspace.onDidRenameFiles(_e => {
+            treeDataProvider.refresh();
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.openPipeline', (pipelineName: string, mode: 'edit' | 'view', uri?: vscode.Uri) => {
             const panel = vscode.window.createWebviewPanel(
@@ -1061,10 +1068,10 @@ function handleMessages(
 
                         const ai = new GoogleGenAI(aiOptions);
 
-                        const promptTemplate = readResourceFile(context, 'code-gen-prompt.txt');
-
-                        // Determine target language subfolder for template loading
+                        // Determine target language subfolder and prompt file
                         const langSubfolder = languageVal.toLowerCase() === 'java' ? 'java' : 'python';
+                        const promptFile = langSubfolder === 'java' ? 'code-gen-prompt-java.txt' : 'code-gen-prompt-python.txt';
+                        const promptTemplate = readResourceFile(context, promptFile);
 
                         // Load static file templates for Dockerfile and runner scripts
                         const dockerfileTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'Dockerfile'));
@@ -1270,11 +1277,11 @@ function handleMessages(
                         // Write default ignore files if not present in generated files
                         const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
                         if (!fs.existsSync(dockerIgnorePath)) {
-                            fs.writeFileSync(dockerIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
+                            fs.writeFileSync(dockerIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\ntarget/\n*.beam\n*.tf\n`, 'utf-8');
                         }
                         const gcloudIgnorePath = path.join(targetFolderPath, '.gcloudignore');
                         if (!fs.existsSync(gcloudIgnorePath)) {
-                            fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\n*.beam\n*.tf\n`, 'utf-8');
+                            fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\ntarget/\n*.beam\n*.tf\n`, 'utf-8');
                         }
 
 

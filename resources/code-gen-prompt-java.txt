@@ -1,0 +1,176 @@
+I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+
+I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Java, using the latest version of all libraries. 
+
+I will also need you to generate:
+- A valid dependency file (pom.xml) 
+- A valid Dataflow Flex Template Dockerfile for Java. 
+- A valid Dataflow Flex Template metadata.json file for the pipeline. Allowing users to override all pipeline options that were provided in the input yaml. 
+- A shell script to run the job locally (name=run_directrunner.sh)    
+- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
+- A shell script to run the job on GCP Serverless Spark (name=run_sparkrunner.sh)
+- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
+- A detailed Readme documenting the pipeline, how to build it, and how to run it.
+
+## Project code instructions
+- Only generate the pipeline code. I do not need any extra helper application code generated. 
+- Directory & Subfolder Structure Rules:
+  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
+  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder ('Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'pom.xml', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'run_sparkrunner.sh', 'README.md').
+  - Pipeline source code files: All source files MUST follow standard Maven package layout inside 'src/main/java/com/example/<PipelineName>.java' (e.g. 'src/main/java/com/example/Foobar.java') and unit tests inside 'src/test/java/com/example/<PipelineName>Test.java' (e.g. 'src/test/java/com/example/FoobarTest.java'). Class names and filenames MUST use PascalCase matching the pipeline base name.
+- Delete all files and folders in output folder before generating the new code.
+- Validate all generated files are valid after creation
+- Generate Unit Tests for the different steps in the pipeline
+- Validate all unit tests run and pass locally using the DirectRunner
+- Use Cloud Build to build all artifacts
+- For Java projects: generate 'pom.xml' and 'run_sparkrunner.sh'. Do NOT generate 'requirements.txt' or 'src/__init__.py'.
+- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+
+## Pipeline Instructions
+- Generate main java file name as "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java").
+- Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+- If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
+- Use the latest version of all libraries.
+
+## Compile instructions
+- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
+- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
+
+Language: Java
+
+## Built-in Beam Transform Rules & Syntax Reference
+- **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
+- **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
+
+### Java SDK Syntax & Behavioral Reference:
+
+#### 1. Sources & Sinks (I/O Connectors)
+- **`PubSubIO`**:
+  - Source: `PubsubIO.readStrings().fromSubscription(...)` / `fromTopic(...)`
+  - Sink: `PubsubIO.writeStrings().to(...)`
+- **`BigQueryIO`**:
+  - Source: `BigQueryIO.readTableRows().from(...)` / `.fromQuery(...)`
+  - Sink: `BigQueryIO.writeTableRows().to(...)`
+- **`Create`**:
+  - Source: `Create.of([...])`
+
+#### 2. Element-Wise Transforms
+- **`WithTimestamps`** (Add Timestamp):
+  - Syntax: `WithTimestamps.of((element) -> org.joda.time.Instant.now())` or `WithTimestamps.of(...)`
+  - Default Instruction: Attach current system time (`Instant.now()`) to each element/message unless custom `system_instructions` are provided.
+- **`Filter`**:
+  - Syntax: `Filter.by(...)`
+  - Default Instruction: Create a custom function with a todo comment and return true unless custom `system_instructions` are provided.
+- **`FlatMap`**:
+  - Syntax: `FlatMapElements.into(TypeDescriptors.strings()).via((String x) -> Arrays.asList(x.split(",")))`
+- **`Keys`**:
+  - Syntax: `Keys.create()`
+- **`KVMapper`**:
+  - Syntax: `WithKeys.of(...)`
+  - Default Instruction: Map incoming dictionary/object into a `(key, value)` tuple using the configured key property (defaults to `'id'`).
+- **`KvSwap`**:
+  - Syntax: `KvSwap.of()`
+  - Default Instruction: Swap key and value of incoming `(K, V)` pairs into `(V, K)`.
+- **`Map`**:
+  - Syntax: `MapElements.into(...).via(...)`
+- **`ToString`**:
+  - Syntax: `ToString.elements()` / `ToString.kvs()`
+- **`Values`**:
+  - Syntax: `Values.create()`
+
+#### 3. Aggregations & Combining
+- **`ApproximateQuantiles`**:
+  - Syntax: `ApproximateQuantiles.globally(...)` / `.perKey(...)`
+- **`ApproximateUnique`**:
+  - Syntax: `ApproximateUnique.globally(...)` / `.perKey(...)`
+- **`BatchElements`**:
+  - Syntax: `BatchElements.of(...)`
+- **`CoGroupByKey`**:
+  - Syntax: `CoGroupByKey.create()`
+- **`Combine`**:
+  - Syntax: `Combine.globally(...)` / `Combine.perKey(...)`
+- **`CombineWithContext`**:
+  - Syntax: `Combine.globally(...)`
+- **`Count`**:
+  - Syntax: `Count.perElement()` / `Count.perKey()` / `Count.globally()`
+- **`Distinct`**:
+  - Syntax: `Distinct.create()`
+- **`GroupByKey`**:
+  - Syntax: `GroupByKey.create()`
+- **`GroupIntoBatches`**:
+  - Syntax: `GroupIntoBatches.ofSize(...)`
+- **`Latest`**:
+  - Syntax: `Latest.perKey()` / `Latest.globally()`
+- **`Max`**:
+  - Syntax: `Max.integersPerKey()` / `Max.doublesPerKey()` / `Max.globally(...)`
+- **`Mean`**:
+  - Syntax: `Mean.perKey()` / `Mean.globally()`
+- **`Min`**:
+  - Syntax: `Min.integersPerKey()` / `Min.doublesPerKey()` / `Min.globally(...)`
+- **`Sample`**:
+  - Syntax: `Sample.fixedSizeGlobally(...)` / `Sample.fixedSizePerKey(...)`
+- **`Sum`**:
+  - Syntax: `Sum.integersPerKey()` / `Sum.doublesPerKey()` / `Sum.globally(...)`
+- **`Top`**:
+  - Syntax: `Top.largest(...)` / `Top.smallest(...)`
+
+#### 4. Windowing, Parsing & Utility Transforms
+- **`WindowInto`**:
+  - Syntax: `Window.into(FixedWindows.of(...))` / `SlidingWindows` / `Sessions`
+- **`ParseMessage`**:
+  - Parse Pub/Sub bytes string into JSON / String / Base64.
+- **`LogMessage`**:
+  - Syntax: `ParDo.of(new LogDoFn())`
+
+Language: Java
+
+Pipeline YAML:
+```yaml
+{{pipeline}}
+```
+
+## Reference File Templates
+Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as class names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
+
+### Dockerfile Template
+```
+{{dockerfile_template}}
+```
+
+### 'run_directrunner.sh' Template
+```
+{{run_directrunner_template}}
+```
+
+### 'run_dataflowrunner.sh' Template
+```
+{{run_dataflowrunner_template}}
+```
+
+### 'run_sparkrunner.sh' Template
+```
+{{run_sparkrunner_template}}
+```
+
+## Template Customization Rules
+- **Template Substitution**: Use the provided static templates below as exact baselines for Dockerfile, `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh`. Fill in placeholders matching the pipeline base name and package class name.
+- **`jobConfig` Mapping**:
+  - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` and `run_sparkrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
+  - Pre-fill `--subnetwork` in Dataflow/Spark run scripts using `jobConfig.subnetwork` from the input YAML (for Spark Dataproc, format URI as `projects/${PROJECT_ID}/${subnetwork}`).
+
+## Language SDK Best Practices & Gotchas
+
+### Java Projects
+- **Strict XML Syntax (`pom.xml`)**: Ensure strictly valid XML without stray characters.
+- **Jackson Dependency Alignment**: Explicitly declare `com.fasterxml.jackson.core:jackson-core`, `jackson-databind`, and `jackson-annotations` version `2.15.3` (or higher) in `pom.xml` to avoid runtime `NoClassDefFoundError: StreamReadConstraints`.
+- **Testing Dependencies**: Include `junit:junit:4.13.2`, `org.hamcrest:hamcrest:2.2`, `org.hamcrest:hamcrest-library:2.2`, and `org.junit.vintage:junit-vintage-engine:${junit.version}` under `<scope>test</scope>`.
+- **Maven Shade Plugin Output**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin` so `target/main.jar` is predictable for Docker copying.
+- **Coders**: Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. Use `.setCoder(...)` or Beam `Row` schema (`PCollection<Row>`).
+- **BigQueryIO Return Type**: `BigQueryIO.readTableRows()` returns `BigQueryIO.TypedRead<TableRow>`, NOT `TypedRead<String>`.
+- **String Coder API**: Use `StringUtf8Coder.of()` (`org.apache.beam.sdk.coders.StringUtf8Coder`), NOT `StringCoder`.
+- **Side Output Emission**: Use `c.output(tag, value)` in `DoFn.ProcessContext`.
+
+## Documentation References
+- Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
+- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates
