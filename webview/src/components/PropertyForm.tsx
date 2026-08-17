@@ -15,6 +15,10 @@ import { AggregationProperties } from '../properties/step/Aggregations';
 import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
 import { ParDoProperties } from '../properties/step/ParDo';
 import { OtherProperties } from '../properties/step/Other';
+import { TextIOSourceProperties } from '../properties/source/TextIO';
+import { TextIOSinkProperties } from '../properties/sink/TextIO';
+import { FileIOSourceProperties, FileIOReadMatchesProperties } from '../properties/source/FileIO';
+import { FileIOSinkProperties } from '../properties/sink/FileIO';
 
 /**
  * PropertyForm Component
@@ -25,6 +29,7 @@ import { OtherProperties } from '../properties/step/Other';
  * Architectural Decisions:
  * - Delegated specific forms to individual components in subfolders.
  * - Uses string matching on labels and beam_transform attributes to identify node types.
+ * - Includes support for FileIO (match, readMatches, sink) and TextIO (source, sink).
  * - Includes OtherProperties for miscellaneous transforms (e.g. Flatten, ReShuffle).
  */
 interface PropertyFormProps {
@@ -53,6 +58,20 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (label.includes('TextIO') || node.data.beam_transform === 'TextIO') {
+    if (node.data.type === 'SOURCE') {
+      formContent = <TextIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <TextIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (label.includes('FileIO') || (node.data.beam_transform && node.data.beam_transform.startsWith('FileIO'))) {
+    if (label.includes('Read Matches') || node.data.beam_transform === 'FileIO.readMatches') {
+      formContent = <FileIOReadMatchesProperties node={node} onChange={onChange} />;
+    } else if (node.data.type === 'SOURCE' || node.data.beam_transform === 'FileIO.match') {
+      formContent = <FileIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <FileIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     label === 'Window' || 

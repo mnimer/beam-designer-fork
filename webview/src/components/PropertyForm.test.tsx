@@ -294,4 +294,93 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText(/ReShuffle properties are currently empty\. Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
   });
+
+  it('renders TextIOSourceProperties when type is SOURCE and label is TextIO', () => {
+    const mockNode = {
+      data: {
+        label: 'TextIO',
+        type: 'SOURCE',
+        beam_transform: 'TextIO',
+        properties: {
+          filePattern: 'gs://input/*.txt'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/File Pattern \/ Path \(\.from\)/i)).toHaveValue('gs://input/*.txt');
+  });
+
+  it('renders TextIOSinkProperties when type is SINK and label is TextIO', () => {
+    const mockNode = {
+      data: {
+        label: 'TextIO',
+        type: 'SINK',
+        beam_transform: 'TextIO',
+        properties: {
+          to: 'gs://output/results'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Destination File Prefix \(\.to\)/i)).toHaveValue('gs://output/results');
+  });
+
+  it('renders FileIOSourceProperties when label is FileIO and type is SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO Match',
+        type: 'SOURCE',
+        beam_transform: 'FileIO.match',
+        properties: {
+          filePattern: 'gs://input/*.csv'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/File Pattern/i)).toHaveValue('gs://input/*.csv');
+    expect(screen.getByText(/Continuously \(Stream Watch\)/i)).toBeInTheDocument();
+  });
+
+  it('renders FileIOReadMatchesProperties when label is FileIO Read Matches', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO Read Matches',
+        type: 'STEP',
+        beam_transform: 'FileIO.readMatches',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/PCollection<FileIO\.ReadableFile>/i)).toBeInTheDocument();
+  });
+
+  it('renders FileIOSinkProperties when type is SINK and label is FileIO', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO',
+        type: 'SINK',
+        beam_transform: 'FileIO',
+        properties: {
+          to: 'gs://output/files/'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Destination Directory \(\.to\)/i)).toHaveValue('gs://output/files/');
+  });
 });

@@ -163,4 +163,24 @@ describe('NodesCard', () => {
     expect(screen.getByText('Flatten')).toBeInTheDocument();
     expect(screen.getByText('ReShuffle')).toBeInTheDocument();
   });
+
+  it('renders File Sources section in SOURCES tab with FileIO and TextIO', () => {
+    render(
+      <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('File Sources')).toBeInTheDocument();
+    expect(screen.getByText('FileIO')).toBeInTheDocument();
+    expect(screen.getByText('TextIO')).toBeInTheDocument();
+  });
+
+  it('renders File Sinks section in SINKS tab with FileIO and TextIO', () => {
+    render(
+      <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('File Sinks')).toBeInTheDocument();
+    expect(screen.getByText('FileIO')).toBeInTheDocument();
+    expect(screen.getByText('TextIO')).toBeInTheDocument();
+  });
 });

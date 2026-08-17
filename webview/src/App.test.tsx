@@ -181,5 +181,28 @@ describe('App', () => {
     // Expect the output folder to be updated relative to the new .beam file location and name
     expect(outputFolderInput.value).toBe('test/parse message/parse-message-pipeline');
   });
+
+  it('spawns FileIO Match and FileIO Read Matches connected nodes on FileIO source drop', () => {
+    render(<AppWithProvider />);
+
+    const reactFlow = screen.getByTestId('react-flow');
+
+    fireEvent.drop(reactFlow, {
+      clientX: 200,
+      clientY: 200,
+      dataTransfer: {
+        getData: () => JSON.stringify({
+          nodeType: 'pipelineNode',
+          label: 'FileIO',
+          type: 'SOURCE',
+          iconName: 'Folder',
+          beamTransform: 'FileIO'
+        }),
+      },
+    });
+
+    expect(screen.getByText('FileIO Match')).toBeInTheDocument();
+    expect(screen.getByText('FileIO Read Matches')).toBeInTheDocument();
+  });
 });
 

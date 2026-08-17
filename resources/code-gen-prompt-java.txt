@@ -51,6 +51,15 @@ Language: Java
 - **`BigQueryIO`**:
   - Source: `BigQueryIO.readTableRows().from(...)` / `.fromQuery(...)`
   - Sink: `BigQueryIO.writeTableRows().to(...)`
+- **`TextIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.TextIO`, `org.apache.beam.sdk.io.Compression`, `org.apache.beam.sdk.io.fs.EmptyMatchTreatment`
+  - Source: `TextIO.read().from(filePattern)` (supports `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.withDelimiter(byte[])`, `.withSkipHeaderLines(int)`, `.withHintMatchesManyFiles()`)
+  - Sink: `TextIO.write().to(destinationPrefix)` (supports `.withSuffix(...)`, `.withNumShards(...)`, `.withoutSharding()`, `.withCompression(Compression.<TYPE>)`, `.withHeader(...)`, `.withFooter(...)`)
+- **`FileIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.FileIO`, `org.apache.beam.sdk.io.Compression`, `org.apache.beam.sdk.io.fs.EmptyMatchTreatment`, `org.joda.time.Duration`
+  - Match Source (`FileIO.match` / `FileIO.matchAll`): `FileIO.match().filepattern(filePattern)` (supports `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.continuously(Duration.standardMinutes(...), Watch.Growth.never())`)
+  - Read Matches Step (`FileIO.readMatches`): `FileIO.readMatches()` (produces `PCollection<FileIO.ReadableFile>`, supports `.withCompression(Compression.<TYPE>)`, `.withDirectoryTreatment(FileIO.ReadMatches.DirectoryTreatment.<TREATMENT>)`)
+  - Sink (`FileIO.write`): `FileIO.<T>write().to(destinationDir)` (supports `.withPrefix(...)`, `.withSuffix(...)`, `.withCompression(Compression.<TYPE>)`, `.withNumShards(...)`, `.withIgnoreEmptyFiles(...)`)
 - **`Create`**:
   - Source: `Create.of([...])`
 
@@ -170,6 +179,10 @@ Use the following static templates as exact starting points when generating the 
 
 ### Java Projects
 - **Strict XML Syntax (`pom.xml`)**: Ensure strictly valid XML without stray characters.
+- **IO Dependencies**: Include `org.apache.beam:beam-sdks-java-core` (provides `TextIO` and `FileIO`), `org.apache.beam:beam-sdks-java-io-google-cloud-platform` (provides `PubsubIO` and `BigQueryIO`), and `joda-time:joda-time:2.10.10` in `pom.xml`.
+- **TextIO & FileIO Method Names**:
+  - Use `TextIO.read().from(...).withSkipHeaderLines(n)` (the method is named `.withSkipHeaderLines(int)`, NOT `.skipHeaderLines(int)`).
+  - Use `.withDelimiter(byte[])`, `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TYPE>)`, and `.withHintMatchesManyFiles()`.
 - **Jackson Dependency Alignment**: Explicitly declare `com.fasterxml.jackson.core:jackson-core`, `jackson-databind`, and `jackson-annotations` version `2.15.3` (or higher) in `pom.xml` to avoid runtime `NoClassDefFoundError: StreamReadConstraints`.
 - **Testing Dependencies**: Include `junit:junit:4.13.2`, `org.hamcrest:hamcrest:2.2`, `org.hamcrest:hamcrest-library:2.2`, and `org.junit.vintage:junit-vintage-engine:${junit.version}` under `<scope>test</scope>`.
 - **Maven Shade Plugin Output**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin` so `target/main.jar` is predictable for Docker copying.

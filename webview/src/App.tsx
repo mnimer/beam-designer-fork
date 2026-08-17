@@ -851,6 +851,49 @@ function App() {
         y: event.clientY - reactFlowBounds.top,
       });
 
+      // Special handling for FileIO Source: Spawns both FileIO.match() and FileIO.readMatches() connected by an edge
+      if (data.type === 'SOURCE' && (data.label === 'FileIO' || data.beamTransform === 'FileIO')) {
+        const now = Date.now();
+        const matchNode = {
+          id: `${now}`,
+          type: data.nodeType,
+          position,
+          data: {
+            label: 'FileIO Match',
+            type: 'SOURCE',
+            iconName: 'Folder',
+            beam_transform: 'FileIO.match'
+          },
+        };
+
+        const readMatchesNode = {
+          id: `${now + 1}`,
+          type: data.nodeType,
+          position: {
+            x: position.x + 240,
+            y: position.y
+          },
+          data: {
+            label: 'FileIO Read Matches',
+            type: 'STEP',
+            iconName: 'FileCode',
+            beam_transform: 'FileIO.readMatches'
+          },
+        };
+
+        const edge = {
+          id: `e-${matchNode.id}-${readMatchesNode.id}`,
+          source: matchNode.id,
+          target: readMatchesNode.id,
+        };
+
+        takeSnapshot();
+        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
+        setEdges((eds) => eds.concat(edge));
+        setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+        return;
+      }
+
       const newNode = {
         id: `${Date.now()}`,
         type: data.nodeType,
@@ -890,12 +933,12 @@ function App() {
               };
               setEdges((eds) => eds.concat(newEdge));
             }
+          }
         }
       }
-    }
-  },
-  [project, setNodes, setEdges, nodes, takeSnapshot]
-);
+    },
+    [project, setNodes, setEdges, nodes, takeSnapshot]
+  );
   const jobsTimeoutRef = useRef<any>(null);
 
   const refreshRunningJobs = useCallback((regionToUse?: string) => {

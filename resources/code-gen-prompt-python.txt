@@ -54,6 +54,13 @@ Language: Python
 - **`BigQueryIO`**:
   - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
   - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
+- **`TextIO`**:
+  - Source: `beam.io.ReadFromText(file_pattern=..., skip_header_lines=..., compression_type=..., delimiter=...)`
+  - Sink: `beam.io.WriteToText(file_path_prefix=..., file_name_suffix=..., num_shards=..., compression_type=..., header=..., footer=...)`
+- **`FileIO`**:
+  - Match Source (`FileIO.match`): `beam.io.fileio.MatchFiles(file_pattern)` / `beam.io.fileio.MatchAll()`
+  - Read Matches Step (`FileIO.readMatches`): `beam.io.fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
+  - Sink (`FileIO.write`): `beam.io.fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
 - **`Create`**:
   - Source: `beam.Create([...])`
 

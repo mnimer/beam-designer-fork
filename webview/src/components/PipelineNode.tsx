@@ -1,10 +1,10 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
   Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code
+  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder
 };
 
 /**

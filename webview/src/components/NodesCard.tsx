@@ -71,6 +71,14 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
                 <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
               </div>
             </details>
+            {/* File Sources Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">File Sources</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="FileIO" type="SOURCE" iconName="Folder" beamTransform="FileIO" onDragStart={onDragStart} />
+                <SidebarItem label="TextIO" type="SOURCE" iconName="FileText" beamTransform="TextIO" onDragStart={onDragStart} />
+              </div>
+            </details>
             {/* Other Sources Section */}
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
@@ -150,8 +158,22 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
         )}
         {activeTab === 'SINKS' && (
           <div className="col-span-3 flex flex-col gap-2">
-            <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
-            <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
+            {/* File Sinks Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">File Sinks</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="FileIO" type="SINK" iconName="Folder" beamTransform="FileIO" onDragStart={onDragStart} />
+                <SidebarItem label="TextIO" type="SINK" iconName="FileText" beamTransform="TextIO" onDragStart={onDragStart} />
+              </div>
+            </details>
+            {/* Other Sinks Section */}
+            <details className="bg-slate-700/50 rounded-md">
+              <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Other</summary>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
+                <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
+              </div>
+            </details>
           </div>
         )}
       </div>
