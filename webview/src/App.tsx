@@ -946,50 +946,63 @@ function App() {
   }, [projectId]);
 
   return (
-    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A]">
+    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
-      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0">
-        {/* Canvas */}
-        <div className="flex-1 relative">
-          {/* Floating Card on Left */}
-          <NodesCard 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            nodesCount={nodes.length} 
-            hasPubSubSource={hasPubSubSource}
-            onDragStart={onDragStart} 
-          />
-
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            isValidConnection={isValidConnection}
-            fitView
-            onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
-            onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
-            onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onNodeDragStop={() => takeSnapshot()}
-          >
-            <Controls>
-              <ControlButton onClick={onLayout} title="Auto Layout Diagram">
-                <LayoutTemplate style={{ width: '14px', height: '14px' }} />
-              </ControlButton>
-            </Controls>
-            <MiniMap
-              nodeColor={(node: any) => {
-                if (node.data?.type === 'SOURCE') return '#3b82f6';
-                if (node.data?.type === 'SINK') return '#10b981';
-                return '#f97316';
-              }}
+      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Diagram Canvas & Property Pane Area */}
+        <div className="flex-1 relative flex min-h-0 overflow-hidden">
+          {/* Canvas */}
+          <div className="flex-1 relative h-full min-w-0">
+            {/* Floating Card on Left */}
+            <NodesCard 
+              activeTab={activeTab} 
+              setActiveTab={setActiveTab} 
+              nodesCount={nodes.length} 
+              hasPubSubSource={hasPubSubSource}
+              onDragStart={onDragStart} 
             />
-            <Background gap={12} size={1} />
-          </ReactFlow>
+
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              isValidConnection={isValidConnection}
+              fitView
+              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
+              onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
+              onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onNodeDragStop={() => takeSnapshot()}
+            >
+              <Controls>
+                <ControlButton onClick={onLayout} title="Auto Layout Diagram">
+                  <LayoutTemplate style={{ width: '14px', height: '14px' }} />
+                </ControlButton>
+              </Controls>
+              <MiniMap
+                nodeColor={(node: any) => {
+                  if (node.data?.type === 'SOURCE') return '#3b82f6';
+                  if (node.data?.type === 'SINK') return '#10b981';
+                  return '#f97316';
+                }}
+              />
+              <Background gap={12} size={1} />
+            </ReactFlow>
+          </div>
+
+          {/* Property Pane on Right of Diagram */}
+          {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
+            <PropertyPane 
+              node={nodes.find(n => n.id === selectedNodeId)!} 
+              onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
+              runtimeVariables={runtimeVariables} 
+              onAddKVMapper={handleAddKVMapper}
+            />
+          )}
         </div>
 
         {/* Resizable Divider */}
@@ -1032,16 +1045,6 @@ function App() {
           onRegionChange={(reg) => setDataflowRegion(reg)}
         />
       </div>
-
-      {/* Property Pane on Right */}
-      {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
-        <PropertyPane 
-          node={nodes.find(n => n.id === selectedNodeId)!} 
-          onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
-          runtimeVariables={runtimeVariables} 
-          onAddKVMapper={handleAddKVMapper}
-        />
-      )}
     </div>
   );
 }

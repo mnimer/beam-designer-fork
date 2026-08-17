@@ -248,4 +248,20 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText('In-Memory Elements')).toBeInTheDocument();
   });
+
+  it('renders ParDoProperties when label is ParDo', () => {
+    const mockNode = {
+      data: {
+        label: 'ParDo',
+        beam_transform: 'ParDo',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
+    expect(screen.getByText('System Instructions')).toBeInTheDocument();
+  });
 });

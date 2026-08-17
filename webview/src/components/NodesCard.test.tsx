@@ -53,6 +53,14 @@ describe('NodesCard', () => {
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
   });
 
+  it('renders ParDo node in STEPS tab above sections', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('ParDo')).toBeInTheDocument();
+  });
+
   it('renders Message Parsers in STEPS tab regardless of hasPubSubSource', () => {
     render(
       <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />

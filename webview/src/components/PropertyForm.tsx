@@ -13,6 +13,7 @@ import { FlatMapProperties } from '../properties/step/FlatMap';
 import { MapProperties } from '../properties/step/Map';
 import { AggregationProperties } from '../properties/step/Aggregations';
 import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
+import { ParDoProperties } from '../properties/step/ParDo';
 
 /**
  * PropertyForm Component
@@ -74,6 +75,8 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     formContent = <FlatMapProperties node={node} onChange={onChange} />;
   } else if (label === 'Map') {
     formContent = <MapProperties node={node} onChange={onChange} />;
+  } else if (label === 'ParDo' || node.data.beam_transform === 'ParDo') {
+    formContent = <ParDoProperties node={node} onChange={onChange} />;
   } else if (
     label === 'Approximate Quantiles' ||
     label === 'Approximate Unique' ||

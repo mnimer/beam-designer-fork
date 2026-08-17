@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Copy } from 'lucide-react';
 import { PropertyForm } from './PropertyForm';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode, Code } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode
+  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Code
 };
 
 /**
@@ -28,7 +28,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, runt
   const IconComponent = iconComponentMap[node.data.iconName];
 
   return (
-    <div className="w-80 bg-[#1A1D26] p-4 border-l border-slate-700 flex flex-col gap-4">
+    <div className="w-80 h-full shrink-0 bg-[#1A1D26] p-4 border-l border-slate-700 flex flex-col gap-4 overflow-y-auto z-20">
       <div className="flex justify-between items-center">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Properties</h2>
         <Box className="w-4 h-4 text-slate-400" />

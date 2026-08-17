@@ -23,7 +23,7 @@ interface NodesCardProps {
 
 export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, nodesCount, onDragStart }) => {
   return (
-    <div className="absolute top-4 left-4 z-10 w-64 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
+    <div className="absolute top-4 left-4 z-10 w-72 bg-slate-800/90 p-4 flex flex-col gap-4 rounded-lg border border-slate-700 shadow-lg backdrop-blur-sm max-h-[calc(100%-2rem)] overflow-y-auto">
       <div className="flex justify-between items-center">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Nodes</h2>
         <Search className="w-4 h-4 text-slate-400 cursor-pointer" />
@@ -82,6 +82,9 @@ export const NodesCard: React.FC<NodesCardProps> = ({ activeTab, setActiveTab, n
         )}
         {activeTab === 'STEPS' && (
           <div className="col-span-3 flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <SidebarItem label="ParDo" type="STEP" iconName="Code" beamTransform="ParDo" onDragStart={onDragStart} />
+            </div>
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Message Parsers</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
