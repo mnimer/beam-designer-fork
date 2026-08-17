@@ -17,7 +17,7 @@ interface SourceCodeTabProps {
   isGenerating?: boolean;
 }
 
-const highlightCode = (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => {
+export const highlightCode = (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => {
   if (!code) return '';
   
   let isJava = false;
@@ -31,7 +31,7 @@ const highlightCode = (code: string, fileName: string | null, defaultLang: 'Pyth
   let tokenCounter = 0;
   
   const addToken = (str: string, cls: string) => {
-    const id = `___TOKEN_${tokenCounter++}___`;
+    const id = `\uE000TOKEN_${tokenCounter++}\uE000`;
     tokens.push(`<span class="${cls}">${str}</span>`);
     return id;
   };
@@ -75,7 +75,7 @@ const highlightCode = (code: string, fileName: string | null, defaultLang: 'Pyth
   }
   
   tokens.forEach((token, index) => {
-    const id = `___TOKEN_${index}___`;
+    const id = `\uE000TOKEN_${index}\uE000`;
     tempCode = tempCode.replace(id, token);
   });
   

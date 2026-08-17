@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { SourceCodeTab } from './SourceCodeTab';
+import { SourceCodeTab, highlightCode } from './SourceCodeTab';
 
 describe('SourceCodeTab', () => {
   const mockProps = {
@@ -109,5 +109,23 @@ describe('SourceCodeTab', () => {
 
     // Selected file content
     expect(screen.getByText('apache-beam==2.55.0')).toBeInTheDocument();
+  });
+
+  describe('highlightCode', () => {
+    it('correctly highlights Java main method without token leakage', () => {
+      const code = 'public static void main(String[] args) {\n    System.out.println("Hello");\n}';
+      const highlighted = highlightCode(code, 'ParseMessagePipeline.java', 'Java');
+      expect(highlighted).toContain('main');
+      expect(highlighted).not.toContain('___TOKEN_');
+      expect(highlighted).not.toContain('\uE000TOKEN_');
+    });
+
+    it('correctly highlights Python def main without token leakage', () => {
+      const code = 'def main():\n    print("Hello")';
+      const highlighted = highlightCode(code, 'pipeline.py', 'Python');
+      expect(highlighted).toContain('main');
+      expect(highlighted).not.toContain('___TOKEN_');
+      expect(highlighted).not.toContain('\uE000TOKEN_');
+    });
   });
 });
