@@ -51,13 +51,38 @@ describe('App', () => {
   it('renders Nodes card and Bottom panel', () => {
     render(<AppWithProvider />);
 
-    expect(screen.getByText('Nodes')).toBeInTheDocument();
+    expect(screen.getByText('SOURCES')).toBeInTheDocument();
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
     expect(screen.getByTestId('react-flow')).toBeInTheDocument();
   });
 
+  it('does not render hardcoded placeholder nodes on initial mount (regression test)', () => {
+    render(<AppWithProvider />);
+
+    // Must NOT contain the old dummy placeholder nodes
+    expect(screen.queryByText('PubSub_In')).not.toBeInTheDocument();
+    expect(screen.queryByText('Window')).not.toBeInTheDocument();
+    expect(screen.queryByText('BigQuery_Out')).not.toBeInTheDocument();
+  });
+
   it('connects Parse Message step to PubSub source on drop', () => {
     render(<AppWithProvider />);
+
+    // Load a pipeline with a PubSub source
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        data: `
+nodes:
+  - id: '1'
+    type: 'pipeline'
+    position: { x: 100, y: 200 }
+    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio', beam_transform: 'PubSubIO' }
+edges: []
+`
+      }
+    }));
 
     const reactFlow = screen.getByTestId('react-flow');
 
@@ -83,14 +108,37 @@ describe('App', () => {
       }
     });
 
-    // Verify that the edge was created.
-    expect(capturedEdges.length).toBe(3); // 2 initial + 1 new
-    const newEdge = capturedEdges.find(e => e.source === '1' && e.target !== '2');
+    // Verify that the edge was created connecting PubSub to Parse Message
+    expect(capturedEdges.length).toBe(1);
+    const newEdge = capturedEdges.find(e => e.source === '1');
     expect(newEdge).toBeTruthy();
   });
 
   it('deletes selected edge on Delete key press', () => {
     render(<AppWithProvider />);
+
+    // Load a pipeline with two connected nodes
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        data: `
+nodes:
+  - id: '1'
+    type: 'pipeline'
+    position: { x: 100, y: 200 }
+    data: { label: 'Node 1', type: 'SOURCE', iconName: 'Radio' }
+  - id: '2'
+    type: 'pipeline'
+    position: { x: 300, y: 200 }
+    data: { label: 'Node 2', type: 'STEP', iconName: 'Clock' }
+edges:
+  - id: 'e1-2'
+    source: '1'
+    target: '2'
+`
+      }
+    }));
 
     // Find the edge element (rendered by our mock)
     const edge = screen.getByTestId('edge-e1-2');
@@ -102,7 +150,7 @@ describe('App', () => {
     fireEvent.keyDown(window, { key: 'Delete' });
     
     // Verify that the edge was removed from capturedEdges
-    expect(capturedEdges.length).toBe(1);
+    expect(capturedEdges.length).toBe(0);
     expect(capturedEdges.find(e => e.id === 'e1-2')).toBeFalsy();
   });
 
@@ -155,6 +203,54 @@ describe('App', () => {
 
     // Expect the input to be updated to the new path
     expect(outputFolderInput.value).toBe('src/other-pipelines/my-pipeline');
+  });
+
+  it('updates output folder when a renamed pipeline is loaded via loadPipeline message', () => {
+    render(<AppWithProvider />);
+
+    // Switch to SOURCE CODE tab
+    const sourceCodeTabBtn = screen.getByText('SOURCE CODE');
+    fireEvent.click(sourceCodeTabBtn);
+
+    const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
+
+    // Simulate loading renamed file test/parse message/parse-message-pipeline.beam
+    // with stale output folder test/job1/job1 in saved YAML
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'parse-message-pipeline.beam',
+        relativeFolder: 'test/parse message',
+        defaultOutputFolder: 'test/parse message/parse-message-pipeline',
+        data: 'nodes: []\nedges: []\npipelineConfig:\n  language: Python\n  outputFolder: "test/job1/job1"\n  needsRebuild: false'
+      }
+    }));
+
+    // Expect the output folder to be updated relative to the new .beam file location and name
+    expect(outputFolderInput.value).toBe('test/parse message/parse-message-pipeline');
+  });
+
+  it('spawns FileIO Match and FileIO Read Matches connected nodes on FileIO source drop', () => {
+    render(<AppWithProvider />);
+
+    const reactFlow = screen.getByTestId('react-flow');
+
+    fireEvent.drop(reactFlow, {
+      clientX: 200,
+      clientY: 200,
+      dataTransfer: {
+        getData: () => JSON.stringify({
+          nodeType: 'pipelineNode',
+          label: 'FileIO',
+          type: 'SOURCE',
+          iconName: 'Folder',
+          beamTransform: 'FileIO'
+        }),
+      },
+    });
+
+    expect(screen.getByText('FileIO Match')).toBeInTheDocument();
+    expect(screen.getByText('FileIO Read Matches')).toBeInTheDocument();
   });
 });
 

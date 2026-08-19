@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeploymentTab } from './DeploymentTab';
-import { InstancesTab } from './InstancesTab';
+import { InstancesTab, type DataflowJob } from './InstancesTab';
 import { SourceCodeTab } from './SourceCodeTab';
 
 /**
@@ -36,6 +36,14 @@ interface BottomPanelProps {
   onSelectFile: (fileName: string) => void;
   height?: number;
   isGenerating?: boolean;
+  runningJobs?: DataflowJob[];
+  isLoadingJobs?: boolean;
+  jobsError?: string | null;
+  onRefreshRunningJobs?: (region?: string) => void;
+  onOpenJob?: (job: DataflowJob) => void;
+  projectId?: string;
+  dataflowRegion?: string;
+  onRegionChange?: (region: string) => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -60,7 +68,15 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onPickFolder,
   onSelectFile,
   height,
-  isGenerating
+  isGenerating,
+  runningJobs,
+  isLoadingJobs,
+  jobsError,
+  onRefreshRunningJobs,
+  onOpenJob,
+  projectId,
+  dataflowRegion,
+  onRegionChange
 }) => {
   return (
     <div 
@@ -107,7 +123,16 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         )}
 
         {bottomTab === 'RUNNING_JOBS' && (
-          <InstancesTab />
+          <InstancesTab 
+            jobs={runningJobs}
+            isLoading={isLoadingJobs}
+            error={jobsError}
+            onRefresh={onRefreshRunningJobs}
+            onOpenJob={onOpenJob}
+            projectId={projectId}
+            selectedRegion={dataflowRegion}
+            onRegionChange={onRegionChange}
+          />
         )}
 
         {bottomTab === 'SOURCE_CODE' && (

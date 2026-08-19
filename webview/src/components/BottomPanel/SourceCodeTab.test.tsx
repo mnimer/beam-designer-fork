@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { SourceCodeTab } from './SourceCodeTab';
+import { SourceCodeTab, highlightCode } from './SourceCodeTab';
 
 describe('SourceCodeTab', () => {
   const mockProps = {
@@ -33,10 +33,7 @@ describe('SourceCodeTab', () => {
     // Check action buttons
     expect(screen.getByText('GENERATE CODE')).toBeInTheDocument();
 
-    // Switch to Generated Code tab
-    fireEvent.click(screen.getByText('Generated Code'));
-
-    // Check files are shown
+    // Check files are shown directly in the left column
     expect(screen.getByText('job.py')).toBeInTheDocument();
     expect(screen.getByText('requirements.txt')).toBeInTheDocument();
 
@@ -79,18 +76,12 @@ describe('SourceCodeTab', () => {
   it('calls onSelectFile when clicking a file from the list', () => {
     render(<SourceCodeTab {...mockProps} />);
 
-    // Switch to Generated Code tab
-    fireEvent.click(screen.getByText('Generated Code'));
-
     fireEvent.click(screen.getByText('job.py'));
     expect(mockProps.onSelectFile).toHaveBeenCalledWith('job.py');
   });
 
   it('renders rebuild warning and hides file list/code preview when needsRebuild is true', () => {
     render(<SourceCodeTab {...mockProps} needsRebuild={true} />);
-
-    // Switch to Generated Code tab
-    fireEvent.click(screen.getByText('Generated Code'));
 
     // Warning text should be visible
     expect(screen.getByText(/Pipeline has unsaved changes/)).toBeInTheDocument();
@@ -113,10 +104,28 @@ describe('SourceCodeTab', () => {
       />
     );
 
-    // Selected file header (span inside header bar)
+    // Selected file header
     expect(screen.getByText('requirements.txt', { selector: 'span' })).toBeInTheDocument();
 
     // Selected file content
     expect(screen.getByText('apache-beam==2.55.0')).toBeInTheDocument();
+  });
+
+  describe('highlightCode', () => {
+    it('correctly highlights Java main method without token leakage', () => {
+      const code = 'public static void main(String[] args) {\n    System.out.println("Hello");\n}';
+      const highlighted = highlightCode(code, 'ParseMessagePipeline.java', 'Java');
+      expect(highlighted).toContain('main');
+      expect(highlighted).not.toContain('___TOKEN_');
+      expect(highlighted).not.toContain('\uE000TOKEN_');
+    });
+
+    it('correctly highlights Python def main without token leakage', () => {
+      const code = 'def main():\n    print("Hello")';
+      const highlighted = highlightCode(code, 'pipeline.py', 'Python');
+      expect(highlighted).toContain('main');
+      expect(highlighted).not.toContain('___TOKEN_');
+      expect(highlighted).not.toContain('\uE000TOKEN_');
+    });
   });
 });

@@ -48,17 +48,26 @@ describe('NodesCard', () => {
     );
 
     expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
-    expect(screen.getByText('Batch Sources')).toBeInTheDocument();
+    expect(screen.getByText('Database Sources')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
+    expect(screen.getByText('JdbcIO')).toBeInTheDocument();
   });
 
-  it('renders PubSub Messages in STEPS tab when hasPubSubSource is true', () => {
+  it('renders ParDo node in STEPS tab above sections', () => {
     render(
-      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={true} onDragStart={mockOnDragStart} />
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
     );
 
-    expect(screen.getByText('PubSub Messages')).toBeInTheDocument();
+    expect(screen.getByText('ParDo')).toBeInTheDocument();
+  });
+
+  it('renders Message Parsers in STEPS tab regardless of hasPubSubSource', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('Message Parsers')).toBeInTheDocument();
     expect(screen.getByText('Parse Message')).toBeInTheDocument();
   });
 
@@ -141,5 +150,43 @@ describe('NodesCard', () => {
       .map(el => el.textContent);
 
     expect(renderedItems).toEqual(expectedItems);
+  });
+
+  it('renders Other section in STEPS tab with Flatten and ReShuffle', () => {
+    render(
+      <NodesCard activeTab="STEPS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    // Get the 'Other' section summary in STEPS tab
+    const otherSummaries = screen.getAllByText('Other');
+    expect(otherSummaries.length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getByText('Flatten')).toBeInTheDocument();
+    expect(screen.getByText('ReShuffle')).toBeInTheDocument();
+  });
+
+  it('renders File Sources section in SOURCES tab with FileIO and TextIO', () => {
+    render(
+      <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('File Sources')).toBeInTheDocument();
+    expect(screen.getByText('FileIO')).toBeInTheDocument();
+    expect(screen.getByText('TextIO')).toBeInTheDocument();
+  });
+
+  it('renders File Sinks section in SINKS tab with FileIO and TextIO', () => {
+    render(
+      <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+    );
+
+    expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+    expect(screen.getByText('Database Sinks')).toBeInTheDocument();
+    expect(screen.getByText('File Sinks')).toBeInTheDocument();
+    expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('BigQuery')).toBeInTheDocument();
+    expect(screen.getByText('JdbcIO')).toBeInTheDocument();
+    expect(screen.getByText('FileIO')).toBeInTheDocument();
+    expect(screen.getByText('TextIO')).toBeInTheDocument();
   });
 });

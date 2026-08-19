@@ -7,11 +7,14 @@
  * Architectural Decisions:
  * - Refactored to use separate components for nodes, property forms, and property pane to improve maintainability.
  * - Uses React Flow for the canvas.
+ * - Initial state for nodes and edges is empty array to prevent phantom pipeline flash ("PubSub_In -> Window -> BigQuery_Out") when opening .beam files.
  */
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
 import { LayoutTemplate } from 'lucide-react';
+
+import { computeUpdatedOutputFolder } from './utils/outputFolder';
 
 import ReactFlow, {
   MiniMap,
@@ -40,37 +43,81 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 
 
 
+export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java', filename?: string): string | null => {
+  if (!files || files.length === 0) return null;
+
+  const baseName = filename ? filename.replace(/\.beam$/, '').toLowerCase() : '';
+  const pascalBaseName = baseName ? baseName.charAt(0).toUpperCase() + baseName.slice(1) : '';
+
+  // Filter code files by language preference, but fall back to the other language if preferred language has no files
+  let codeFiles = files.filter(f => {
+    const lower = f.toLowerCase();
+    if (language === 'Java') {
+      return lower.endsWith('.java') && !lower.includes('test');
+    } else {
+      return lower.endsWith('.py') && !lower.includes('test') && !lower.endsWith('__init__.py');
+    }
+  });
+
+  // If preferred language returned no code files, check if the other language has code files in the directory
+  if (codeFiles.length === 0) {
+    codeFiles = files.filter(f => {
+      const lower = f.toLowerCase();
+      return (lower.endsWith('.java') || lower.endsWith('.py')) && !lower.includes('test') && !lower.endsWith('__init__.py');
+    });
+  }
+
+  if (codeFiles.length === 0) {
+    // If still no code files found, try any .java or .py file
+    codeFiles = files.filter(f => f.endsWith('.java') || f.endsWith('.py'));
+  }
+
+  if (codeFiles.length === 0) {
+    // No code files exist in folder at all
+    return files[0];
+  }
+
+  // Find best match among codeFiles matching baseName or pascalBaseName or pipeline
+  const match = codeFiles.find(f => {
+    const lower = f.toLowerCase();
+    return (baseName && lower.includes(baseName)) || 
+           (pascalBaseName && lower.includes(pascalBaseName.toLowerCase())) ||
+           lower.includes('pipeline.java') ||
+           lower.includes('pipeline.py');
+  });
+
+  return match || codeFiles[0];
+};
+
 const nodeTypes = {
   pipeline: PipelineNode,
 };
 
 
 
-const initialNodes = [
-  {
-    id: '1',
-    type: 'pipeline',
-    position: { x: 100, y: 200 },
-    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio' }
-  },
-  {
-    id: '2',
-    type: 'pipeline',
-    position: { x: 400, y: 200 },
-    data: { label: 'Window', type: 'STEP', iconName: 'Clock' }
-  },
-  {
-    id: '3',
-    type: 'pipeline',
-    position: { x: 700, y: 200 },
-    data: { label: 'BigQuery_Out', type: 'SINK', iconName: 'Database' }
-  },
-];
+export interface PipelineNodeData {
+  label: string;
+  type: string;
+  iconName: string;
+  beam_transform?: string;
+  system_instructions?: string;
+  properties?: Record<string, any>;
+}
 
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e2-3', source: '2', target: '3' },
-];
+// NOTE: initialNodes and initialEdges start empty so that opening any .beam file
+// does not flash placeholder/mock nodes before loadPipeline message is handled.
+const initialNodes: Array<{
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: PipelineNodeData;
+}> = [];
+
+const initialEdges: Array<{
+  id: string;
+  source: string;
+  target: string;
+}> = [];
 
 
 
@@ -100,6 +147,12 @@ function App() {
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
+
+  // Running Jobs state
+  const [runningJobs, setRunningJobs] = useState<any[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [dataflowRegion, setDataflowRegion] = useState<string>('us-central1');
   
   // Custom pipeline config state
   const [pipelineConfig, setPipelineConfig] = useState<{ language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean }>({
@@ -110,6 +163,19 @@ function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
+
+  const pipelineConfigRef = useRef(pipelineConfig);
+  const filenameRef = useRef(filename);
+  const projectIdRef = useRef(projectId);
+  useEffect(() => {
+    projectIdRef.current = projectId;
+  }, [projectId]);
+  useEffect(() => {
+    pipelineConfigRef.current = pipelineConfig;
+  }, [pipelineConfig]);
+  useEffect(() => {
+    filenameRef.current = filename;
+  }, [filename]);
 
   // Resize state for Bottom Panel
   const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
@@ -214,25 +280,29 @@ function App() {
   useEffect(() => {
     console.log('[@App.tsx] Save effect checked, isLoaded=', isLoaded);
     if (!isLoaded) return;
-    console.log('[@App.tsx] Save effect triggered');
-    if (vscode && pipelineConfig.needsRebuild) {
-      const state = { 
-        nodes, 
-        edges, 
-        runtimeVariables, 
-        jobConfig,
-        pipelineConfig
-      };
-      const yamlStr = YAML.stringify(state);
-      console.log('[@App.tsx] YAML generated');
-      
-      // Only save YAML configuration
-      vscode.postMessage({ 
-        command: 'savePipeline', 
-        data: yamlStr
-      });
-      console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
-    }
+    console.log('[@App.tsx] Save effect scheduled');
+    const timer = setTimeout(() => {
+      if (vscode) {
+        const state = { 
+          nodes, 
+          edges, 
+          runtimeVariables, 
+          jobConfig,
+          pipelineConfig
+        };
+        const yamlStr = YAML.stringify(state);
+        console.log('[@App.tsx] YAML generated & saved');
+        
+        // Only save YAML configuration
+        vscode.postMessage({ 
+          command: 'savePipeline', 
+          data: yamlStr
+        });
+        console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
+      }
+    }, 1000); // 1-second debounce
+
+    return () => clearTimeout(timer);
   }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isLoaded, filename, projectId]);
 
   // Read files whenever bottom tab switches to SOURCE_CODE
@@ -276,18 +346,20 @@ function App() {
               const nameWithoutExt = message.filename 
                 ? message.filename.replace('.beam', '') 
                 : '';
-              if (nameWithoutExt) {
-                let folder = config.outputFolder ? config.outputFolder.trim() : '';
-                if (!folder && message.defaultOutputFolder) {
-                  folder = message.defaultOutputFolder;
-                }
-                const normFolder = folder.replace(/\/$/, '');
-                if (!normFolder.endsWith(nameWithoutExt)) {
-                  config.outputFolder = normFolder ? `${normFolder}/${nameWithoutExt}` : nameWithoutExt;
-                  config.needsRebuild = true;
-                } else {
-                  config.outputFolder = folder;
-                }
+              const relativeFolder = message.relativeFolder || '';
+              const defaultOutputFolder = message.defaultOutputFolder || (relativeFolder ? `${relativeFolder}/${nameWithoutExt}` : nameWithoutExt);
+              
+              const prevOutputFolder = config.outputFolder;
+              const updatedOutputFolder = computeUpdatedOutputFolder(
+                config.outputFolder,
+                relativeFolder,
+                nameWithoutExt,
+                defaultOutputFolder
+              );
+
+              config.outputFolder = updatedOutputFolder;
+              if (prevOutputFolder && prevOutputFolder !== updatedOutputFolder) {
+                config.needsRebuild = true;
               }
               if (config.needsRebuild === undefined) {
                 config.needsRebuild = false;
@@ -319,12 +391,39 @@ function App() {
           if (message.success) {
             setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
             setGeneratedCode(message.code || '');
+            setSelectedFileName(null);
+            setSelectedFileContent(null);
             refreshFolderFiles();
           }
+        } else if (message.command === 'runningJobsLoaded') {
+          if (jobsTimeoutRef.current) {
+            clearTimeout(jobsTimeoutRef.current);
+            jobsTimeoutRef.current = null;
+          }
+          setIsLoadingJobs(false);
+          setRunningJobs(message.jobs || []);
+          setJobsError(message.error || null);
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
-        } else if (message.command === 'folderFilesLoaded') {
-          setFolderFiles(message.files || []);
+        } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
+          const loadedFiles: string[] = message.files || [];
+          setFolderFiles(loadedFiles);
+          if (loadedFiles.length > 0) {
+            const currentLang = pipelineConfigRef.current.language;
+            const currentName = filenameRef.current;
+            const currentFolder = pipelineConfigRef.current.outputFolder;
+            const mainFile = findMainPipelineFile(loadedFiles, currentLang, currentName);
+            if (mainFile) {
+              setSelectedFileName(mainFile);
+              if (vscode) {
+                vscode.postMessage({ 
+                  command: 'readFileContent', 
+                  filePath: mainFile,
+                  folderPath: currentFolder
+                });
+              }
+            }
+          }
         } else if (message.command === 'fileContentLoaded') {
           setSelectedFileContent(message.content);
         } else if (message.command === 'folderSelected') {
@@ -351,6 +450,9 @@ function App() {
       };
       window.addEventListener('message', handleMessage);
       return () => window.removeEventListener('message', handleMessage);
+    } else {
+      // NOTE: When running outside of VS Code (e.g. standalone dev server), mark as loaded
+      setIsLoaded(true);
     }
   }, [setNodes, setEdges, setRuntimeVariables]);
 
@@ -556,7 +658,6 @@ function App() {
 
     takeSnapshot();
     setNodes(newNodes);
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
     
     // Auto fit view after positioning
     setTimeout(() => {
@@ -593,12 +694,18 @@ function App() {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
+          const { system_instructions, special_instructions, ...restProperties } = properties;
+          const updatedData: any = {
+            ...node.data,
+            properties: restProperties,
+          };
+          const instructionsValue = system_instructions !== undefined ? system_instructions : special_instructions;
+          if (instructionsValue !== undefined) {
+            updatedData.system_instructions = instructionsValue;
+          }
           return {
             ...node,
-            data: {
-              ...node.data,
-              properties,
-            },
+            data: updatedData,
           };
         }
         return node;
@@ -623,6 +730,7 @@ function App() {
         label: 'KV Mapper',
         type: 'STEP',
         iconName: 'Hash',
+        beam_transform: 'KVMapper',
         properties: {
           keyPropertyName: 'id'
         }
@@ -699,8 +807,8 @@ function App() {
     }
   }, [pipelineConfig.outputFolder]);
 
-  const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => {
-    event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName }));
+  const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
+    event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName, beamTransform }));
     event.dataTransfer.effectAllowed = 'move';
   }, []);
 
@@ -731,6 +839,49 @@ function App() {
         y: event.clientY - reactFlowBounds.top,
       });
 
+      // Special handling for FileIO Source: Spawns both FileIO.match() and FileIO.readMatches() connected by an edge
+      if (data.type === 'SOURCE' && (data.label === 'FileIO' || data.beamTransform === 'FileIO')) {
+        const now = Date.now();
+        const matchNode = {
+          id: `${now}`,
+          type: data.nodeType,
+          position,
+          data: {
+            label: 'FileIO Match',
+            type: 'SOURCE',
+            iconName: 'Folder',
+            beam_transform: 'FileIO.match'
+          },
+        };
+
+        const readMatchesNode = {
+          id: `${now + 1}`,
+          type: data.nodeType,
+          position: {
+            x: position.x + 240,
+            y: position.y
+          },
+          data: {
+            label: 'FileIO Read Matches',
+            type: 'STEP',
+            iconName: 'FileCode',
+            beam_transform: 'FileIO.readMatches'
+          },
+        };
+
+        const edge = {
+          id: `e-${matchNode.id}-${readMatchesNode.id}`,
+          source: matchNode.id,
+          target: readMatchesNode.id,
+        };
+
+        takeSnapshot();
+        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
+        setEdges((eds) => eds.concat(edge));
+        setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+        return;
+      }
+
       const newNode = {
         id: `${Date.now()}`,
         type: data.nodeType,
@@ -738,7 +889,8 @@ function App() {
         data: {
           label: data.label,
           type: data.type,
-          iconName: data.iconName
+          iconName: data.iconName,
+          ...(data.beamTransform ? { beam_transform: data.beamTransform } : {})
         },
       };
 
@@ -775,52 +927,113 @@ function App() {
     },
     [project, setNodes, setEdges, nodes, takeSnapshot]
   );
+  const jobsTimeoutRef = useRef<any>(null);
+
+  const refreshRunningJobs = useCallback((regionToUse?: string) => {
+    const reg = regionToUse || dataflowRegion || 'us-central1';
+    console.log('[@App.tsx] refreshRunningJobs called, projectId=', projectIdRef.current, 'region=', reg);
+    setIsLoadingJobs(true);
+    setJobsError(null);
+
+    if (jobsTimeoutRef.current) {
+      clearTimeout(jobsTimeoutRef.current);
+    }
+
+    jobsTimeoutRef.current = setTimeout(() => {
+      setIsLoadingJobs(false);
+      setJobsError('Timed out waiting for Dataflow jobs from gcloud CLI. Please verify gcloud CLI login or region settings.');
+    }, 16000);
+
+    if (vscode) {
+      vscode.postMessage({ 
+        command: 'getRunningJobs', 
+        projectId: projectIdRef.current || projectId,
+        region: reg
+      });
+    } else {
+      if (jobsTimeoutRef.current) {
+        clearTimeout(jobsTimeoutRef.current);
+        jobsTimeoutRef.current = null;
+      }
+      setIsLoadingJobs(false);
+    }
+  }, [projectId, dataflowRegion]);
+
+  useEffect(() => {
+    if (bottomTab === 'RUNNING_JOBS' && isLoaded) {
+      refreshRunningJobs();
+    }
+  }, [bottomTab, isLoaded, refreshRunningJobs]);
+
+  const handleOpenJob = useCallback((job: any) => {
+    const loc = job.location || 'us-central1';
+    const proj = projectIdRef.current || projectId || '';
+    const url = `https://console.cloud.google.com/dataflow/jobs/${loc}/${job.id}${proj ? `?project=${proj}` : ''}`;
+    if (vscode) {
+      vscode.postMessage({ command: 'openExternal', url });
+    } else {
+      window.open(url, '_blank');
+    }
+  }, [projectId]);
 
   return (
-    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A]">
+    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
-      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0">
-        {/* Canvas */}
-        <div className="flex-1 relative">
-          {/* Floating Card on Left */}
-          <NodesCard 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            nodesCount={nodes.length} 
-            hasPubSubSource={hasPubSubSource}
-            onDragStart={onDragStart} 
-          />
-
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            isValidConnection={isValidConnection}
-            fitView
-            onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
-            onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
-            onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onNodeDragStop={() => takeSnapshot()}
-          >
-            <Controls>
-              <ControlButton onClick={onLayout} title="Auto Layout Diagram">
-                <LayoutTemplate style={{ width: '14px', height: '14px' }} />
-              </ControlButton>
-            </Controls>
-            <MiniMap
-              nodeColor={(node: any) => {
-                if (node.data?.type === 'SOURCE') return '#3b82f6';
-                if (node.data?.type === 'SINK') return '#10b981';
-                return '#f97316';
-              }}
+      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Diagram Canvas & Property Pane Area */}
+        <div className="flex-1 relative flex min-h-0 overflow-hidden">
+          {/* Canvas */}
+          <div className="flex-1 relative h-full min-w-0">
+            {/* Floating Card on Left */}
+            <NodesCard 
+              activeTab={activeTab} 
+              setActiveTab={setActiveTab} 
+              nodesCount={nodes.length} 
+              hasPubSubSource={hasPubSubSource}
+              onDragStart={onDragStart} 
             />
-            <Background gap={12} size={1} />
-          </ReactFlow>
+
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              isValidConnection={isValidConnection}
+              fitView
+              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
+              onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
+              onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onNodeDragStop={() => takeSnapshot()}
+            >
+              <Controls>
+                <ControlButton onClick={onLayout} title="Auto Layout Diagram">
+                  <LayoutTemplate style={{ width: '14px', height: '14px' }} />
+                </ControlButton>
+              </Controls>
+              <MiniMap
+                nodeColor={(node: any) => {
+                  if (node.data?.type === 'SOURCE') return '#3b82f6';
+                  if (node.data?.type === 'SINK') return '#10b981';
+                  return '#f97316';
+                }}
+              />
+              <Background gap={12} size={1} />
+            </ReactFlow>
+          </div>
+
+          {/* Property Pane on Right of Diagram */}
+          {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
+            <PropertyPane 
+              node={nodes.find(n => n.id === selectedNodeId)!} 
+              onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
+              runtimeVariables={runtimeVariables} 
+              onAddKVMapper={handleAddKVMapper}
+            />
+          )}
         </div>
 
         {/* Resizable Divider */}
@@ -853,18 +1066,16 @@ function App() {
           onSelectFile={handleSelectFile}
           height={bottomPanelHeight}
           isGenerating={isGenerating}
+          runningJobs={runningJobs}
+          isLoadingJobs={isLoadingJobs}
+          jobsError={jobsError}
+          onRefreshRunningJobs={refreshRunningJobs}
+          onOpenJob={handleOpenJob}
+          projectId={projectId}
+          dataflowRegion={dataflowRegion}
+          onRegionChange={(reg) => setDataflowRegion(reg)}
         />
       </div>
-
-      {/* Property Pane on Right */}
-      {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
-        <PropertyPane 
-          node={nodes.find(n => n.id === selectedNodeId)!} 
-          onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
-          runtimeVariables={runtimeVariables} 
-          onAddKVMapper={handleAddKVMapper}
-        />
-      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
   Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid
+  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder
 };
 
 /**
@@ -19,19 +19,20 @@ interface SidebarItemProps {
   label: string;
   type: string;
   iconName: string;
-  onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string) => void;
+  beamTransform?: string;
+  onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => void;
 }
 
-export const SidebarItem: React.FC<SidebarItemProps> = ({ label, type, iconName, onDragStart }) => {
+export const SidebarItem: React.FC<SidebarItemProps> = ({ label, type, iconName, beamTransform, onDragStart }) => {
   const IconComponent = iconComponentMap[iconName];
   return (
     <div
-      className="flex flex-col items-center justify-center p-2 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors"
+      className="flex flex-col items-center justify-center px-1 py-1.5 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-600/50 transition-colors min-w-0"
       draggable
-      onDragStart={(e) => onDragStart(e, 'pipeline', label, type, iconName)}
+      onDragStart={(e) => onDragStart(e, 'pipeline', label, type, iconName, beamTransform)}
     >
-      {IconComponent && <IconComponent className="w-6 h-6 text-slate-300 mb-1" />}
-      <span className="text-xs text-slate-300 mt-1">{label}</span>
+      {IconComponent && <IconComponent className="w-5 h-5 text-slate-300 mb-1 shrink-0" />}
+      <span className="text-[11px] leading-tight font-medium text-slate-300 text-center max-w-full break-normal [word-break:keep-all] [overflow-wrap:normal] hyphens-none">{label}</span>
     </div>
   );
 };

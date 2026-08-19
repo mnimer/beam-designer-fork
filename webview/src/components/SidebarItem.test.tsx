@@ -30,7 +30,8 @@ describe('SidebarItem', () => {
       'pipeline',
       'PubSub',
       'SOURCE',
-      'Radio'
+      'Radio',
+      undefined
     );
   });
 });

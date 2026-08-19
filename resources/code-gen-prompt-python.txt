@@ -1,0 +1,222 @@
+I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+
+I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Python, using the latest version of all libraries. 
+
+I will also need you to generate:
+- A valid dependency file (requirements.txt)
+- A valid Dataflow Flex Template Dockerfile for Python. 
+- A valid Dataflow Flex Template metadata.json file for the pipeline, defining ONLY the runtime parameters specified under 'runtimeVariables' in the input YAML. 
+- A shell script to run the job locally (name=run_directrunner.sh)    
+- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
+- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
+- A detailed Readme documenting the pipeline, how to build it, and how to run it.
+
+## Project code instructions
+- Only generate the pipeline code. I do not need any extra helper application code generated. 
+- Directory & Subfolder Structure Rules:
+  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
+  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder ('Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'README.md').
+  - Pipeline source code files: All code files and tests MUST be generated inside 'src/' (e.g. 'src/foobar.py', 'src/foobar_test.py').
+- Delete all files and folders in output folder before generating the new code.
+- Validate all generated files are valid after creation
+- Generate Unit Tests for the different steps in the pipeline
+- Validate all unit tests run and pass locally using the DirectRunner
+- Use Cloud Build to build all artifacts
+- For Python projects: generate 'requirements.txt'. Do NOT generate 'pom.xml', 'run_sparkrunner.sh', or any Java build directories (such as 'target/').
+- You MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
+- For Python unit test files, import statements MUST reference the actual pipeline module name matching the target pipeline filename (e.g., if the main pipeline file is named 'foobar.py', unit tests MUST import transforms using 'from src.foobar import ...' or 'from foobar import ...', NOT hardcoded 'from src.pipeline import ...').
+- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+
+## Pipeline Options & Configuration Rules:
+- **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
+  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`) may be defined as custom pipeline options / arguments and in `metadata.json`.
+  - **DO NOT** create pipeline options / command-line arguments for node configuration properties (such as JDBC URLs, database credentials, queries, table names, file paths, BigQuery datasets/tables, Pub/Sub topics/subscriptions, batch sizes, fetch sizes, delimiters, etc.).
+  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties (e.g. JDBC URL, table names, SQL queries, credentials) MUST be hardcoded directly into the transform definition in the Python pipeline code.
+
+## Pipeline Instructions
+- Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
+- Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+- If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
+- Use the latest version of all libraries.
+
+## Compile instructions
+- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
+- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
+
+Language: Python
+
+## Built-in Beam Transform Rules & Syntax Reference
+- **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
+- **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
+- **SDK SYNTAX OVERRIDES**:
+  - **Python `WithTimestamps`**: Use `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (with `import time`). Do NOT use `beam.WithTimestamps()`.
+
+### Python SDK Syntax & Behavioral Reference:
+
+#### 1. Sources & Sinks (I/O Connectors)
+- **`PubSubIO`**:
+  - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
+  - Sink: `beam.io.WriteToPubSub(topic=...)`
+- **`BigQueryIO`**:
+  - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
+  - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
+- **`TextIO`**:
+  - Source: `beam.io.ReadFromText(file_pattern=..., skip_header_lines=..., compression_type=..., delimiter=...)`
+  - Sink: `beam.io.WriteToText(file_path_prefix=..., file_name_suffix=..., num_shards=..., compression_type=..., header=..., footer=...)`
+- **`FileIO`**:
+  - Required Import: `from apache_beam.io import fileio` (or `import apache_beam.io.fileio as fileio`)
+  - Match Source (`FileIO.match`): `fileio.MatchFiles(file_pattern)` / `fileio.MatchAll()`
+  - Read Matches Step (`FileIO.readMatches`): `fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
+  - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
+- **`Create`**:
+  - Source: `beam.Create([...])`
+- **`JdbcIO`**:
+  - Required Imports: `from apache_beam.io.jdbc import ReadFromJdbc, WriteToJdbc`
+  - Note: Uses Apache Beam Cross-Language expansion. The runner automatically manages the expansion service.
+  - Driver Dependencies & `classpath`:
+    - PostgreSQL (`org.postgresql.Driver`) is built into Beam's expansion service by default.
+    - For all other database drivers, automatically provide the Maven coordinate via the `classpath` argument in `ReadFromJdbc` / `WriteToJdbc`:
+      - MySQL (`com.mysql.cj.jdbc.Driver`): `classpath=["com.mysql:mysql-connector-j:8.3.0"]`
+      - Microsoft SQL Server (`com.microsoft.sqlserver.jdbc.SQLServerDriver`): `classpath=["com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11"]`
+      - Oracle (`oracle.jdbc.driver.OracleDriver`): `classpath=["com.oracle.database.jdbc:ojdbc11:23.3.0.23.09"]`
+      - SQLite (`org.sqlite.JDBC`): `classpath=["org.xerial:sqlite-jdbc:3.45.2.0"]`
+      - Apache Derby (`org.apache.derby.jdbc.ClientDriver`): `classpath=["org.apache.derby:derbyclient:10.16.1.1"]`
+  - Query vs Table Selection (Mutually Exclusive):
+    - When `selectType` is `table` or `tableName` is provided: Pass `table_name=tableName`. Do NOT pass `query` or `statement`.
+    - When `selectType` is `query` / `statement` or `query` / `statement` is provided: Pass `query=query` (for source) or `statement=statement` (for sink). Do NOT pass `table_name`.
+  - Source (Read):
+    - When reading from table: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)`
+    - When reading via SQL query: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., query=..., classpath=...)`
+    - Row Access: `ReadFromJdbc` yields Beam `Row` objects. Access row fields in subsequent transforms using attribute notation (e.g. `getattr(element, 'field_name', None)` or `element.field_name`).
+  - Sink (Write):
+    - When writing via `statement`:
+      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)`
+      - **CRITICAL SQL & TUPLE ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as the number of columns listed. If the input statement in the YAML has mismatched placeholders relative to columns (e.g., 3 columns with only 2 `?` placeholders), normalize the `?` placeholders to match the column count exactly.
+      - The transform preceding `WriteToJdbc` MUST emit a `tuple` whose element count and order **EXACTLY match** the positional `?` placeholders in the SQL statement.
+    - When writing via `table_name`:
+      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=table_name, classpath=...)`
+      - Input elements should be schema-aware Beam `Row` or `NamedTuple` objects registered with `coders.RowCoder` matching table columns.
+
+#### 2. Element-Wise Transforms
+- **`WithTimestamps`** (Add Timestamp):
+  - Syntax: `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (import `time`)
+  - Default Instruction: Attach current system time (`time.time()`) to each element/message unless custom `system_instructions` are provided.
+- **`Filter`**:
+  - Syntax: `beam.Filter(lambda x: ...)`
+  - Default Instruction: Create a custom function with a todo comment and return true unless custom `system_instructions` are provided.
+- **`FlatMap`**:
+  - Syntax: `beam.FlatMap(lambda x: x.split(','))` or `beam.FlatMap(lambda x: re.findall(r'[A-Za-z]+', x))`
+- **`Keys`**:
+  - Syntax: `beam.Keys()`
+- **`KVMapper`**:
+  - Syntax: `beam.Map(lambda x: (x.get('id'), x))`
+  - Default Instruction: Map incoming dictionary/object into a `(key, value)` tuple using the configured key property (defaults to `'id'`).
+- **`KvSwap`**:
+  - Syntax: `beam.KvSwap()`
+  - Default Instruction: Swap key and value of incoming `(K, V)` pairs into `(V, K)`.
+- **`Map`**:
+  - Syntax: `beam.Map(lambda x: ...)`
+- **`ToString`**:
+  - Syntax: `beam.ToString.Element()` / `beam.ToString.KVs()`
+- **`Values`**:
+  - Syntax: `beam.Values()`
+
+#### 3. Aggregations & Combining
+- **`ApproximateQuantiles`**:
+  - Syntax: `beam.approximatequantiles.ApproximateQuantiles.Globally(...)` / `.PerKey(...)`
+- **`ApproximateUnique`**:
+  - Syntax: `beam.ApproximateUnique.Globally(...)` / `.PerKey(...)`
+- **`BatchElements`**:
+  - Syntax: `beam.BatchElements(min_batch_size=..., max_batch_size=...)`
+- **`CoGroupByKey`**:
+  - Syntax: `beam.CoGroupByKey()`
+- **`Combine`**:
+  - Syntax: `beam.CombineGlobally(...)` / `beam.CombinePerKey(...)`
+- **`CombineWithContext`**:
+  - Syntax: `beam.CombineGlobally(...).with_defaults()`
+- **`Count`**:
+  - Syntax: `beam.combiners.Count.PerElement()` / `beam.combiners.Count.PerKey()` / `beam.combiners.Count.Globally()`
+- **`Distinct`**:
+  - Syntax: `beam.Distinct()`
+- **`GroupByKey`**:
+  - Syntax: `beam.GroupByKey()`
+- **`GroupIntoBatches`**:
+  - Syntax: `beam.GroupIntoBatches(batch_size=...)`
+- **`Latest`**:
+  - Syntax: `beam.combiners.Latest.PerKey()` / `beam.combiners.Latest.Globally()`
+- **`Max`**:
+  - Syntax: `beam.combiners.Top.Of(...)` or `beam.Max.PerKey()` / `beam.Max.Globally()`
+- **`Mean`**:
+  - Syntax: `beam.combiners.Mean.PerKey()` / `beam.combiners.Mean.Globally()`
+- **`Min`**:
+  - Syntax: `beam.Min.PerKey()` / `beam.Min.Globally()`
+- **`Sample`**:
+  - Syntax: `beam.combiners.Sample.FixedSizeGlobally(...)` / `.FixedSizePerKey(...)`
+- **`Sum`**:
+  - Syntax: `beam.combiners.Sum.PerKey()` / `beam.combiners.Sum.Globally()`
+- **`Top`**:
+  - Syntax: `beam.combiners.Top.Of(...)` / `beam.combiners.Top.PerKey(...)`
+
+#### 4. Windowing, Parsing & Utility Transforms
+- **`WindowInto`**:
+  - Syntax: `beam.WindowInto(window.FixedWindows(...))` / `SlidingWindows` / `Sessions`
+- **`ParseMessage`**:
+  - Parse Pub/Sub bytes string into JSON / String / Base64.
+- **`LogMessage`**:
+  - Syntax: `beam.Map(lambda x: logging.info(f"Log: {x}"))`
+
+#### 5. Other Transforms
+- **`Flatten`**:
+  - Syntax: `(pcoll1, pcoll2) | beam.Flatten()` or `[pcoll1, pcoll2] | beam.Flatten()`
+  - Rules: Merges multiple `PCollection` objects containing elements of the same data type into a single logical `PCollection`. Pass a tuple or list of `PCollection` objects into `beam.Flatten()`.
+- **`Reshuffle`** / **`ReShuffle`**:
+  - Syntax: `beam.Reshuffle()` or `beam.Reshuffle(num_buckets=...)`
+  - Rules: Redistributes elements across workers by assigning temporary random keys to break runner stage fusion and balance parallel workload.
+
+Language: Python
+
+Pipeline YAML:
+```yaml
+{{pipeline}}
+```
+
+## Reference File Templates
+Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as pipeline module names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
+
+### Dockerfile Template
+```
+{{dockerfile_template}}
+```
+
+### 'run_directrunner.sh' Template
+```
+{{run_directrunner_template}}
+```
+
+### 'run_dataflowrunner.sh' Template
+```
+{{run_dataflowrunner_template}}
+```
+
+## Template Customization Rules
+- **Template Substitution**: Use the provided static templates below as exact baselines for Dockerfile, `run_directrunner.sh`, and `run_dataflowrunner.sh`. Fill in placeholders matching the pipeline base name.
+- **`jobConfig` Mapping**:
+  - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
+  - Pre-fill `--subnetwork` in Dataflow run script using `jobConfig.subnetwork` from the input YAML.
+
+## Language SDK Best Practices & Gotchas
+
+### Python Projects
+- **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.
+- **Package Marker**: Always generate `src/__init__.py`.
+- **Pipeline Options & Argument Parsing**: Always use standard `parser.add_argument(...)` when defining custom `PipelineOptions` or `argparse`. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
+- **FileIO Imports**: When using FileIO (`MatchFiles`, `ReadMatches`, `WriteToFiles`), always include `from apache_beam.io import fileio` because `apache_beam.io` does not automatically expose `fileio` as an attribute on `beam.io` without an explicit import.
+- **JdbcIO Cross-Language Driver Classpath**: When connecting to MySQL, SQL Server, Oracle, SQLite, or Derby via `ReadFromJdbc` / `WriteToJdbc`, always supply the corresponding Maven coordinate in `classpath=[...]` so the Beam Java expansion service loads the JDBC driver.
+- **JdbcIO Write Statement Placeholders**: When using `statement` with `WriteToJdbc`, always ensure the number of columns in the SQL statement, the number of `?` placeholders, and the number of tuple items yielded by the upstream `DoFn` match 1-to-1.
+- **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
+
+## Documentation References
+- Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
+- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
+- Beam Flatten (Python): https://beam.apache.org/documentation/transforms/python/other/flatten/
+- Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates

@@ -6,7 +6,7 @@ import { FlatMapProperties } from './FlatMap';
 import { MapProperties } from './Map';
 
 describe('ElementTransforms Placeholders', () => {
-  const mockNode = {
+  const mockNode: any = {
     data: {
       label: 'Filter'
     }
@@ -15,12 +15,12 @@ describe('ElementTransforms Placeholders', () => {
 
   it('renders FilterProperties correctly', () => {
     render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/Filter properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Compare')).toBeInTheDocument();
   });
 
   it('renders FlatMapProperties correctly', () => {
     render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/FlatMap properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Split via')).toBeInTheDocument();
   });
 
   it('renders MapProperties correctly', () => {

@@ -133,13 +133,15 @@ sequenceDiagram
 
 Both the prompt instructions and the response schema are defined in standalone files and read dynamically on each code generation run. This allows you to add new generated files or fine-tune instructions on-the-fly without modifying extension source code or restarting VSCode.
 
-- **Prompt Template**: [src/code-gen-prompt.txt](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/code-gen-prompt.txt)
+- **Prompt Templates**:
+  - Python: [code-gen-prompt-python.txt](file:///Users/mikenimer/Development/projects/apache-beam-designer/resources/code-gen-prompt-python.txt)
+  - Java: [code-gen-prompt-java.txt](file:///Users/mikenimer/Development/projects/apache-beam-designer/resources/code-gen-prompt-java.txt)
   - **Placeholders**: 
     - `{{language}}`: Selected language (`Python` or `Java`).
     - `{{pipeline}}`: YAML graph representation of the pipeline.
-- **Response JSON Schema**: [src/code-gen-schema.json](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/code-gen-schema.json)
+- **Response JSON Schema**: [code-gen-schema.json](file:///Users/mikenimer/Development/projects/apache-beam-designer/resources/code-gen-schema.json)
 
 #### How to Add a New Generated File
-1. Edit `src/code-gen-prompt.txt` to tell Gemini to generate the new file (e.g. "Generate a README.md file in the folder...").
-2. The response schema `src/code-gen-schema.json` defines a dynamic file structure, so it handles any new files automatically.
+1. Edit `resources/code-gen-prompt-python.txt` or `resources/code-gen-prompt-java.txt` to tell Gemini to generate the new file (e.g. "Generate a README.md file in the folder...").
+2. The response schema `resources/code-gen-schema.json` defines a dynamic file structure, so it handles any new files automatically.
 3. The extension host backend will dynamically parse, write, and manage the new file.
