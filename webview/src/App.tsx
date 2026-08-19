@@ -7,6 +7,7 @@
  * Architectural Decisions:
  * - Refactored to use separate components for nodes, property forms, and property pane to improve maintainability.
  * - Uses React Flow for the canvas.
+ * - Initial state for nodes and edges is empty array to prevent phantom pipeline flash ("PubSub_In -> Window -> BigQuery_Out") when opening .beam files.
  */
 
 import { useCallback, useState, useEffect, useRef } from 'react';
@@ -103,36 +104,20 @@ export interface PipelineNodeData {
   properties?: Record<string, any>;
 }
 
+// NOTE: initialNodes and initialEdges start empty so that opening any .beam file
+// does not flash placeholder/mock nodes before loadPipeline message is handled.
 const initialNodes: Array<{
   id: string;
   type: string;
   position: { x: number; y: number };
   data: PipelineNodeData;
-}> = [
-  {
-    id: '1',
-    type: 'pipeline',
-    position: { x: 100, y: 200 },
-    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio', beam_transform: 'PubSubIO' }
-  },
-  {
-    id: '2',
-    type: 'pipeline',
-    position: { x: 400, y: 200 },
-    data: { label: 'Window', type: 'STEP', iconName: 'Clock', beam_transform: 'WindowInto' }
-  },
-  {
-    id: '3',
-    type: 'pipeline',
-    position: { x: 700, y: 200 },
-    data: { label: 'BigQuery_Out', type: 'SINK', iconName: 'Database', beam_transform: 'BigQueryIO' }
-  },
-];
+}> = [];
 
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e2-3', source: '2', target: '3' },
-];
+const initialEdges: Array<{
+  id: string;
+  source: string;
+  target: string;
+}> = [];
 
 
 
@@ -465,6 +450,9 @@ function App() {
       };
       window.addEventListener('message', handleMessage);
       return () => window.removeEventListener('message', handleMessage);
+    } else {
+      // NOTE: When running outside of VS Code (e.g. standalone dev server), mark as loaded
+      setIsLoaded(true);
     }
   }, [setNodes, setEdges, setRuntimeVariables]);
 

@@ -56,8 +56,33 @@ describe('App', () => {
     expect(screen.getByTestId('react-flow')).toBeInTheDocument();
   });
 
+  it('does not render hardcoded placeholder nodes on initial mount (regression test)', () => {
+    render(<AppWithProvider />);
+
+    // Must NOT contain the old dummy placeholder nodes
+    expect(screen.queryByText('PubSub_In')).not.toBeInTheDocument();
+    expect(screen.queryByText('Window')).not.toBeInTheDocument();
+    expect(screen.queryByText('BigQuery_Out')).not.toBeInTheDocument();
+  });
+
   it('connects Parse Message step to PubSub source on drop', () => {
     render(<AppWithProvider />);
+
+    // Load a pipeline with a PubSub source
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        data: `
+nodes:
+  - id: '1'
+    type: 'pipeline'
+    position: { x: 100, y: 200 }
+    data: { label: 'PubSub_In', type: 'SOURCE', iconName: 'Radio', beam_transform: 'PubSubIO' }
+edges: []
+`
+      }
+    }));
 
     const reactFlow = screen.getByTestId('react-flow');
 
@@ -83,14 +108,37 @@ describe('App', () => {
       }
     });
 
-    // Verify that the edge was created.
-    expect(capturedEdges.length).toBe(3); // 2 initial + 1 new
-    const newEdge = capturedEdges.find(e => e.source === '1' && e.target !== '2');
+    // Verify that the edge was created connecting PubSub to Parse Message
+    expect(capturedEdges.length).toBe(1);
+    const newEdge = capturedEdges.find(e => e.source === '1');
     expect(newEdge).toBeTruthy();
   });
 
   it('deletes selected edge on Delete key press', () => {
     render(<AppWithProvider />);
+
+    // Load a pipeline with two connected nodes
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        data: `
+nodes:
+  - id: '1'
+    type: 'pipeline'
+    position: { x: 100, y: 200 }
+    data: { label: 'Node 1', type: 'SOURCE', iconName: 'Radio' }
+  - id: '2'
+    type: 'pipeline'
+    position: { x: 300, y: 200 }
+    data: { label: 'Node 2', type: 'STEP', iconName: 'Clock' }
+edges:
+  - id: 'e1-2'
+    source: '1'
+    target: '2'
+`
+      }
+    }));
 
     // Find the edge element (rendered by our mock)
     const edge = screen.getByTestId('edge-e1-2');
@@ -102,7 +150,7 @@ describe('App', () => {
     fireEvent.keyDown(window, { key: 'Delete' });
     
     // Verify that the edge was removed from capturedEdges
-    expect(capturedEdges.length).toBe(1);
+    expect(capturedEdges.length).toBe(0);
     expect(capturedEdges.find(e => e.id === 'e1-2')).toBeFalsy();
   });
 
