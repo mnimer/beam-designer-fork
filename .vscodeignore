@@ -1,0 +1,31 @@
+.vscode/**
+.vscode-test/**
+.github/**
+.agents/**
+.gemini/**
+src/**
+tsconfig.json
+**/*.map
+.gitignore
+.eslintignore
+.eslintrc*
+eslint.config.*
+skills-lock.json
+ARCHITECTURE.md
+
+# Webview source & tooling (keep only webview/dist/**)
+webview/src/**
+webview/node_modules/**
+webview/public/**
+webview/tsconfig*.json
+webview/vite.config.*
+webview/vitest.config.*
+webview/eslint.config.*
+webview/index.html
+webview/package*.json
+webview/README.md
+
+# Ensure critical runtime directories are included
+!out/**
+!webview/dist/**
+!resources/**
