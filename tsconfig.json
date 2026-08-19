@@ -17,7 +17,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "typeRoots": [
-      "./webview/node_modules/@types",
       "./node_modules/@types"
     ],
     "types": ["node", "vscode"]
