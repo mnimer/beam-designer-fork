@@ -5,7 +5,7 @@ I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in 
 I will also need you to generate:
 - A valid dependency file (requirements.txt)
 - A valid Dataflow Flex Template Dockerfile for Python. 
-- A valid Dataflow Flex Template metadata.json file for the pipeline. Allowing users to override all pipeline options that were provided in the input yaml. 
+- A valid Dataflow Flex Template metadata.json file for the pipeline, defining ONLY the runtime parameters specified under 'runtimeVariables' in the input YAML. 
 - A shell script to run the job locally (name=run_directrunner.sh)    
 - A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
 - A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
@@ -26,6 +26,12 @@ I will also need you to generate:
 - You MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
 - For Python unit test files, import statements MUST reference the actual pipeline module name matching the target pipeline filename (e.g., if the main pipeline file is named 'foobar.py', unit tests MUST import transforms using 'from src.foobar import ...' or 'from foobar import ...', NOT hardcoded 'from src.pipeline import ...').
 - Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+
+## Pipeline Options & Configuration Rules:
+- **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
+  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`) may be defined as custom pipeline options / arguments and in `metadata.json`.
+  - **DO NOT** create pipeline options / command-line arguments for node configuration properties (such as JDBC URLs, database credentials, queries, table names, file paths, BigQuery datasets/tables, Pub/Sub topics/subscriptions, batch sizes, fetch sizes, delimiters, etc.).
+  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties (e.g. JDBC URL, table names, SQL queries, credentials) MUST be hardcoded directly into the transform definition in the Python pipeline code.
 
 ## Pipeline Instructions
 - Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
@@ -64,6 +70,32 @@ Language: Python
   - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
 - **`Create`**:
   - Source: `beam.Create([...])`
+- **`JdbcIO`**:
+  - Required Imports: `from apache_beam.io.jdbc import ReadFromJdbc, WriteToJdbc`
+  - Note: Uses Apache Beam Cross-Language expansion. The runner automatically manages the expansion service.
+  - Driver Dependencies & `classpath`:
+    - PostgreSQL (`org.postgresql.Driver`) is built into Beam's expansion service by default.
+    - For all other database drivers, automatically provide the Maven coordinate via the `classpath` argument in `ReadFromJdbc` / `WriteToJdbc`:
+      - MySQL (`com.mysql.cj.jdbc.Driver`): `classpath=["com.mysql:mysql-connector-j:8.3.0"]`
+      - Microsoft SQL Server (`com.microsoft.sqlserver.jdbc.SQLServerDriver`): `classpath=["com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11"]`
+      - Oracle (`oracle.jdbc.driver.OracleDriver`): `classpath=["com.oracle.database.jdbc:ojdbc11:23.3.0.23.09"]`
+      - SQLite (`org.sqlite.JDBC`): `classpath=["org.xerial:sqlite-jdbc:3.45.2.0"]`
+      - Apache Derby (`org.apache.derby.jdbc.ClientDriver`): `classpath=["org.apache.derby:derbyclient:10.16.1.1"]`
+  - Query vs Table Selection (Mutually Exclusive):
+    - When `selectType` is `table` or `tableName` is provided: Pass `table_name=tableName`. Do NOT pass `query` or `statement`.
+    - When `selectType` is `query` / `statement` or `query` / `statement` is provided: Pass `query=query` (for source) or `statement=statement` (for sink). Do NOT pass `table_name`.
+  - Source (Read):
+    - When reading from table: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)`
+    - When reading via SQL query: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., query=..., classpath=...)`
+    - Row Access: `ReadFromJdbc` yields Beam `Row` objects. Access row fields in subsequent transforms using attribute notation (e.g. `getattr(element, 'field_name', None)` or `element.field_name`).
+  - Sink (Write):
+    - When writing via `statement`:
+      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)`
+      - **CRITICAL SQL & TUPLE ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as the number of columns listed. If the input statement in the YAML has mismatched placeholders relative to columns (e.g., 3 columns with only 2 `?` placeholders), normalize the `?` placeholders to match the column count exactly.
+      - The transform preceding `WriteToJdbc` MUST emit a `tuple` whose element count and order **EXACTLY match** the positional `?` placeholders in the SQL statement.
+    - When writing via `table_name`:
+      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=table_name, classpath=...)`
+      - Input elements should be schema-aware Beam `Row` or `NamedTuple` objects registered with `coders.RowCoder` matching table columns.
 
 #### 2. Element-Wise Transforms
 - **`WithTimestamps`** (Add Timestamp):
@@ -179,6 +211,8 @@ Use the following static templates as exact starting points when generating the 
 - **Package Marker**: Always generate `src/__init__.py`.
 - **Pipeline Options & Argument Parsing**: Always use standard `parser.add_argument(...)` when defining custom `PipelineOptions` or `argparse`. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
 - **FileIO Imports**: When using FileIO (`MatchFiles`, `ReadMatches`, `WriteToFiles`), always include `from apache_beam.io import fileio` because `apache_beam.io` does not automatically expose `fileio` as an attribute on `beam.io` without an explicit import.
+- **JdbcIO Cross-Language Driver Classpath**: When connecting to MySQL, SQL Server, Oracle, SQLite, or Derby via `ReadFromJdbc` / `WriteToJdbc`, always supply the corresponding Maven coordinate in `classpath=[...]` so the Beam Java expansion service loads the JDBC driver.
+- **JdbcIO Write Statement Placeholders**: When using `statement` with `WriteToJdbc`, always ensure the number of columns in the SQL statement, the number of `?` placeholders, and the number of tuple items yielded by the upstream `DoFn` match 1-to-1.
 - **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
 
 ## Documentation References

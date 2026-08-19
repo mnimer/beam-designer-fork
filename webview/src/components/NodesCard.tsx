@@ -69,6 +69,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Database Sources</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="BigQuery" type="SOURCE" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
+                <SidebarItem label="JdbcIO" type="SOURCE" iconName="Database" beamTransform="JdbcIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* File Sources Section */}
@@ -170,6 +171,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Database Sinks</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="BigQuery" type="SINK" iconName="Database" beamTransform="BigQueryIO" onDragStart={onDragStart} />
+                <SidebarItem label="JdbcIO" type="SINK" iconName="Database" beamTransform="JdbcIO" onDragStart={onDragStart} />
               </div>
             </details>
             {/* File Sinks Section */}

@@ -383,4 +383,45 @@ describe('PropertyForm', () => {
 
     expect(screen.getByLabelText(/Destination Directory \(\.to\)/i)).toHaveValue('gs://output/files/');
   });
+
+  it('renders JdbcIOSourceProperties when type is SOURCE and label is JdbcIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JdbcIO',
+        type: 'SOURCE',
+        beam_transform: 'JdbcIO',
+        properties: {
+          url: 'jdbc:postgresql://localhost:5432/mydb',
+          query: 'SELECT 1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
+    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('SELECT 1');
+  });
+
+  it('renders JdbcIOSinkProperties when type is SINK and label is JdbcIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JdbcIO',
+        type: 'SINK',
+        beam_transform: 'JdbcIO',
+        properties: {
+          url: 'jdbc:postgresql://localhost:5432/mydb',
+          statement: 'INSERT INTO tbl VALUES (?)'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
+    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('INSERT INTO tbl VALUES (?)');
+  });
 });
+

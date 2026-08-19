@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
+import { DEFAULT_GEMINI_MODEL } from './constants';
 
 /**
  * Extension Activation Entry Point
@@ -1099,7 +1100,7 @@ function handleMessages(
 
 
                         const response = await ai.models.generateContent({
-                            model: 'gemini-3.5-flash',
+                            model: DEFAULT_GEMINI_MODEL,
                             contents: promptText,
                             config: {
                                 responseMimeType: 'application/json',
@@ -1112,7 +1113,7 @@ function handleMessages(
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
                             const logData = {
                                 timestamp: new Date().toISOString(),
-                                model: 'gemini-3.5-flash',
+                                model: DEFAULT_GEMINI_MODEL,
                                 prompt: promptText,
                                 responseSchema: responseSchema,
                                 tokenUsage: response.usageMetadata ? {
@@ -1299,7 +1300,7 @@ function handleMessages(
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
                             const logData = {
                                 timestamp: new Date().toISOString(),
-                                model: 'gemini-3.5-flash',
+                                model: DEFAULT_GEMINI_MODEL,
                                 prompt: promptText,
                                 error: err.message,
                                 stack: err.stack

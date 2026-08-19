@@ -51,6 +51,7 @@ describe('NodesCard', () => {
     expect(screen.getByText('Database Sources')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
+    expect(screen.getByText('JdbcIO')).toBeInTheDocument();
   });
 
   it('renders ParDo node in STEPS tab above sections', () => {
@@ -184,6 +185,7 @@ describe('NodesCard', () => {
     expect(screen.getByText('File Sinks')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
+    expect(screen.getByText('JdbcIO')).toBeInTheDocument();
     expect(screen.getByText('FileIO')).toBeInTheDocument();
     expect(screen.getByText('TextIO')).toBeInTheDocument();
   });

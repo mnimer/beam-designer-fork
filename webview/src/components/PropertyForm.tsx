@@ -19,6 +19,8 @@ import { TextIOSourceProperties } from '../properties/source/TextIO';
 import { TextIOSinkProperties } from '../properties/sink/TextIO';
 import { FileIOSourceProperties, FileIOReadMatchesProperties } from '../properties/source/FileIO';
 import { FileIOSinkProperties } from '../properties/sink/FileIO';
+import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
+import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
 
 /**
  * PropertyForm Component
@@ -72,6 +74,12 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <FileIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <FileIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (label.includes('Jdbc') || label.includes('JDBC') || node.data.beam_transform === 'JdbcIO') {
+    if (node.data.type === 'SOURCE') {
+      formContent = <JdbcIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <JdbcIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     label === 'Window' || 
