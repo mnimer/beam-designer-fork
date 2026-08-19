@@ -6,7 +6,6 @@ Automatically stage all of the modified files 'git add .', but do not commit.  W
 
 **Critical Rules**
 - Never automatically commit code, I want to review changes first. However, if I ask you to commit code, write up a detailed commit message and commit the modified code.
-   
 
 - **File References**: When referencing files in the commit message, NEVER use directory paths or file extensions (e.g. use `git-commit workflow` instead of `.agents/workflows/git-commit.md`). The chat UI will aggressively text-replace anything resembling a file path into an uncopyable link.
 

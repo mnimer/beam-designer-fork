@@ -67,7 +67,6 @@ This document provides essential context for AI models interacting with this pro
 
 ## GIT guidelines
    * **GIT Commits**  Never automatically commit code, I want to review changes first. However, if I ask you to commit code, write up a detailed commit message and commit the modified code.
-   
    * **Commit Messages:** 
     * Commit messages should be in the format: `<type>: <subject>`
     * Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`

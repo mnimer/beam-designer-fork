@@ -143,5 +143,5 @@ Both the prompt instructions and the response schema are defined in standalone f
 
 #### How to Add a New Generated File
 1. Edit `resources/code-gen-prompt-python.txt` or `resources/code-gen-prompt-java.txt` to tell Gemini to generate the new file (e.g. "Generate a README.md file in the folder...").
-2. The response schema `src/code-gen-schema.json` defines a dynamic file structure, so it handles any new files automatically.
+2. The response schema `resources/code-gen-schema.json` defines a dynamic file structure, so it handles any new files automatically.
 3. The extension host backend will dynamically parse, write, and manage the new file.
