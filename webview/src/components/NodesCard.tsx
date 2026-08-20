@@ -1,3 +1,19 @@
+/**
+ * NodesCard Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Renders the draggable node palette sidebar with tabbed categories for
+ * Sources, Steps, and Sinks organized into structured accordion groups.
+ * 
+ * Architectural Decisions:
+ * - Tabs organize pipeline steps logically into SOURCES, STEPS, and SINKS.
+ * - Accordion sections group related transforms (Streaming, Database, File, Aggregations, etc.).
+ * - KafkaIO is integrated into Streaming Sources and Streaming Sinks.
+ * - Adheres strictly to the 8pt grid system.
+ */
+
 import React from 'react';
 import { SidebarItem } from './SidebarItem';
 
@@ -61,6 +77,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Streaming Sources</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="Kafka" type="SOURCE" iconName="Cable" beamTransform="KafkaIO" onDragStart={onDragStart} />
                 <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>
@@ -163,6 +180,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
             <details className="bg-slate-700/50 rounded-md">
               <summary className="p-2 cursor-pointer text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Streaming Sinks</summary>
               <div className="grid grid-cols-3 gap-2 p-2">
+                <SidebarItem label="Kafka" type="SINK" iconName="Cable" beamTransform="KafkaIO" onDragStart={onDragStart} />
                 <SidebarItem label="PubSub" type="SINK" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
               </div>
             </details>

@@ -496,13 +496,13 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
             .replace('./assets/index.js', jsUri.toString())
             .replace('./assets/index.css', cssUri.toString());
 
-        webview.html = htmlContent;
         webview.options = {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist'))
             ]
         };
+        webview.html = htmlContent;
 
         // Handle messages from webview
         webview.onDidReceiveMessage(

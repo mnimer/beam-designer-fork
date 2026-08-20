@@ -423,5 +423,45 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
     expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('INSERT INTO tbl VALUES (?)');
   });
+
+  it('renders KafkaIOSourceProperties when type is SOURCE and label is Kafka', () => {
+    const mockNode = {
+      data: {
+        label: 'Kafka',
+        type: 'SOURCE',
+        beam_transform: 'KafkaIO',
+        properties: {
+          bootstrapServers: 'localhost:9092',
+          topics: 'input-topic'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
+    expect(screen.getByLabelText(/Topic\(s\)/i)).toHaveValue('input-topic');
+  });
+
+  it('renders KafkaIOSinkProperties when type is SINK and label is Kafka', () => {
+    const mockNode = {
+      data: {
+        label: 'Kafka',
+        type: 'SINK',
+        beam_transform: 'KafkaIO',
+        properties: {
+          bootstrapServers: 'broker1:9092',
+          topic: 'output-topic'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('broker1:9092');
+    expect(screen.getByLabelText(/^Topic/i)).toHaveValue('output-topic');
+  });
 });
 
