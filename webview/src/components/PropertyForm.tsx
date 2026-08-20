@@ -106,22 +106,25 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     label === 'Fixed Window' || 
     label === 'Fixed Windows' || 
     label === 'Sliding Windows' || 
-    label === 'User Windows'
+    label === 'User Windows' ||
+    beamTransform === 'Window' ||
+    beamTransform === 'Windowing' ||
+    transformLower.includes('window')
   ) {
     formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
-  } else if (label === 'Parse Message') {
+  } else if (label === 'Parse Message' || beamTransform === 'ParseMessage') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
   } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || beamTransform === 'WithTimestamps') {
     formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
-  } else if (label === 'Log Message') {
+  } else if (label === 'Log Message' || beamTransform === 'LogMessage') {
     formContent = <LogMessageProperties node={node} onChange={onChange} />;
-  } else if (label === 'KV Mapper') {
+  } else if (label === 'KV Mapper' || beamTransform === 'KVMapper') {
     formContent = <KVMapperProperties node={node} onChange={onChange} />;
-  } else if (label === 'Filter') {
+  } else if (label === 'Filter' || beamTransform === 'Filter') {
     formContent = <FilterProperties node={node} onChange={onChange} />;
-  } else if (label === 'FlatMap') {
+  } else if (label === 'FlatMap' || beamTransform === 'FlatMap') {
     formContent = <FlatMapProperties node={node} onChange={onChange} />;
-  } else if (label === 'Map') {
+  } else if (label === 'Map' || beamTransform === 'Map') {
     formContent = <MapProperties node={node} onChange={onChange} />;
   } else if (label === 'ParDo' || beamTransform === 'ParDo') {
     formContent = <ParDoProperties node={node} onChange={onChange} />;

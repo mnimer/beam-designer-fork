@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TextIOSinkProperties } from './TextIO';
 
@@ -21,15 +21,21 @@ describe('TextIOSinkProperties', () => {
       }
     };
 
-    render(<TextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<TextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Destination File Prefix/i)).toHaveValue('gs://my-bucket/output/data');
-    expect(screen.getByLabelText(/File Suffix/i)).toHaveValue('.txt');
-    expect(screen.getByLabelText(/Number of Shards/i)).toHaveValue(3);
-    expect(screen.getByLabelText(/Header Line/i)).toHaveValue('header1,header2');
-    expect(screen.getByLabelText(/Footer Line/i)).toHaveValue('END');
+    const toInput = container.querySelector('#textSinkTo') as HTMLInputElement;
+    const suffixInput = container.querySelector('#textSinkSuffix') as HTMLInputElement;
+    const shardsInput = container.querySelector('#textSinkNumShards') as HTMLInputElement;
+    const headerInput = container.querySelector('#textSinkHeader') as HTMLInputElement;
+    const footerInput = container.querySelector('#textSinkFooter') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/Destination File Prefix/i), {
+    expect(toInput).toHaveValue('gs://my-bucket/output/data');
+    expect(suffixInput).toHaveValue('.txt');
+    expect(shardsInput).toHaveValue(3);
+    expect(headerInput).toHaveValue('header1,header2');
+    expect(footerInput).toHaveValue('END');
+
+    fireEvent.change(toInput, {
       target: { name: 'to', value: 'gs://my-bucket/output/logs' }
     });
 
@@ -49,9 +55,9 @@ describe('TextIOSinkProperties', () => {
       }
     };
 
-    render(<TextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<TextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const checkbox = screen.getByLabelText(/Without Sharding/i);
+    const checkbox = container.querySelector('#textSinkWithoutSharding') as HTMLInputElement;
     expect(checkbox).not.toBeChecked();
 
     fireEvent.click(checkbox);

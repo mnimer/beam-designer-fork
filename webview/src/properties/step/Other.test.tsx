@@ -15,7 +15,8 @@ describe('OtherProperties', () => {
     };
 
     render(<OtherProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/Flatten properties are currently empty\. Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
+    expect(screen.getByText('Flatten')).toBeInTheDocument();
+    expect(screen.getByText(/Merges multiple PCollection objects of the same type/i)).toBeInTheDocument();
   });
 
   it('renders ReShuffle description correctly', () => {
@@ -27,7 +28,8 @@ describe('OtherProperties', () => {
     };
 
     render(<OtherProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/ReShuffle properties are currently empty\. Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
+    expect(screen.getByText('ReShuffle')).toBeInTheDocument();
+    expect(screen.getByText(/Redistributes elements across workers by assigning temporary random keys/i)).toBeInTheDocument();
   });
 
   it('renders fallback description for unknown other node', () => {
@@ -38,6 +40,7 @@ describe('OtherProperties', () => {
     };
 
     render(<OtherProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/CustomOther properties are currently empty\. Transform properties are currently empty\./i)).toBeInTheDocument();
+    expect(screen.getByText('CustomOther')).toBeInTheDocument();
+    expect(screen.getByText(/Transform properties are currently empty\./i)).toBeInTheDocument();
   });
 });

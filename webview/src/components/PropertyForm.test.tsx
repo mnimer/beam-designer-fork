@@ -73,10 +73,10 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText('Message Type')).toBeInTheDocument();
     expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
-    expect(screen.getByText('Parse PubSub JSON message and convert it to a dictionary (Dict) format.')).toBeInTheDocument();
+    expect(screen.getByText('Parse JSON message payloads and convert them to structured Java Beans, Row, or Map / Dict formats.')).toBeInTheDocument();
     expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
 
-    const textarea = screen.getByPlaceholderText('Enter code generation instructions...');
+    const textarea = screen.getByPlaceholderText('Enter code generation instructions for message parsing...');
     fireEvent.change(textarea, { target: { name: 'system_instructions', value: 'Parse custom field' } });
     expect(mockOnChange).toHaveBeenCalledWith({ system_instructions: 'Parse custom field' });
   });
@@ -95,7 +95,7 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByDisplayValue('Base64')).toBeInTheDocument();
-    expect(screen.getByText('Decode PubSub Message and decode Base64 bytes.')).toBeInTheDocument();
+    expect(screen.getByText('Decode Base64 encoded byte payloads into raw binary or UTF-8 text.')).toBeInTheDocument();
   });
 
   it('renders WindowingProperties when label is Fixed Windows', () => {
@@ -162,7 +162,6 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText('Log Level')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
-    expect(screen.queryByText('Standard operational message logs highlighting progress or status changes.')).not.toBeInTheDocument();
   });
 
   it('renders KVMapperProperties when label is KV Mapper', () => {
@@ -190,7 +189,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Compare')).toBeInTheDocument();
+    expect(screen.getByText('Compare Target')).toBeInTheDocument();
   });
 
   it('renders FlatMapProperties when label is FlatMap', () => {
@@ -218,7 +217,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/Map properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
   });
 
   it('renders AggregationProperties when label is Approximate Quantiles', () => {
@@ -232,7 +231,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/Approximate Quantiles properties are currently empty\. Computes approximate quantiles of the elements in a collection\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Computes approximate quantiles of the elements in a collection\./i)).toBeInTheDocument();
   });
 
   it('renders CreateProperties when label is Create', () => {
@@ -277,7 +276,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/Flatten properties are currently empty\. Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
   });
 
   it('renders OtherProperties when label is ReShuffle', () => {
@@ -292,7 +291,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/ReShuffle properties are currently empty\. Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
   });
 
   it('renders TextIOSourceProperties when type is SOURCE and label is TextIO', () => {
@@ -418,10 +417,10 @@ describe('PropertyForm', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
-    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('INSERT INTO tbl VALUES (?)');
+    expect(container.querySelector('#jdbcSinkUrl')).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
+    expect(container.querySelector('#jdbcSinkStatement')).toHaveValue('INSERT INTO tbl VALUES (?)');
   });
 
   it('renders KafkaIOSourceProperties when type is SOURCE and label is Kafka', () => {

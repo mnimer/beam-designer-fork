@@ -15,11 +15,13 @@ describe('WindowingProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Fixed Window')).toBeInTheDocument();
-    expect(screen.getByText('Sliding Window')).toBeInTheDocument();
-    expect(screen.getByText('Session Window')).toBeInTheDocument();
+    const select = container.querySelector('#windowTypeSelect') as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Fixed Window' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Sliding Window' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Session Window' })).toBeInTheDocument();
   });
 
   it('renders Fixed Window properties correctly and handles changes', () => {
@@ -35,13 +37,13 @@ describe('WindowingProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    const durationInput = screen.getByDisplayValue('120');
-    const unitSelect = screen.getByDisplayValue('Minutes');
+    const durationInput = container.querySelector('#fixedDurationInput') as HTMLInputElement;
+    const unitSelect = container.querySelector('#fixedDurationUnitSelect') as HTMLSelectElement;
 
-    expect(durationInput).toBeInTheDocument();
-    expect(unitSelect).toBeInTheDocument();
+    expect(durationInput).toHaveValue(120);
+    expect(unitSelect).toHaveValue('Minutes');
 
     fireEvent.change(durationInput, { target: { name: 'fixedDuration', value: '150' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -63,15 +65,15 @@ describe('WindowingProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WindowingProperties node={mockNode} onChange={mockOnChange} />);
 
-    const durationInput = screen.getByDisplayValue('600');
-    const periodInput = screen.getByDisplayValue('300');
-    const offsetInput = screen.getByDisplayValue('60');
+    const durationInput = container.querySelector('#slidingDurationInput') as HTMLInputElement;
+    const periodInput = container.querySelector('#slidingPeriodInput') as HTMLInputElement;
+    const offsetInput = container.querySelector('#slidingOffsetInput') as HTMLInputElement;
 
-    expect(durationInput).toBeInTheDocument();
-    expect(periodInput).toBeInTheDocument();
-    expect(offsetInput).toBeInTheDocument();
+    expect(durationInput).toHaveValue(600);
+    expect(periodInput).toHaveValue(300);
+    expect(offsetInput).toHaveValue(60);
     expect(screen.getByText(/Example of a 10-minute window/i)).toBeInTheDocument();
 
     fireEvent.change(periodInput, { target: { name: 'slidingPeriod', value: '150' } });
@@ -94,13 +96,13 @@ describe('WindowingProperties', () => {
     const mockOnChange = vi.fn();
     const mockOnAddKVMapper = vi.fn();
 
-    render(<WindowingProperties node={mockNode} onChange={mockOnChange} onAddKVMapper={mockOnAddKVMapper} />);
+    const { container } = render(<WindowingProperties node={mockNode} onChange={mockOnChange} onAddKVMapper={mockOnAddKVMapper} />);
 
-    const gapInput = screen.getByDisplayValue('45');
-    const unitSelect = screen.getByDisplayValue('Minutes');
+    const gapInput = container.querySelector('#sessionGapDurationInput') as HTMLInputElement;
+    const unitSelect = container.querySelector('#sessionGapDurationUnitSelect') as HTMLSelectElement;
 
-    expect(gapInput).toBeInTheDocument();
-    expect(unitSelect).toBeInTheDocument();
+    expect(gapInput).toHaveValue(45);
+    expect(unitSelect).toHaveValue('Minutes');
     expect(screen.getByText('This option requires a KV Input value.')).toBeInTheDocument();
     
     const addKVMapperBtn = screen.getByRole('button', { name: 'Add KV Mapper' });

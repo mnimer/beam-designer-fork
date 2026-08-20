@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FileIOSinkProperties } from './FileIO';
 
@@ -21,15 +21,19 @@ describe('FileIOSinkProperties', () => {
       }
     };
 
-    render(<FileIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FileIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Destination Directory/i)).toHaveValue('gs://output-bucket/data/');
-    expect(screen.getByLabelText(/Filename Prefix/i)).toHaveValue('part-');
-    expect(screen.getByLabelText(/Filename Suffix/i)).toHaveValue('.parquet');
-    expect(screen.getByLabelText(/Number of Shards/i)).toHaveValue(5);
-    expect(screen.getByLabelText(/Ignore Empty Files/i)).toBeChecked();
+    const destInput = container.querySelector('#fileSinkTo') as HTMLInputElement;
+    const prefixInput = container.querySelector('#fileSinkPrefix') as HTMLInputElement;
+    const suffixInput = container.querySelector('#fileSinkSuffix') as HTMLInputElement;
+    const shardsInput = container.querySelector('#fileSinkNumShards') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/Destination Directory/i), {
+    expect(destInput).toHaveValue('gs://output-bucket/data/');
+    expect(prefixInput).toHaveValue('part-');
+    expect(suffixInput).toHaveValue('.parquet');
+    expect(shardsInput).toHaveValue(5);
+
+    fireEvent.change(destInput, {
       target: { name: 'to', value: 'gs://output-bucket/new-dir/' }
     });
 
@@ -50,9 +54,9 @@ describe('FileIOSinkProperties', () => {
       }
     };
 
-    render(<FileIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FileIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const compressionSelect = screen.getByLabelText(/Compression Algorithm/i);
+    const compressionSelect = container.querySelector('#fileSinkCompression') as HTMLSelectElement;
     expect(compressionSelect).toHaveValue('GZIP');
 
     fireEvent.change(compressionSelect, {

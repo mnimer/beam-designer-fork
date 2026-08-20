@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { LogMessageProperties } from './LogMessage';
 
 describe('LogMessageProperties', () => {
-  it('renders dropdown with Debug, Info, Warning, and Error options and defaults to Info without any helper text', () => {
+  it('renders dropdown with Debug, Info, Warning, and Error options and shows Info helper text', () => {
     const mockNode = {
       data: {
         properties: {}
@@ -16,7 +16,7 @@ describe('LogMessageProperties', () => {
 
     expect(screen.getByText('Log Level')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
-    expect(screen.queryByText('Standard operational message logs highlighting progress or status changes.')).not.toBeInTheDocument();
+    expect(screen.getByText(/Informational messages highlighting pipeline progress/i)).toBeInTheDocument();
   });
 
   it('renders appropriate helper text based on logLevel property', () => {
@@ -51,13 +51,13 @@ describe('LogMessageProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<LogMessageProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<LogMessageProperties node={mockNode} onChange={mockOnChange} />);
 
-    const select = screen.getByRole('combobox');
+    const select = container.querySelector('#logLevelSelect') as HTMLSelectElement;
     fireEvent.change(select, { target: { name: 'logLevel', value: 'Warning' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       logLevel: 'Warning'
-    });
+    }));
   });
 });

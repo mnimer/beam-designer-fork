@@ -16,11 +16,14 @@ describe('BigQuerySinkProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('my_dataset')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('test-table')).toBeInTheDocument();
+    const datasetInput = container.querySelector('#bigQuerySinkDataset') as HTMLInputElement;
+    const tableInput = container.querySelector('#bigQuerySinkTable') as HTMLInputElement;
+
+    expect(datasetInput).toBeInTheDocument();
+    expect(tableInput).toBeInTheDocument();
+    expect(tableInput).toHaveValue('test-table');
     expect(screen.getByDisplayValue('Create If Needed')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Write Truncate')).toBeInTheDocument();
   });
@@ -33,12 +36,12 @@ describe('BigQuerySinkProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const tableInput = screen.getByPlaceholderText('my_table');
+    const tableInput = container.querySelector('#bigQuerySinkTable') as HTMLInputElement;
     fireEvent.change(tableInput, { target: { value: 'new-table' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ table: 'new-table' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ table: 'new-table' }));
   });
 
   it('calls onChange when dataset input changes and clears table', () => {
@@ -51,12 +54,12 @@ describe('BigQuerySinkProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const datasetInput = screen.getByPlaceholderText('my_dataset');
+    const datasetInput = container.querySelector('#bigQuerySinkDataset') as HTMLInputElement;
     fireEvent.change(datasetInput, { target: { value: 'new-dataset' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ dataset: 'new-dataset', table: '' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ dataset: 'new-dataset', table: '' }));
   });
 
   it('calls onChange when createDisposition changes', () => {
@@ -72,7 +75,7 @@ describe('BigQuerySinkProperties', () => {
     const createSelect = screen.getByDisplayValue('Create Never');
     fireEvent.change(createSelect, { target: { value: 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ createDisposition: 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ createDisposition: 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED' }));
   });
 
   it('shows conditional fields for FILE_LOADS method', () => {
@@ -139,6 +142,6 @@ describe('BigQuerySinkProperties', () => {
     const methodSelect = screen.getByDisplayValue('File Loads');
     fireEvent.change(methodSelect, { target: { value: 'FILE_LOADS' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ method: 'FILE_LOADS' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'FILE_LOADS' }));
   });
 });

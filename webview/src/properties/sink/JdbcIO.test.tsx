@@ -22,18 +22,26 @@ describe('JdbcIOSinkProperties', () => {
       }
     };
 
-    render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Driver Class Name/i)).toHaveValue('com.mysql.cj.jdbc.Driver');
-    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:mysql://localhost:3306/mydb');
-    expect(screen.getByLabelText(/Username/i)).toHaveValue('writer');
-    expect(screen.getByLabelText(/Select Type/i)).toHaveValue('statement');
-    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('INSERT INTO sink_table (id, name) VALUES (?, ?)');
-    expect(screen.getByLabelText(/Batch Size/i)).toHaveValue(500);
-    expect(screen.getByLabelText(/Auto Sharding/i)).toBeChecked();
+    const driverSelect = container.querySelector('#jdbcSinkDriverClassName') as HTMLSelectElement;
+    const urlInput = container.querySelector('#jdbcSinkUrl') as HTMLInputElement;
+    const userInput = container.querySelector('#jdbcSinkUsername') as HTMLInputElement;
+    const selectTypeSelect = container.querySelector('#jdbcSinkSelectType') as HTMLSelectElement;
+    const statementInput = container.querySelector('#jdbcSinkStatement') as HTMLTextAreaElement;
+    const batchInput = container.querySelector('#jdbcSinkBatchSize') as HTMLInputElement;
+    const autoCheckbox = container.querySelector('#jdbcSinkAutosharding') as HTMLInputElement;
+
+    expect(driverSelect).toHaveValue('com.mysql.cj.jdbc.Driver');
+    expect(urlInput).toHaveValue('jdbc:mysql://localhost:3306/mydb');
+    expect(userInput).toHaveValue('writer');
+    expect(selectTypeSelect).toHaveValue('statement');
+    expect(statementInput).toHaveValue('INSERT INTO sink_table (id, name) VALUES (?, ?)');
+    expect(batchInput).toHaveValue(500);
+    expect(autoCheckbox).toBeChecked();
 
     // Test statement change
-    fireEvent.change(screen.getByLabelText(/SQL Statement/i), {
+    fireEvent.change(statementInput, {
       target: { name: 'statement', value: 'INSERT INTO orders (id, total) VALUES (?, ?)' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -41,7 +49,7 @@ describe('JdbcIOSinkProperties', () => {
     }));
 
     // Test batch size change
-    fireEvent.change(screen.getByLabelText(/Batch Size/i), {
+    fireEvent.change(batchInput, {
       target: { name: 'batchSize', value: 2000 }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -61,13 +69,16 @@ describe('JdbcIOSinkProperties', () => {
       }
     };
 
-    render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Select Type/i)).toHaveValue('table');
-    expect(screen.getByLabelText(/Table Name/i)).toHaveValue('sink_table_name');
-    expect(screen.queryByLabelText(/SQL Statement/i)).not.toBeInTheDocument();
+    const selectTypeSelect = container.querySelector('#jdbcSinkSelectType') as HTMLSelectElement;
+    const tableNameInput = container.querySelector('#jdbcSinkTableName') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/Table Name/i), {
+    expect(selectTypeSelect).toHaveValue('table');
+    expect(tableNameInput).toHaveValue('sink_table_name');
+    expect(container.querySelector('#jdbcSinkStatement')).not.toBeInTheDocument();
+
+    fireEvent.change(tableNameInput, {
       target: { name: 'tableName', value: 'new_sink_table' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -85,9 +96,9 @@ describe('JdbcIOSinkProperties', () => {
       }
     };
 
-    render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const instructionsArea = screen.getByLabelText(/Code Generation Instructions/i);
+    const instructionsArea = container.querySelector('#jdbcSinkSystemInstructions') as HTMLTextAreaElement;
     expect(instructionsArea).toHaveValue('Handle deadlock retries');
 
     fireEvent.change(instructionsArea, {
@@ -106,8 +117,8 @@ describe('JdbcIOSinkProperties', () => {
       }
     };
 
-    render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-    const select = screen.getByLabelText(/Driver Class Name/i);
+    const { container } = render(<JdbcIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const select = container.querySelector('#jdbcSinkDriverClassName') as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'PostgreSQL' })).toHaveValue('org.postgresql.Driver');
     expect(screen.getByRole('option', { name: 'MySQL' })).toHaveValue('com.mysql.cj.jdbc.Driver');
