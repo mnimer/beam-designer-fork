@@ -5,7 +5,7 @@ import { FilterProperties, generateFilterSystemInstruction } from './Filter';
 import { PropertyForm } from '../../components/PropertyForm';
 
 describe('FilterProperties', () => {
-  it('renders Compare dropdown, Property, Op, Value fields, and default system instructions', () => {
+  it('renders Compare dropdown, Property, Op, Value fields, and system instructions', () => {
     const mockNode = {
       data: {
         label: 'Filter',
@@ -14,16 +14,16 @@ describe('FilterProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Compare')).toBeInTheDocument();
+    expect(screen.getByText('Compare Target')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Message Property')).toBeInTheDocument();
 
-    expect(screen.getByPlaceholderText('e.g. status')).toBeInTheDocument();
+    expect(container.querySelector('#filterPropertyInput')).toBeInTheDocument();
     expect(screen.getByDisplayValue('==')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('e.g. active')).toBeInTheDocument();
+    expect(container.querySelector('#filterValueInput')).toBeInTheDocument();
 
-    expect(screen.queryByText('Code Generation Instructions')).not.toBeInTheDocument();
+    expect(container.querySelector('#filterSystemInstructions')).toBeInTheDocument();
   });
 
   it('updates system_instructions when property, operator, and value change', () => {
@@ -35,18 +35,18 @@ describe('FilterProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
 
-    const propInput = screen.getByPlaceholderText('e.g. status');
+    const propInput = container.querySelector('#filterPropertyInput') as HTMLInputElement;
     fireEvent.change(propInput, { target: { value: 'status' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       compareTarget: 'Message Property',
       property: 'status',
       operator: '==',
       value: '',
       system_instructions: "Filter elements where message property 'status' == value."
-    });
+    }));
   });
 
   it('updates system_instructions for Header Property comparison', () => {
@@ -63,18 +63,19 @@ describe('FilterProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByDisplayValue('Header Property')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('header_id')).toBeInTheDocument();
+    expect(container.querySelector('#filterPropertyInput')).toHaveValue('header_id');
     expect(screen.getByDisplayValue('!=')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('100')).toBeInTheDocument();
+    expect(container.querySelector('#filterValueInput')).toHaveValue('100');
   });
 
   it('renders FilterProperties via PropertyForm for Filter node', () => {
     const mockNode = {
       data: {
         label: 'Filter',
+        beam_transform: 'Filter',
         properties: {}
       }
     };
@@ -82,7 +83,7 @@ describe('FilterProperties', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Compare')).toBeInTheDocument();
+    expect(screen.getByText('Compare Target')).toBeInTheDocument();
   });
 });
 

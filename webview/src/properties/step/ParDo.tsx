@@ -1,10 +1,10 @@
-import React from 'react';
-
 /**
  * ParDoProperties Component
  * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
  * Purpose:
- * Renders the property panel for the ParDo node in the Apache Beam Designer.
+ * Renders the property configuration panel for Apache Beam ParDo transform steps (ParDo.of(DoFn)).
  * It provides a prompt textarea at the top for code generation, a detailed hint box,
  * and system instructions at the bottom separated by a vertical spacer.
  * 
@@ -13,7 +13,11 @@ import React from 'react';
  * - Hint text instructs the user on specifying incoming message handling and output format.
  * - System instructions are pushed to the bottom using a flexible spacer.
  * - Defaults system instructions to "Wrap the generated code in a try/catch, returning all errors to a separate pcollection".
+ * - Integrates InfoTooltip components explaining DoFn execution model and error handling.
  */
+
+import React from 'react';
+import { InfoTooltip } from '../../components/InfoTooltip';
 
 interface ParDoNode {
   data: {
@@ -89,10 +93,12 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
     <div className="flex-1 flex flex-col gap-4">
       {/* Code Generation Prompt Section at Top */}
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Prompt
+        <label htmlFor="pardoPrompt" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Code Generation Prompt</span>
+          <InfoTooltip text="User-defined processing logic instructions for generating the Beam DoFn (@ProcessElement method)." />
         </label>
         <textarea
+          id="pardoPrompt"
           name="codeGenerationPrompt"
           value={codeGenerationPrompt}
           onChange={handlePromptChange}
@@ -106,14 +112,16 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
       </div>
 
       {/* Flexible Spacer taking up all free space to bottom-align System Instructions */}
-      <div className="flex-1" />
+      <div className="flex-1 min-h-4" />
 
       {/* System Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">
-          System Instructions
+      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
+        <label htmlFor="pardoSystemInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>System Instructions</span>
+          <InfoTooltip text="System-level instructions injected into the LLM prompt (e.g. error handling, dead-letter routing, schema constraints)." />
         </label>
         <textarea
+          id="pardoSystemInstructions"
           name="system_instructions"
           value={systemInstructions}
           onChange={handleInstructionsChange}

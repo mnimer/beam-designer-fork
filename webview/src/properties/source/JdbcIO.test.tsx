@@ -33,17 +33,24 @@ describe('JdbcIOSourceProperties', () => {
       }
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Driver Class Name/i)).toHaveValue('org.postgresql.Driver');
-    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/testdb');
-    expect(screen.getByLabelText(/Username/i)).toHaveValue('admin');
-    expect(screen.getByLabelText(/Select Type/i)).toHaveValue('query');
-    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('SELECT * FROM test_table');
-    expect(screen.getByLabelText(/Fetch Size/i)).toHaveValue(1000);
+    const driverSelect = container.querySelector('#jdbcDriverClassName') as HTMLSelectElement;
+    const urlInput = container.querySelector('#jdbcUrl') as HTMLInputElement;
+    const userInput = container.querySelector('#jdbcUsername') as HTMLInputElement;
+    const selectTypeSelect = container.querySelector('#jdbcSourceSelectType') as HTMLSelectElement;
+    const queryInput = container.querySelector('#jdbcQuery') as HTMLTextAreaElement;
+    const fetchInput = container.querySelector('#jdbcFetchSize') as HTMLInputElement;
+
+    expect(driverSelect).toHaveValue('org.postgresql.Driver');
+    expect(urlInput).toHaveValue('jdbc:postgresql://localhost:5432/testdb');
+    expect(userInput).toHaveValue('admin');
+    expect(selectTypeSelect).toHaveValue('query');
+    expect(queryInput).toHaveValue('SELECT * FROM test_table');
+    expect(fetchInput).toHaveValue(1000);
 
     // Test driver change
-    fireEvent.change(screen.getByLabelText(/Driver Class Name/i), {
+    fireEvent.change(driverSelect, {
       target: { name: 'driverClassName', value: 'com.mysql.cj.jdbc.Driver' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -51,7 +58,7 @@ describe('JdbcIOSourceProperties', () => {
     }));
 
     // Test query change
-    fireEvent.change(screen.getByLabelText(/SQL Statement/i), {
+    fireEvent.change(queryInput, {
       target: { name: 'query', value: 'SELECT id, name FROM users' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -71,13 +78,16 @@ describe('JdbcIOSourceProperties', () => {
       }
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Select Type/i)).toHaveValue('table');
-    expect(screen.getByLabelText(/Table Name/i)).toHaveValue('my_users_table');
-    expect(screen.queryByLabelText(/SQL Statement/i)).not.toBeInTheDocument();
+    const selectTypeSelect = container.querySelector('#jdbcSourceSelectType') as HTMLSelectElement;
+    const tableNameInput = container.querySelector('#jdbcTableName') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/Table Name/i), {
+    expect(selectTypeSelect).toHaveValue('table');
+    expect(tableNameInput).toHaveValue('my_users_table');
+    expect(container.querySelector('#jdbcQuery')).not.toBeInTheDocument();
+
+    fireEvent.change(tableNameInput, {
       target: { name: 'tableName', value: 'updated_table' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -100,15 +110,21 @@ describe('JdbcIOSourceProperties', () => {
       }
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Partitioned Parallel Reads/i)).toBeChecked();
-    expect(screen.getByLabelText(/Partition Column/i)).toHaveValue('user_id');
-    expect(screen.getByLabelText(/Lower Bound/i)).toHaveValue(1);
-    expect(screen.getByLabelText(/Upper Bound/i)).toHaveValue(500000);
-    expect(screen.getByLabelText(/Partitions/i)).toHaveValue(8);
+    const partCheckbox = container.querySelector('#jdbcUsePartitioning') as HTMLInputElement;
+    const partColInput = container.querySelector('#jdbcPartitionColumn') as HTMLInputElement;
+    const lowerInput = container.querySelector('#jdbcLowerBound') as HTMLInputElement;
+    const upperInput = container.querySelector('#jdbcUpperBound') as HTMLInputElement;
+    const numPartInput = container.querySelector('#jdbcNumPartitions') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/Partition Column/i), {
+    expect(partCheckbox).toBeChecked();
+    expect(partColInput).toHaveValue('user_id');
+    expect(lowerInput).toHaveValue(1);
+    expect(upperInput).toHaveValue(500000);
+    expect(numPartInput).toHaveValue(8);
+
+    fireEvent.change(partColInput, {
       target: { name: 'partitionColumn', value: 'id' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -126,9 +142,9 @@ describe('JdbcIOSourceProperties', () => {
       }
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const instructionsArea = screen.getByLabelText(/Code Generation Instructions/i);
+    const instructionsArea = container.querySelector('#jdbcSourceSystemInstructions') as HTMLTextAreaElement;
     expect(instructionsArea).toHaveValue('Custom source instructions');
 
     fireEvent.change(instructionsArea, {
@@ -147,8 +163,8 @@ describe('JdbcIOSourceProperties', () => {
       }
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-    const select = screen.getByLabelText(/Driver Class Name/i);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const select = container.querySelector('#jdbcDriverClassName') as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'PostgreSQL' })).toHaveValue('org.postgresql.Driver');
     expect(screen.getByRole('option', { name: 'MySQL' })).toHaveValue('com.mysql.cj.jdbc.Driver');

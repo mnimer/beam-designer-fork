@@ -96,6 +96,16 @@ Language: Python
     - When writing via `table_name`:
       `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=table_name, classpath=...)`
       - Input elements should be schema-aware Beam `Row` or `NamedTuple` objects registered with `coders.RowCoder` matching table columns.
+- **`KafkaIO`**:
+  - Required Imports: `from apache_beam.io.kafka import ReadFromKafka, WriteToKafka`
+  - Note: Uses Apache Beam Cross-Language expansion.
+  - Source (Read):
+    - Syntax: `ReadFromKafka(consumer_config={'bootstrap.servers': bootstrap_servers, 'group.id': group_id, 'auto.offset.reset': 'latest', ...}, topics=[topics], key_deserializer=key_deserializer, value_deserializer=value_deserializer, commit_offset_in_finalize=True)`
+    - Elements produced are KafkaRecord objects or `(key, value)` byte pairs.
+    - Supports `max_num_records=...`, `max_read_time=...` if bounded limits are configured.
+  - Sink (Write):
+    - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
+    - Input elements to `WriteToKafka` must be `(key, value)` tuples.
 
 #### 2. Element-Wise Transforms
 - **`WithTimestamps`** (Add Timestamp):

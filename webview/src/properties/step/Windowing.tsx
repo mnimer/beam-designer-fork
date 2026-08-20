@@ -1,31 +1,53 @@
+/**
+ * Windowing Properties Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Renders the property configuration panel for Apache Beam Windowing transform steps
+ * (Window.into(FixedWindows | SlidingWindows | Sessions)).
+ * 
+ * Architectural Decisions:
+ * - In Apache Beam, Window transforms require valid positive duration/period specifications.
+ * - Fixed Windows require positive Duration.
+ * - Sliding Windows require positive Duration and Period (every).
+ * - Session Windows require positive Gap Duration and operate on Key-Value pairs.
+ * - Enforces required field indicators, error messages, and aria attributes on window parameter fields.
+ * - Integrates InfoTooltip components explaining windowing semantics.
+ * - Provides Code Generation Instructions textarea for custom LLM prompts.
+ */
+
 import React from 'react';
+import { InfoTooltip } from '../../components/InfoTooltip';
 
 interface WindowingNode {
   id: string;
   data: {
+    label?: string;
+    beam_transform?: string;
+    system_instructions?: string;
+    special_instructions?: string;
     properties?: {
       windowType?: 'Fixed Window' | 'Sliding Window' | 'Session Window';
-      fixedDuration?: string;
+      fixedDuration?: string | number;
       fixedDurationUnit?: 'Seconds' | 'Minutes' | 'Hours';
-      slidingDuration?: string;
+      slidingDuration?: string | number;
       slidingDurationUnit?: 'Seconds' | 'Minutes' | 'Hours';
-      slidingPeriod?: string;
+      slidingPeriod?: string | number;
       slidingPeriodUnit?: 'Seconds' | 'Minutes' | 'Hours';
-      slidingOffset?: string;
+      slidingOffset?: string | number;
       slidingOffsetUnit?: 'Seconds' | 'Minutes' | 'Hours';
-      sessionGapDuration?: string;
+      sessionGapDuration?: string | number;
       sessionGapDurationUnit?: 'Seconds' | 'Minutes' | 'Hours';
+      system_instructions?: string;
+      special_instructions?: string;
+      codeGenerationPrompt?: string;
+      prompt?: string;
+      [key: string]: any;
     };
   };
 }
 
-/**
- * Windowing Properties Component
- * 
- * This component renders the property panel for the unified Window step.
- * It allows users to choose between Fixed Window, Sliding Window, and Session Window,
- * and configures details like Durations, Periods, Offsets, and Gap Durations with unit selectors.
- */
 interface WindowingPropertiesProps {
   node: WindowingNode;
   onChange: (properties: any) => void;
@@ -36,17 +58,48 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
   const properties = node.data.properties || {};
   const windowType = properties.windowType || 'Fixed Window';
 
+  const fixedDuration = properties.fixedDuration !== undefined ? String(properties.fixedDuration) : '60';
+  const slidingDuration = properties.slidingDuration !== undefined ? String(properties.slidingDuration) : '600';
+  const slidingPeriod = properties.slidingPeriod !== undefined ? String(properties.slidingPeriod) : '300';
+  const slidingOffset = properties.slidingOffset !== undefined ? String(properties.slidingOffset) : '60';
+  const sessionGapDuration = properties.sessionGapDuration !== undefined ? String(properties.sessionGapDuration) : '30';
+
+  // Validation rules
+  const isFixedDurationInvalid = !fixedDuration.trim() || Number(fixedDuration) <= 0;
+  const isSlidingDurationInvalid = !slidingDuration.trim() || Number(slidingDuration) <= 0;
+  const isSlidingPeriodInvalid = !slidingPeriod.trim() || Number(slidingPeriod) <= 0;
+  const isSessionGapInvalid = !sessionGapDuration.trim() || Number(sessionGapDuration) <= 0;
+
+  // System instructions text with fallback
+  const systemInstructions =
+    node.data.system_instructions ??
+    node.data.special_instructions ??
+    properties.system_instructions ??
+    properties.special_instructions ??
+    '';
+
   // Handle input and select changes and propagate up
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange({
+      ...properties,
+      system_instructions: e.target.value
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex-1 flex flex-col gap-4">
       {/* Window Type Select */}
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">Window Type</label>
+        <label htmlFor="windowTypeSelect" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Window Type</span>
+          <InfoTooltip text="Beam windowing strategy: Fixed (non-overlapping time buckets), Sliding (overlapping intervals), or Session (gap-based activity bursts per key)." />
+        </label>
         <select 
+          id="windowTypeSelect"
           name="windowType" 
           value={windowType} 
           onChange={handleChange} 
@@ -62,17 +115,30 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
       {windowType === 'Fixed Window' && (
         <div className="flex flex-col gap-4 border-t border-slate-700/50 pt-3">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Duration</label>
+            <label htmlFor="fixedDurationInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+              <span>Duration</span>
+              <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+              <InfoTooltip text="Fixed window size in duration units (e.g. 60 seconds). Required." />
+            </label>
             <div className="flex gap-2">
               <input 
+                id="fixedDurationInput"
                 type="number" 
                 name="fixedDuration" 
-                value={properties.fixedDuration !== undefined ? properties.fixedDuration : '60'} 
+                min="1"
+                aria-required="true"
+                aria-invalid={isFixedDurationInvalid}
+                value={fixedDuration} 
                 onChange={handleChange} 
                 placeholder="60"
-                className="flex-1 bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                className={`flex-1 bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+                  isFixedDurationInvalid
+                    ? 'border-red-500/80 focus:border-red-500'
+                    : 'border-slate-700 focus:border-blue-500'
+                }`}
               />
               <select
+                id="fixedDurationUnitSelect"
                 name="fixedDurationUnit"
                 value={properties.fixedDurationUnit || 'Seconds'}
                 onChange={handleChange}
@@ -83,6 +149,9 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
                 <option value="Hours">Hours</option>
               </select>
             </div>
+            {isFixedDurationInvalid && (
+              <span className="text-xs text-red-400">Positive duration is required.</span>
+            )}
           </div>
         </div>
       )}
@@ -92,17 +161,30 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
         <div className="flex flex-col gap-4 border-t border-slate-700/50 pt-3">
           {/* Sliding Duration */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Duration</label>
+            <label htmlFor="slidingDurationInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+              <span>Duration</span>
+              <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+              <InfoTooltip text="Total length of each sliding window (e.g. 10 minutes). Required." />
+            </label>
             <div className="flex gap-2">
               <input 
+                id="slidingDurationInput"
                 type="number" 
                 name="slidingDuration" 
-                value={properties.slidingDuration !== undefined ? properties.slidingDuration : '600'} 
+                min="1"
+                aria-required="true"
+                aria-invalid={isSlidingDurationInvalid}
+                value={slidingDuration} 
                 onChange={handleChange} 
                 placeholder="600"
-                className="flex-1 bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                className={`flex-1 bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+                  isSlidingDurationInvalid
+                    ? 'border-red-500/80 focus:border-red-500'
+                    : 'border-slate-700 focus:border-blue-500'
+                }`}
               />
               <select
+                id="slidingDurationUnitSelect"
                 name="slidingDurationUnit"
                 value={properties.slidingDurationUnit || 'Seconds'}
                 onChange={handleChange}
@@ -113,21 +195,37 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
                 <option value="Hours">Hours</option>
               </select>
             </div>
+            {isSlidingDurationInvalid && (
+              <span className="text-xs text-red-400">Positive duration is required.</span>
+            )}
           </div>
 
           {/* Sliding Period */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Period</label>
+            <label htmlFor="slidingPeriodInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+              <span>Period (Every)</span>
+              <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+              <InfoTooltip text="How frequently a new sliding window begins (e.g. every 5 minutes). Required." />
+            </label>
             <div className="flex gap-2">
               <input 
+                id="slidingPeriodInput"
                 type="number" 
                 name="slidingPeriod" 
-                value={properties.slidingPeriod !== undefined ? properties.slidingPeriod : '300'} 
+                min="1"
+                aria-required="true"
+                aria-invalid={isSlidingPeriodInvalid}
+                value={slidingPeriod} 
                 onChange={handleChange} 
                 placeholder="300"
-                className="flex-1 bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                className={`flex-1 bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+                  isSlidingPeriodInvalid
+                    ? 'border-red-500/80 focus:border-red-500'
+                    : 'border-slate-700 focus:border-blue-500'
+                }`}
               />
               <select
+                id="slidingPeriodUnitSelect"
                 name="slidingPeriodUnit"
                 value={properties.slidingPeriodUnit || 'Seconds'}
                 onChange={handleChange}
@@ -138,21 +236,29 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
                 <option value="Hours">Hours</option>
               </select>
             </div>
+            {isSlidingPeriodInvalid && (
+              <span className="text-xs text-red-400">Positive period is required.</span>
+            )}
           </div>
 
           {/* Sliding Offset */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Offset</label>
+            <label htmlFor="slidingOffsetInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+              <span>Offset</span>
+              <InfoTooltip text="Optional start-time offset from the Unix epoch." />
+            </label>
             <div className="flex gap-2">
               <input 
+                id="slidingOffsetInput"
                 type="number" 
                 name="slidingOffset" 
-                value={properties.slidingOffset !== undefined ? properties.slidingOffset : '60'} 
+                value={slidingOffset} 
                 onChange={handleChange} 
                 placeholder="60"
                 className="flex-1 bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
               />
               <select
+                id="slidingOffsetUnitSelect"
                 name="slidingOffsetUnit"
                 value={properties.slidingOffsetUnit || 'Seconds'}
                 onChange={handleChange}
@@ -167,7 +273,7 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
 
           {/* Sliding Description */}
           <span className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Example of a 10-minute window that calculates statistics every 5 minutes. However, you want the windows to align perfectly with a 1-minute offset
+            Example of a 10-minute window that calculates statistics every 5 minutes. However, you want the windows to align perfectly with a 1-minute offset.
           </span>
         </div>
       )}
@@ -176,17 +282,30 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
       {windowType === 'Session Window' && (
         <div className="flex flex-col gap-4 border-t border-slate-700/50 pt-3">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-slate-500">Gap Duration</label>
+            <label htmlFor="sessionGapDurationInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+              <span>Gap Duration</span>
+              <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+              <InfoTooltip text="Minimum duration of inactivity between elements that demarcates separate user sessions. Required." />
+            </label>
             <div className="flex gap-2">
               <input 
+                id="sessionGapDurationInput"
                 type="number" 
                 name="sessionGapDuration" 
-                value={properties.sessionGapDuration !== undefined ? properties.sessionGapDuration : '30'} 
+                min="1"
+                aria-required="true"
+                aria-invalid={isSessionGapInvalid}
+                value={sessionGapDuration} 
                 onChange={handleChange} 
                 placeholder="30"
-                className="flex-1 bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                className={`flex-1 bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+                  isSessionGapInvalid
+                    ? 'border-red-500/80 focus:border-red-500'
+                    : 'border-slate-700 focus:border-blue-500'
+                }`}
               />
               <select
+                id="sessionGapDurationUnitSelect"
                 name="sessionGapDurationUnit"
                 value={properties.sessionGapDurationUnit || 'Minutes'}
                 onChange={handleChange}
@@ -197,6 +316,9 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
                 <option value="Hours">Hours</option>
               </select>
             </div>
+            {isSessionGapInvalid && (
+              <span className="text-xs text-red-400">Positive gap duration is required.</span>
+            )}
           </div>
 
           {/* Warning Message & Button */}
@@ -214,6 +336,25 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
           </div>
         </div>
       )}
+
+      {/* Flexible Spacer */}
+      <div className="flex-1 min-h-4" />
+
+      {/* Code Generation Instructions */}
+      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
+        <label htmlFor="windowingSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
+          Code Generation Instructions
+        </label>
+        <textarea
+          id="windowingSystemInstructions"
+          name="system_instructions"
+          value={systemInstructions}
+          onChange={handleInstructionsChange}
+          placeholder="Enter custom instructions for Windowing code generation..."
+          rows={3}
+          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+        />
+      </div>
     </div>
   );
 };

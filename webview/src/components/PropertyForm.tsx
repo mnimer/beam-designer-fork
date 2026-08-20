@@ -21,9 +21,13 @@ import { FileIOSourceProperties, FileIOReadMatchesProperties } from '../properti
 import { FileIOSinkProperties } from '../properties/sink/FileIO';
 import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
 import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
+import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
+import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
 
 /**
  * PropertyForm Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
  * 
  * This component acts as a container for specific node property forms.
  * It determines which property form to display based on the node's label and beam_transform.
@@ -31,6 +35,7 @@ import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
  * Architectural Decisions:
  * - Delegated specific forms to individual components in subfolders.
  * - Uses string matching on labels and beam_transform attributes to identify node types.
+ * - Includes support for KafkaIO (source, sink).
  * - Includes support for FileIO (match, readMatches, sink) and TextIO (source, sink).
  * - Includes OtherProperties for miscellaneous transforms (e.g. Flatten, ReShuffle).
  */
@@ -41,45 +46,59 @@ interface PropertyFormProps {
 }
 
 export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
-  const { label } = node.data;
+  const label = node?.data?.label || '';
+  const beamTransform = node?.data?.beam_transform || '';
+  const nodeType = (node?.data?.type || '').toUpperCase();
+  const labelLower = label.toLowerCase();
+  const transformLower = beamTransform.toLowerCase();
 
   let formContent = null;
 
-  // Determine which form to show based on the node label
-  // NOTE: This assumes naming conventions in labels.
-  if (label.includes('PubSub')) {
-    if (node.data.type === 'SOURCE') {
+  // Determine which form to show based on the node label and beam_transform
+  if (label.includes('PubSub') || beamTransform.includes('PubSub')) {
+    if (nodeType === 'SOURCE') {
       formContent = <PubSubProperties node={node} onChange={onChange} />;
     } else {
       formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label === 'Create') {
+  } else if (label === 'Create' || beamTransform === 'Create') {
     formContent = <CreateProperties node={node} onChange={onChange} />;
-  } else if (label.includes('BigQuery')) {
-    if (node.data.type === 'SOURCE') {
+  } else if (label.includes('BigQuery') || beamTransform.includes('BigQuery')) {
+    if (nodeType === 'SOURCE') {
       formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label.includes('TextIO') || node.data.beam_transform === 'TextIO') {
-    if (node.data.type === 'SOURCE') {
+  } else if (label.includes('TextIO') || beamTransform === 'TextIO') {
+    if (nodeType === 'SOURCE') {
       formContent = <TextIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <TextIOSinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label.includes('FileIO') || (node.data.beam_transform && node.data.beam_transform.startsWith('FileIO'))) {
-    if (label.includes('Read Matches') || node.data.beam_transform === 'FileIO.readMatches') {
+  } else if (label.includes('FileIO') || beamTransform.startsWith('FileIO')) {
+    if (label.includes('Read Matches') || beamTransform === 'FileIO.readMatches') {
       formContent = <FileIOReadMatchesProperties node={node} onChange={onChange} />;
-    } else if (node.data.type === 'SOURCE' || node.data.beam_transform === 'FileIO.match') {
+    } else if (nodeType === 'SOURCE' || beamTransform === 'FileIO.match') {
       formContent = <FileIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <FileIOSinkProperties node={node} onChange={onChange} />;
     }
-  } else if (label.includes('Jdbc') || label.includes('JDBC') || node.data.beam_transform === 'JdbcIO') {
-    if (node.data.type === 'SOURCE') {
+  } else if (label.includes('Jdbc') || label.includes('JDBC') || beamTransform === 'JdbcIO') {
+    if (nodeType === 'SOURCE') {
       formContent = <JdbcIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <JdbcIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('kafka') || 
+    transformLower.includes('kafka') || 
+    beamTransform === 'ReadFromKafka' || 
+    beamTransform === 'WriteToKafka'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     label === 'Window' || 
@@ -87,24 +106,27 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     label === 'Fixed Window' || 
     label === 'Fixed Windows' || 
     label === 'Sliding Windows' || 
-    label === 'User Windows'
+    label === 'User Windows' ||
+    beamTransform === 'Window' ||
+    beamTransform === 'Windowing' ||
+    transformLower.includes('window')
   ) {
     formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
-  } else if (label === 'Parse Message') {
+  } else if (label === 'Parse Message' || beamTransform === 'ParseMessage') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
-  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || node.data.beam_transform === 'WithTimestamps') {
+  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || beamTransform === 'WithTimestamps') {
     formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
-  } else if (label === 'Log Message') {
+  } else if (label === 'Log Message' || beamTransform === 'LogMessage') {
     formContent = <LogMessageProperties node={node} onChange={onChange} />;
-  } else if (label === 'KV Mapper') {
+  } else if (label === 'KV Mapper' || beamTransform === 'KVMapper') {
     formContent = <KVMapperProperties node={node} onChange={onChange} />;
-  } else if (label === 'Filter') {
+  } else if (label === 'Filter' || beamTransform === 'Filter') {
     formContent = <FilterProperties node={node} onChange={onChange} />;
-  } else if (label === 'FlatMap') {
+  } else if (label === 'FlatMap' || beamTransform === 'FlatMap') {
     formContent = <FlatMapProperties node={node} onChange={onChange} />;
-  } else if (label === 'Map') {
+  } else if (label === 'Map' || beamTransform === 'Map') {
     formContent = <MapProperties node={node} onChange={onChange} />;
-  } else if (label === 'ParDo' || node.data.beam_transform === 'ParDo') {
+  } else if (label === 'ParDo' || beamTransform === 'ParDo') {
     formContent = <ParDoProperties node={node} onChange={onChange} />;
   } else if (
     label === 'Approximate Quantiles' ||
@@ -130,9 +152,9 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     label === 'Flatten' ||
     label === 'ReShuffle' ||
     label === 'Reshuffle' ||
-    node.data.beam_transform === 'Flatten' ||
-    node.data.beam_transform === 'Reshuffle' ||
-    node.data.beam_transform === 'ReShuffle'
+    beamTransform === 'Flatten' ||
+    beamTransform === 'Reshuffle' ||
+    beamTransform === 'ReShuffle'
   ) {
     formContent = <OtherProperties node={node} onChange={onChange} />;
   } else {

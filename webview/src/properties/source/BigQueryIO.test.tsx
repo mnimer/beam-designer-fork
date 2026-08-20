@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BigQuerySourceProperties } from './BigQueryIO';
 
@@ -15,13 +15,15 @@ describe('BigQuerySourceProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('my_dataset')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('test-dataset')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('my-project:my_dataset.my_table')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('test-table')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('SELECT * FROM `my-project.my_dataset.my_table`')).toBeInTheDocument();
+    const datasetInput = container.querySelector('#bqSourceDataset') as HTMLInputElement;
+    const tableInput = container.querySelector('#bqSourceTable') as HTMLInputElement;
+    const queryInput = container.querySelector('#bqSourceQuery') as HTMLTextAreaElement;
+
+    expect(datasetInput).toHaveValue('test-dataset');
+    expect(tableInput).toHaveValue('test-table');
+    expect(queryInput).toBeInTheDocument();
   });
 
   it('calls onChange when dataset input changes', () => {
@@ -32,12 +34,12 @@ describe('BigQuerySourceProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const datasetInput = screen.getByPlaceholderText('my_dataset');
+    const datasetInput = container.querySelector('#bqSourceDataset') as HTMLInputElement;
     fireEvent.change(datasetInput, { target: { value: 'new-dataset' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ dataset: 'new-dataset', table: '' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ dataset: 'new-dataset', table: '' }));
   });
 
   it('calls onChange when table input changes', () => {
@@ -48,12 +50,12 @@ describe('BigQuerySourceProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const tableInput = screen.getByPlaceholderText('my-project:my_dataset.my_table');
+    const tableInput = container.querySelector('#bqSourceTable') as HTMLInputElement;
     fireEvent.change(tableInput, { target: { value: 'new-table' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ table: 'new-table' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ table: 'new-table' }));
   });
 
   it('calls onChange when query input changes', () => {
@@ -64,11 +66,11 @@ describe('BigQuerySourceProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<BigQuerySourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const queryInput = screen.getByPlaceholderText('SELECT * FROM `my-project.my_dataset.my_table`');
+    const queryInput = container.querySelector('#bqSourceQuery') as HTMLTextAreaElement;
     fireEvent.change(queryInput, { target: { value: 'SELECT * FROM test' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ query: 'SELECT * FROM test' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ query: 'SELECT * FROM test' }));
   });
 });

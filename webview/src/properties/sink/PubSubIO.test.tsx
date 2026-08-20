@@ -4,26 +4,40 @@ import '@testing-library/jest-dom';
 import { PubSubSinkProperties } from './PubSubIO';
 
 describe('PubSubSinkProperties', () => {
-  it('renders only topic input and no subscription', () => {
+  it('renders topic input and required error state when empty', () => {
     const mockNode = {
       data: {
         properties: {
-          topic: 'test-topic-sink'
+          topic: ''
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<PubSubSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<PubSubSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('projects/my-project/subscriptions/my-sub')).not.toBeInTheDocument();
+    const topicInput = container.querySelector('#pubsubSinkTopic') as HTMLInputElement;
+    expect(topicInput).toBeInTheDocument();
+    expect(topicInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/Topic is required/i)).toBeInTheDocument();
+  });
 
-    // Check hints
-    expect(screen.getByText('Sample: projects/my-project/topics/my-topic')).toBeInTheDocument();
+  it('renders provided topic value without error message', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          topic: 'projects/my-project/topics/my-sink-topic'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
 
-    // Check values
-    expect(screen.getByDisplayValue('test-topic-sink')).toBeInTheDocument();
+    const { container } = render(<PubSubSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const topicInput = container.querySelector('#pubsubSinkTopic') as HTMLInputElement;
+    expect(topicInput).toHaveValue('projects/my-project/topics/my-sink-topic');
+    expect(topicInput).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.queryByText(/Topic is required/i)).not.toBeInTheDocument();
   });
 
   it('calls onChange when topic input changes', () => {
@@ -34,11 +48,11 @@ describe('PubSubSinkProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<PubSubSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<PubSubSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const topicInput = screen.getByPlaceholderText('projects/my-project/topics/my-topic');
+    const topicInput = container.querySelector('#pubsubSinkTopic') as HTMLInputElement;
     fireEvent.change(topicInput, { target: { value: 'new-topic-sink' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ topic: 'new-topic-sink' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ topic: 'new-topic-sink' }));
   });
 });

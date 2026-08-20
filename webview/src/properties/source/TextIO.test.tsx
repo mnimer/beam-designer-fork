@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TextIOSourceProperties } from './TextIO';
 
@@ -20,14 +20,19 @@ describe('TextIOSourceProperties', () => {
       }
     };
 
-    render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/File Pattern \/ Path/i)).toHaveValue('gs://bucket/data/*.txt');
-    expect(screen.getByLabelText(/Skip Header Lines/i)).toHaveValue(1);
-    expect(screen.getByLabelText(/Custom Delimiter/i)).toHaveValue('\\n');
-    expect(screen.getByLabelText(/Hint Matches Many Files/i)).toBeChecked();
+    const filePatternInput = container.querySelector('#textFilePattern') as HTMLInputElement;
+    const skipHeaderInput = container.querySelector('#skipHeaderLines') as HTMLInputElement;
+    const delimiterInput = container.querySelector('#textDelimiter') as HTMLInputElement;
+    const hintCheckbox = container.querySelector('#hintMatchesManyFiles') as HTMLInputElement;
 
-    fireEvent.change(screen.getByLabelText(/File Pattern \/ Path/i), {
+    expect(filePatternInput).toHaveValue('gs://bucket/data/*.txt');
+    expect(skipHeaderInput).toHaveValue(1);
+    expect(delimiterInput).toHaveValue('\\n');
+    expect(hintCheckbox).toBeChecked();
+
+    fireEvent.change(filePatternInput, {
       target: { name: 'filePattern', value: 'gs://bucket/data/*.csv' }
     });
 
@@ -48,9 +53,9 @@ describe('TextIOSourceProperties', () => {
       }
     };
 
-    render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const compressionSelect = screen.getByLabelText(/Compression Algorithm/i);
+    const compressionSelect = container.querySelector('#textCompression') as HTMLSelectElement;
     expect(compressionSelect).toHaveValue('GZIP');
 
     fireEvent.change(compressionSelect, {

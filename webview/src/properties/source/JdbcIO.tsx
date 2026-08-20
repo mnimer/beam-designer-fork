@@ -1,7 +1,7 @@
-import React from 'react';
-
 /**
  * JdbcIOSourceProperties Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Purpose:
  * Renders the property panel for Apache Beam JdbcIO Database Source nodes.
@@ -9,12 +9,16 @@ import React from 'react';
  * and Python Cross-Language API (ReadFromJdbc).
  * 
  * Architectural Decisions:
+ * - In Apache Beam, a JDBC read requires a driverClassName, connection url, and either a query or tableName.
+ * - Enforces required field indicators, aria-required/aria-invalid attributes, and red border highlights on validation failure.
  * - Provides preset suggestions for standard JDBC database drivers (PostgreSQL, MySQL, SQL Server, Oracle, SQLite, Derby).
  * - Dynamically computes example JDBC URL placeholders and help text based on the selected database driver.
- * - Supports querying via raw SQL query or table name.
- * - Provides configuration for fetch size, output parallelization, driver JARs, and partitioned parallel reads.
+ * - Integrates InfoTooltip popovers linking field definitions to Apache Beam documentation.
  * - Includes a flexible spacer and "Code Generation Instructions" textarea at the bottom for LLM code generation prompt overrides.
  */
+
+import React from 'react';
+import { InfoTooltip } from '../../components/InfoTooltip';
 
 export interface JdbcDriverPreset {
   label: string;
@@ -78,6 +82,7 @@ interface JdbcIOSourceNode {
       driverJars?: string;
       query?: string;
       tableName?: string;
+      selectType?: 'query' | 'table';
       fetchSize?: string | number;
       outputParallelization?: boolean;
       usePartitioning?: boolean;
@@ -118,6 +123,12 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   const lowerBound = properties.lowerBound ?? '';
   const upperBound = properties.upperBound ?? '';
   const numPartitions = properties.numPartitions ?? '';
+
+  // Validation states
+  const isDriverInvalid = !driverClassName.trim();
+  const isUrlInvalid = !url.trim();
+  const isQueryInvalid = selectType === 'query' && !query.trim();
+  const isTableNameInvalid = selectType === 'table' && !tableName.trim();
 
   // System instructions text with default fallback
   const systemInstructions =
@@ -168,15 +179,23 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
     <div className="flex-1 flex flex-col gap-4">
       {/* Driver Class Name with friendly labels */}
       <div className="flex flex-col gap-2">
-        <label htmlFor="jdbcDriverClassName" className="text-xs font-bold uppercase text-slate-500">
-          Driver Class Name
+        <label htmlFor="jdbcDriverClassName" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Driver Class Name</span>
+          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+          <InfoTooltip text="Fully qualified Java JDBC driver class name (e.g. org.postgresql.Driver or com.mysql.cj.jdbc.Driver)." />
         </label>
         <select
           id="jdbcDriverClassName"
           name="driverClassName"
+          aria-required="true"
+          aria-invalid={isDriverInvalid}
           value={driverClassName}
           onChange={handleChange}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+            isDriverInvalid
+              ? 'border-red-500/80 focus:border-red-500'
+              : 'border-slate-700 focus:border-blue-500'
+          }`}
         >
           {JDBC_DRIVER_PRESETS.map((preset) => (
             <option key={preset.driverClass} value={preset.driverClass}>
@@ -184,32 +203,48 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
             </option>
           ))}
         </select>
+        {isDriverInvalid && (
+          <span className="text-xs text-red-400">Driver class name is required.</span>
+        )}
       </div>
 
       {/* JDBC Connection URL with dynamic example */}
       <div className="flex flex-col gap-2">
-        <label htmlFor="jdbcUrl" className="text-xs font-bold uppercase text-slate-500">
-          JDBC Connection URL
+        <label htmlFor="jdbcUrl" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>JDBC Connection URL</span>
+          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+          <InfoTooltip text="JDBC database connection URL including host, port, and database name. Required." />
         </label>
         <input
           id="jdbcUrl"
           type="text"
           name="url"
+          aria-required="true"
+          aria-invalid={isUrlInvalid}
           value={url}
           onChange={handleChange}
           placeholder={exampleUrl}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
+          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
+            isUrlInvalid
+              ? 'border-red-500/80 focus:border-red-500'
+              : 'border-slate-700 focus:border-blue-500'
+          }`}
         />
-        <span className="text-xs text-slate-400">
-          Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">{exampleUrl}</code>
-        </span>
+        {isUrlInvalid ? (
+          <span className="text-xs text-red-400">JDBC Connection URL is required.</span>
+        ) : (
+          <span className="text-xs text-slate-400">
+            Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">{exampleUrl}</code>
+          </span>
+        )}
       </div>
 
       {/* Credentials */}
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcUsername" className="text-xs font-bold uppercase text-slate-500">
-            Username
+          <label htmlFor="jdbcUsername" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Username</span>
+            <InfoTooltip text="Database user for JDBC authentication." />
           </label>
           <input
             id="jdbcUsername"
@@ -222,8 +257,9 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcPassword" className="text-xs font-bold uppercase text-slate-500">
-            Password
+          <label htmlFor="jdbcPassword" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Password</span>
+            <InfoTooltip text="Database password for JDBC authentication." />
           </label>
           <input
             id="jdbcPassword"
@@ -239,8 +275,9 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
 
       {/* Connection Properties */}
       <div className="flex flex-col gap-2">
-        <label htmlFor="jdbcConnectionProperties" className="text-xs font-bold uppercase text-slate-500">
-          Connection Properties
+        <label htmlFor="jdbcConnectionProperties" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Connection Properties</span>
+          <InfoTooltip text="Optional key-value connection properties passed to JDBC driver (e.g. useSSL=false;socketTimeout=30)." />
         </label>
         <input
           id="jdbcConnectionProperties"
@@ -255,8 +292,9 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
 
       {/* Select Type (SQL Statement or Table Name) */}
       <div className="flex flex-col gap-2">
-        <label htmlFor="jdbcSourceSelectType" className="text-xs font-bold uppercase text-slate-500">
-          Select Type
+        <label htmlFor="jdbcSourceSelectType" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Select Type</span>
+          <InfoTooltip text="Choose whether to read via an explicit SQL SELECT query or by specifying a full table name." />
         </label>
         <select
           id="jdbcSourceSelectType"
@@ -273,41 +311,64 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       {/* Conditional SQL Statement or Table Name Field */}
       {selectType === 'query' ? (
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcQuery" className="text-xs font-bold uppercase text-slate-500">
-            SQL Statement
+          <label htmlFor="jdbcQuery" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>SQL Statement</span>
+            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+            <InfoTooltip text="SQL query to execute for reading rows (e.g. SELECT * FROM my_table WHERE active = true). Required." />
           </label>
           <textarea
             id="jdbcQuery"
             name="query"
+            aria-required="true"
+            aria-invalid={isQueryInvalid}
             value={query}
             onChange={handleChange}
             placeholder="SELECT id, name, created_at FROM my_table WHERE active = 1"
             rows={3}
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
+            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono resize-y ${
+              isQueryInvalid
+                ? 'border-red-500/80 focus:border-red-500'
+                : 'border-slate-700 focus:border-blue-500'
+            }`}
           />
+          {isQueryInvalid && (
+            <span className="text-xs text-red-400">SQL Statement is required.</span>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcTableName" className="text-xs font-bold uppercase text-slate-500">
-            Table Name
+          <label htmlFor="jdbcTableName" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Table Name</span>
+            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+            <InfoTooltip text="Database table name to read from. Required." />
           </label>
           <input
             id="jdbcTableName"
             type="text"
             name="tableName"
+            aria-required="true"
+            aria-invalid={isTableNameInvalid}
             value={tableName}
             onChange={handleChange}
             placeholder="my_table"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+              isTableNameInvalid
+                ? 'border-red-500/80 focus:border-red-500'
+                : 'border-slate-700 focus:border-blue-500'
+            }`}
           />
+          {isTableNameInvalid && (
+            <span className="text-xs text-red-400">Table Name is required.</span>
+          )}
         </div>
       )}
 
       {/* Fetch Size & Parallel Reads */}
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcFetchSize" className="text-xs font-bold uppercase text-slate-500">
-            Fetch Size
+          <label htmlFor="jdbcFetchSize" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Fetch Size</span>
+            <InfoTooltip text="JDBC statement fetch size hint for buffering rows from database." />
           </label>
           <input
             id="jdbcFetchSize"
@@ -321,8 +382,9 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcOutputParallelization" className="text-xs font-bold uppercase text-slate-500">
-            Parallel Reads
+          <label htmlFor="jdbcOutputParallelization" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Parallel Reads</span>
+            <InfoTooltip text="Enables redistributing the read PCollection to break fusion and parallelize downstream steps." />
           </label>
           <div className="flex items-center h-[38px]">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -352,6 +414,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
             className="w-4 h-4 rounded border-slate-700 text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#252836]"
           />
           <span className="text-sm font-medium text-slate-300">Partitioned Parallel Reads</span>
+          <InfoTooltip text="Partitions table reads using numeric ranges across multiple concurrent worker queries (readWithPartitions)." />
         </label>
 
         {usePartitioning && (

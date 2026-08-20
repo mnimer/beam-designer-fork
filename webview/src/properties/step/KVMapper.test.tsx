@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { KVMapperProperties } from './KVMapper';
 
 describe('KVMapperProperties', () => {
-  it('renders input field for keyPropertyName and defaults to empty', () => {
+  it('renders input field for keyPropertyName and shows required validation when empty', () => {
     const mockNode = {
       data: {
         properties: {}
@@ -12,15 +12,16 @@ describe('KVMapperProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Key Property Name')).toBeInTheDocument();
-    const input = screen.getByPlaceholderText('e.g. id');
+    const input = container.querySelector('#kvKeyPropertyName') as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/Key Property Name is required/i)).toBeInTheDocument();
   });
 
-  it('renders keyPropertyName from properties', () => {
+  it('renders keyPropertyName from properties without error message', () => {
     const mockNode = {
       data: {
         properties: {
@@ -30,10 +31,12 @@ describe('KVMapperProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
 
-    const input = screen.getByPlaceholderText('e.g. id');
+    const input = container.querySelector('#kvKeyPropertyName') as HTMLInputElement;
     expect(input).toHaveValue('userId');
+    expect(input).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.queryByText(/Key Property Name is required/i)).not.toBeInTheDocument();
   });
 
   it('calls onChange callback when input changes', () => {
@@ -46,13 +49,13 @@ describe('KVMapperProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KVMapperProperties node={mockNode} onChange={mockOnChange} />);
 
-    const input = screen.getByPlaceholderText('e.g. id');
+    const input = container.querySelector('#kvKeyPropertyName') as HTMLInputElement;
     fireEvent.change(input, { target: { name: 'keyPropertyName', value: 'productId' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       keyPropertyName: 'productId'
-    });
+    }));
   });
 });

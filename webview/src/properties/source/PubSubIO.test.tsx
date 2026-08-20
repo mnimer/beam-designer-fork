@@ -8,8 +8,8 @@ describe('PubSubProperties', () => {
     const mockNode = {
       data: {
         properties: {
-          topic: 'test-topic',
-          subscription: 'test-sub'
+          topic: 'projects/my-project/topics/test-topic',
+          subscription: ''
         }
       }
     };
@@ -20,13 +20,29 @@ describe('PubSubProperties', () => {
     expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('projects/my-project/subscriptions/my-sub')).toBeInTheDocument();
 
-    // Check hints
-    expect(screen.getByText('Sample: projects/my-project/topics/my-topic')).toBeInTheDocument();
-    expect(screen.getByText('Sample: projects/my-project/subscriptions/my-sub')).toBeInTheDocument();
-
     // Check values
-    expect(screen.getByDisplayValue('test-topic')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('test-sub')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('projects/my-project/topics/test-topic')).toBeInTheDocument();
+
+    // Verify warning banner is NOT shown when topic is provided
+    expect(screen.queryByText(/Either a Topic or a Subscription is required/i)).not.toBeInTheDocument();
+  });
+
+  it('shows warning banner and invalid inputs when both topic and subscription are empty', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          topic: '',
+          subscription: ''
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PubSubProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Either a Topic or a Subscription is required/i)).toBeInTheDocument();
+    const topicInput = screen.getByPlaceholderText('projects/my-project/topics/my-topic');
+    expect(topicInput).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('calls onChange when inputs change', () => {
@@ -40,8 +56,8 @@ describe('PubSubProperties', () => {
     render(<PubSubProperties node={mockNode} onChange={mockOnChange} />);
 
     const topicInput = screen.getByPlaceholderText('projects/my-project/topics/my-topic');
-    fireEvent.change(topicInput, { target: { value: 'new-topic' } });
+    fireEvent.change(topicInput, { target: { value: 'projects/p/topics/t' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({ topic: 'new-topic' });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ topic: 'projects/p/topics/t' }));
   });
 });

@@ -15,7 +15,7 @@ describe('ElementTransforms Placeholders', () => {
 
   it('renders FilterProperties correctly', () => {
     render(<FilterProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText('Compare')).toBeInTheDocument();
+    expect(screen.getByText('Compare Target')).toBeInTheDocument();
   });
 
   it('renders FlatMapProperties correctly', () => {
@@ -25,6 +25,6 @@ describe('ElementTransforms Placeholders', () => {
 
   it('renders MapProperties correctly', () => {
     render(<MapProperties node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/Map properties are currently empty/i)).toBeInTheDocument();
+    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
   });
 });

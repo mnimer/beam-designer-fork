@@ -49,6 +49,7 @@ describe('NodesCard', () => {
 
     expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
     expect(screen.getByText('Database Sources')).toBeInTheDocument();
+    expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('JdbcIO')).toBeInTheDocument();
@@ -183,6 +184,7 @@ describe('NodesCard', () => {
     expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
     expect(screen.getByText('Database Sinks')).toBeInTheDocument();
     expect(screen.getByText('File Sinks')).toBeInTheDocument();
+    expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('JdbcIO')).toBeInTheDocument();

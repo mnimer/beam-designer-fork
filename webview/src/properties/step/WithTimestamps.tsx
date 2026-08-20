@@ -1,7 +1,26 @@
+/**
+ * WithTimestamps Properties Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Renders the property configuration panel for Apache Beam WithTimestamps transform steps (WithTimestamps.of(...)).
+ * 
+ * Architectural Decisions:
+ * - In Apache Beam, WithTimestamps assigns event timestamps to elements.
+ * - When Timestamp Source is 'Message Property' or 'Header Property', propertyName is required.
+ * - Enforces required field indicators, error messages, and aria attributes.
+ * - Integrates InfoTooltip components explaining event-time extraction and windowing alignment.
+ * - Provides Code Generation Instructions textarea for custom LLM prompts.
+ */
+
 import React from 'react';
+import { InfoTooltip } from '../../components/InfoTooltip';
 
 interface WithTimestampsNode {
   data: {
+    label?: string;
+    beam_transform?: string;
     system_instructions?: string;
     special_instructions?: string;
     properties?: {
@@ -9,6 +28,9 @@ interface WithTimestampsNode {
       propertyName?: string;
       system_instructions?: string;
       special_instructions?: string;
+      codeGenerationPrompt?: string;
+      prompt?: string;
+      [key: string]: any;
     };
   };
 }
@@ -32,6 +54,10 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
   const properties = node.data.properties || {};
   const timestampType = properties.timestampType || 'Current Time';
   const propertyName = properties.propertyName || '';
+
+  const showPropertyNameInput = timestampType === 'Message Property' || timestampType === 'Header Property';
+  const isPropertyNameInvalid = showPropertyNameInput && !propertyName.trim();
+
   const systemInstructions =
     node.data.system_instructions ??
     node.data.special_instructions ??
@@ -70,13 +96,15 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
     });
   };
 
-  const showPropertyNameInput = timestampType === 'Message Property' || timestampType === 'Header Property';
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">Timestamp Source</label>
+        <label htmlFor="withTimestampsSourceSelect" className="flex items-center text-xs font-bold uppercase text-slate-500">
+          <span>Timestamp Source</span>
+          <InfoTooltip text="Source of the event timestamp: Current system time, message payload field, or message metadata header." />
+        </label>
         <select
+          id="withTimestampsSourceSelect"
           name="timestampType"
           value={timestampType}
           onChange={handleTypeChange}
@@ -90,15 +118,29 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
 
       {showPropertyNameInput && (
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Property Name</label>
+          <label htmlFor="withTimestampsPropertyInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
+            <span>Property Name</span>
+            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
+            <InfoTooltip text="Field or header attribute name containing the epoch timestamp or ISO date string. Required." />
+          </label>
           <input
+            id="withTimestampsPropertyInput"
             type="text"
             name="propertyName"
+            aria-required="true"
+            aria-invalid={isPropertyNameInvalid}
             value={propertyName}
             onChange={handlePropertyNameChange}
             placeholder={timestampType === 'Header Property' ? 'e.g. publish_time' : 'e.g. event_timestamp'}
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
+              isPropertyNameInvalid
+                ? 'border-red-500/80 focus:border-red-500'
+                : 'border-slate-700 focus:border-blue-500'
+            }`}
           />
+          {isPropertyNameInvalid && (
+            <span className="text-xs text-red-400">Property name is required.</span>
+          )}
         </div>
       )}
 
@@ -107,15 +149,18 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
       </div>
 
       {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
-      <div className="flex-1" />
+      <div className="flex-1 min-h-4" />
 
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase text-slate-500">Code Generation Instructions</label>
+      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
+        <label htmlFor="withTimestampsSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
+          Code Generation Instructions
+        </label>
         <textarea
+          id="withTimestampsSystemInstructions"
           name="system_instructions"
           value={systemInstructions}
           onChange={handleInstructionsChange}
-          placeholder="Enter code generation instructions..."
+          placeholder="Enter code generation instructions for timestamp assignment..."
           rows={3}
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
         />

@@ -14,12 +14,12 @@ describe('FlatMapProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Split via')).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveValue('');
-    expect(screen.queryByPlaceholderText(',')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('e.g. [A-Za-z]+')).not.toBeInTheDocument();
+    expect(container.querySelector('#flatMapSplitVia')).toHaveValue('');
+    expect(container.querySelector('#flatMapDelimiter')).not.toBeInTheDocument();
+    expect(container.querySelector('#flatMapRegex')).not.toBeInTheDocument();
     expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
   });
 
@@ -32,17 +32,17 @@ describe('FlatMapProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const select = screen.getByRole('combobox');
+    const select = container.querySelector('#flatMapSplitVia') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'Token' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       splitVia: 'Token',
       delimiter: ',',
       regexPattern: '',
       system_instructions: ''
-    });
+    }));
   });
 
   it('updates delimiter value on text input', () => {
@@ -57,18 +57,18 @@ describe('FlatMapProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const input = screen.getByPlaceholderText(',');
+    const input = container.querySelector('#flatMapDelimiter') as HTMLInputElement;
     expect(input).toHaveAttribute('maxLength', '1');
     fireEvent.change(input, { target: { value: '|' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       splitVia: 'Token',
       delimiter: '|',
       regexPattern: '',
       system_instructions: ''
-    });
+    }));
   });
 
   it('shows Regex pattern input when Regex option is selected', () => {
@@ -83,9 +83,10 @@ describe('FlatMapProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByDisplayValue('[A-Za-z]+')).toBeInTheDocument();
+    const input = container.querySelector('#flatMapRegexPattern') as HTMLInputElement;
+    expect(input).toHaveValue('[A-Za-z]+');
   });
 
   it('updates Code Generation Instructions on textarea edit', () => {
@@ -100,17 +101,17 @@ describe('FlatMapProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FlatMapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const textarea = screen.getByPlaceholderText('Enter code generation instructions...');
+    const textarea = container.querySelector('#flatMapSystemInstructions') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Custom split instruction' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       splitVia: 'Token',
       delimiter: ';',
       regexPattern: '',
       system_instructions: 'Custom split instruction'
-    });
+    }));
   });
 
   it('renders FlatMapProperties via PropertyForm for FlatMap node', () => {

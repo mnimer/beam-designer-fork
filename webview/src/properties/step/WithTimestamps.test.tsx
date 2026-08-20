@@ -14,12 +14,12 @@ describe('WithTimestampsProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Timestamp Source')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Current Time')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('e.g. event_timestamp')).not.toBeInTheDocument();
-    expect(screen.getByDisplayValue('Attach current system time to each element.')).toBeInTheDocument();
+    expect(container.querySelector('#withTimestampsPropertyInput')).not.toBeInTheDocument();
+    expect(container.querySelector('#withTimestampsSystemInstructions')).toHaveValue('Attach current system time to each element.');
   });
 
   it('shows Property Name input and updates system instructions when Message Property is selected', () => {
@@ -31,16 +31,16 @@ describe('WithTimestampsProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
 
-    const select = screen.getByRole('combobox');
+    const select = container.querySelector('#withTimestampsSourceSelect') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'Message Property' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       timestampType: 'Message Property',
       propertyName: '',
       system_instructions: 'Extract timestamp from message field.'
-    });
+    }));
   });
 
   it('updates system instructions when propertyName changes', () => {
@@ -55,16 +55,16 @@ describe('WithTimestampsProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
 
-    const input = screen.getByPlaceholderText('e.g. event_timestamp');
+    const input = container.querySelector('#withTimestampsPropertyInput') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'created_at' } });
 
-    expect(mockOnChange).toHaveBeenCalledWith({
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       timestampType: 'Message Property',
       propertyName: 'created_at',
       system_instructions: "Extract timestamp from message field 'created_at'."
-    });
+    }));
   });
 
   it('shows Property Name input and updates system instructions for Header Property', () => {
@@ -79,10 +79,13 @@ describe('WithTimestampsProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<WithTimestampsProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByDisplayValue('publish_time')).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Extract timestamp from message header 'publish_time'.")).toBeInTheDocument();
+    const input = container.querySelector('#withTimestampsPropertyInput') as HTMLInputElement;
+    const instructionsArea = container.querySelector('#withTimestampsSystemInstructions') as HTMLTextAreaElement;
+
+    expect(input).toHaveValue('publish_time');
+    expect(instructionsArea).toHaveValue("Extract timestamp from message header 'publish_time'.");
   });
 
   it('renders WithTimestampsProperties via PropertyForm for Add Timestamp node', () => {

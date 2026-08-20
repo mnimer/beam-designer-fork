@@ -1,4 +1,5 @@
 import { runJdbcToJdbcTest } from './jdbc-to-jdbc.test';
+import { runKafkaIoToKafkaIoTest } from './kafkaio-to-kafkaio.test';
 
 export async function runAllIntegrationTests(): Promise<void> {
     console.log('======================================================');
@@ -7,6 +8,7 @@ export async function runAllIntegrationTests(): Promise<void> {
 
     try {
         await runJdbcToJdbcTest();
+        await runKafkaIoToKafkaIoTest();
         console.log('\n🎉 ALL INTEGRATION SUITES PASSED SUCCESSFULLY!');
     } catch (err: any) {
         console.error('\n❌ INTEGRATION SUITE FAILURE:', err.message || err);

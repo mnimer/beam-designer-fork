@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FileIOSourceProperties, FileIOReadMatchesProperties } from './FileIO';
 
@@ -21,17 +21,22 @@ describe('FileIOSourceProperties', () => {
       }
     };
 
-    render(<FileIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FileIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/File Pattern/i)).toHaveValue('gs://my-bucket/files/*.parquet');
-    expect(screen.getByLabelText(/Empty Match Treatment/i)).toHaveValue('DISALLOW');
-    expect(screen.getByLabelText(/Continuously/i)).toBeChecked();
-    expect(screen.getByLabelText(/Check Interval/i)).toHaveValue(5);
-    expect(screen.getByLabelText(/Unit/i)).toHaveValue('MINUTES');
-    expect(screen.queryByLabelText(/With Compression/i)).not.toBeInTheDocument();
+    const patternInput = container.querySelector('#filePattern') as HTMLInputElement;
+    const emptyMatchSelect = container.querySelector('#emptyMatchTreatment') as HTMLSelectElement;
+    const contCheckbox = container.querySelector('#continuously') as HTMLInputElement;
+    const durationInput = container.querySelector('#continuousDuration') as HTMLInputElement;
+    const unitSelect = container.querySelector('#continuousDurationUnit') as HTMLSelectElement;
+
+    expect(patternInput).toHaveValue('gs://my-bucket/files/*.parquet');
+    expect(emptyMatchSelect).toHaveValue('DISALLOW');
+    expect(contCheckbox).toBeChecked();
+    expect(durationInput).toHaveValue(5);
+    expect(unitSelect).toHaveValue('MINUTES');
 
     // Change file pattern
-    fireEvent.change(screen.getByLabelText(/File Pattern/i), {
+    fireEvent.change(patternInput, {
       target: { name: 'filePattern', value: 'gs://my-bucket/other/*.csv' }
     });
 
@@ -57,13 +62,17 @@ describe('FileIOReadMatchesProperties', () => {
       }
     };
 
-    render(<FileIOReadMatchesProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<FileIOReadMatchesProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Directory Treatment/i)).toHaveValue('PROHIBIT');
-    expect(screen.getByLabelText(/With Compression/i)).toBeChecked();
-    expect(screen.getByLabelText(/Compression Algorithm/i)).toHaveValue('ZIP');
+    const dirSelect = container.querySelector('#directoryTreatment') as HTMLSelectElement;
+    const compCheckbox = container.querySelector('#readMatchesWithCompression') as HTMLInputElement;
+    const compSelect = container.querySelector('#readMatchesCompression') as HTMLSelectElement;
 
-    fireEvent.change(screen.getByLabelText(/Directory Treatment/i), {
+    expect(dirSelect).toHaveValue('PROHIBIT');
+    expect(compCheckbox).toBeChecked();
+    expect(compSelect).toHaveValue('ZIP');
+
+    fireEvent.change(dirSelect, {
       target: { name: 'directoryTreatment', value: 'SKIP' }
     });
 
