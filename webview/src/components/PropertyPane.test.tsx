@@ -19,13 +19,27 @@ describe('PropertyPane', () => {
     { key: 'VAR2', value: 'val2' }
   ];
 
-  it('renders node details and runtime variables', () => {
-    render(<PropertyPane node={mockNode} onChange={vi.fn()} runtimeVariables={mockRuntimeVariables} />);
+  it('renders node details, editable name input, and runtime variables', () => {
+    const handleLabelChange = vi.fn();
+    render(
+      <PropertyPane 
+        node={mockNode} 
+        onChange={vi.fn()} 
+        onLabelChange={handleLabelChange} 
+        runtimeVariables={mockRuntimeVariables} 
+      />
+    );
 
-    expect(screen.getByText('Test Node')).toBeInTheDocument();
+    expect(screen.getByText('STEP')).toBeInTheDocument();
+    const nameInput = screen.getByRole('textbox', { name: 'Node Name' }) as HTMLInputElement;
+    expect(nameInput).toBeInTheDocument();
+    expect(nameInput.value).toBe('Test Node');
     expect(screen.getByText('NODE ID: 1')).toBeInTheDocument();
     expect(screen.getByText('$VAR1')).toBeInTheDocument();
     expect(screen.getByText('$VAR2')).toBeInTheDocument();
+
+    fireEvent.change(nameInput, { target: { value: 'Updated Node Name' } });
+    expect(handleLabelChange).toHaveBeenCalledWith('Updated Node Name');
   });
 
   it('copies variable name to clipboard when copy button is clicked', () => {

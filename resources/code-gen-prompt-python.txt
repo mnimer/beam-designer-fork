@@ -36,6 +36,7 @@ I will also need you to generate:
 ## Pipeline Instructions
 - Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
 - Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+- **Step Names**: Use the node's `label` attribute as the step name in the Python Beam pipeline (e.g. `p | '<label>' >> ...`). If a node has a customized label, you MUST use that exact string as the step name. If the label is a default transform name, provide a clean, descriptive step name adhering to Apache Beam best practices.
 - If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
 - Use the latest version of all libraries.
 

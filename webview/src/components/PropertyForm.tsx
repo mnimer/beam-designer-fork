@@ -114,7 +114,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
   } else if (label === 'Parse Message' || beamTransform === 'ParseMessage') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
-  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || beamTransform === 'WithTimestamps') {
+  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || label === 'Add Timestamp' || beamTransform === 'WithTimestamps') {
     formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
   } else if (label === 'Log Message' || beamTransform === 'LogMessage') {
     formContent = <LogMessageProperties node={node} onChange={onChange} />;
@@ -129,23 +129,28 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
   } else if (label === 'ParDo' || beamTransform === 'ParDo') {
     formContent = <ParDoProperties node={node} onChange={onChange} />;
   } else if (
-    label === 'Approximate Quantiles' ||
-    label === 'Approximate Unique' ||
-    label === 'Co Group By Key' ||
-    label === 'Combine' ||
-    label === 'Combine With Context' ||
-    label === 'Count' ||
-    label === 'Distinct' ||
-    label === 'Group By Key' ||
-    label === 'Group Into Batches' ||
-    label === 'Batch Elements' ||
-    label === 'Latest' ||
-    label === 'Max' ||
-    label === 'Mean' ||
-    label === 'Min' ||
-    label === 'Sample' ||
-    label === 'Sum' ||
-    label === 'Top'
+    [
+      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
+      'Approximate Unique', 'ApproximateUnique',
+      'Co Group By Key', 'CoGroupByKey',
+      'Combine', 'Combine With Context', 'CombineWithContext',
+      'Count', 'Distinct',
+      'Group By Key', 'GroupByKey',
+      'Group Into Batches', 'GroupIntoBatches',
+      'Batch Elements', 'BatchElements',
+      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
+    ].includes(label) ||
+    [
+      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
+      'Approximate Unique', 'ApproximateUnique',
+      'Co Group By Key', 'CoGroupByKey',
+      'Combine', 'Combine With Context', 'CombineWithContext',
+      'Count', 'Distinct',
+      'Group By Key', 'GroupByKey',
+      'Group Into Batches', 'GroupIntoBatches',
+      'Batch Elements', 'BatchElements',
+      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
+    ].includes(beamTransform)
   ) {
     formContent = <AggregationProperties node={node} onChange={onChange} />;
   } else if (

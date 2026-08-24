@@ -1,5 +1,23 @@
-import React from 'react';
-import { Handle, Position } from 'reactflow';
+/**
+ * PipelineNode Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Custom React Flow node representing a source, step, or sink in the Apache Beam DAG.
+ * It renders the transform icon, uppercase type badge, and node label, with support for
+ * inline label editing on double-click.
+ * 
+ * Architectural Decisions:
+ * - React Flow custom node with dynamic handles based on node type.
+ * - Double-clicking the label toggles an inline input field with 'nodrag' class to prevent canvas drag interference.
+ * - Commits label changes via data.onLabelChange callback or fallback to useReactFlow setNodes.
+ * - Pressing Enter or clicking outside (onBlur) commits the new name; pressing Escape cancels.
+ * - Steps have dual output handles (Valid in green, Error in red) except Log Message which has one valid output.
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Handle, Position, useReactFlow } from 'reactflow';
 import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
@@ -7,31 +25,101 @@ const iconComponentMap: Record<string, any> = {
   Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder
 };
 
-/**
- * PipelineNode Component
- * 
- * This is a custom React Flow node that represents a step, source, or sink in the pipeline.
- * It displays an icon, type label, and name.
- * 
- * Architectural Decisions:
- * - Custom node implementation for React Flow.
- * - Uses Lucide icons based on data.iconName.
- * - Steps have two output handles: green for valid path, red for error path.
- */
-interface PipelineNodeProps {
+export interface PipelineNodeProps {
+  id?: string;
   data: {
     label: string;
     type: string;
     iconName: string;
+    beam_transform?: string;
+    system_instructions?: string;
+    properties?: Record<string, any>;
+    onLabelChange?: (id: string, newLabel: string) => void;
   };
   selected?: boolean;
 }
 
-export const PipelineNode: React.FC<PipelineNodeProps> = ({ data, selected }) => {
+/**
+ * PipelineNode functional component rendering the node in the diagram canvas.
+ */
+export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }) => {
   const isSource = data.type === 'SOURCE';
   const isSink = data.type === 'SINK';
 
   const IconComponent = iconComponentMap[data.iconName];
+
+  // Inline editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(data.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  let reactFlow: any = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    reactFlow = useReactFlow();
+  } catch {
+    // Graceful fallback when rendered outside ReactFlowProvider (e.g., in unit tests)
+    reactFlow = null;
+  }
+
+  // Focus and select text when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  // Keep local edit state in sync with external data.label updates when not actively editing
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(data.label);
+    }
+  }, [data.label, isEditing]);
+
+  /**
+   * Commits the edited label to the node state
+   */
+  const handleCommit = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== data.label) {
+      if (data.onLabelChange && id) {
+        data.onLabelChange(id, trimmed);
+      } else if (reactFlow?.setNodes && id) {
+        reactFlow.setNodes((nds: any[]) =>
+          nds.map((n) =>
+            n.id === id
+              ? { ...n, data: { ...n.data, label: trimmed } }
+              : n
+          )
+        );
+      }
+    } else {
+      setEditValue(data.label);
+    }
+    setIsEditing(false);
+  };
+
+  /**
+   * Cancels editing and reverts to original label
+   */
+  const handleCancel = () => {
+    setEditValue(data.label);
+    setIsEditing(false);
+  };
+
+  /**
+   * Key down event handler for inline edit input
+   */
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      handleCommit();
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      handleCancel();
+    }
+  };
 
   return (
     <div className={`bg-[#1E202A] border ${selected ? 'border-blue-500' : 'border-slate-700'} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left`}>
@@ -41,12 +129,37 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ data, selected }) =>
       )}
       
       <div className="flex items-center gap-3 w-full">
-        <div className="bg-slate-700/50 p-2 rounded">
+        <div className="bg-slate-700/50 p-2 rounded shrink-0">
           {IconComponent && <IconComponent className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-blue-400' : data.type === 'SINK' ? 'text-green-400' : 'text-orange-400'}`} />}
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col flex-1 min-w-0">
           <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">{data.type}</span>
-          <span className="text-sm font-medium text-slate-200">{data.label}</span>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleCommit}
+              onKeyDown={handleKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="nodrag bg-[#0F111A] text-sm font-medium text-slate-100 border border-blue-500 rounded px-1.5 py-0.5 outline-none w-full max-w-[140px]"
+              aria-label="Edit node label"
+            />
+          ) : (
+            <span 
+              className="text-sm font-medium text-slate-200 cursor-pointer hover:text-blue-300 transition-colors truncate select-none"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              title="Double-click to rename"
+            >
+              {data.label}
+            </span>
+          )}
         </div>
       </div>
 
@@ -57,7 +170,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ data, selected }) =>
 
       {/* For steps, add 2 output handles: Valid (Green) and Error (Red) (Log Message only has Valid) */}
       {data.type === 'STEP' && (
-        data.label === 'Log Message' ? (
+        data.label === 'Log Message' || data.beam_transform === 'LogMessage' ? (
           <Handle 
             type="source" 
             position={Position.Right} 
