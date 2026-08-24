@@ -51,6 +51,8 @@ describe('NodesCard', () => {
     expect(screen.getByText('Database Sources')).toBeInTheDocument();
     expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('Generate Sequence')).toBeInTheDocument();
+    expect(screen.getByText('Periodic Impulse')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('JdbcIO')).toBeInTheDocument();
   });

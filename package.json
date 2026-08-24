@@ -29,6 +29,11 @@
     ],
     "commands": [
       {
+        "command": "dataflow-pipeline-builder.createNewPipeline",
+        "title": "Beam: New Pipeline",
+        "icon": "$(plus)"
+      },
+      {
         "command": "dataflow-pipeline-builder.showEditor",
         "title": "DataFlow: Show Editor"
       },
@@ -55,15 +60,59 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "dataflowExplorer",
+        "contents": "No Apache Beam pipeline files found in this workspace.\n[Create New Pipeline](command:dataflow-pipeline-builder.createNewPipeline)\n[Open Walkthrough](command:workbench.action.openWalkthrough?%22antigravity.dataflow-pipeline-builder%23beamWalkthrough%22)"
+      }
+    ],
     "menus": {
       "view/title": [
         {
+          "command": "dataflow-pipeline-builder.createNewPipeline",
+          "when": "view == dataflowExplorer",
+          "group": "navigation@1"
+        },
+        {
           "command": "dataflow-pipeline-builder.refreshPipelines",
           "when": "view == dataflowExplorer",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ]
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "beamWalkthrough",
+        "title": "Get Started with Apache Beam Pipeline Builder",
+        "description": "Learn how to visually design, configure, and generate Apache Beam data pipelines.",
+        "steps": [
+          {
+            "id": "designDag",
+            "title": "Design with Sources, Transforms & Sinks",
+            "description": "Drag and drop BigQuery, PubSub, Kafka, JDBC, and transformation steps onto the canvas and connect them.",
+            "media": {
+              "markdown": "walkthroughs/design-dag.md"
+            }
+          },
+          {
+            "id": "generateCode",
+            "title": "Generate Production Code",
+            "description": "Use built-in AI code generation with Gemini to generate production-ready Java and Python pipeline code, unit tests, and Dockerfiles.",
+            "media": {
+              "markdown": "walkthroughs/generate-code.md"
+            }
+          },
+          {
+            "id": "createPipeline",
+            "title": "Create your first pipeline",
+            "description": "Start designing a new data pipeline by creating a visual `.beam` pipeline file.\n[Create New Pipeline](command:dataflow-pipeline-builder.createNewPipeline)",
+            "media": {
+              "markdown": "walkthroughs/create-pipeline.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build:webview && npm run compile",

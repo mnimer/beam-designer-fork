@@ -712,7 +712,29 @@ function App() {
       })
     );
     setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-  }, [setNodes]);
+  }, [setNodes, takeSnapshot]);
+
+  /**
+   * Updates the label/name of a specific node and records undo/redo snapshot.
+   */
+  const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
+    takeSnapshot();
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              label: newLabel,
+            },
+          };
+        }
+        return node;
+      })
+    );
+    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+  }, [setNodes, takeSnapshot]);
 
   const handleAddKVMapper = useCallback((windowNodeId: string) => {
     const windowNode = nodes.find(n => n.id === windowNodeId);
@@ -994,7 +1016,13 @@ function App() {
             />
 
             <ReactFlow
-              nodes={nodes}
+              nodes={nodes.map(n => ({
+                ...n,
+                data: {
+                  ...n.data,
+                  onLabelChange: handleNodeLabelChange
+                }
+              }))}
               edges={edges}
               onNodesChange={handleNodesChange}
               onEdgesChange={handleEdgesChange}
@@ -1030,6 +1058,7 @@ function App() {
             <PropertyPane 
               node={nodes.find(n => n.id === selectedNodeId)!} 
               onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
+              onLabelChange={(newLabel) => handleNodeLabelChange(selectedNodeId, newLabel)}
               runtimeVariables={runtimeVariables} 
               onAddKVMapper={handleAddKVMapper}
             />

@@ -19,8 +19,12 @@ I will also need you to generate:
   - Pipeline source code files: All code files and tests MUST be generated inside 'src/' (e.g. 'src/foobar.py', 'src/foobar_test.py').
 - Delete all files and folders in output folder before generating the new code.
 - Validate all generated files are valid after creation
-- Generate Unit Tests for the different steps in the pipeline
+- Generate Unit Tests for the different steps in the pipeline in `src/<pipeline_name>_test.py`
 - Validate all unit tests run and pass locally using the DirectRunner
+- **SEPARATION OF RUNNER SCRIPT AND TESTS**:
+  - `run_directrunner.sh` MUST ONLY execute the main pipeline file (`python src/<pipeline_name>.py --runner=DirectRunner ... "$@"`). It must **NEVER** run unit tests (`unittest`, `pytest`, `unittest.main()`).
+  - The main pipeline file `src/<pipeline_name>.py` MUST have `if __name__ == '__main__': run()` and MUST **NEVER** import `unittest` or invoke `unittest.main()`.
+  - For streaming/unbounded pipelines (e.g. `PubSubIO`, `PeriodicImpulse`, unbounded `GenerateSequence`), configure the pipeline with `streaming=True` / pass `--streaming` in `run_directrunner.sh`.
 - Use Cloud Build to build all artifacts
 - For Python projects: generate 'requirements.txt'. Do NOT generate 'pom.xml', 'run_sparkrunner.sh', or any Java build directories (such as 'target/').
 - You MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
@@ -36,6 +40,7 @@ I will also need you to generate:
 ## Pipeline Instructions
 - Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
 - Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+- **Step Names**: Use the node's `label` attribute as the step name in the Python Beam pipeline (e.g. `p | '<label>' >> ...`). If a node has a customized label, you MUST use that exact string as the step name. If the label is a default transform name, provide a clean, descriptive step name adhering to Apache Beam best practices.
 - If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
 - Use the latest version of all libraries.
 
@@ -57,6 +62,50 @@ Language: Python
 - **`PubSubIO`**:
   - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
   - Sink: `beam.io.WriteToPubSub(topic=...)`
+- **`GenerateSequence`**:
+  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
+  - **CRITICAL RATE LIMITING & PERIOD RULE**:
+    - Python SDK's helper class `GenerateSequence.__init__` omitted the `period` parameter in its constructor, so calling `GenerateSequence(elements_per_period=1)` causes the Java expansion service to throw `java.lang.IllegalArgumentException: elements per period specified, but no period specified`.
+    - Therefore, when rate limiting or period is configured (e.g. `elementsPerPeriod` or `periodSeconds`), you **MUST** use `ExternalTransform('beam:external:java:generate_sequence:v1', ...)` with `ImplicitSchemaPayloadBuilder` supplying both `elements_per_period` AND `period` in milliseconds (`periodSeconds * 1000`):
+      ```python
+      ExternalTransform(
+          'beam:external:java:generate_sequence:v1',
+          ImplicitSchemaPayloadBuilder({
+              'start': start,
+              'stop': stop, # None for unbounded
+              'elements_per_period': elements_per_period,
+              'period': period_seconds * 1000, # period in milliseconds
+          }),
+          BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+      )
+      ```
+  - Bounded without Rate Limiting (start to stop):
+    ```python
+    from apache_beam.io.external.generate_sequence import GenerateSequence
+    from apache_beam.transforms.external import BeamJarExpansionService
+
+    GenerateSequence(start=start, stop=stop, expansion_service=BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar'))
+    ```
+  - Unbounded / Streaming with Rate Limiting (e.g., start=1, 1 element every 15s):
+    ```python
+    from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService
+
+    ExternalTransform(
+        'beam:external:java:generate_sequence:v1',
+        ImplicitSchemaPayloadBuilder({
+            'start': 1,
+            'stop': None,
+            'elements_per_period': 1,
+            'period': 15000, # 15 seconds in milliseconds
+        }),
+        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+    )
+    ```
+- **`PeriodicImpulse`**:
+  - Required Imports: `import time`, `from apache_beam.transforms.periodicsequence import PeriodicImpulse`
+  - Unbounded: `PeriodicImpulse(start_timestamp=time.time(), fire_interval=interval_seconds)`
+  - Bounded / With Duration: `PeriodicImpulse(start_timestamp=time.time(), stop_timestamp=time.time() + duration_seconds, fire_interval=interval_seconds)`
+  - With Custom Start/Stop: `PeriodicImpulse(start_timestamp=start_timestamp, stop_timestamp=stop_timestamp, fire_interval=interval_seconds)`
 - **`BigQueryIO`**:
   - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
   - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
@@ -173,7 +222,7 @@ Language: Python
 - **`ParseMessage`**:
   - Parse Pub/Sub bytes string into JSON / String / Base64.
 - **`LogMessage`**:
-  - Syntax: `beam.Map(lambda x: logging.info(f"Log: {x}"))`
+  - Syntax: `beam.Map(lambda x: print(f"Log: {x}", flush=True) or logging.info(f"Log: {x}"))`
 
 #### 5. Other Transforms
 - **`Flatten`**:

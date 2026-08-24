@@ -462,5 +462,50 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('broker1:9092');
     expect(screen.getByLabelText(/^Topic/i)).toHaveValue('output-topic');
   });
+
+  it('renders GenerateSequenceProperties when label or beam_transform is GenerateSequence', () => {
+    const mockNode = {
+      data: {
+        label: 'Generate Sequence',
+        type: 'SOURCE',
+        beam_transform: 'GenerateSequence',
+        properties: {
+          sequenceMode: 'bounded' as const,
+          start: 0,
+          stop: 100
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Sequence Mode/i, { selector: 'select' })).toHaveValue('bounded');
+    expect(screen.getByLabelText(/Start Index/i, { selector: 'input' })).toHaveValue(0);
+    expect(screen.getByLabelText(/Stop Index/i, { selector: 'input' })).toHaveValue(100);
+  });
+
+  it('renders PeriodicImpulseProperties when label or beam_transform is PeriodicImpulse', () => {
+    const mockNode = {
+      data: {
+        label: 'Periodic Impulse',
+        type: 'SOURCE',
+        beam_transform: 'PeriodicImpulse',
+        properties: {
+          intervalSeconds: 10,
+          startMode: 'now' as const,
+          stopMode: 'never' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Emission Interval/i, { selector: 'input' })).toHaveValue(10);
+    expect(screen.getByLabelText(/Start Time/i, { selector: 'select' })).toHaveValue('now');
+    expect(screen.getByLabelText(/Stop Condition/i, { selector: 'select' })).toHaveValue('never');
+  });
 });
+
 

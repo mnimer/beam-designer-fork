@@ -30,6 +30,55 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('dataflow-pipeline-builder.createNewPipeline', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            let defaultUri: vscode.Uri | undefined;
+            if (workspaceFolder) {
+                let candidateName = 'pipeline.beam';
+                let counter = 1;
+                while (fs.existsSync(path.join(workspaceFolder, candidateName))) {
+                    candidateName = `pipeline-${counter}.beam`;
+                    counter++;
+                }
+                defaultUri = vscode.Uri.file(path.join(workspaceFolder, candidateName));
+            }
+
+            const fileUri = await vscode.window.showSaveDialog({
+                defaultUri,
+                title: 'Create New Apache Beam Pipeline',
+                filters: { 'Beam Pipeline': ['beam'] }
+            });
+
+            if (!fileUri) {
+                return; // User cancelled
+            }
+
+            const initialContent = JSON.stringify({
+                nodes: [],
+                edges: [],
+                pipelineConfig: {
+                    language: 'Python',
+                    outputFolder: '',
+                    needsRebuild: false
+                },
+                jobConfig: {
+                    runner: 'DirectRunner',
+                    machineType: 'n1-standard-1',
+                    minInstances: 1,
+                    maxInstances: 10,
+                    gcsStagingPath: '',
+                    network: '',
+                    subnetwork: ''
+                }
+            }, null, 2);
+
+            fs.writeFileSync(fileUri.fsPath, initialContent, 'utf-8');
+            treeDataProvider.refresh();
+            await vscode.commands.executeCommand('vscode.openWith', fileUri, 'dataflow-pipeline-builder.beamEditor');
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('dataflow-pipeline-builder.refreshPipelines', () => {
             treeDataProvider.refresh();
         })
@@ -91,7 +140,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 /**
  * DataFlowTreeProvider
- * Provides workspace pipeline file hierarchy and active job views for the sidebar explorer.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Provides workspace pipeline file hierarchy for the sidebar explorer.
+ * 
+ * Architectural Decisions:
+ * - Scans for all *.beam pipeline files across the workspace and arranges them in directory hierarchy.
+ * - Displays a single top-level "Pipelines" category expanded by default.
+ * - Removed dummy "Running Pipelines" menu node.
  */
 class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<DataItem | undefined | null | void> = new vscode.EventEmitter<DataItem | undefined | null | void>();
@@ -103,16 +161,28 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
         this.refresh();
     }
 
+    /**
+     * Refreshes the tree provider by scanning for .beam files.
+     */
     refresh(): void {
         this.scanPipelines();
     }
 
+    /**
+     * Scans the workspace for *.beam files and builds the tree hierarchy.
+     */
     private async scanPipelines() {
         const files = await vscode.workspace.findFiles('**/*.beam');
         this.pipelines = this.buildTree(files);
         this._onDidChangeTreeData.fire();
     }
 
+    /**
+     * Builds hierarchical tree nodes from list of .beam file URIs.
+     * 
+     * @param files List of Uri objects for discovered .beam files.
+     * @returns Array of DataItem representing root folders and files.
+     */
     private buildTree(files: vscode.Uri[]): DataItem[] {
         const root: DataItem[] = [];
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -145,15 +215,27 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
         return root;
     }
 
+    /**
+     * Returns the TreeItem for display in VS Code sidebar.
+     * 
+     * @param element The tree item element.
+     */
     getTreeItem(element: DataItem): vscode.TreeItem {
         return element;
     }
 
+    /**
+     * Returns the children for a given tree item or root level.
+     * 
+     * @param element Optional parent tree item element.
+     */
     getChildren(element?: DataItem): Thenable<DataItem[]> {
         if (!element) {
+            if (this.pipelines.length === 0) {
+                return Promise.resolve([]);
+            }
             return Promise.resolve([
-                new DataItem('Pipelines', vscode.TreeItemCollapsibleState.Collapsed, 'category', this.pipelines),
-                new DataItem('Running Pipelines', vscode.TreeItemCollapsibleState.Collapsed, 'category')
+                new DataItem('Pipelines', vscode.TreeItemCollapsibleState.Expanded, 'category', this.pipelines)
             ]);
         }
 
@@ -165,21 +247,32 @@ class DataFlowTreeProvider implements vscode.TreeDataProvider<DataItem> {
             return Promise.resolve(element.children || []);
         }
 
-        if (element.label === 'Running Pipelines') {
-            return Promise.resolve([
-                new DataItem('pipeline 2', vscode.TreeItemCollapsibleState.None, 'pipeline-view')
-            ]);
-        }
-
         return Promise.resolve([]);
     }
 }
 
 /**
  * DataItem
- * Represents individual items within the DataFlow Explorer tree view.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Represents individual items (categories, folders, and pipeline files) within the DataFlow Explorer tree view.
+ * 
+ * Architectural Decisions:
+ * - Automatically links 'pipeline-edit' nodes to open in the custom editor via vscode.open.
+ * - Applies appropriate theme icons for folders and pipeline files.
  */
 class DataItem extends vscode.TreeItem {
+    /**
+     * Creates a new DataItem tree item.
+     * 
+     * @param label Display label for the tree item.
+     * @param collapsibleState Collapsed, expanded, or none state.
+     * @param contextValue Categorical identifier ('category', 'folder', 'pipeline-edit').
+     * @param children Optional nested child tree items.
+     * @param resourceUri Optional Uri pointing to the .beam file.
+     */
     constructor(
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
@@ -398,6 +491,10 @@ function savePipelineFiles(
     dockerIgnore?: string,
     gcloudIgnore?: string
 ) {
+    if (targetUri.scheme === 'untitled') {
+        console.warn('[savePipelineFiles] Skipping direct file write for untitled URI:', targetUri.toString());
+        return;
+    }
     fs.writeFileSync(targetUri.fsPath, data, 'utf-8');
     if (code) {
         const pipelineBaseName = path.basename(targetUri.fsPath, '.beam');
@@ -701,45 +798,45 @@ function handleMessages(
                 }
                 return;
             case 'savePipeline':
-                const targetUri = document ? document.uri : uri;
-                if (targetUri) {
-                    savePipelineFiles(
-                        targetUri,
-                        message.data,
-                        message.code,
-                        message.fileExtension,
-                        message.outputFolder,
-                        message.requirements,
-                        message.dockerfile,
-                        message.runScript,
-                        message.runDataflowScript,
-                        message.dockerIgnore,
-                        message.gcloudIgnore
-                    );
-                    vscode.window.setStatusBarMessage(`Saved ${path.basename(targetUri.fsPath)} and generated files`, 2000);
-                } else {
-                    vscode.window.showSaveDialog({
-                        filters: { 'Beam Pipeline': ['beam'] }
-                    }).then(fileUri => {
-                        if (fileUri) {
-                            savePipelineFiles(
-                                fileUri,
-                                message.data,
-                                message.code,
-                                message.fileExtension,
-                                message.outputFolder,
-                                message.requirements,
-                                message.dockerfile,
-                                message.runScript,
-                                message.runDataflowScript,
-                                message.dockerIgnore,
-                                message.gcloudIgnore
-                            );
-                            vscode.window.setStatusBarMessage(`Saved ${path.basename(fileUri.fsPath)} and generated files`, 2000);
-                            vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
+                let targetUri = document ? document.uri : uri;
+                if (!targetUri || targetUri.scheme === 'untitled') {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    let defaultUri: vscode.Uri | undefined;
+                    if (workspaceFolder) {
+                        let candidateName = 'pipeline.beam';
+                        let counter = 1;
+                        while (fs.existsSync(path.join(workspaceFolder, candidateName))) {
+                            candidateName = `pipeline-${counter}.beam`;
+                            counter++;
                         }
+                        defaultUri = vscode.Uri.file(path.join(workspaceFolder, candidateName));
+                    }
+                    const chosenUri = await vscode.window.showSaveDialog({
+                        defaultUri,
+                        title: 'Save Apache Beam Pipeline',
+                        filters: { 'Beam Pipeline': ['beam'] }
                     });
+                    if (!chosenUri) {
+                        return;
+                    }
+                    targetUri = chosenUri;
                 }
+
+                savePipelineFiles(
+                    targetUri,
+                    message.data,
+                    message.code,
+                    message.fileExtension,
+                    message.outputFolder,
+                    message.requirements,
+                    message.dockerfile,
+                    message.runScript,
+                    message.runDataflowScript,
+                    message.dockerIgnore,
+                    message.gcloudIgnore
+                );
+                vscode.window.setStatusBarMessage(`Saved ${path.basename(targetUri.fsPath)} and generated files`, 2000);
+                vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
                 return;
             case 'pickFolder':
                 vscode.window.showOpenDialog({
@@ -983,21 +1080,19 @@ function handleMessages(
 
                     if (scriptExists) {
                         try {
-                            const task = new vscode.Task(
-                                { type: 'shell', task: 'Apache Beam Runner' },
-                                vscode.TaskScope.Workspace,
-                                "Apache Beam Runner",
-                                "Beam Extension",
-                                new vscode.ShellExecution(`./${scriptName}`, { cwd: folderPath })
-                            );
-                            task.presentationOptions = {
-                                focus: true,
-                                reveal: vscode.TaskRevealKind.Always,
-                                panel: vscode.TaskPanelKind.Dedicated
-                            };
-                            vscode.tasks.executeTask(task);
+                            // Find existing runner terminal or create a new dedicated terminal
+                            let terminal = vscode.window.terminals.find(t => t.name === "Apache Beam Runner");
+                            if (!terminal) {
+                                terminal = vscode.window.createTerminal({
+                                    name: "Apache Beam Runner",
+                                    cwd: folderPath
+                                });
+                            }
+                            // Reveal the terminal panel and execute the runner script directly
+                            terminal.show(true);
+                            terminal.sendText(`cd "${folderPath}" && ./${scriptName}`);
                         } catch (e) {
-                            console.error('Failed to run script task', e);
+                            console.error('Failed to run script in terminal', e);
                             vscode.window.showErrorMessage(`Failed to run script: ${e}`);
                         }
                     } else {
