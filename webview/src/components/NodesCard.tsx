@@ -4,16 +4,14 @@
  * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Purpose:
- * Renders the draggable node palette sidebar with tabbed categories for
- * Sources, Steps, and Sinks organized into structured accordion groups.
+ * Sidebar component hosting available pipeline nodes categorized into SOURCES, STEPS, and SINKS.
  * 
  * Architectural Decisions:
- * - Tabs organize pipeline steps logically into SOURCES, STEPS, and SINKS.
- * - Accordion sections group related transforms (Streaming, Database, File, Aggregations, etc.).
- * - KafkaIO is integrated into Streaming Sources and Streaming Sinks.
+ * - Employs accordion details/summary groups for logical categorizations (Streaming, Database, File, Aggregations, etc.).
+ * - Nodes are dragged into the React Flow canvas to build pipeline topologies.
+ * - Enforces step/sink enablement based on node count.
  * - Adheres strictly to the 8pt grid system.
  */
-
 import React from 'react';
 import { SidebarItem } from './SidebarItem';
 
@@ -51,7 +49,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
             activeTab === 'STEPS'
               ? 'bg-blue-600 text-white shadow'
               : 'text-slate-400 hover:text-slate-200'
-          } ${nodesCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          }`}
           disabled={nodesCount === 0}
         >
           STEPS
@@ -79,6 +77,8 @@ export const NodesCard: React.FC<NodesCardProps> = ({
               <div className="grid grid-cols-3 gap-2 p-2">
                 <SidebarItem label="Kafka" type="SOURCE" iconName="Cable" beamTransform="KafkaIO" onDragStart={onDragStart} />
                 <SidebarItem label="PubSub" type="SOURCE" iconName="Radio" beamTransform="PubSubIO" onDragStart={onDragStart} />
+                <SidebarItem label="Generate Sequence" type="SOURCE" iconName="ListOrdered" beamTransform="GenerateSequence" onDragStart={onDragStart} />
+                <SidebarItem label="Periodic Impulse" type="SOURCE" iconName="Zap" beamTransform="PeriodicImpulse" onDragStart={onDragStart} />
               </div>
             </details>
             {/* Database Sources Section */}

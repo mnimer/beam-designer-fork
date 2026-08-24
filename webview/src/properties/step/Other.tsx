@@ -42,8 +42,9 @@ const DESCRIPTIONS: Record<string, string> = {
 };
 
 export const OtherProperties: React.FC<OtherPropertiesProps> = ({ node, onChange }) => {
+  const transform = node.data.beam_transform || node.data.label;
   const label = node.data.label;
-  const description = DESCRIPTIONS[label] || 'Transform properties are currently empty.';
+  const description = DESCRIPTIONS[transform] || DESCRIPTIONS[label] || 'Transform properties are currently empty.';
   const properties = node.data.properties || {};
 
   const systemInstructions =

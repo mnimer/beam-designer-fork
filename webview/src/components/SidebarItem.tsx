@@ -1,20 +1,23 @@
-import React from 'react';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder } from 'lucide-react';
-
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder
-};
-
 /**
  * SidebarItem Component
  * 
- * This component represents a draggable item in the sidebar that can be added to the canvas.
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * This component represents a draggable item in the sidebar that can be added to the React-Flow canvas.
  * 
  * Architectural Decisions:
- * - Uses HTML5 drag and drop.
- * - Displays an icon and a label.
+ * - Uses HTML5 drag and drop dataTransfer to transmit nodeType, label, type, iconName, and beamTransform.
+ * - Displays an icon mapped dynamically from Lucide React icons.
+ * - Supports Streaming Sources, Batch Sources, Transforms, and Sinks.
  */
+import React from 'react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap } from 'lucide-react';
+
+const iconComponentMap: Record<string, any> = {
+  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
+  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap
+};
 interface SidebarItemProps {
   label: string;
   type: string;

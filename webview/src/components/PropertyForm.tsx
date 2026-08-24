@@ -1,7 +1,22 @@
+/**
+ * PropertyForm Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Container component dispatching specific node property sheets based on the selected canvas node's type, label, and beam_transform.
+ * 
+ * Architectural Decisions:
+ * - Delegates specific property forms to modular components in source, sink, and step subdirectories.
+ * - Matches node labels and beam_transform metadata.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse), Database, File, Aggregations, and Transform steps.
+ */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
 import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
 import { CreateProperties } from '../properties/source/CreateIO';
+import { GenerateSequenceProperties } from '../properties/source/GenerateSequence';
+import { PeriodicImpulseProperties } from '../properties/source/PeriodicImpulse';
 import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
 import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
 import { WindowingProperties } from '../properties/step/Windowing';
@@ -23,22 +38,6 @@ import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
 import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
 import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
-
-/**
- * PropertyForm Component
- * 
- * Author: Mike Nimer <mikenimer@google.com>
- * 
- * This component acts as a container for specific node property forms.
- * It determines which property form to display based on the node's label and beam_transform.
- * 
- * Architectural Decisions:
- * - Delegated specific forms to individual components in subfolders.
- * - Uses string matching on labels and beam_transform attributes to identify node types.
- * - Includes support for KafkaIO (source, sink).
- * - Includes support for FileIO (match, readMatches, sink) and TextIO (source, sink).
- * - Includes OtherProperties for miscellaneous transforms (e.g. Flatten, ReShuffle).
- */
 interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
@@ -61,6 +60,10 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     } else {
       formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
     }
+  } else if (label.includes('Generate Sequence') || beamTransform === 'GenerateSequence') {
+    formContent = <GenerateSequenceProperties node={node} onChange={onChange} />;
+  } else if (label.includes('Periodic Impulse') || beamTransform === 'PeriodicImpulse') {
+    formContent = <PeriodicImpulseProperties node={node} onChange={onChange} />;
   } else if (label === 'Create' || beamTransform === 'Create') {
     formContent = <CreateProperties node={node} onChange={onChange} />;
   } else if (label.includes('BigQuery') || beamTransform.includes('BigQuery')) {
@@ -114,7 +117,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
   } else if (label === 'Parse Message' || beamTransform === 'ParseMessage') {
     formContent = <ParseMessageProperties node={node} onChange={onChange} />;
-  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || beamTransform === 'WithTimestamps') {
+  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || label === 'Add Timestamp' || beamTransform === 'WithTimestamps') {
     formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
   } else if (label === 'Log Message' || beamTransform === 'LogMessage') {
     formContent = <LogMessageProperties node={node} onChange={onChange} />;
@@ -129,23 +132,28 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
   } else if (label === 'ParDo' || beamTransform === 'ParDo') {
     formContent = <ParDoProperties node={node} onChange={onChange} />;
   } else if (
-    label === 'Approximate Quantiles' ||
-    label === 'Approximate Unique' ||
-    label === 'Co Group By Key' ||
-    label === 'Combine' ||
-    label === 'Combine With Context' ||
-    label === 'Count' ||
-    label === 'Distinct' ||
-    label === 'Group By Key' ||
-    label === 'Group Into Batches' ||
-    label === 'Batch Elements' ||
-    label === 'Latest' ||
-    label === 'Max' ||
-    label === 'Mean' ||
-    label === 'Min' ||
-    label === 'Sample' ||
-    label === 'Sum' ||
-    label === 'Top'
+    [
+      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
+      'Approximate Unique', 'ApproximateUnique',
+      'Co Group By Key', 'CoGroupByKey',
+      'Combine', 'Combine With Context', 'CombineWithContext',
+      'Count', 'Distinct',
+      'Group By Key', 'GroupByKey',
+      'Group Into Batches', 'GroupIntoBatches',
+      'Batch Elements', 'BatchElements',
+      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
+    ].includes(label) ||
+    [
+      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
+      'Approximate Unique', 'ApproximateUnique',
+      'Co Group By Key', 'CoGroupByKey',
+      'Combine', 'Combine With Context', 'CombineWithContext',
+      'Count', 'Distinct',
+      'Group By Key', 'GroupByKey',
+      'Group Into Batches', 'GroupIntoBatches',
+      'Batch Elements', 'BatchElements',
+      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
+    ].includes(beamTransform)
   ) {
     formContent = <AggregationProperties node={node} onChange={onChange} />;
   } else if (
