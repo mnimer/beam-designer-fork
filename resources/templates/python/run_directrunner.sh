@@ -39,4 +39,4 @@ export PYTHONPATH=.:src
 
 # Run pipeline locally with DirectRunner
 echo "Executing pipeline locally with DirectRunner..."
-python "src/{{pipeline_name}}.py" --runner=DirectRunner
+python "src/{{pipeline_name}}.py" --runner=DirectRunner "$@"

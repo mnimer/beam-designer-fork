@@ -1080,21 +1080,19 @@ function handleMessages(
 
                     if (scriptExists) {
                         try {
-                            const task = new vscode.Task(
-                                { type: 'shell', task: 'Apache Beam Runner' },
-                                vscode.TaskScope.Workspace,
-                                "Apache Beam Runner",
-                                "Beam Extension",
-                                new vscode.ShellExecution(`./${scriptName}`, { cwd: folderPath })
-                            );
-                            task.presentationOptions = {
-                                focus: true,
-                                reveal: vscode.TaskRevealKind.Always,
-                                panel: vscode.TaskPanelKind.Dedicated
-                            };
-                            vscode.tasks.executeTask(task);
+                            // Find existing runner terminal or create a new dedicated terminal
+                            let terminal = vscode.window.terminals.find(t => t.name === "Apache Beam Runner");
+                            if (!terminal) {
+                                terminal = vscode.window.createTerminal({
+                                    name: "Apache Beam Runner",
+                                    cwd: folderPath
+                                });
+                            }
+                            // Reveal the terminal panel and execute the runner script directly
+                            terminal.show(true);
+                            terminal.sendText(`cd "${folderPath}" && ./${scriptName}`);
                         } catch (e) {
-                            console.error('Failed to run script task', e);
+                            console.error('Failed to run script in terminal', e);
                             vscode.window.showErrorMessage(`Failed to run script: ${e}`);
                         }
                     } else {

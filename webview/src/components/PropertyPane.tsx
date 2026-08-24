@@ -19,10 +19,10 @@
 import React from 'react';
 import { Box, Copy } from 'lucide-react';
 import { PropertyForm } from './PropertyForm';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode, Code, FileText, Folder } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode, Code, FileText, Folder, ListOrdered, Zap } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Code, FileText, Folder
+  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Code, FileText, Folder, ListOrdered, Zap
 };
 
 export interface PropertyPaneProps {
@@ -38,6 +38,19 @@ export interface PropertyPaneProps {
  */
 export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLabelChange, runtimeVariables, onAddKVMapper }) => {
   const IconComponent = iconComponentMap[node.data.iconName];
+  const [labelValue, setLabelValue] = React.useState(node.data.label || '');
+
+  React.useEffect(() => {
+    setLabelValue(node.data.label || '');
+  }, [node.data.label, node.id]);
+
+  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLabelValue(val);
+    if (onLabelChange) {
+      onLabelChange(val);
+    }
+  };
 
   return (
     <div className="w-80 h-full shrink-0 bg-[#1A1D26] p-4 border-l border-slate-700 flex flex-col gap-4 overflow-y-auto z-20">
@@ -58,8 +71,8 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
           </div>
           <input
             type="text"
-            value={node.data.label || ''}
-            onChange={(e) => onLabelChange && onLabelChange(e.target.value)}
+            value={labelValue}
+            onChange={handleLabelChange}
             className="w-full bg-[#1A1D26] border border-slate-600 focus:border-blue-500 rounded px-2 py-1 text-sm font-bold text-white outline-none transition-colors"
             placeholder="Node Name"
             aria-label="Node Name"

@@ -6,23 +6,25 @@
  * Purpose:
  * Custom React Flow node representing a source, step, or sink in the Apache Beam DAG.
  * It renders the transform icon, uppercase type badge, and node label, with support for
- * inline label editing on double-click.
+ * inline label editing on double-click or rename button click.
  * 
  * Architectural Decisions:
  * - React Flow custom node with dynamic handles based on node type.
- * - Double-clicking the label toggles an inline input field with 'nodrag' class to prevent canvas drag interference.
+ * - Double-clicking the label or clicking the pencil button toggles an inline input field with 'nodrag' class.
  * - Commits label changes via data.onLabelChange callback or fallback to useReactFlow setNodes.
  * - Pressing Enter or clicking outside (onBlur) commits the new name; pressing Escape cancels.
  * - Steps have dual output handles (Valid in green, Error in red) except Log Message which has one valid output.
+ * - Includes Lucide icons for all sources, steps, sinks including ListOrdered and Zap.
+ * - Adheres strictly to the 8pt grid system.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap, Pencil } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
   Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder
+  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap
 };
 
 export interface PipelineNodeProps {
@@ -122,7 +124,15 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
   };
 
   return (
-    <div className={`bg-[#1E202A] border ${selected ? 'border-blue-500' : 'border-slate-700'} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left`}>
+    <div 
+      className={`bg-[#1E202A] border ${selected ? 'border-blue-500' : 'border-slate-700'} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left group/node`}
+      onDoubleClick={(e) => {
+        if (!isEditing) {
+          e.stopPropagation();
+          setIsEditing(true);
+        }
+      }}
+    >
       {/* Target handle for incoming connections (not for sources) */}
       {!isSource && (
         <Handle type="target" position={Position.Left} className="w-2 h-2 bg-blue-500 border-none" />
@@ -149,16 +159,32 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
               aria-label="Edit node label"
             />
           ) : (
-            <span 
-              className="text-sm font-medium text-slate-200 cursor-pointer hover:text-blue-300 transition-colors truncate select-none"
+            <div 
+              className="nodrag flex items-center gap-1 cursor-pointer min-w-0"
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(true);
               }}
               title="Double-click to rename"
             >
-              {data.label}
-            </span>
+              <span 
+                className="text-sm font-medium text-slate-200 hover:text-blue-300 transition-colors truncate select-none"
+              >
+                {data.label}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
+                className="opacity-0 group-hover/node:opacity-100 text-slate-400 hover:text-blue-400 p-0.5 transition-opacity shrink-0"
+                title="Rename node"
+                aria-label="Rename node"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            </div>
           )}
         </div>
       </div>

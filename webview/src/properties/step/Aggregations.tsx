@@ -58,10 +58,11 @@ const DESCRIPTIONS: Record<string, string> = {
 };
 
 export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ node, onChange }) => {
+  const transform = node.data.beam_transform || node.data.label;
   const label = node.data.label;
-  const description = DESCRIPTIONS[label] || 'Aggregation properties are currently empty.';
+  const description = DESCRIPTIONS[transform] || DESCRIPTIONS[label] || 'Aggregation properties are currently empty.';
   const properties = node.data.properties || {};
-  const isBatchNode = label === 'Group Into Batches' || label === 'Batch Elements';
+  const isBatchNode = label === 'Group Into Batches' || label === 'Batch Elements' || transform === 'GroupIntoBatches' || transform === 'BatchElements';
   const batchSize = properties.batchSize ?? '';
 
   const systemInstructions =

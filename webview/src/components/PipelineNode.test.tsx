@@ -135,4 +135,21 @@ describe('PipelineNode', () => {
 
     expect(handleLabelChange).toHaveBeenCalledWith('node-1', 'Blurred Node');
   });
+
+  it('opens text input when rename button is clicked', () => {
+    const handleLabelChange = vi.fn();
+    const dataWithHandler = {
+      ...mockData,
+      onLabelChange: handleLabelChange
+    };
+
+    render(<PipelineNode id="node-1" data={dataWithHandler} />);
+
+    const renameButton = screen.getByRole('button', { name: 'Rename node' });
+    fireEvent.click(renameButton);
+
+    const input = screen.getByRole('textbox', { name: 'Edit node label' }) as HTMLInputElement;
+    expect(input).toBeInTheDocument();
+    expect(input.value).toBe('Test Node');
+  });
 });
