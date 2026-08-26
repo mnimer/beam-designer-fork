@@ -12,7 +12,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
-import { LayoutTemplate } from 'lucide-react';
+import { LayoutTemplate, Map } from 'lucide-react';
 
 import { computeUpdatedOutputFolder } from './utils/outputFolder';
 
@@ -35,6 +35,7 @@ import { PipelineNode } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
+import { ThemeProvider } from './context/ThemeContext';
 
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 (window as any).vscode = vscode;
@@ -126,6 +127,8 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const hasPubSubSource = nodes.some(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
   const [activeTab, setActiveTab] = useState('SOURCES');
+  const [isMenuPanelOpen, setIsMenuPanelOpen] = useState(true);
+  const [showMiniMap, setShowMiniMap] = useState(false);
   const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -949,6 +952,106 @@ function App() {
     },
     [project, setNodes, setEdges, nodes, takeSnapshot]
   );
+
+  /**
+   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem.
+   */
+  const handleAddNode = useCallback(
+    (label: string, type: string, iconName: string, beamTransform?: string) => {
+      const nodeCount = nodes.length;
+      const position = {
+        x: 100 + (nodeCount % 6) * 60,
+        y: 100 + (nodeCount % 6) * 60,
+      };
+
+      if (type === 'SOURCE' && (label === 'FileIO' || beamTransform === 'FileIO')) {
+        const now = Date.now();
+        const matchNode = {
+          id: `${now}`,
+          type: 'pipeline',
+          position,
+          data: {
+            label: 'FileIO Match',
+            type: 'SOURCE',
+            iconName: 'Folder',
+            beam_transform: 'FileIO.match',
+          },
+        };
+
+        const readMatchesNode = {
+          id: `${now + 1}`,
+          type: 'pipeline',
+          position: {
+            x: position.x + 240,
+            y: position.y,
+          },
+          data: {
+            label: 'FileIO Read Matches',
+            type: 'STEP',
+            iconName: 'FileCode',
+            beam_transform: 'FileIO.readMatches',
+          },
+        };
+
+        const edge = {
+          id: `e-${matchNode.id}-${readMatchesNode.id}`,
+          source: matchNode.id,
+          target: readMatchesNode.id,
+        };
+
+        takeSnapshot();
+        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
+        setEdges((eds) => eds.concat(edge));
+        setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
+        return;
+      }
+
+      const newNode = {
+        id: `${Date.now()}`,
+        type: 'pipeline',
+        position,
+        data: {
+          label,
+          type,
+          iconName,
+          ...(beamTransform ? { beam_transform: beamTransform } : {}),
+        },
+      };
+
+      takeSnapshot();
+      setNodes((nds) => nds.concat(newNode));
+      setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
+
+      if (type === 'STEP') {
+        if (label === 'Parse Message') {
+          const pubSubSource = nodes.find((n) => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
+          if (pubSubSource) {
+            const newEdge = {
+              id: `e-${pubSubSource.id}-${newNode.id}`,
+              source: pubSubSource.id,
+              target: newNode.id,
+            };
+            setEdges((eds) => eds.concat(newEdge));
+          }
+        } else {
+          const hasStep = nodes.some((n) => n.data.type === 'STEP');
+          if (!hasStep) {
+            const sourceNode = nodes.find((n) => n.data.type === 'SOURCE');
+            if (sourceNode) {
+              const newEdge = {
+                id: `e-${sourceNode.id}-${newNode.id}`,
+                source: sourceNode.id,
+                target: newNode.id,
+              };
+              setEdges((eds) => eds.concat(newEdge));
+            }
+          }
+        }
+      }
+    },
+    [nodes, setNodes, setEdges, takeSnapshot]
+  );
+
   const jobsTimeoutRef = useRef<any>(null);
 
   const refreshRunningJobs = useCallback((regionToUse?: string) => {
@@ -999,7 +1102,7 @@ function App() {
   }, [projectId]);
 
   return (
-    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A] overflow-hidden">
+    <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
       <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Diagram Canvas & Property Pane Area */}
@@ -1013,6 +1116,9 @@ function App() {
               nodesCount={nodes.length} 
               hasPubSubSource={hasPubSubSource}
               onDragStart={onDragStart} 
+              onAddNode={handleAddNode}
+              isOpen={isMenuPanelOpen}
+              onToggleOpen={setIsMenuPanelOpen}
             />
 
             <ReactFlow
@@ -1037,18 +1143,40 @@ function App() {
               onDragOver={onDragOver}
               onNodeDragStop={() => takeSnapshot()}
             >
-              <Controls>
+              <Controls 
+                position="top-right"
+                style={{
+                  top: '12px',
+                  right: '12px',
+                  margin: 0,
+                }}
+              >
                 <ControlButton onClick={onLayout} title="Auto Layout Diagram">
                   <LayoutTemplate style={{ width: '14px', height: '14px' }} />
                 </ControlButton>
+                <ControlButton 
+                  onClick={() => setShowMiniMap(prev => !prev)} 
+                  title={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
+                  aria-label={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
+                >
+                  <Map style={{ width: '14px', height: '14px' }} />
+                </ControlButton>
               </Controls>
-              <MiniMap
-                nodeColor={(node: any) => {
-                  if (node.data?.type === 'SOURCE') return '#3b82f6';
-                  if (node.data?.type === 'SINK') return '#10b981';
-                  return '#f97316';
-                }}
-              />
+              {showMiniMap && (
+                <MiniMap
+                  position="top-right"
+                  style={{
+                    top: '58px',
+                    right: '12px',
+                    margin: 0,
+                  }}
+                  nodeColor={(node: any) => {
+                    if (node.data?.type === 'SOURCE') return '#10b981';
+                    if (node.data?.type === 'SINK') return '#f43f5e';
+                    return '#3b82f6';
+                  }}
+                />
+              )}
               <Background gap={12} size={1} />
             </ReactFlow>
           </div>
@@ -1067,7 +1195,7 @@ function App() {
 
         {/* Resizable Divider */}
         <div 
-          className="h-1 bg-slate-700 hover:bg-blue-500 cursor-row-resize transition-colors z-50 relative"
+          className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-50 relative"
           onMouseDown={handleMouseDown}
         />
 
@@ -1111,8 +1239,10 @@ function App() {
 
 export default function AppWithProvider() {
   return (
-    <ReactFlowProvider>
-      <App />
-    </ReactFlowProvider>
+    <ThemeProvider>
+      <ReactFlowProvider>
+        <App />
+      </ReactFlowProvider>
+    </ThemeProvider>
   );
 }

@@ -67,6 +67,13 @@
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "dataflow-pipeline-builder.createNewPipeline",
+          "when": "activeCustomEditorId == 'dataflow-pipeline-builder.beamEditor'",
+          "group": "navigation@1"
+        }
+      ],
       "view/title": [
         {
           "command": "dataflow-pipeline-builder.createNewPipeline",

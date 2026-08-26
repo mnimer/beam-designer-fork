@@ -53,32 +53,32 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
   };
 
   return (
-    <div className="w-80 h-full shrink-0 bg-[#1A1D26] p-4 border-l border-slate-700 flex flex-col gap-4 overflow-y-auto z-20">
+    <div className="w-80 h-full shrink-0 bg-[var(--vscode-workbench-bg)] p-4 border-l border-[var(--vscode-border)] flex flex-col gap-4 overflow-y-auto z-20">
       {/* Top Header */}
       <div className="flex justify-between items-center shrink-0">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Properties</h2>
-        <Box className="w-4 h-4 text-slate-400" />
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--vscode-text-muted)]">Properties</h2>
+        <Box className="w-4 h-4 text-[var(--vscode-text-muted)]" />
       </div>
       
       {/* Node Info Header with Editable Name */}
-      <div className="flex items-center gap-3 bg-[#252836] p-3 rounded-lg shrink-0">
-        <div className="bg-slate-700/50 p-2 rounded shrink-0">
-          {IconComponent && <IconComponent className={`w-5 h-5 ${node.data.type === 'SOURCE' ? 'text-blue-400' : node.data.type === 'SINK' ? 'text-green-400' : 'text-orange-400'}`} />}
+      <div className="flex items-center gap-3 bg-[var(--vscode-card-bg)] border border-[var(--vscode-border-light)] p-3 rounded-lg shrink-0">
+        <div className="bg-[var(--vscode-subcard-bg)] border border-[var(--vscode-border-light)] p-2 rounded shrink-0">
+          {IconComponent && <IconComponent className={`w-5 h-5 ${node.data.type === 'SOURCE' ? 'text-emerald-400' : node.data.type === 'SINK' ? 'text-rose-400' : 'text-blue-400'}`} />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
+          <div className="text-[10px] font-bold tracking-wider text-[var(--vscode-text-muted)] uppercase mb-1">
             {node.data.type || 'STEP'}
           </div>
           <input
             type="text"
             value={labelValue}
             onChange={handleLabelChange}
-            className="w-full bg-[#1A1D26] border border-slate-600 focus:border-blue-500 rounded px-2 py-1 text-sm font-bold text-white outline-none transition-colors"
+            className="w-full bg-[var(--vscode-input-bg)] border border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)] rounded px-2 py-1 text-sm font-bold text-[var(--vscode-text-primary)] outline-none transition-colors"
             placeholder="Node Name"
             aria-label="Node Name"
             title="Edit node name"
           />
-          <div className="text-[11px] text-slate-500 mt-1">NODE ID: {node.id}</div>
+          <div className="text-[11px] text-[var(--vscode-text-muted)] mt-1">NODE ID: {node.id}</div>
         </div>
       </div>
 
@@ -88,17 +88,17 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
       </div>
 
       {/* Runtime Variables at the bottom */}
-      <div className="border-t border-slate-700 pt-4 shrink-0">
+      <div className="border-t border-[var(--vscode-border-light)] pt-4 shrink-0">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-xs font-bold uppercase text-slate-500">Runtime Variables</span>
+          <span className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]">Runtime Variables</span>
         </div>
         <div className="flex flex-col gap-2 max-h-36 overflow-y-auto pr-1">
           {runtimeVariables.map((variable, index) => (
-            <div key={index} className="flex justify-between items-center text-sm text-slate-300 bg-[#252836] p-2 rounded">
+            <div key={index} className="flex justify-between items-center text-sm text-[var(--vscode-text-secondary)] bg-[var(--vscode-subcard-bg)] border border-[var(--vscode-border-light)] p-2 rounded">
               <span>${variable.key}</span>
               <button 
                 onClick={() => navigator.clipboard.writeText(`$${variable.key}`)}
-                className="text-slate-500 hover:text-slate-300"
+                className="text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]"
                 title="Copy to clipboard"
               >
                 <Copy className="w-4 h-4" />

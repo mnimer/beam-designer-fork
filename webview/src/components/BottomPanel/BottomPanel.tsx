@@ -6,12 +6,16 @@ import { SourceCodeTab } from './SourceCodeTab';
 /**
  * BottomPanel Component
  * 
- * This component acts as a container for the bottom panel tabs.
- * It displays the tab headers and renders the content for the active tab.
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Container component for the bottom expandable drawer panel tabs (SOURCE CODE, DEPLOYMENT, RUNNING JOBS).
+ * Displays high-contrast tab headers and dynamically renders the active tab content.
  * 
  * Architectural Decisions:
- * - Container component for bottom tabs.
- * - Delegates content rendering to specific tab components.
+ * - Tab headers use VS Code semantic tokens: text-primary for active tab with highlight underline, text-muted for inactive.
+ * - Delegates tab content rendering to SourceCodeTab, DeploymentTab, and InstancesTab.
+ * - Adheres strictly to the 8pt grid system.
  */
 interface BottomPanelProps {
   bottomTab: string;
@@ -80,25 +84,25 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
 }) => {
   return (
     <div 
-      className="bg-[#151722] flex flex-col"
+      className="bg-[var(--vscode-workbench-bg)] text-[var(--vscode-text-primary)] flex flex-col"
       style={height ? { height: `${height}px` } : { height: '33.3333%' }}
     >
       {/* Tab Headers */}
-      <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
+      <div className="flex border-b border-[var(--vscode-border)] bg-[var(--vscode-subcard-bg)] px-4">
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-[var(--vscode-text-primary)] border-b-2 border-[var(--vscode-highlight)]' : 'text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]'}`}
           onClick={() => setBottomTab('SOURCE_CODE')}
         >
           SOURCE CODE
         </button>
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-[var(--vscode-text-primary)] border-b-2 border-[var(--vscode-highlight)]' : 'text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]'}`}
           onClick={() => setBottomTab('DEPLOYMENT')}
         >
           DEPLOYMENT
         </button>
         <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_JOBS' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_JOBS' ? 'text-[var(--vscode-text-primary)] border-b-2 border-[var(--vscode-highlight)]' : 'text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]'}`}
           onClick={() => setBottomTab('RUNNING_JOBS')}
         >
           RUNNING JOBS

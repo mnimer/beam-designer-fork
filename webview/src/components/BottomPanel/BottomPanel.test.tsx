@@ -73,4 +73,18 @@ describe('BottomPanel', () => {
     fireEvent.click(screen.getByText('RUNNING JOBS'));
     expect(mockProps.setBottomTab).toHaveBeenCalledWith('RUNNING_JOBS');
   });
+
+  it('applies high-contrast active styling to the selected tab and muted styling to inactive tabs', () => {
+    render(<BottomPanel {...mockProps} bottomTab="SOURCE_CODE" />);
+
+    const sourceCodeBtn = screen.getByText('SOURCE CODE');
+    const deploymentBtn = screen.getByText('DEPLOYMENT');
+    const runningJobsBtn = screen.getByText('RUNNING JOBS');
+
+    expect(sourceCodeBtn.className).toContain('text-[var(--vscode-text-primary)]');
+    expect(sourceCodeBtn.className).toContain('border-[var(--vscode-highlight)]');
+
+    expect(deploymentBtn.className).toContain('text-[var(--vscode-text-muted)]');
+    expect(runningJobsBtn.className).toContain('text-[var(--vscode-text-muted)]');
+  });
 });
