@@ -12,8 +12,8 @@
  * - React Flow custom node with dynamic handles based on node type.
  * - Double-clicking the label or clicking the pencil button toggles an inline input field with 'nodrag' class.
  * - Commits label changes via data.onLabelChange callback or fallback to useReactFlow setNodes.
- * - Pressing Enter or clicking outside (onBlur) commits the new name; pressing Escape cancels.
- * - Steps have dual output handles (Valid in green, Error in red) except Log Message which has one valid output.
+ * - Steps have dual output handles (Valid in green, Error in red).
+ * - Sinks have a single target input handle and no output handles (terminal destination).
  * - Includes Lucide icons for all sources, steps, sinks including ListOrdered and Zap.
  * - Adheres strictly to the 8pt grid system.
  */
@@ -123,27 +123,66 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
     }
   };
 
+  // Determine dynamic node border and glow styles based on category: Green (Sources), Blue (Steps), Red (Sinks)
+  const getNodeBorderClasses = () => {
+    if (data.type === 'SOURCE') {
+      return selected 
+        ? 'border-emerald-400 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10' 
+        : 'border-emerald-500 hover:border-emerald-400';
+    }
+    if (data.type === 'SINK') {
+      return selected 
+        ? 'border-red-400 ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' 
+        : 'border-red-500 hover:border-red-400';
+    }
+    // STEP
+    return selected 
+      ? 'border-blue-400 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/10' 
+      : 'border-blue-500 hover:border-blue-400';
+  };
+
+  const getIconContainerClasses = () => {
+    if (data.type === 'SOURCE') {
+      return 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400';
+    }
+    if (data.type === 'SINK') {
+      return 'bg-red-500/10 border-red-500/40 text-red-400';
+    }
+    return 'bg-blue-500/10 border-blue-500/40 text-blue-400';
+  };
+
   return (
     <div 
-      className={`bg-[#1E202A] border ${selected ? 'border-blue-500' : 'border-slate-700'} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left group/node`}
+      className={`bg-[var(--vscode-node-bg,#1E202A)] border ${getNodeBorderClasses()} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left group/node transition-colors`}
       onDoubleClick={(e) => {
         if (!isEditing) {
           e.stopPropagation();
           setIsEditing(true);
         }
       }}
+      data-testid={`pipeline-node-${id || 'node'}`}
     >
       {/* Target handle for incoming connections (not for sources) */}
       {!isSource && (
-        <Handle type="target" position={Position.Left} className="w-2 h-2 bg-blue-500 border-none" />
+        <Handle 
+          type="target" 
+          position={Position.Left} 
+          className={`w-2 h-2 border-none ${isSink ? 'bg-red-500' : 'bg-blue-500'}`} 
+        />
       )}
       
       <div className="flex items-center gap-3 w-full">
-        <div className="bg-slate-700/50 p-2 rounded shrink-0">
-          {IconComponent && <IconComponent className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-blue-400' : data.type === 'SINK' ? 'text-green-400' : 'text-orange-400'}`} />}
+        <div className={`p-2 rounded shrink-0 border ${getIconContainerClasses()}`}>
+          {IconComponent && (
+            <IconComponent 
+              className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`} 
+            />
+          )}
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">{data.type}</span>
+          <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
+            {data.type}
+          </span>
           {isEditing ? (
             <input
               ref={inputRef}
@@ -155,7 +194,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
-              className="nodrag bg-[#0F111A] text-sm font-medium text-slate-100 border border-blue-500 rounded px-1.5 py-0.5 outline-none w-full max-w-[140px]"
+              className="nodrag bg-[var(--vscode-input-bg)] text-sm font-medium text-[var(--vscode-text-primary)] border border-[var(--vscode-highlight)] rounded px-1.5 py-0.5 outline-none w-full max-w-[140px]"
               aria-label="Edit node label"
             />
           ) : (
@@ -168,7 +207,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
               title="Double-click to rename"
             >
               <span 
-                className="text-sm font-medium text-slate-200 hover:text-blue-300 transition-colors truncate select-none"
+                className="text-sm font-medium text-[var(--vscode-text-primary)] hover:text-[var(--vscode-highlight)] transition-colors truncate select-none"
               >
                 {data.label}
               </span>
@@ -178,7 +217,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
                   e.stopPropagation();
                   setIsEditing(true);
                 }}
-                className="opacity-0 group-hover/node:opacity-100 text-slate-400 hover:text-blue-400 p-0.5 transition-opacity shrink-0"
+                className="opacity-0 group-hover/node:opacity-100 text-[var(--vscode-text-muted)] hover:text-[var(--vscode-highlight)] p-0.5 transition-opacity shrink-0"
                 title="Rename node"
                 aria-label="Rename node"
               >
@@ -191,40 +230,33 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
 
       {/* Source handle for outgoing connections (not for sinks) */}
       {!isSink && data.type !== 'STEP' && (
-        <Handle type="source" position={Position.Right} className="w-2 h-2 bg-blue-500 border-none" />
+        <Handle 
+          type="source" 
+          position={Position.Right} 
+          className="w-2 h-2 bg-emerald-500 border-none" 
+        />
       )}
 
-      {/* For steps, add 2 output handles: Valid (Green) and Error (Red) (Log Message only has Valid) */}
+      {/* For steps, add 2 output handles: Valid (Green) and Error (Red) */}
       {data.type === 'STEP' && (
-        data.label === 'Log Message' || data.beam_transform === 'LogMessage' ? (
+        <>
           <Handle 
             type="source" 
             position={Position.Right} 
             id="valid" 
-            style={{ top: '50%', backgroundColor: '#10b981' }} 
+            style={{ top: '30%', backgroundColor: '#10b981' }} 
             className="w-2 h-2 border-none" 
             title="Valid Path"
           />
-        ) : (
-          <>
-            <Handle 
-              type="source" 
-              position={Position.Right} 
-              id="valid" 
-              style={{ top: '30%', backgroundColor: '#10b981' }} 
-              className="w-2 h-2 border-none" 
-              title="Valid Path"
-            />
-            <Handle 
-              type="source" 
-              position={Position.Right} 
-              id="error" 
-              style={{ top: '70%', backgroundColor: '#ef4444' }} 
-              className="w-2 h-2 border-none" 
-              title="Error Path"
-            />
-          </>
-        )
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="error" 
+            style={{ top: '70%', backgroundColor: '#ef4444' }} 
+            className="w-2 h-2 border-none" 
+            title="Error Path"
+          />
+        </>
       )}
     </div>
   );

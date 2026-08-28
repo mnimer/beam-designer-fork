@@ -23,11 +23,43 @@ describe('PipelineNode', () => {
     iconName: 'Radio'
   };
 
-  it('renders label and type', () => {
-    render(<PipelineNode id="node-1" data={mockData} />);
+  it('renders label and type with correct color styling for SOURCE', () => {
+    const { container } = render(<PipelineNode id="node-1" data={mockData} />);
 
     expect(screen.getByText('Test Node')).toBeInTheDocument();
-    expect(screen.getByText('SOURCE')).toBeInTheDocument();
+    const typeElement = screen.getByText('SOURCE');
+    expect(typeElement).toBeInTheDocument();
+    expect(typeElement).toHaveClass('text-emerald-400');
+    expect(container.firstChild).toHaveClass('border-emerald-500');
+  });
+
+  it('renders correct border and text color for STEP', () => {
+    const stepData = { ...mockData, type: 'STEP' };
+    const { container } = render(<PipelineNode id="node-1" data={stepData} />);
+
+    const typeElement = screen.getByText('STEP');
+    expect(typeElement).toHaveClass('text-blue-400');
+    expect(container.firstChild).toHaveClass('border-blue-500');
+  });
+
+  it('renders correct border and text color for SINK', () => {
+    const sinkData = { ...mockData, type: 'SINK' };
+    const { container } = render(<PipelineNode id="node-1" data={sinkData} />);
+
+    const typeElement = screen.getByText('SINK');
+    expect(typeElement).toHaveClass('text-red-400');
+    expect(container.firstChild).toHaveClass('border-red-500');
+  });
+
+  it('renders selected styling for SOURCE, STEP, and SINK nodes', () => {
+    const { container: sourceContainer } = render(<PipelineNode id="node-1" data={mockData} selected={true} />);
+    expect(sourceContainer.firstChild).toHaveClass('border-emerald-400');
+
+    const { container: stepContainer } = render(<PipelineNode id="node-2" data={{ ...mockData, type: 'STEP' }} selected={true} />);
+    expect(stepContainer.firstChild).toHaveClass('border-blue-400');
+
+    const { container: sinkContainer } = render(<PipelineNode id="node-3" data={{ ...mockData, type: 'SINK' }} selected={true} />);
+    expect(sinkContainer.firstChild).toHaveClass('border-red-400');
   });
 
   it('renders target handle if not source', () => {
@@ -57,11 +89,13 @@ describe('PipelineNode', () => {
     expect(screen.getByTestId('handle-source-right-error')).toBeInTheDocument();
   });
 
-  it('renders only one valid source handle for Log Message step node', () => {
-    const logStepData = { ...mockData, type: 'STEP', label: 'Log Message' };
-    render(<PipelineNode id="node-1" data={logStepData} />);
+  it('renders target handle and no source handle for Log Message sink node', () => {
+    const logSinkData = { ...mockData, type: 'SINK', label: 'Log Message' };
+    render(<PipelineNode id="node-1" data={logSinkData} />);
 
-    expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    expect(screen.queryByTestId('handle-source-right')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('handle-source-right-valid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('handle-source-right-error')).not.toBeInTheDocument();
   });
 
@@ -152,4 +186,31 @@ describe('PipelineNode', () => {
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('Test Node');
   });
+
+  it('renders green border for SOURCE, blue border for STEP, and red border for SINK', () => {
+    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} />);
+    const srcNode = screen.getByTestId('pipeline-node-node-src');
+    expect(srcNode).toHaveClass('border-emerald-500');
+
+    rerender(<PipelineNode id="node-step" data={{ ...mockData, type: 'STEP' }} />);
+    const stepNode = screen.getByTestId('pipeline-node-node-step');
+    expect(stepNode).toHaveClass('border-blue-500');
+
+    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} />);
+    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
+    expect(sinkNode).toHaveClass('border-red-500');
+  });
+
+  it('renders themed ring and border when selected', () => {
+    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} selected={true} />);
+    const srcNode = screen.getByTestId('pipeline-node-node-src');
+    expect(srcNode).toHaveClass('border-emerald-400');
+    expect(srcNode).toHaveClass('ring-2');
+
+    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} selected={true} />);
+    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
+    expect(sinkNode).toHaveClass('border-red-400');
+    expect(sinkNode).toHaveClass('ring-2');
+  });
 });
+

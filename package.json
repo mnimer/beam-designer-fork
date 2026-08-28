@@ -41,6 +41,10 @@
         "command": "dataflow-pipeline-builder.refreshPipelines",
         "title": "Refresh Pipelines",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "dataflow-pipeline-builder.openJobInConsole",
+        "title": "Open Job in Cloud Console"
       }
     ],
     "viewsContainers": {
@@ -67,6 +71,13 @@
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "dataflow-pipeline-builder.createNewPipeline",
+          "when": "activeCustomEditorId == 'dataflow-pipeline-builder.beamEditor'",
+          "group": "navigation@1"
+        }
+      ],
       "view/title": [
         {
           "command": "dataflow-pipeline-builder.createNewPipeline",
@@ -116,6 +127,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run build:webview && npm run compile",
+    "build": "npm run build:webview && npm run compile",
     "build:webview": "npm --prefix webview run build",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",

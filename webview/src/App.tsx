@@ -1,18 +1,21 @@
 /**
  * App Component
  * 
- * This is the main application component for the Apache Beam Designer.
- * It renders the canvas, sidebar, and property pane.
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Main application component for the visual Apache Beam Pipeline Designer canvas and property inspector.
  * 
  * Architectural Decisions:
- * - Refactored to use separate components for nodes, property forms, and property pane to improve maintainability.
- * - Uses React Flow for the canvas.
- * - Initial state for nodes and edges is empty array to prevent phantom pipeline flash ("PubSub_In -> Window -> BigQuery_Out") when opening .beam files.
+ * - Uses React Flow for interactive drag-and-drop pipeline graph editing.
+ * - Initial state for nodes and edges is empty array to prevent phantom pipeline flash when opening .beam files.
+ * - Removed Running Jobs tab/state in favor of the VS Code sidebar DataFlow Explorer tree view.
+ * - Adheres to 8pt grid system and modern React state/effects.
  */
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import YAML from 'yaml';
-import { LayoutTemplate } from 'lucide-react';
+import { LayoutTemplate, Map } from 'lucide-react';
 
 import { computeUpdatedOutputFolder } from './utils/outputFolder';
 
@@ -35,6 +38,7 @@ import { PipelineNode } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
+import { ThemeProvider } from './context/ThemeContext';
 
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 (window as any).vscode = vscode;
@@ -124,8 +128,41 @@ const initialEdges: Array<{
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [activeTab, setActiveTab] = useState<string | null>(() => {
+    try {
+      const vsState = (window as any).vscode?.getState?.()?.activeNodePaletteTab;
+      if (vsState !== undefined) {
+        return vsState;
+      }
+      if (typeof localStorage !== 'undefined') {
+        const local = localStorage.getItem('beam_node_palette_active_tab');
+        if (local !== null) {
+          return local === '__NULL__' ? null : local;
+        }
+      }
+    } catch {
+      // Ignore persistence read error
+    }
+    return 'SOURCES';
+  });
+
+  const handleSetActiveTab = (tab: string | null) => {
+    setActiveTab(tab);
+    try {
+      const vs = (window as any).vscode;
+      if (vs?.setState) {
+        const current = vs.getState?.() || {};
+        vs.setState({ ...current, activeNodePaletteTab: tab });
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('beam_node_palette_active_tab', tab === null ? '__NULL__' : tab);
+      }
+    } catch {
+      // Ignore persistence write error
+    }
+  };
   const hasPubSubSource = nodes.some(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
-  const [activeTab, setActiveTab] = useState('SOURCES');
+  const [showMiniMap, setShowMiniMap] = useState(false);
   const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -147,12 +184,6 @@ function App() {
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
-
-  // Running Jobs state
-  const [runningJobs, setRunningJobs] = useState<any[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
-  const [jobsError, setJobsError] = useState<string | null>(null);
-  const [dataflowRegion, setDataflowRegion] = useState<string>('us-central1');
   
   // Custom pipeline config state
   const [pipelineConfig, setPipelineConfig] = useState<{ language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean }>({
@@ -179,6 +210,7 @@ function App() {
 
   // Resize state for Bottom Panel
   const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
+  const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -395,14 +427,6 @@ function App() {
             setSelectedFileContent(null);
             refreshFolderFiles();
           }
-        } else if (message.command === 'runningJobsLoaded') {
-          if (jobsTimeoutRef.current) {
-            clearTimeout(jobsTimeoutRef.current);
-            jobsTimeoutRef.current = null;
-          }
-          setIsLoadingJobs(false);
-          setRunningJobs(message.jobs || []);
-          setJobsError(message.error || null);
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
         } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
@@ -949,70 +973,122 @@ function App() {
     },
     [project, setNodes, setEdges, nodes, takeSnapshot]
   );
-  const jobsTimeoutRef = useRef<any>(null);
 
-  const refreshRunningJobs = useCallback((regionToUse?: string) => {
-    const reg = regionToUse || dataflowRegion || 'us-central1';
-    console.log('[@App.tsx] refreshRunningJobs called, projectId=', projectIdRef.current, 'region=', reg);
-    setIsLoadingJobs(true);
-    setJobsError(null);
+  /**
+   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem.
+   */
+  const handleAddNode = useCallback(
+    (label: string, type: string, iconName: string, beamTransform?: string) => {
+      const nodeCount = nodes.length;
+      const position = {
+        x: 100 + (nodeCount % 6) * 60,
+        y: 100 + (nodeCount % 6) * 60,
+      };
 
-    if (jobsTimeoutRef.current) {
-      clearTimeout(jobsTimeoutRef.current);
-    }
+      if (type === 'SOURCE' && (label === 'FileIO' || beamTransform === 'FileIO')) {
+        const now = Date.now();
+        const matchNode = {
+          id: `${now}`,
+          type: 'pipeline',
+          position,
+          data: {
+            label: 'FileIO Match',
+            type: 'SOURCE',
+            iconName: 'Folder',
+            beam_transform: 'FileIO.match',
+          },
+        };
 
-    jobsTimeoutRef.current = setTimeout(() => {
-      setIsLoadingJobs(false);
-      setJobsError('Timed out waiting for Dataflow jobs from gcloud CLI. Please verify gcloud CLI login or region settings.');
-    }, 16000);
+        const readMatchesNode = {
+          id: `${now + 1}`,
+          type: 'pipeline',
+          position: {
+            x: position.x + 240,
+            y: position.y,
+          },
+          data: {
+            label: 'FileIO Read Matches',
+            type: 'STEP',
+            iconName: 'FileCode',
+            beam_transform: 'FileIO.readMatches',
+          },
+        };
 
-    if (vscode) {
-      vscode.postMessage({ 
-        command: 'getRunningJobs', 
-        projectId: projectIdRef.current || projectId,
-        region: reg
-      });
-    } else {
-      if (jobsTimeoutRef.current) {
-        clearTimeout(jobsTimeoutRef.current);
-        jobsTimeoutRef.current = null;
+        const edge = {
+          id: `e-${matchNode.id}-${readMatchesNode.id}`,
+          source: matchNode.id,
+          target: readMatchesNode.id,
+        };
+
+        takeSnapshot();
+        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
+        setEdges((eds) => eds.concat(edge));
+        setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
+        return;
       }
-      setIsLoadingJobs(false);
-    }
-  }, [projectId, dataflowRegion]);
 
-  useEffect(() => {
-    if (bottomTab === 'RUNNING_JOBS' && isLoaded) {
-      refreshRunningJobs();
-    }
-  }, [bottomTab, isLoaded, refreshRunningJobs]);
+      const newNode = {
+        id: `${Date.now()}`,
+        type: 'pipeline',
+        position,
+        data: {
+          label,
+          type,
+          iconName,
+          ...(beamTransform ? { beam_transform: beamTransform } : {}),
+        },
+      };
 
-  const handleOpenJob = useCallback((job: any) => {
-    const loc = job.location || 'us-central1';
-    const proj = projectIdRef.current || projectId || '';
-    const url = `https://console.cloud.google.com/dataflow/jobs/${loc}/${job.id}${proj ? `?project=${proj}` : ''}`;
-    if (vscode) {
-      vscode.postMessage({ command: 'openExternal', url });
-    } else {
-      window.open(url, '_blank');
-    }
-  }, [projectId]);
+      takeSnapshot();
+      setNodes((nds) => nds.concat(newNode));
+      setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
+
+      if (type === 'STEP') {
+        if (label === 'Parse Message') {
+          const pubSubSource = nodes.find((n) => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
+          if (pubSubSource) {
+            const newEdge = {
+              id: `e-${pubSubSource.id}-${newNode.id}`,
+              source: pubSubSource.id,
+              target: newNode.id,
+            };
+            setEdges((eds) => eds.concat(newEdge));
+          }
+        } else {
+          const hasStep = nodes.some((n) => n.data.type === 'STEP');
+          if (!hasStep) {
+            const sourceNode = nodes.find((n) => n.data.type === 'SOURCE');
+            if (sourceNode) {
+              const newEdge = {
+                id: `e-${sourceNode.id}-${newNode.id}`,
+                source: sourceNode.id,
+                target: newNode.id,
+              };
+              setEdges((eds) => eds.concat(newEdge));
+            }
+          }
+        }
+      }
+    },
+    [nodes, setNodes, setEdges, takeSnapshot]
+  );
 
   return (
-    <div className="flex h-screen w-screen text-slate-200 bg-[#0F111A] overflow-hidden">
+    <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
       <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Diagram Canvas & Property Pane Area */}
-        <div className="flex-1 relative flex min-h-0 overflow-hidden">
+        <div className={`flex-1 relative min-h-0 overflow-hidden ${isBottomPanelExpanded ? 'hidden' : 'flex'}`}>
           {/* Canvas */}
           <div className="flex-1 relative h-full min-w-0">
             {/* Floating Card on Left */}
             <NodesCard 
               activeTab={activeTab} 
-              setActiveTab={setActiveTab} 
+              setActiveTab={handleSetActiveTab} 
               nodesCount={nodes.length} 
               hasPubSubSource={hasPubSubSource}
               onDragStart={onDragStart} 
+              onAddNode={handleAddNode}
             />
 
             <ReactFlow
@@ -1037,18 +1113,40 @@ function App() {
               onDragOver={onDragOver}
               onNodeDragStop={() => takeSnapshot()}
             >
-              <Controls>
+              <Controls 
+                position="top-right"
+                style={{
+                  top: '12px',
+                  right: '12px',
+                  margin: 0,
+                }}
+              >
                 <ControlButton onClick={onLayout} title="Auto Layout Diagram">
-                  <LayoutTemplate style={{ width: '14px', height: '14px' }} />
+                  <LayoutTemplate className="w-3.5 h-3.5" />
+                </ControlButton>
+                <ControlButton 
+                  onClick={() => setShowMiniMap(prev => !prev)} 
+                  title={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
+                  aria-label={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
+                >
+                  <Map style={{ width: '14px', height: '14px' }} />
                 </ControlButton>
               </Controls>
-              <MiniMap
-                nodeColor={(node: any) => {
-                  if (node.data?.type === 'SOURCE') return '#3b82f6';
-                  if (node.data?.type === 'SINK') return '#10b981';
-                  return '#f97316';
-                }}
-              />
+              {showMiniMap && (
+                <MiniMap
+                  position="top-right"
+                  style={{
+                    top: '58px',
+                    right: '12px',
+                    margin: 0,
+                  }}
+                  nodeColor={(node: any) => {
+                    if (node.data?.type === 'SOURCE') return '#10b981';
+                    if (node.data?.type === 'SINK') return '#ef4444';
+                    return '#3b82f6';
+                  }}
+                />
+              )}
               <Background gap={12} size={1} />
             </ReactFlow>
           </div>
@@ -1066,10 +1164,12 @@ function App() {
         </div>
 
         {/* Resizable Divider */}
-        <div 
-          className="h-1 bg-slate-700 hover:bg-blue-500 cursor-row-resize transition-colors z-50 relative"
-          onMouseDown={handleMouseDown}
-        />
+        {!isBottomPanelExpanded && (
+          <div 
+            className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-50 relative"
+            onMouseDown={handleMouseDown}
+          />
+        )}
 
         {/* Bottom Panel */}
         <BottomPanel 
@@ -1095,14 +1195,8 @@ function App() {
           onSelectFile={handleSelectFile}
           height={bottomPanelHeight}
           isGenerating={isGenerating}
-          runningJobs={runningJobs}
-          isLoadingJobs={isLoadingJobs}
-          jobsError={jobsError}
-          onRefreshRunningJobs={refreshRunningJobs}
-          onOpenJob={handleOpenJob}
-          projectId={projectId}
-          dataflowRegion={dataflowRegion}
-          onRegionChange={(reg) => setDataflowRegion(reg)}
+          isExpanded={isBottomPanelExpanded}
+          onToggleExpand={() => setIsBottomPanelExpanded(prev => !prev)}
         />
       </div>
     </div>
@@ -1111,8 +1205,10 @@ function App() {
 
 export default function AppWithProvider() {
   return (
-    <ReactFlowProvider>
-      <App />
-    </ReactFlowProvider>
+    <ThemeProvider>
+      <ReactFlowProvider>
+        <App />
+      </ReactFlowProvider>
+    </ThemeProvider>
   );
 }
