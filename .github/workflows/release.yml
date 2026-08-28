@@ -49,9 +49,6 @@ jobs:
       - name: Build Extension (TypeScript)
         run: npm run compile
 
-      - name: Package Extension (.vsix)
-        run: npx @vscode/vsce package
-
       - name: Determine Release Tag & Name
         id: release_meta
         shell: bash
@@ -64,8 +61,16 @@ jobs:
             VERSION=$(node -p "require('./package.json').version")
             TAG="v${VERSION}"
           fi
+          if [[ "$TAG" != v* ]]; then
+            TAG="v${TAG}"
+          fi
+          VSIX_NAME="dataflow-pipeline-builder-${TAG}.vsix"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "title=Release ${TAG}" >> "$GITHUB_OUTPUT"
+          echo "vsix_name=${VSIX_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Package Extension (.vsix)
+        run: npx @vscode/vsce package --out "${{ steps.release_meta.outputs.vsix_name }}"
 
       - name: Create GitHub Release & Upload VSIX Asset
         uses: softprops/action-gh-release@v2
@@ -73,7 +78,7 @@ jobs:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: ${{ steps.release_meta.outputs.title }}
-          files: "*.vsix"
+          files: ${{ steps.release_meta.outputs.vsix_name }}
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ inputs.prerelease || false }}
           generate_release_notes: true
