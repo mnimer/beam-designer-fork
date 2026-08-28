@@ -123,22 +123,22 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
     }
   };
 
-  // Determine dynamic node border and glow styles based on category
+  // Determine dynamic node border and glow styles based on category: Green (Sources), Blue (Steps), Red (Sinks)
   const getNodeBorderClasses = () => {
     if (data.type === 'SOURCE') {
       return selected 
-        ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10' 
-        : 'border-emerald-500/60 hover:border-emerald-400';
+        ? 'border-emerald-400 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10' 
+        : 'border-emerald-500 hover:border-emerald-400';
     }
     if (data.type === 'SINK') {
       return selected 
-        ? 'border-rose-500 ring-2 ring-rose-500/50 shadow-lg shadow-rose-500/10' 
-        : 'border-rose-500/60 hover:border-rose-400';
+        ? 'border-red-400 ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' 
+        : 'border-red-500 hover:border-red-400';
     }
     // STEP
     return selected 
-      ? 'border-blue-500 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/10' 
-      : 'border-blue-500/40 hover:border-blue-400';
+      ? 'border-blue-400 ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/10' 
+      : 'border-blue-500 hover:border-blue-400';
   };
 
   const getIconContainerClasses = () => {
@@ -146,14 +146,14 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
       return 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400';
     }
     if (data.type === 'SINK') {
-      return 'bg-rose-500/10 border-rose-500/40 text-rose-400';
+      return 'bg-red-500/10 border-red-500/40 text-red-400';
     }
     return 'bg-blue-500/10 border-blue-500/40 text-blue-400';
   };
 
   return (
     <div 
-      className={`bg-[var(--vscode-node-bg)] border ${getNodeBorderClasses()} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left group/node transition-colors`}
+      className={`bg-[var(--vscode-node-bg,#1E202A)] border ${getNodeBorderClasses()} rounded-md shadow-xl p-3 flex items-center gap-3 min-w-[180px] text-left group/node transition-colors`}
       onDoubleClick={(e) => {
         if (!isEditing) {
           e.stopPropagation();
@@ -167,7 +167,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
         <Handle 
           type="target" 
           position={Position.Left} 
-          className={`w-2 h-2 border-none ${isSink ? 'bg-rose-500' : 'bg-blue-500'}`} 
+          className={`w-2 h-2 border-none ${isSink ? 'bg-red-500' : 'bg-blue-500'}`} 
         />
       )}
       
@@ -175,12 +175,12 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
         <div className={`p-2 rounded shrink-0 border ${getIconContainerClasses()}`}>
           {IconComponent && (
             <IconComponent 
-              className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-rose-400' : 'text-blue-400'}`} 
+              className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`} 
             />
           )}
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400/90' : data.type === 'SINK' ? 'text-rose-400/90' : 'text-blue-400/90'}`}>
+          <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
             {data.type}
           </span>
           {isEditing ? (

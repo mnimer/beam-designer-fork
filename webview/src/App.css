@@ -185,21 +185,40 @@
 
 /* React Flow overrides */
 .react-flow__controls {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   background-color: #1E202A !important;
   border: 1px solid #334155 !important;
-  border-radius: 4px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  top: 16px !important;
+  right: 16px !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin: 0 !important;
 }
 
 .react-flow__controls-button {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 6px !important;
   background-color: #1E202A !important;
   color: #94A3B8 !important;
-  border-bottom: 1px solid #334155 !important;
+  border: none !important;
+  border-right: 1px solid #334155 !important;
+  border-bottom: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .react-flow__controls-button:last-child {
-  border-bottom: none !important;
+  border-right: none !important;
 }
 
 .react-flow__controls-button:hover {
@@ -209,13 +228,20 @@
 
 .react-flow__controls-button svg {
   fill: currentColor !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
 }
 
 .react-flow__minimap {
   background-color: #1E202A !important;
   border: 1px solid #334155 !important;
-  border-radius: 4px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  top: 56px !important;
+  right: 16px !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin: 0 !important;
 }
 
 .react-flow__minimap-mask {

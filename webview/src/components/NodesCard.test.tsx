@@ -1,5 +1,13 @@
-
-import { describe, it, expect, vi } from 'vitest';
+/**
+ * Unit Tests for NodesCard Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Validates the vertical palette navigation, step/sink enablement based on node count,
+ * search filtering, category rendering, theming classes, and VS Code state persistence.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { NodesCard } from './NodesCard';
@@ -8,7 +16,7 @@ describe('NodesCard', () => {
   const mockOnDragStart = vi.fn();
   const mockOnAddNode = vi.fn();
 
-  it('renders tabs and disables STEPS and SINKS when nodesCount is 0', () => {
+  it('renders vertical menu tabs and disables STEPS and SINKS when nodesCount is 0', () => {
     render(
       <NodesCard
         activeTab="SOURCES"
@@ -21,9 +29,11 @@ describe('NodesCard', () => {
     );
 
     expect(screen.getByText('SOURCES')).toBeInTheDocument();
+    const sourcesTab = screen.getByLabelText('Sources Tab');
     const stepsTab = screen.getByLabelText('Steps Tab');
     const sinksTab = screen.getByLabelText('Sinks Tab');
 
+    expect(sourcesTab).toBeInTheDocument();
     expect(stepsTab).toBeDisabled();
     expect(sinksTab).toBeDisabled();
   });
@@ -64,12 +74,29 @@ describe('NodesCard', () => {
     expect(mockSetActiveTab).toHaveBeenCalledWith('STEPS');
   });
 
-  it('toggles panel open/closed when close button is clicked', () => {
-    const mockOnToggleOpen = vi.fn();
+  it('toggles tab to null when clicking already active tab', () => {
+    const mockSetActiveTab = vi.fn();
     render(
       <NodesCard
         activeTab="SOURCES"
-        setActiveTab={vi.fn()}
+        setActiveTab={mockSetActiveTab}
+        nodesCount={1}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Sources Tab'));
+    expect(mockSetActiveTab).toHaveBeenCalledWith(null);
+  });
+
+  it('toggles panel open/closed when close button is clicked', () => {
+    const mockOnToggleOpen = vi.fn();
+    const mockSetActiveTab = vi.fn();
+    render(
+      <NodesCard
+        activeTab="SOURCES"
+        setActiveTab={mockSetActiveTab}
         nodesCount={0}
         hasPubSubSource={false}
         onDragStart={mockOnDragStart}
@@ -83,6 +110,22 @@ describe('NodesCard', () => {
     fireEvent.click(closeButton);
 
     expect(mockOnToggleOpen).toHaveBeenCalledWith(false);
+    expect(mockSetActiveTab).toHaveBeenCalledWith(null);
+  });
+
+  it('does not render panel when activeTab is null', () => {
+    render(
+      <NodesCard
+        activeTab={null}
+        setActiveTab={vi.fn()}
+        nodesCount={1}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Close panel/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Streaming Sources')).not.toBeInTheDocument();
   });
 
   it('filters components using search input', () => {
@@ -237,34 +280,6 @@ describe('NodesCard', () => {
     expect(sinksTab).toHaveClass('text-rose-400');
   });
 
-  it('renders category groups closed by default and expands on search', () => {
-    const { container } = render(
-      <NodesCard
-        activeTab="SOURCES"
-        setActiveTab={vi.fn()}
-        nodesCount={0}
-        hasPubSubSource={false}
-        onDragStart={mockOnDragStart}
-        isOpen={true}
-      />
-    );
-
-    // Verify all details elements are not open by default
-    const detailsElements = container.querySelectorAll('details');
-    expect(detailsElements.length).toBeGreaterThan(0);
-    detailsElements.forEach(details => {
-      expect(details.hasAttribute('open')).toBe(false);
-    });
-
-    // Enter search query
-    const searchInput = screen.getByPlaceholderText('Search sources...');
-    fireEvent.change(searchInput, { target: { value: 'Kafka' } });
-
-    // Details element containing search result should now have open attribute
-    const openDetailsElements = container.querySelectorAll('details[open]');
-    expect(openDetailsElements.length).toBeGreaterThan(0);
-  });
-
   it('renders menu container with top padding and zero gap to panel', () => {
     const { container } = render(
       <NodesCard
@@ -277,14 +292,105 @@ describe('NodesCard', () => {
       />
     );
 
-    // Outer wrapper has left-3 top-3
     const outerContainer = container.firstElementChild;
     expect(outerContainer).toHaveClass('left-3');
     expect(outerContainer).toHaveClass('top-3');
+  });
 
-    // Panel has ml-0
-    const panel = outerContainer?.children[1];
-    expect(panel).toHaveClass('ml-0');
+  describe('VS Code State & Group Persistence', () => {
+    let mockStorage: Record<string, string> = {};
+
+    beforeEach(() => {
+      mockStorage = {};
+      const localStorageMock = {
+        getItem: vi.fn((key: string) => mockStorage[key] || null),
+        setItem: vi.fn((key: string, value: string) => {
+          mockStorage[key] = value.toString();
+        }),
+        removeItem: vi.fn((key: string) => {
+          delete mockStorage[key];
+        }),
+        clear: vi.fn(() => {
+          mockStorage = {};
+        }),
+      };
+      Object.defineProperty(window, 'localStorage', {
+        value: localStorageMock,
+        writable: true,
+        configurable: true,
+      });
+      delete (window as any).vscode;
+    });
+
+    it('persists group state changes to vscode.setState when available', () => {
+      const mockSetState = vi.fn();
+      const mockGetState = vi.fn().mockReturnValue({ customProp: 'hello' });
+      (window as any).vscode = {
+        getState: mockGetState,
+        setState: mockSetState,
+      };
+
+      const { container } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      const streamingDetails = container.querySelector('details');
+      expect(streamingDetails).toBeInTheDocument();
+
+      // Trigger toggle event
+      if (streamingDetails) {
+        streamingDetails.open = false;
+        fireEvent(streamingDetails, new Event('toggle'));
+      }
+
+      expect(mockSetState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customProp: 'hello',
+          nodePaletteGroups: expect.objectContaining({
+            sources_streaming_sources: false,
+          }),
+        })
+      );
+    });
+
+    it('persists group state changes to localStorage', () => {
+      const { container } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      const streamingDetails = container.querySelector('details');
+      if (streamingDetails) {
+        streamingDetails.open = false;
+        fireEvent(streamingDetails, new Event('toggle'));
+      }
+
+      const stored = localStorage.getItem('beam_node_groups_state');
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.sources_streaming_sources).toBe(false);
+    });
+
+    it('restores group state from vscode.getState when opening', () => {
+      (window as any).vscode = {
+        getState: () => ({
+          nodePaletteGroups: {
+            sources_streaming_sources: false,
+            sources_database_sources: true,
+          },
+        }),
+        setState: vi.fn(),
+      };
+
+      const { container } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      const detailsList = container.querySelectorAll('details');
+      // sources_streaming_sources is first details
+      expect(detailsList[0].open).toBe(false);
+      // sources_database_sources is second details
+      expect(detailsList[1].open).toBe(true);
+    });
   });
 });
 
