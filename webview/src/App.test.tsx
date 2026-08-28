@@ -168,6 +168,26 @@ edges:
     expect(layoutBtn).toBeInTheDocument();
   });
 
+  it('allows expanding and collapsing navigation widget on click (defaults to off)', () => {
+    render(<AppWithProvider />);
+
+    // Defaults to off
+    expect(screen.queryByTestId('mini-map')).not.toBeInTheDocument();
+
+    const expandBtn = screen.getByTitle('Expand Navigation Map');
+    expect(expandBtn).toBeInTheDocument();
+
+    // Click to expand
+    fireEvent.click(expandBtn);
+    expect(screen.getByTestId('mini-map')).toBeInTheDocument();
+
+    // Click to collapse
+    const collapseBtn = screen.getByTitle('Collapse Navigation Map');
+    expect(collapseBtn).toBeInTheDocument();
+    fireEvent.click(collapseBtn);
+    expect(screen.queryByTestId('mini-map')).not.toBeInTheDocument();
+  });
+
   it('updates output folder when receiving loadPipeline and updateOutputFolder messages', () => {
     render(<AppWithProvider />);
 

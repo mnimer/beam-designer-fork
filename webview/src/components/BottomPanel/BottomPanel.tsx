@@ -1,17 +1,21 @@
 import React from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { DeploymentTab } from './DeploymentTab';
-import { InstancesTab, type DataflowJob } from './InstancesTab';
 import { SourceCodeTab } from './SourceCodeTab';
 
 /**
  * BottomPanel Component
  * 
- * This component acts as a container for the bottom panel tabs.
- * It displays the tab headers and renders the content for the active tab.
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Container component for the designer's bottom panel tabs (SOURCE CODE and DEPLOYMENT).
  * 
  * Architectural Decisions:
- * - Container component for bottom tabs.
- * - Delegates content rendering to specific tab components.
+ * - Running Jobs was moved to the dedicated VS Code sidebar view.
+ * - Provides an expand/collapse toggle icon on the far right of the tab bar (100% full height vs default height).
+ * - Displays file count badge on the SOURCE CODE tab when generated files exist.
+ * - Uses semantic VS Code theme tokens with 8pt grid spacing system and tailwindcss styling.
  */
 interface BottomPanelProps {
   bottomTab: string;
@@ -36,14 +40,8 @@ interface BottomPanelProps {
   onSelectFile: (fileName: string) => void;
   height?: number;
   isGenerating?: boolean;
-  runningJobs?: DataflowJob[];
-  isLoadingJobs?: boolean;
-  jobsError?: string | null;
-  onRefreshRunningJobs?: (region?: string) => void;
-  onOpenJob?: (job: DataflowJob) => void;
-  projectId?: string;
-  dataflowRegion?: string;
-  onRegionChange?: (region: string) => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -69,40 +67,56 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onSelectFile,
   height,
   isGenerating,
-  runningJobs,
-  isLoadingJobs,
-  jobsError,
-  onRefreshRunningJobs,
-  onOpenJob,
-  projectId,
-  dataflowRegion,
-  onRegionChange
+  isExpanded = false,
+  onToggleExpand
 }) => {
+  // Filter only .java and .py source files for tab badge count
+  const sourceFiles = (folderFiles || []).filter(
+    (f) => f.endsWith('.py') || f.endsWith('.java')
+  );
+
   return (
     <div 
-      className="bg-[#151722] flex flex-col"
-      style={height ? { height: `${height}px` } : { height: '33.3333%' }}
+      className="bg-[var(--vscode-workbench-bg,#151722)] text-[var(--vscode-text-primary)] flex flex-col"
+      style={isExpanded ? { height: '100%' } : height ? { height: `${height}px` } : { height: '30%' }}
     >
       {/* Tab Headers */}
-      <div className="flex border-b border-slate-700 bg-[#1E202A] px-4">
-        <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'SOURCE_CODE' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-          onClick={() => setBottomTab('SOURCE_CODE')}
-        >
-          SOURCE CODE
-        </button>
-        <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-          onClick={() => setBottomTab('DEPLOYMENT')}
-        >
-          DEPLOYMENT
-        </button>
-        <button
-          className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'RUNNING_JOBS' ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-          onClick={() => setBottomTab('RUNNING_JOBS')}
-        >
-          RUNNING JOBS
-        </button>
+      <div className="flex items-center justify-between border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)] px-4">
+        <div className="flex items-center">
+          <button
+            className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer flex items-center gap-2 ${bottomTab === 'SOURCE_CODE' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
+            onClick={() => setBottomTab('SOURCE_CODE')}
+          >
+            <span>SOURCE CODE</span>
+            {sourceFiles.length > 0 && (
+              <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 text-[10px] rounded border border-slate-700 font-mono">
+                {sourceFiles.length} {sourceFiles.length === 1 ? 'file' : 'files'}
+              </span>
+            )}
+          </button>
+          <button
+            className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
+            onClick={() => setBottomTab('DEPLOYMENT')}
+          >
+            DEPLOYMENT
+          </button>
+        </div>
+
+        {/* Expand / Collapse Icon Button on Far Right */}
+        {onToggleExpand && (
+          <button
+            onClick={onToggleExpand}
+            className="p-1.5 my-1 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded transition cursor-pointer"
+            title={isExpanded ? 'Collapse Panel (30%)' : 'Expand Panel (100%)'}
+            aria-label={isExpanded ? 'Collapse Panel' : 'Expand Panel'}
+          >
+            {isExpanded ? (
+              <Minimize2 className="w-4 h-4 text-blue-400 hover:text-blue-300" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Tab Content */}
@@ -119,19 +133,6 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onRunNow={onRunNow}
             subnetworks={subnetworks}
             needsRebuild={pipelineConfig.needsRebuild}
-          />
-        )}
-
-        {bottomTab === 'RUNNING_JOBS' && (
-          <InstancesTab 
-            jobs={runningJobs}
-            isLoading={isLoadingJobs}
-            error={jobsError}
-            onRefresh={onRefreshRunningJobs}
-            onOpenJob={onOpenJob}
-            projectId={projectId}
-            selectedRegion={dataflowRegion}
-            onRegionChange={onRegionChange}
           />
         )}
 

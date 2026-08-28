@@ -1,4 +1,3 @@
-
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -7,9 +6,6 @@ import { BottomPanel } from './BottomPanel';
 // Mock sub-components
 vi.mock('./DeploymentTab', () => ({
   DeploymentTab: () => <div data-testid="deployment-tab">Deployment Content</div>
-}));
-vi.mock('./InstancesTab', () => ({
-  InstancesTab: () => <div data-testid="instances-tab">Instances Content</div>
 }));
 vi.mock('./SourceCodeTab', () => ({
   SourceCodeTab: ({ generatedCode }: any) => <div data-testid="source-code-tab">{generatedCode}</div>
@@ -40,24 +36,19 @@ describe('BottomPanel', () => {
     onSelectFile: vi.fn()
   };
 
-  it('renders tab headers', () => {
-    render(<BottomPanel {...mockProps} />);
+  it('renders tab headers and file count badge for source files', () => {
+    render(<BottomPanel {...mockProps} folderFiles={['pipeline.py', 'helper.py', 'requirements.txt']} />);
 
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
-    expect(screen.getByText('RUNNING JOBS')).toBeInTheDocument();
     expect(screen.getByText('SOURCE CODE')).toBeInTheDocument();
+    expect(screen.getByText('2 files')).toBeInTheDocument();
+    expect(screen.queryByText('RUNNING JOBS')).not.toBeInTheDocument();
   });
 
   it('renders DeploymentTab when bottomTab is DEPLOYMENT', () => {
     render(<BottomPanel {...mockProps} bottomTab="DEPLOYMENT" />);
 
     expect(screen.getByTestId('deployment-tab')).toBeInTheDocument();
-  });
-
-  it('renders InstancesTab when bottomTab is RUNNING_JOBS', () => {
-    render(<BottomPanel {...mockProps} bottomTab="RUNNING_JOBS" />);
-
-    expect(screen.getByTestId('instances-tab')).toBeInTheDocument();
   });
 
   it('renders SourceCodeTab when bottomTab is SOURCE_CODE', () => {
@@ -70,7 +61,41 @@ describe('BottomPanel', () => {
   it('calls setBottomTab when clicking tabs', () => {
     render(<BottomPanel {...mockProps} />);
 
-    fireEvent.click(screen.getByText('RUNNING JOBS'));
-    expect(mockProps.setBottomTab).toHaveBeenCalledWith('RUNNING_JOBS');
+    fireEvent.click(screen.getByText('SOURCE CODE'));
+    expect(mockProps.setBottomTab).toHaveBeenCalledWith('SOURCE_CODE');
+
+    fireEvent.click(screen.getByText('DEPLOYMENT'));
+    expect(mockProps.setBottomTab).toHaveBeenCalledWith('DEPLOYMENT');
+  });
+
+  it('renders expand/collapse button and triggers onToggleExpand', () => {
+    const onToggleExpand = vi.fn();
+    const { rerender } = render(
+      <BottomPanel {...mockProps} isExpanded={false} onToggleExpand={onToggleExpand} />
+    );
+
+    const expandBtn = screen.getByLabelText('Expand Panel');
+    expect(expandBtn).toBeInTheDocument();
+    fireEvent.click(expandBtn);
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <BottomPanel {...mockProps} isExpanded={true} onToggleExpand={onToggleExpand} />
+    );
+    expect(screen.getByLabelText('Collapse Panel')).toBeInTheDocument();
+  });
+
+  it('applies high-contrast active styling to the selected tab and muted styling to inactive tabs', () => {
+    render(<BottomPanel {...mockProps} bottomTab="SOURCE_CODE" />);
+
+    const sourceCodeBtn = screen.getByRole('button', { name: /SOURCE CODE/i });
+    const deploymentBtn = screen.getByRole('button', { name: /DEPLOYMENT/i });
+
+    expect(sourceCodeBtn.className).toContain('text-[var(--vscode-text-primary');
+    expect(sourceCodeBtn.className).toContain('border-[var(--vscode-highlight');
+
+    expect(deploymentBtn.className).toContain('text-[var(--vscode-text-muted');
   });
 });
+
+

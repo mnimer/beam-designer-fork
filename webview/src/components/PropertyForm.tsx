@@ -21,7 +21,7 @@ import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
 import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
 import { WindowingProperties } from '../properties/step/Windowing';
 import { ParseMessageProperties } from '../properties/step/ParseMessage';
-import { LogMessageProperties } from '../properties/step/LogMessage';
+import { LogMessageProperties } from '../properties/sink/LogMessage';
 import { KVMapperProperties } from '../properties/step/KVMapper';
 import { FilterProperties } from '../properties/step/Filter';
 import { FlatMapProperties } from '../properties/step/FlatMap';

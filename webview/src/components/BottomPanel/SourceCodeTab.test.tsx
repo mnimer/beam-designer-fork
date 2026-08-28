@@ -31,11 +31,11 @@ describe('SourceCodeTab', () => {
     expect(screen.getByPlaceholderText('Default (pipeline directory)')).toHaveValue('src/output');
 
     // Check action buttons
-    expect(screen.getByText('GENERATE CODE')).toBeInTheDocument();
+    expect(screen.getByText('Generate Code')).toBeInTheDocument();
 
-    // Check files are shown directly in the left column
+    // Check only .py and .java files are shown in the horizontal tabs
     expect(screen.getByText('job.py')).toBeInTheDocument();
-    expect(screen.getByText('requirements.txt')).toBeInTheDocument();
+    expect(screen.queryByText('requirements.txt')).not.toBeInTheDocument();
 
     // Default code should be visible
     expect(screen.getByText((_content, node) => {
@@ -69,7 +69,7 @@ describe('SourceCodeTab', () => {
   it('calls onRegenerate when clicking regenerate button', () => {
     render(<SourceCodeTab {...mockProps} />);
 
-    fireEvent.click(screen.getByText('GENERATE CODE'));
+    fireEvent.click(screen.getByText('Generate Code'));
     expect(mockProps.onRegenerate).toHaveBeenCalled();
   });
 
@@ -84,7 +84,6 @@ describe('SourceCodeTab', () => {
     render(<SourceCodeTab {...mockProps} needsRebuild={true} />);
 
     // Warning text should be visible
-    expect(screen.getByText(/Pipeline has unsaved changes/)).toBeInTheDocument();
     expect(screen.getByText(/Unsaved Pipeline Changes/)).toBeInTheDocument();
 
     // File list should not show the files
@@ -99,16 +98,19 @@ describe('SourceCodeTab', () => {
     render(
       <SourceCodeTab
         {...mockProps}
-        selectedFile="requirements.txt"
-        selectedFileContent="apache-beam==2.55.0"
+        files={['job.py', 'custom_transform.py', 'requirements.txt']}
+        selectedFile="custom_transform.py"
+        selectedFileContent="def process(element): return element"
       />
     );
 
-    // Selected file header
-    expect(screen.getByText('requirements.txt', { selector: 'span' })).toBeInTheDocument();
+    // Selected file tab button
+    expect(screen.getByText('custom_transform.py', { selector: 'span' })).toBeInTheDocument();
 
     // Selected file content
-    expect(screen.getByText('apache-beam==2.55.0')).toBeInTheDocument();
+    expect(screen.getByText((_content, node) => {
+      return node?.tagName === 'CODE' && node?.textContent === 'def process(element): return element';
+    })).toBeInTheDocument();
   });
 
   describe('highlightCode', () => {
