@@ -1,0 +1,114 @@
+nodes:
+  - id: "1787600432005"
+    type: pipeline
+    position:
+      x: 109.5
+      y: 81.5
+    data:
+      label: trigger
+      type: SOURCE
+      iconName: ListOrdered
+      beam_transform: GenerateSequence
+      properties:
+        withRateLimit: true
+        periodSeconds: "1"
+        start: "0"
+    width: 180
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 109.5
+      y: 81.5
+  - id: "1787600436005"
+    type: pipeline
+    position:
+      x: 347.5
+      y: 193.1507064290317
+    data:
+      label: generate mock data
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: >-
+          Use a mock data library to generate ${NUM_OBJECTS_PER_ITERATION}
+          objects for each iteration with this json template. 
+
+
+          Libraries: 
+
+          python: JSF
+
+          java:  Datafaker
+
+
+          ```
+
+          # Define your JSON template/schema
+
+          schema = {
+              "type": "object",
+              "properties": {
+                  "id": {"type": "integer", "minimum": 1, "maximum": 100},
+                  "name": {"type": "string", "$provider": "faker.name"},
+                  "email": {"type": "string", "$provider": "faker.email"},
+                  "signup_date": {"type": "string", "$provider": "faker.date"}
+              },
+              "required": ["id", "name", "email"]
+          }
+
+
+          ```
+      system_instructions: Wrap the generated code in a try/catch, returning all
+        errors to a separate pcollection
+    width: 229
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 347.5
+      y: 193.1507064290317
+  - id: "1787600440963"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: Log Message
+      type: STEP
+      iconName: Terminal
+      beam_transform: LogMessage
+    width: 186
+    height: 64
+    selected: false
+    positionAbsolute:
+      x: 1048.4
+      y: 176.5
+    dragging: false
+edges:
+  - id: e-1787600432005-1787600436005
+    source: "1787600432005"
+    target: "1787600436005"
+  - source: "1787600436005"
+    sourceHandle: valid
+    target: "1787600440963"
+    targetHandle: null
+    id: reactflow__edge-1787600436005valid-1787600440963
+runtimeVariables:
+  - key: JOB_ID
+    value: generate-mock-data-pipeline
+  - key: NUM_OBJECTS_PER_ITERATION
+    value: "1"
+jobConfig:
+  runner: Dataflow
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 10
+  gcsStagingPath: 
+  network: ""
+  subnetwork: regions/us-central1/subnetworks/default
+pipelineConfig:
+  language: Java
+  outputFolder: ./generate-mock-data
+  needsRebuild: false

@@ -23,6 +23,8 @@ import {
   Radio, 
   Workflow, 
   Share2, 
+  BookOpen,
+  FileCode2,
   X, 
   Search, 
   ChevronRight, 
@@ -30,7 +32,39 @@ import {
 } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 
-export type NodePaletteTab = 'SOURCES' | 'STEPS' | 'SINKS' | string;
+export type NodePaletteTab = 'SOURCES' | 'STEPS' | 'SINKS' | 'SAMPLES' | string;
+
+/**
+ * Interface representing a sample pipeline definition displayed in the Samples tab.
+ */
+export interface SamplePipeline {
+  id: string;
+  filename: string;
+  title: string;
+  description: string;
+  category?: string;
+  badge?: string;
+  language?: string;
+  runner?: string;
+  content: string;
+}
+
+/**
+ * Fallback sample pipeline definitions for standalone webview mode or offline rendering.
+ */
+export const DEFAULT_SAMPLES: SamplePipeline[] = [
+  {
+    id: 'generate-mock-data',
+    filename: 'generate-mock-data.beam',
+    title: 'Generate Mock Data',
+    description: 'Pipeline flow: trigger ➔ generate mock data ➔ Log Message',
+    category: 'Samples',
+    badge: 'Java',
+    language: 'Java',
+    runner: 'Dataflow',
+    content: ''
+  }
+];
 
 const GROUPS_STORAGE_KEY = 'beam_node_groups_state';
 
@@ -52,6 +86,7 @@ export const defaultGroupOpenState: Record<string, boolean> = {
   sinks_database_sinks: true,
   sinks_file_sinks: true,
   sinks_logging_sinks: true,
+  samples_sample_pipelines: true,
 };
 
 /**
@@ -120,6 +155,10 @@ interface NodesCardProps {
   hasPubSubSource?: boolean;
   onDragStart: (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => void;
   onAddNode?: (label: string, type: string, iconName: string, beamTransform?: string) => void;
+  /** Discovered sample pipelines from resources/samples */
+  samples?: SamplePipeline[];
+  /** Handler invoked when a sample pipeline card is clicked */
+  onOpenSample?: (sample: SamplePipeline) => void;
   /** Controlled open state for panel */
   isOpen?: boolean;
   /** Callback when panel open state changes */
@@ -240,12 +279,18 @@ export const NodesCard: React.FC<NodesCardProps> = ({
   nodesCount,
   onDragStart,
   onAddNode,
+  samples,
+  onOpenSample,
   isOpen: controlledIsOpen,
   onToggleOpen,
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [groupOpenState, setGroupOpenState] = useState<Record<string, boolean>>(getPersistedGroupState);
+
+  const availableSamples = useMemo(() => {
+    return samples && samples.length > 0 ? samples : DEFAULT_SAMPLES;
+  }, [samples]);
 
   const isPanelOpen = controlledIsOpen !== undefined ? (controlledIsOpen && activeTab !== null) : (internalIsOpen && activeTab !== null);
 
@@ -321,6 +366,14 @@ export const NodesCard: React.FC<NodesCardProps> = ({
           headerColor: 'text-rose-400',
           icon: Share2,
         };
+      case 'SAMPLES':
+        return {
+          title: 'Samples',
+          count: availableSamples.length,
+          tooltip: 'Pre-configured sample pipelines: click to open as a new unsaved editor tab.',
+          headerColor: 'text-amber-400',
+          icon: BookOpen,
+        };
       default:
         return {
           title: 'Sources',
@@ -330,9 +383,10 @@ export const NodesCard: React.FC<NodesCardProps> = ({
           icon: Radio,
         };
     }
-  }, [activeTab]);
+  }, [activeTab, availableSamples.length]);
 
   const filteredItems = useMemo(() => {
+    if (activeTab === 'SAMPLES') return [];
     if (!searchQuery.trim()) return currentItems;
     const q = searchQuery.toLowerCase();
     return currentItems.filter(
@@ -342,7 +396,21 @@ export const NodesCard: React.FC<NodesCardProps> = ({
         item.description.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
     );
-  }, [currentItems, searchQuery]);
+  }, [activeTab, currentItems, searchQuery]);
+
+  const filteredSamples = useMemo(() => {
+    if (activeTab !== 'SAMPLES') return [];
+    if (!searchQuery.trim()) return availableSamples;
+    const q = searchQuery.toLowerCase();
+    return availableSamples.filter(
+      sample =>
+        sample.title.toLowerCase().includes(q) ||
+        sample.filename.toLowerCase().includes(q) ||
+        sample.description.toLowerCase().includes(q) ||
+        (sample.badge && sample.badge.toLowerCase().includes(q)) ||
+        (sample.category && sample.category.toLowerCase().includes(q))
+    );
+  }, [activeTab, availableSamples, searchQuery]);
 
   // Group items by category
   const groupedCategories = useMemo(() => {
@@ -441,6 +509,31 @@ export const NodesCard: React.FC<NodesCardProps> = ({
             {SINK_NODES.length}
           </span>
         </button>
+
+        {/* Tab 4: SAMPLES (Yellow / Amber Theme) */}
+        <button
+          type="button"
+          onClick={() => handleTabClick('SAMPLES', false)}
+          title="Sample Pipelines"
+          aria-label="Samples Tab"
+          className={`w-full py-2.5 px-0.5 rounded-lg flex flex-col items-center justify-between min-h-[92px] transition-all relative group cursor-pointer ${
+            activeTab === 'SAMPLES' && isPanelOpen
+              ? 'border border-amber-500/90 text-amber-400 bg-amber-500/10 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+              : 'border border-transparent text-[var(--vscode-text-muted,#64748b)] hover:text-amber-300 hover:bg-[var(--vscode-hover,rgba(255,255,255,0.05))]'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5 mb-1.5 shrink-0" />
+          <span className="text-[9px] font-bold tracking-[0.16em] uppercase [writing-mode:vertical-lr] rotate-180 my-1">
+            SAMPLES
+          </span>
+          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center uppercase tracking-wider ${
+            activeTab === 'SAMPLES' && isPanelOpen
+              ? 'bg-amber-500/20 text-amber-300'
+              : 'bg-[var(--vscode-badge-bg,#1e293b)] text-[var(--vscode-text-muted,#94a3b8)] group-hover:text-amber-300'
+          }`}>
+            {availableSamples.length}
+          </span>
+        </button>
       </div>
 
       {/* 2. Slide-out Category Panel */}
@@ -492,57 +585,118 @@ export const NodesCard: React.FC<NodesCardProps> = ({
             </div>
           </div>
 
-          {/* Categorized List of Items */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-            {groupedCategories.size === 0 ? (
-              <div className="text-center py-6 text-xs text-[var(--vscode-text-muted,#94a3b8)]">
-                No components matching "{searchQuery}"
-              </div>
-            ) : (
-              Array.from(groupedCategories.entries()).map(([categoryName, items]) => {
-                const groupKey = `${(activeTab || 'sources').toLowerCase()}_${categoryName.toLowerCase().replace(/\s+/g, '_')}`;
-                return (
-                  <details
-                    key={`${categoryName}-${searchQuery ? 'search' : 'default'}`}
-                    open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? true)}
-                    onToggle={(e) => handleToggleGroup(groupKey, (e.currentTarget as HTMLDetailsElement).open)}
-                    className="group bg-[var(--vscode-card-bg,#1e293b)] border border-[var(--vscode-border-light,#334155)] rounded-lg overflow-hidden transition-all"
-                  >
-                    {/* Sub-category Header with Chevron indicator */}
-                    <summary className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--vscode-hover,rgba(255,255,255,0.03))] hover:opacity-90 cursor-pointer text-[11px] font-semibold text-[var(--vscode-text-primary,#ffffff)] uppercase tracking-wider select-none list-none group-open:border-b group-open:border-[var(--vscode-border-light,#334155)]">
-                      <span className="flex items-center gap-1.5">
-                        <ChevronRight className="w-3 h-3 text-[var(--vscode-text-muted,#94a3b8)] transition-transform duration-150 group-open:rotate-90 shrink-0" />
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          activeTab === 'SOURCES' ? 'bg-emerald-400' : activeTab === 'SINKS' ? 'bg-rose-400' : 'bg-blue-400'
-                        }`} />
-                        {categoryName}
-                      </span>
-                      <span className="text-[9px] font-normal lowercase tracking-normal text-[var(--vscode-text-muted,#64748b)]">
-                        drag to canvas
-                      </span>
-                    </summary>
+          {/* List of Items: Distinct layout for SAMPLES vs Node palette */}
+          {activeTab === 'SAMPLES' ? (
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+              {filteredSamples.length === 0 ? (
+                <div className="text-center py-6 text-xs text-[var(--vscode-text-muted,#94a3b8)]">
+                  No sample pipelines matching "{searchQuery}"
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredSamples.map((sample) => (
+                    <div
+                      key={sample.id || sample.filename}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onOpenSample && onOpenSample(sample)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpenSample && onOpenSample(sample);
+                        }
+                      }}
+                      title={`Click to open ${sample.title} (${sample.filename}) as a new file tab`}
+                      className="group/item bg-[var(--vscode-card-bg,#1e293b)] hover:bg-[var(--vscode-hover,rgba(255,255,255,0.06))] border border-[var(--vscode-border-light,#334155)] hover:border-amber-500/70 rounded-lg p-2.5 cursor-pointer transition-all flex flex-col gap-1.5 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-1.5 bg-amber-500/10 text-amber-400 rounded-md shrink-0 group-hover/item:bg-amber-500/20 group-hover/item:text-amber-300 transition-colors">
+                            <FileCode2 className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-[var(--vscode-text-primary,#ffffff)] group-hover/item:text-amber-300 transition-colors truncate">
+                              {sample.title}
+                            </div>
+                            <div className="text-[10px] text-[var(--vscode-text-muted,#94a3b8)] font-mono truncate">
+                              {sample.filename}
+                            </div>
+                          </div>
+                        </div>
+                        {sample.badge && (
+                          <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                            {sample.badge}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Node Cards */}
-                    <div className="p-2 space-y-1.5">
-                      {items.map(item => (
-                        <SidebarItem
-                          key={item.label}
-                          label={item.label}
-                          type={item.type}
-                          iconName={item.iconName}
-                          beamTransform={item.beamTransform}
-                          badge={item.badge}
-                          description={item.description}
-                          onDragStart={onDragStart}
-                          onAddNode={onAddNode}
-                        />
-                      ))}
+                      {sample.description && (
+                        <p className="text-[11px] leading-snug text-[var(--vscode-text-muted,#94a3b8)]">
+                          {sample.description}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1 border-t border-[var(--vscode-border-light,#334155)]/50 text-[10px] text-[var(--vscode-text-muted,#64748b)] group-hover/item:text-amber-400 transition-colors">
+                        <span>Open sample</span>
+                        <span className="font-semibold text-amber-400 group-hover/item:translate-x-0.5 transition-transform">➔</span>
+                      </div>
                     </div>
-                  </details>
-                );
-              })
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+              {groupedCategories.size === 0 ? (
+                <div className="text-center py-6 text-xs text-[var(--vscode-text-muted,#94a3b8)]">
+                  No components matching "{searchQuery}"
+                </div>
+              ) : (
+                Array.from(groupedCategories.entries()).map(([categoryName, items]) => {
+                  const groupKey = `${(activeTab || 'sources').toLowerCase()}_${categoryName.toLowerCase().replace(/\s+/g, '_')}`;
+                  return (
+                    <details
+                      key={`${categoryName}-${searchQuery ? 'search' : 'default'}`}
+                      open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? true)}
+                      onToggle={(e) => handleToggleGroup(groupKey, (e.currentTarget as HTMLDetailsElement).open)}
+                      className="group bg-[var(--vscode-card-bg,#1e293b)] border border-[var(--vscode-border-light,#334155)] rounded-lg overflow-hidden transition-all"
+                    >
+                      {/* Sub-category Header with Chevron indicator */}
+                      <summary className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--vscode-hover,rgba(255,255,255,0.03))] hover:opacity-90 cursor-pointer text-[11px] font-semibold text-[var(--vscode-text-primary,#ffffff)] uppercase tracking-wider select-none list-none group-open:border-b group-open:border-[var(--vscode-border-light,#334155)]">
+                        <span className="flex items-center gap-1.5">
+                          <ChevronRight className="w-3 h-3 text-[var(--vscode-text-muted,#94a3b8)] transition-transform duration-150 group-open:rotate-90 shrink-0" />
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            activeTab === 'SOURCES' ? 'bg-emerald-400' : activeTab === 'SINKS' ? 'bg-rose-400' : 'bg-blue-400'
+                          }`} />
+                          {categoryName}
+                        </span>
+                        <span className="text-[9px] font-normal lowercase tracking-normal text-[var(--vscode-text-muted,#64748b)]">
+                          drag to canvas
+                        </span>
+                      </summary>
+
+                      {/* Node Cards */}
+                      <div className="p-2 space-y-1.5">
+                        {items.map(item => (
+                          <SidebarItem
+                            key={item.label}
+                            label={item.label}
+                            type={item.type}
+                            iconName={item.iconName}
+                            beamTransform={item.beamTransform}
+                            badge={item.badge}
+                            description={item.description}
+                            onDragStart={onDragStart}
+                            onAddNode={onAddNode}
+                          />
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

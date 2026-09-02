@@ -1,0 +1,103 @@
+nodes:
+  - id: "1783440421358"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: PubSub Connector
+      type: SOURCE
+      iconName: Radio
+      properties:
+    width: 222
+    height: 64
+    selected: true
+    positionAbsolute:
+      x: 80
+      y: 142.5
+    dragging: false
+  - id: "1783440430418"
+    type: pipeline
+    position:
+      x: 680
+      y: 90
+    data:
+      label: BigQuery
+      type: SINK
+      iconName: Database
+      properties:
+    width: 180
+    height: 64
+    selected: false
+    positionAbsolute:
+      x: 682.7627416520211
+      y: 84.98594024604569
+    dragging: false
+  - id: "1787757962986"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Parse Message
+      type: STEP
+      iconName: FileCode
+      beam_transform: ParseMessage
+      properties: {}
+      system_instructions: ""
+    width: 199
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 381.5132904129864
+      y: 147.22122406378745
+  - id: "1788209684098"
+    type: pipeline
+    position:
+      x: 680
+      y: 210
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+    width: 186
+    height: 64
+    selected: false
+    positionAbsolute:
+      x: 685.7311072056239
+      y: 217.03427065026358
+    dragging: false
+edges:
+  - id: e-1783440421358-1787757962986
+    source: "1783440421358"
+    target: "1787757962986"
+  - source: "1787757962986"
+    sourceHandle: valid
+    target: "1783440430418"
+    targetHandle: null
+    id: reactflow__edge-1787757962986valid-1783440430418
+  - source: "1787757962986"
+    sourceHandle: error
+    target: "1788209684098"
+    targetHandle: null
+    id: reactflow__edge-1787757962986error-1788209684098
+runtimeVariables:
+  - key: JOB_ID
+    value: pubsub_to_bigquery
+  - key: topic
+    value: 
+  - key: year
+    value: 
+jobConfig:
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 6
+  runner: Spark
+  gcsStagingPath: 
+  subnetwork: regions/us-central1/subnetworks/default
+pipelineConfig:
+  language: Java
+  outputFolder: ./pubsub-to-bigquery
+  needsRebuild: true

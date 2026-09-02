@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
+import YAML from 'yaml';
 import { DEFAULT_GEMINI_MODEL } from './constants';
 
 /**
@@ -615,6 +616,230 @@ function getGcloudProject(): Promise<string | undefined> {
 }
 
 /**
+ * Interface representing a sample pipeline definition loaded from resources/samples.
+ */
+export interface SamplePipeline {
+    id: string;
+    filename: string;
+    title: string;
+    description: string;
+    category?: string;
+    badge?: string;
+    language?: string;
+    runner?: string;
+    content: string;
+}
+
+/**
+ * Formats a sample filename base into a human-readable title.
+ * 
+ * @param baseName The file name without extension.
+ * @returns Human-friendly capitalized title.
+ */
+export function formatSampleTitle(baseName: string): string {
+    return baseName
+        .split(/[-_]/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+/**
+ * Computes a human-readable pipeline flow description from nodes and edges following topological DAG order.
+ * 
+ * @param nodes List of pipeline nodes
+ * @param edges List of pipeline edges
+ * @returns Formatted flow string (e.g. "PubSub Connector ➔ Parse Message ➔ [BigQuery, Log Message]")
+ */
+export function computePipelineFlow(nodes: any[], edges: any[]): string {
+    if (!nodes || !Array.isArray(nodes) || nodes.length === 0) {
+        return '';
+    }
+
+    // Map node id -> node metadata
+    const nodeMap = new Map<string, { id: string; label: string; type: string; x: number; y: number }>();
+    const inDegree = new Map<string, number>();
+    const adj = new Map<string, string[]>();
+
+    for (const node of nodes) {
+        const id = String(node.id);
+        const label = node.data?.label || node.id || 'Unnamed';
+        const type = node.data?.type || 'STEP';
+        const x = node.position?.x ?? 0;
+        const y = node.position?.y ?? 0;
+        nodeMap.set(id, { id, label, type, x, y });
+        inDegree.set(id, 0);
+        adj.set(id, []);
+    }
+
+    if (edges && Array.isArray(edges)) {
+        for (const edge of edges) {
+            const src = String(edge.source);
+            const tgt = String(edge.target);
+            if (nodeMap.has(src) && nodeMap.has(tgt)) {
+                adj.get(src)!.push(tgt);
+                inDegree.set(tgt, (inDegree.get(tgt) || 0) + 1);
+            }
+        }
+    }
+
+    // Topological layer traversal (Kahn's algorithm by layers)
+    let currentLayer: string[] = [];
+    for (const [id, deg] of inDegree.entries()) {
+        if (deg === 0) {
+            currentLayer.push(id);
+        }
+    }
+
+    // Sort root layer: SOURCE types first, then left-to-right (x), then top-to-bottom (y)
+    currentLayer.sort((a, b) => {
+        const na = nodeMap.get(a)!;
+        const nb = nodeMap.get(b)!;
+        if (na.type === 'SOURCE' && nb.type !== 'SOURCE') return -1;
+        if (nb.type === 'SOURCE' && na.type !== 'SOURCE') return 1;
+        return na.x - nb.x || na.y - nb.y;
+    });
+
+    const flowSegments: string[] = [];
+    const visited = new Set<string>();
+
+    while (currentLayer.length > 0) {
+        const labels = currentLayer.map(id => nodeMap.get(id)!.label);
+        if (labels.length === 1) {
+            flowSegments.push(labels[0]);
+        } else {
+            flowSegments.push(`[${labels.join(', ')}]`);
+        }
+
+        for (const id of currentLayer) {
+            visited.add(id);
+        }
+
+        const nextLayerCandidates = new Set<string>();
+        for (const id of currentLayer) {
+            for (const neighbor of adj.get(id) || []) {
+                inDegree.set(neighbor, (inDegree.get(neighbor) || 1) - 1);
+                if (inDegree.get(neighbor) === 0 && !visited.has(neighbor)) {
+                    nextLayerCandidates.add(neighbor);
+                }
+            }
+        }
+
+        currentLayer = Array.from(nextLayerCandidates).sort((a, b) => {
+            const na = nodeMap.get(a)!;
+            const nb = nodeMap.get(b)!;
+            return na.x - nb.x || na.y - nb.y;
+        });
+    }
+
+    // If there are unvisited nodes (e.g. disconnected components), append them sorted by x position
+    const unvisited = nodes.filter(n => !visited.has(String(n.id)));
+    if (unvisited.length > 0) {
+        const remainingLabels = unvisited
+            .sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0))
+            .map(n => n.data?.label || n.id);
+        if (flowSegments.length === 0) {
+            return remainingLabels.join(' ➔ ');
+        }
+        flowSegments.push(...remainingLabels);
+    }
+
+    return flowSegments.join(' ➔ ');
+}
+
+/**
+ * Discovers and parses all .beam sample pipelines located in the resources/samples directory.
+ * 
+ * @param context The extension context to resolve resource paths.
+ * @returns Array of SamplePipeline objects with metadata and YAML content.
+ */
+export function getSamplePipelines(context: vscode.ExtensionContext): SamplePipeline[] {
+    // 1. Resolve candidates for the samples directory across development and production paths
+    const possibleDirs: string[] = [
+        context?.asAbsolutePath ? context.asAbsolutePath(path.join('resources', 'samples')) : '',
+        context?.asAbsolutePath ? context.asAbsolutePath(path.join('src', 'samples')) : '',
+        context?.extensionPath ? path.join(context.extensionPath, 'resources', 'samples') : '',
+        context?.extensionPath ? path.join(context.extensionPath, 'src', 'samples') : '',
+    ].filter(Boolean);
+
+    if (possibleDirs.length === 0) {
+        possibleDirs.push(
+            path.join(__dirname, '..', 'resources', 'samples'),
+            path.join(__dirname, '..', 'src', 'samples'),
+            path.join(__dirname, '..', '..', 'resources', 'samples')
+        );
+    }
+
+    let samplesDir: string | undefined;
+    for (const dir of possibleDirs) {
+        if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+            samplesDir = dir;
+            break;
+        }
+    }
+
+    if (!samplesDir) {
+        return [];
+    }
+
+    const results: SamplePipeline[] = [];
+    try {
+        // 2. Read all *.beam files in the directory
+        const files = fs.readdirSync(samplesDir);
+        for (const file of files) {
+            if (!file.endsWith('.beam')) continue;
+            const fullPath = path.join(samplesDir, file);
+            try {
+                const content = fs.readFileSync(fullPath, 'utf-8');
+                const baseName = path.basename(file, '.beam');
+                const title = formatSampleTitle(baseName);
+                
+                // 3. Extract accurate metadata and DAG flow from YAML structure
+                let language = 'Java';
+                let runner = 'Dataflow';
+                let flow = '';
+
+                try {
+                    const parsed = YAML.parse(content);
+                    if (parsed) {
+                        if (parsed.pipelineConfig?.language) {
+                            language = parsed.pipelineConfig.language;
+                        }
+                        if (parsed.jobConfig?.runner) {
+                            runner = parsed.jobConfig.runner;
+                        }
+                        flow = computePipelineFlow(parsed.nodes, parsed.edges);
+                    }
+                } catch (parseErr) {
+                    console.warn(`Failed to parse YAML for sample ${file}, falling back to text scan`, parseErr);
+                }
+
+                const description = flow
+                    ? `Pipeline flow: ${flow}`
+                    : `Pre-configured ${language} sample pipeline for ${runner} runner`;
+
+                results.push({
+                    id: baseName,
+                    filename: file,
+                    title,
+                    description,
+                    category: 'Samples',
+                    badge: language,
+                    language,
+                    runner,
+                    content
+                });
+            } catch (err) {
+                console.error(`Failed to read sample file: ${file}`, err);
+            }
+        }
+    } catch (err) {
+        console.error('Failed to list samples directory:', err);
+    }
+
+    return results;
+}
+
+/**
  * Reads resource template or schema files, checking resources/ and src/ directories.
  * Supports both development environment execution and packaged VSIX execution.
  */
@@ -970,6 +1195,13 @@ function handleMessages(
             case 'ready':
                 const gcloudProjectId = (await getGcloudProject()) || 'YOUR_PROJECT_ID';
 
+                // Send loaded samples to webview
+                const samplePipelines = getSamplePipelines(context);
+                webview.postMessage({
+                    command: 'samplesLoaded',
+                    samples: samplePipelines
+                });
+
                 const activeUri = document ? document.uri : uri;
                 let relativeFolder = '';
                 let defaultOutputFolder = '';
@@ -1011,6 +1243,66 @@ function handleMessages(
                         relativeFolder: relativeFolder,
                         defaultOutputFolder: defaultOutputFolder
                     });
+                }
+                return;
+            case 'getSamples':
+                const requestedSamples = getSamplePipelines(context);
+                webview.postMessage({
+                    command: 'samplesLoaded',
+                    samples: requestedSamples
+                });
+                return;
+            case 'openSample':
+                let sampleContent = message.content;
+                let sampleFilename = message.filename || 'sample-pipeline.beam';
+                if (!sampleFilename.endsWith('.beam')) {
+                    sampleFilename += '.beam';
+                }
+
+                if (!sampleContent && message.filename) {
+                    const available = getSamplePipelines(context);
+                    const found = available.find(s => s.filename === message.filename);
+                    if (found) {
+                        sampleContent = found.content;
+                    }
+                }
+
+                if (sampleContent) {
+                    try {
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                        let defaultUri: vscode.Uri | undefined;
+                        if (workspaceFolder) {
+                            let candidateName = sampleFilename;
+                            let counter = 1;
+                            const nameWithoutExt = candidateName.replace(/\.beam$/, '');
+                            while (fs.existsSync(path.join(workspaceFolder, candidateName))) {
+                                candidateName = `${nameWithoutExt}-${counter}.beam`;
+                                counter++;
+                            }
+                            defaultUri = vscode.Uri.file(path.join(workspaceFolder, candidateName));
+                        }
+
+                        // Pop up the Save dialog automatically for the user with .beam filter
+                        const fileUri = await vscode.window.showSaveDialog({
+                            defaultUri,
+                            title: 'Save Sample Pipeline',
+                            filters: { 'Beam Pipeline': ['beam'] }
+                        });
+
+                        if (!fileUri) {
+                            return; // User cancelled the save dialog
+                        }
+
+                        // Write sample pipeline content to selected location
+                        fs.writeFileSync(fileUri.fsPath, sampleContent, 'utf-8');
+
+                        // Refresh tree explorer and open in the visual custom beam editor
+                        vscode.commands.executeCommand('dataflow-pipeline-builder.refreshPipelines');
+                        await vscode.commands.executeCommand('vscode.openWith', fileUri, 'dataflow-pipeline-builder.beamEditor');
+                    } catch (err: any) {
+                        console.error('Failed to save and open sample pipeline:', err);
+                        vscode.window.showErrorMessage(`Failed to open sample pipeline: ${err.message}`);
+                    }
                 }
                 return;
             case 'savePipeline':
