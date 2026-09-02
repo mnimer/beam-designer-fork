@@ -61,7 +61,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
             >
               <option>DirectRunner</option>
               <option>Dataflow</option>
-              <option>Spark</option>
+              <option value="Spark">Serverless Spark</option>
             </select>
           </div>
           {jobConfig.runner === 'Dataflow' && (

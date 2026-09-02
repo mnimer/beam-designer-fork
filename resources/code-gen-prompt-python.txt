@@ -33,9 +33,19 @@ I will also need you to generate:
 
 ## Pipeline Options & Configuration Rules:
 - **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
-  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`) may be defined as custom pipeline options / arguments and in `metadata.json`.
-  - **DO NOT** create pipeline options / command-line arguments for node configuration properties (such as JDBC URLs, database credentials, queries, table names, file paths, BigQuery datasets/tables, Pub/Sub topics/subscriptions, batch sizes, fetch sizes, delimiters, etc.).
-  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties (e.g. JDBC URL, table names, SQL queries, credentials) MUST be hardcoded directly into the transform definition in the Python pipeline code.
+  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared as custom `PipelineOptions` or `argparse` parameters in Python and in `metadata.json`.
+  - **Runtime Variables Consistency & Reserved Names**:
+    - **Avoid reserved option collisions**: If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipeline_job_id` (or `pipelineJobId`) to avoid collisions with Dataflow runner internals.
+    - Convert each variable from the YAML's `runtimeVariables` into standard snake_case (e.g., `JOB_ID` -> `pipeline_job_id`, `NUM_OBJECTS_PER_ITERATION` -> `num_objects_per_iteration`).
+    - Use this exact identifier consistently across ALL generated artifacts:
+      1. `argparse` / `PipelineOptions` CLI argument parser (e.g. `parser.add_argument('--pipeline_job_id', ...)`).
+      2. `metadata.json` parameter `"name"` (e.g. `"name": "pipeline_job_id"`).
+      3. `run_directrunner.sh` arguments (e.g. `--pipeline_job_id="value" --num_objects_per_iteration=1`).
+      4. `run_dataflowrunner.sh` parameters (e.g. `--parameters pipeline_job_id="value",num_objects_per_iteration=1`).
+    - **ALL Runtime Variables MUST be passed to ALL runner scripts**: Ensure that ALL runtime variables defined in the input YAML are provided with their default values in `run_directrunner.sh` and `run_dataflowrunner.sh`.
+  - For Flex Templates, use standard `argparse` argument definitions. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
+  - **DO NOT** create `PipelineOptions` or command-line parameters for node configuration properties (such as JDBC URL, username, password, driverClassName, queries, table names, fetch size, batch size, delimiters, file patterns, BigQuery tables, Pub/Sub topics/subscriptions, etc.).
+  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties MUST be hardcoded directly into the pipeline transform calls in Python (e.g. `ReadFromJdbc(table_name="...", ...)`, etc.).
 
 ## Pipeline Instructions
 - Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").

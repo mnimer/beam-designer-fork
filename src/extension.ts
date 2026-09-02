@@ -1390,10 +1390,9 @@ function handleMessages(
                         const directRunnerTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'run_directrunner.sh'));
                         const dataflowRunnerTemplate = readResourceFile(context, path.join('templates', langSubfolder, 'run_dataflowrunner.sh'));
 
-                        let sparkRunnerSection = '';
+                        let sparkRunnerTemplate = '';
                         if (langSubfolder === 'java') {
-                            const sparkRunnerTemplate = readResourceFile(context, path.join('templates', 'java', 'run_sparkrunner.sh'));
-                            sparkRunnerSection = `### 'run_sparkrunner.sh' Template\n\`\`\`\n${sparkRunnerTemplate}\n\`\`\``;
+                            sparkRunnerTemplate = readResourceFile(context, path.join('templates', 'java', 'run_sparkrunner.sh'));
                         }
 
                         // Substitute placeholders, pipeline definitions, and templates into final prompt text
@@ -1403,7 +1402,7 @@ function handleMessages(
                             .replace('{{dockerfile_template}}', dockerfileTemplate)
                             .replace('{{run_directrunner_template}}', directRunnerTemplate)
                             .replace('{{run_dataflowrunner_template}}', dataflowRunnerTemplate)
-                            .replace('{{sparkrunner_template_section}}', sparkRunnerSection);
+                            .replace('{{run_sparkrunner_template}}', sparkRunnerTemplate);
 
 
 
