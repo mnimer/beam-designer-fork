@@ -280,6 +280,122 @@ describe('NodesCard', () => {
     expect(sinksTab).toHaveClass('text-rose-400');
   });
 
+  it('renders SAMPLES tab as enabled even when nodesCount is 0', () => {
+    render(
+      <NodesCard
+        activeTab="SOURCES"
+        setActiveTab={vi.fn()}
+        nodesCount={0}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+        onAddNode={mockOnAddNode}
+      />
+    );
+
+    const samplesTab = screen.getByLabelText('Samples Tab');
+    expect(samplesTab).toBeInTheDocument();
+    expect(samplesTab).not.toBeDisabled();
+    expect(screen.getByText('SAMPLES')).toBeInTheDocument();
+  });
+
+  it('applies yellow/amber theme highlight to SAMPLES tab when active', () => {
+    render(
+      <NodesCard
+        activeTab="SAMPLES"
+        setActiveTab={vi.fn()}
+        nodesCount={0}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+        isOpen={true}
+      />
+    );
+
+    const samplesTab = screen.getByLabelText('Samples Tab');
+    expect(samplesTab).toHaveClass('border-amber-500/90');
+    expect(samplesTab).toHaveClass('text-amber-400');
+  });
+
+  it('renders sample items when activeTab is SAMPLES and handles click & keypress', () => {
+    const mockOnOpenSample = vi.fn();
+    const customSamples = [
+      {
+        id: 'sample-1',
+        filename: 'custom-sample.beam',
+        title: 'Custom Sample Title',
+        description: 'Test custom sample description',
+        badge: 'Java',
+        content: 'content: test'
+      }
+    ];
+
+    render(
+      <NodesCard
+        activeTab="SAMPLES"
+        setActiveTab={vi.fn()}
+        nodesCount={0}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+        onAddNode={mockOnAddNode}
+        samples={customSamples}
+        onOpenSample={mockOnOpenSample}
+      />
+    );
+
+    expect(screen.getByText(/SAMPLES \(/i)).toBeInTheDocument();
+    expect(screen.getByText('Custom Sample Title')).toBeInTheDocument();
+    expect(screen.getByText('custom-sample.beam')).toBeInTheDocument();
+    expect(screen.getByText('Test custom sample description')).toBeInTheDocument();
+    expect(screen.getByText('Java')).toBeInTheDocument();
+
+    // Click sample
+    fireEvent.click(screen.getByText('Custom Sample Title'));
+    expect(mockOnOpenSample).toHaveBeenCalledWith(customSamples[0]);
+
+    // Keydown Enter on sample
+    const sampleCard = screen.getByTitle('Click to open Custom Sample Title (custom-sample.beam) as a new file tab');
+    fireEvent.keyDown(sampleCard, { key: 'Enter' });
+    expect(mockOnOpenSample).toHaveBeenCalledTimes(2);
+  });
+
+  it('filters sample items using search input in SAMPLES tab', () => {
+    const customSamples = [
+      {
+        id: 'sample-1',
+        filename: 'generate-mock.beam',
+        title: 'Generate Mock Data',
+        description: 'Generates test records',
+        badge: 'Java',
+        content: ''
+      },
+      {
+        id: 'sample-2',
+        filename: 'pubsub-to-bigquery.beam',
+        title: 'PubSub to BigQuery',
+        description: 'Streams data to BQ',
+        badge: 'Python',
+        content: ''
+      }
+    ];
+
+    render(
+      <NodesCard
+        activeTab="SAMPLES"
+        setActiveTab={vi.fn()}
+        nodesCount={0}
+        hasPubSubSource={false}
+        onDragStart={mockOnDragStart}
+        onAddNode={mockOnAddNode}
+        samples={customSamples}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText('Search samples...');
+    fireEvent.change(searchInput, { target: { value: 'BigQuery' } });
+
+    expect(screen.getByText('PubSub to BigQuery')).toBeInTheDocument();
+    expect(screen.queryByText('Generate Mock Data')).not.toBeInTheDocument();
+  });
+
   it('renders menu container with top padding and zero gap to panel', () => {
     const { container } = render(
       <NodesCard

@@ -29,8 +29,19 @@ I will also need you to generate:
 
 ## Pipeline Options & Configuration Rules:
 - **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
-  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`) may be declared as custom `PipelineOptions` interface methods or command-line parameters in `metadata.json`.
-  - For Flex Templates, declare standard typed getter/setter methods on the `PipelineOptions` interface (e.g. `String getJobId(); void setJobId(String value);`). Do NOT use `ValueProvider<T>` because `ValueProvider` is legacy Classic template API.
+  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared as custom `PipelineOptions` interface methods or command-line parameters in `metadata.json`.
+  - **Runtime Variables Consistency & Reserved Names**:
+    - **NEVER use reserved Beam option names**: `jobId`, `jobName`, `project`, `tempLocation`, `gcpTempLocation`, `runner`, `appName` are reserved by Apache Beam / Dataflow. Declaring `getJobId()` in a custom `PipelineOptions` interface causes `IllegalArgumentException: Expected getter for property [jobId] to be marked with @Default on all ... DataflowWorkerHarnessOptions`.
+    - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipelineJobId` (e.g. `String getPipelineJobId(); void setPipelineJobId(String value);`).
+    - Convert each variable from the YAML's `runtimeVariables` into standard camelCase (e.g., `JOB_ID` -> `pipelineJobId`, `NUM_OBJECTS_PER_ITERATION` -> `numObjectsPerIteration`).
+    - Use this exact camelCase identifier consistently across ALL generated artifacts:
+      1. `PipelineOptions` interface methods (e.g. `String getPipelineJobId(); void setPipelineJobId(String value);`, `Integer getNumObjectsPerIteration(); void setNumObjectsPerIteration(Integer value);`).
+      2. `metadata.json` parameter `"name"` (e.g. `"name": "pipelineJobId"`, `"name": "numObjectsPerIteration"`).
+      3. `run_directrunner.sh` arguments (e.g. `--pipelineJobId="value" --numObjectsPerIteration=1`).
+      4. `run_sparkrunner.sh` arguments (e.g. `--pipelineJobId="value" --numObjectsPerIteration=1`).
+      5. `run_dataflowrunner.sh` parameters (e.g. `--parameters pipelineJobId="value",numObjectsPerIteration=1`).
+    - **ALL Runtime Variables MUST be passed to ALL runner scripts**: Ensure that ALL runtime variables defined in the input YAML are provided with their default values in `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh`.
+  - For Flex Templates, declare standard typed getter/setter methods on the `PipelineOptions` interface. Do NOT use `ValueProvider<T>` because `ValueProvider` is legacy Classic template API.
   - **DO NOT** create `PipelineOptions` or command-line parameters for node configuration properties (such as JDBC URL, username, password, driverClassName, queries, table names, fetch size, batch size, delimiters, file patterns, BigQuery tables, Pub/Sub topics/subscriptions, etc.).
   - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties MUST be hardcoded directly into the pipeline transform calls in Java (e.g. `.withDataSourceConfiguration(...)`, `.withTable("tableName")`, etc.).
 
@@ -239,18 +250,148 @@ Use the following static templates as exact starting points when generating the 
 - **`jobConfig` Mapping**:
   - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` and `run_sparkrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
   - Pre-fill `--subnetwork` in Dataflow/Spark run scripts using `jobConfig.subnetwork` from the input YAML (for Spark Dataproc, format URI as `projects/${PROJECT_ID}/${subnetwork}`).
+- **`PipelineOptions` CLI Argument Casing**: In Apache Beam Java, command-line arguments map directly to the camelCase getter/setter name on the `PipelineOptions` interface (e.g., `getJobId()` -> `--jobId=...`, `getNumObjectsPerIteration()` -> `--numObjectsPerIteration=...`). In all generated scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ALWAYS pass arguments using the exact camelCase property name (e.g. `--jobId=...`, `--numObjectsPerIteration=...`), **NEVER** in UPPERCASE (like `--JOB_ID` or `--NUM_OBJECTS_PER_ITERATION`), which causes `IllegalArgumentException: Class interface missing a property named 'JOB_ID'`.
 
 ## Language SDK Best Practices & Gotchas
 
 ### Java Projects
-- **Strict XML Syntax (`pom.xml`)**: Ensure strictly valid XML without stray characters.
+- **Strict XML Syntax (`pom.xml`)**: Ensure strictly valid XML with all tags properly opened and closed (e.g. `<build><plugins>...</plugins></build></project>`).
+- **Canonical `pom.xml` Baseline**: Use the following structure as the baseline for all generated `pom.xml` files:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>{{pipeline_name}}</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <beam.version>2.53.0</beam.version>
+        <jackson.version>2.15.3</jackson.version>
+        <slf4j.version>1.7.36</slf4j.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-direct-java</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-spark-3</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest</artifactId>
+            <version>2.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.10.10</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <outputFile>${project.build.directory}/main.jar</outputFile>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
 - **IO Dependencies**: Include `org.apache.beam:beam-sdks-java-core` (provides `TextIO` and `FileIO`), `org.apache.beam:beam-sdks-java-io-google-cloud-platform` (provides `PubsubIO` and `BigQueryIO`), and `joda-time:joda-time:2.10.10` in `pom.xml`.
 - **TextIO & FileIO Method Names**:
   - Use `TextIO.read().from(...).withSkipHeaderLines(n)` (the method is named `.withSkipHeaderLines(int)`, NOT `.skipHeaderLines(int)`).
   - Use `.withDelimiter(byte[])`, `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TYPE>)`, and `.withHintMatchesManyFiles()`.
 - **Jackson Dependency Alignment**: Explicitly declare `com.fasterxml.jackson.core:jackson-core`, `jackson-databind`, and `jackson-annotations` version `2.15.3` (or higher) in `pom.xml` to avoid runtime `NoClassDefFoundError: StreamReadConstraints`.
-- **Testing Dependencies**: Include `junit:junit:4.13.2`, `org.hamcrest:hamcrest:2.2`, `org.hamcrest:hamcrest-library:2.2`, and `org.junit.vintage:junit-vintage-engine:${junit.version}` under `<scope>test</scope>`.
-- **Maven Shade Plugin Output**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin` so `target/main.jar` is predictable for Docker copying.
+- **Testing & Hamcrest Dependencies**: Include `org.hamcrest:hamcrest:2.2` at compile/runtime scope (do NOT place Hamcrest under `<scope>test</scope>` because Beam's SparkRunner registers `TestSparkPipelineOptions` which requires `org.hamcrest.Matcher` at runtime when `PipelineOptionsFactory` initializes). Unit testing dependencies like `junit:junit:4.13.2` and `org.junit.vintage:junit-vintage-engine:${junit.version}` can be under `<scope>test</scope>`.
+- **Maven Shade Plugin Output & Filters**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin`. Always configure `<filter><artifact>*:*</artifact><excludes><exclude>META-INF/*.SF</exclude><exclude>META-INF/*.DSA</exclude><exclude>META-INF/*.RSA</exclude></excludes></filter>` (with no spaces in `*:*`) to strip signed JAR digests and prevent `SecurityException: Invalid signature file digest`.
 - **Coders**: Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. Use `.setCoder(...)` or Beam `Row` schema (`PCollection<Row>`).
 - **BigQueryIO Return Type**: `BigQueryIO.readTableRows()` returns `BigQueryIO.TypedRead<TableRow>`, NOT `TypedRead<String>`.
 - **PipelineOptions in Flex Templates**: Declare standard primitive/String getters and setters (e.g. `String getJobId(); void setJobId(String value);`). Do NOT use `ValueProvider<T>` as it is legacy Classic template API.

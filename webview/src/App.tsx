@@ -36,7 +36,7 @@ import 'reactflow/dist/style.css';
 import './App.css';
 import { PipelineNode } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
-import { NodesCard } from './components/NodesCard';
+import { NodesCard, type SamplePipeline, DEFAULT_SAMPLES } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -194,6 +194,17 @@ function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
+  const [samples, setSamples] = useState<SamplePipeline[]>(DEFAULT_SAMPLES);
+
+  const handleOpenSample = useCallback((sample: SamplePipeline) => {
+    if (vscode) {
+      vscode.postMessage({
+        command: 'openSample',
+        filename: sample.filename,
+        content: sample.content
+      });
+    }
+  }, []);
 
   const pipelineConfigRef = useRef(pipelineConfig);
   const filenameRef = useRef(filename);
@@ -348,10 +359,15 @@ function App() {
     if (vscode) {
       vscode.postMessage({ command: 'ready' });
       vscode.postMessage({ command: 'getSubnetworks' });
+      vscode.postMessage({ command: 'getSamples' });
 
       const handleMessage = (event: MessageEvent) => {
         const message = event.data;
-        if (message.command === 'loadPipeline') {
+        if (message.command === 'samplesLoaded') {
+          if (message.samples && Array.isArray(message.samples) && message.samples.length > 0) {
+            setSamples(message.samples);
+          }
+        } else if (message.command === 'loadPipeline') {
           console.log('Received loadPipeline message:', message);
           setFilename(message.filename || 'default_job');
           if (message.projectId) {
@@ -1089,6 +1105,8 @@ function App() {
               hasPubSubSource={hasPubSubSource}
               onDragStart={onDragStart} 
               onAddNode={handleAddNode}
+              samples={samples}
+              onOpenSample={handleOpenSample}
             />
 
             <ReactFlow
