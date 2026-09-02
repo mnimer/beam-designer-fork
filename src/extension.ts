@@ -7,14 +7,85 @@ import YAML from 'yaml';
 import { DEFAULT_GEMINI_MODEL } from './constants';
 
 /**
+ * Handles uncaught exceptions across the extension host process.
+ * Logs the full error stack to console.error and the extension's output channel.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * @param error The unhandled error or exception.
+ * @param channel Optional output channel to log to.
+ */
+export function handleUncaughtException(error: unknown, channel?: vscode.OutputChannel): void {
+    // Section 1: Format error message and stack trace
+    // NOTE: error could be an Error instance, a string, or an unknown object
+    const msg = error instanceof Error ? (error.stack || error.message) : String(error);
+    const logLine = `[CRITICAL][UncaughtException] ${msg}`;
+
+    // Section 2: Log to console for Developer Tools and CLI terminal capture
+    console.error(logLine);
+
+    // Section 3: Log to VS Code output channel if available
+    // NOTE: designerOutputChannel may not yet be initialized if error happens before activate()
+    const targetChannel = channel || designerOutputChannel;
+    if (targetChannel) {
+        targetChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${logLine}`);
+    }
+}
+
+/**
+ * Handles unhandled promise rejections across the extension host process.
+ * Logs the rejection reason and promise to console.error and the extension's output channel.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * @param reason The rejection reason or error object.
+ * @param promise The promise that was rejected.
+ * @param channel Optional output channel to log to.
+ */
+export function handleUnhandledRejection(reason: unknown, promise: unknown, channel?: vscode.OutputChannel): void {
+    // Section 1: Format rejection reason
+    // NOTE: reason can be an Error instance, a rejection message, or an arbitrary object
+    const msg = reason instanceof Error ? (reason.stack || reason.message) : String(reason);
+    const logLine = `[CRITICAL][UnhandledRejection] ${msg}`;
+
+    // Section 2: Log to console for Developer Tools and CLI terminal capture
+    console.error(logLine, promise);
+
+    // Section 3: Log to VS Code output channel if available
+    // NOTE: designerOutputChannel may not yet be initialized if rejection happens before activate()
+    const targetChannel = channel || designerOutputChannel;
+    if (targetChannel) {
+        targetChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${logLine}`);
+    }
+}
+
+/**
+ * Registers process-level event listeners for uncaught exceptions and unhandled promise rejections.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ */
+export function registerGlobalErrorHandlers(): void {
+    // Section 1: Register process event listeners
+    // NOTE: Listen to process-level errors so they do not crash the extension host silently
+    process.on('uncaughtException', (error) => handleUncaughtException(error));
+    process.on('unhandledRejection', (reason, promise) => handleUnhandledRejection(reason, promise));
+}
+
+// NOTE: Immediately register global handlers on module evaluation so early startup exceptions are trapped
+registerGlobalErrorHandlers();
+
+/**
  * Extension Activation Entry Point
  * Registers tree providers, custom text editor providers, and extension commands.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
  * 
  * @param context The extension context provided by VS Code
  */
 let designerOutputChannel: vscode.OutputChannel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
+    // Section 1: Initialize logging and output channel
     console.log('Apache Beam Pipeline Builder is now active!');
     designerOutputChannel = vscode.window.createOutputChannel('Dataflow Designer');
     context.subscriptions.push(designerOutputChannel);
