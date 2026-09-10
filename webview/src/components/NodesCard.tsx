@@ -15,6 +15,8 @@
  * - Direct add (+) and drag-and-drop support onto canvas.
  * - Persists accordion group open/closed states using VS Code webview state (vscode.getState/setState)
  *   with localStorage fallback so users' group preferences are preserved across file opens and sessions.
+ * - Exclusive accordion behavior: When a category group is expanded, other groups in the same tab's panel
+ *   automatically collapse to prevent the slide-out panel from overflowing vertically.
  * - Step and Sink menu items are disabled when nodesCount is 0 to enforce pipeline validity.
  * - Adheres strictly to the 8pt grid spacing system, VS Code semantic tokens, and Tailwind CSS styling.
  */
@@ -69,23 +71,24 @@ export const DEFAULT_SAMPLES: SamplePipeline[] = [
 const GROUPS_STORAGE_KEY = 'beam_node_groups_state';
 
 /**
- * Default open state for all palette accordion groups (all open by default).
+ * Default open state for all palette accordion groups.
+ * To keep panels fitting comfortably on screen, only the first category group in each tab is open by default.
  */
 export const defaultGroupOpenState: Record<string, boolean> = {
   sources_streaming_sources: true,
-  sources_database_sources: true,
-  sources_file_sources: true,
-  sources_other_sources: true,
+  sources_database_sources: false,
+  sources_file_sources: false,
+  sources_other_sources: false,
   steps_core_transforms: true,
-  steps_message_parsers: true,
-  steps_element_transforms: true,
-  steps_aggregations: true,
-  steps_windows: true,
-  steps_other_transforms: true,
+  steps_message_parsers: false,
+  steps_element_transforms: false,
+  steps_aggregations: false,
+  steps_windows: false,
+  steps_other_transforms: false,
   sinks_streaming_sinks: true,
-  sinks_database_sinks: true,
-  sinks_file_sinks: true,
-  sinks_logging_sinks: true,
+  sinks_database_sinks: false,
+  sinks_file_sinks: false,
+  sinks_logging_sinks: false,
   samples_sample_pipelines: true,
 };
 
@@ -186,6 +189,7 @@ const SOURCE_NODES: NodeDefinition[] = [
   { label: 'JdbcIO', type: 'SOURCE', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Query relational database over JDBC', category: 'Database Sources' },
   { label: 'FileIO', type: 'SOURCE', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Match and read file streams', category: 'File Sources' },
   { label: 'TextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Read newline-delimited text records', category: 'File Sources' },
+  { label: 'AvroIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Read records from Avro files', category: 'File Sources' },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
 ];
 
@@ -232,6 +236,7 @@ const SINK_NODES: NodeDefinition[] = [
   { label: 'JdbcIO', type: 'SINK', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Write rows to SQL database via JDBC', category: 'Database Sinks' },
   { label: 'FileIO', type: 'SINK', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Write dynamic files to Cloud Storage/Disk', category: 'File Sinks' },
   { label: 'TextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Write newline-delimited text records', category: 'File Sinks' },
+  { label: 'AvroIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Write records to Avro files', category: 'File Sinks' },
   { label: 'Log Message', type: 'SINK', iconName: 'Terminal', beamTransform: 'LogMessage', badge: 'Debug', description: 'Emit structured logs for elements', category: 'Logging Sinks' },
 ];
 
@@ -302,9 +307,35 @@ export const NodesCard: React.FC<NodesCardProps> = ({
     }
   };
 
+  /**
+   * Toggles the open/closed state of an accordion group in the slide-out panel.
+   * When a group is opened/expanded, all other groups in the active tab's panel are
+   * automatically collapsed to prevent vertical overflow and keep the panel on screen.
+   * 
+   * @param groupKey - Unique group identifier (e.g. 'sources_streaming_sources')
+   * @param isOpen - The new open state of the group
+   */
   const handleToggleGroup = (groupKey: string, isOpen: boolean) => {
     setGroupOpenState((prev) => {
-      const updated = { ...prev, [groupKey]: isOpen };
+      let updated: Record<string, boolean>;
+      if (isOpen) {
+        // NOTE: Exclusive accordion behavior - collapse all other groups in the active tab
+        const currentTabPrefix = `${(activeTab || 'sources').toLowerCase()}_`;
+        updated = { ...prev };
+
+        // Collapse all groups matching current tab prefix
+        Object.keys(updated).forEach((key) => {
+          if (key.startsWith(currentTabPrefix)) {
+            updated[key] = false;
+          }
+        });
+
+        // Expand only the targeted group
+        updated[groupKey] = true;
+      } else {
+        // When closing the group, record it as closed
+        updated = { ...prev, [groupKey]: false };
+      }
       persistGroupState(updated);
       return updated;
     });
@@ -657,7 +688,8 @@ export const NodesCard: React.FC<NodesCardProps> = ({
                   return (
                     <details
                       key={`${categoryName}-${searchQuery ? 'search' : 'default'}`}
-                      open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? true)}
+                      name={`palette-${(activeTab || 'sources').toLowerCase()}`}
+                      open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? false)}
                       onToggle={(e) => handleToggleGroup(groupKey, (e.currentTarget as HTMLDetailsElement).open)}
                       className="group bg-[var(--vscode-card-bg,#1e293b)] border border-[var(--vscode-border-light,#334155)] rounded-lg overflow-hidden transition-all"
                     >

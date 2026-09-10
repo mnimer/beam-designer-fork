@@ -8,7 +8,7 @@ nodes:
       label: PubSub Connector
       type: SOURCE
       iconName: Radio
-      properties:
+      properties: null
     width: 222
     height: 64
     selected: true
@@ -25,7 +25,7 @@ nodes:
       label: BigQuery
       type: SINK
       iconName: Database
-      properties:
+      properties: null
     width: 180
     height: 64
     selected: false
@@ -87,15 +87,15 @@ runtimeVariables:
   - key: JOB_ID
     value: pubsub_to_bigquery
   - key: topic
-    value: 
+    value: null
   - key: year
-    value: 
+    value: null
 jobConfig:
   machineType: n1-standard-2
   minInstances: 1
   maxInstances: 6
   runner: Spark
-  gcsStagingPath: 
+  gcsStagingPath: null
   subnetwork: regions/us-central1/subnetworks/default
 pipelineConfig:
   language: Java
