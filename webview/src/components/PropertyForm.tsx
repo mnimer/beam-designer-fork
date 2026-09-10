@@ -38,6 +38,8 @@ import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
 import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
 import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
+import { AvroIOSourceProperties } from '../properties/source/AvroIO';
+import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
 interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
@@ -77,6 +79,19 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <TextIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <TextIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    label.includes('AvroIO') || 
+    beamTransform === 'AvroIO' || 
+    beamTransform === 'ReadFromAvro' || 
+    beamTransform === 'WriteToAvro' ||
+    labelLower.includes('avro') ||
+    transformLower.includes('avro')
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <AvroIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <AvroIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (label.includes('FileIO') || beamTransform.startsWith('FileIO')) {
     if (label.includes('Read Matches') || beamTransform === 'FileIO.readMatches') {

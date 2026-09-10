@@ -506,6 +506,47 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/Start Time/i, { selector: 'select' })).toHaveValue('now');
     expect(screen.getByLabelText(/Stop Condition/i, { selector: 'select' })).toHaveValue('never');
   });
+
+  it('renders AvroIOSourceProperties when label or beam_transform is AvroIO with type SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'AvroIO',
+        type: 'SOURCE',
+        beam_transform: 'AvroIO',
+        properties: {
+          filePattern: 'gs://bucket/data/*.avro'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const filePatternInput = container.querySelector('#avroFilePattern') as HTMLInputElement;
+    expect(filePatternInput).toBeInTheDocument();
+    expect(filePatternInput).toHaveValue('gs://bucket/data/*.avro');
+  });
+
+  it('renders AvroIOSinkProperties when label or beam_transform is AvroIO with type SINK', () => {
+    const mockNode = {
+      data: {
+        label: 'AvroIO',
+        type: 'SINK',
+        beam_transform: 'AvroIO',
+        properties: {
+          to: 'gs://bucket/output/records',
+          suffix: '.avro'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const toInput = container.querySelector('#avroSinkTo') as HTMLInputElement;
+    expect(toInput).toBeInTheDocument();
+    expect(toInput).toHaveValue('gs://bucket/output/records');
+  });
 });
 
 
