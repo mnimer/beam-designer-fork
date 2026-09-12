@@ -170,6 +170,24 @@ Language: Python
   - Sink (Write):
     - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
     - Input elements to `WriteToKafka` must be `(key, value)` tuples.
+- **`SnsIO`**:
+  - Python Cross-Language (x-lang) Transform:
+    - Native Python SnsIO is not built into the core Python SDK; invoke the Java SnsIO transform via Beam cross-language expansion (`BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')`):
+      ```python
+      from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService
+
+      # Write to SNS via cross-language transform
+      ExternalTransform(
+          'beam:transform:org.apache.beam:aws2_sns_write:v1',
+          ImplicitSchemaPayloadBuilder({
+              'topicArn': topic_arn,
+          }),
+          BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+      )
+      ```
+  - Source (Read):
+    - SQS Fan-Out: Read from SQS queue subscribed to SNS topic via `beam.io.ReadFromSqs(queue_url=queue_url)` or expansion service.
+    - Pub/Sub Bridge: Read from bridged GCP Pub/Sub topic via `beam.io.ReadFromPubSub(topic=pubsub_topic)`.
 - **`SqsIO`**:
   - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService`
   - Note: SqsIO is not implemented natively in pure Python; use the cross-language (x-lang) option targeting the Java expansion service (`sdks:java:io:expansion-service:shadowJar`):

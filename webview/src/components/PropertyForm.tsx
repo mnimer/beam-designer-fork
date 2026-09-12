@@ -9,8 +9,7 @@
  * Architectural Decisions:
  * - Delegates specific property forms to modular components in source, sink, and step subdirectories.
  * - Matches node labels and beam_transform metadata.
- * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse), Database, File, Aggregations, and Transform steps.
- * - Supports MqttIO Source and Sink property forms for streaming IoT workloads.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO), Database, File, Aggregations, and Transform steps.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -45,6 +44,8 @@ import { ParquetIOSourceProperties } from '../properties/source/ParquetIO';
 import { ParquetIOSinkProperties } from '../properties/sink/ParquetIO';
 import { AvroIOSourceProperties } from '../properties/source/AvroIO';
 import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
+import { SnsIOSourceProperties } from '../properties/source/SnsIO';
+import { SnsIOSinkProperties } from '../properties/sink/SnsIO';
 import { JmsIOSourceProperties } from '../properties/source/JmsIO';
 import { JmsIOSinkProperties } from '../properties/sink/JmsIO';
 import { SqsIOSourceProperties } from '../properties/source/SqsIO';
@@ -130,6 +131,16 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
+    labelLower.includes('sns') || 
+    transformLower.includes('sns') || 
+    beamTransform === 'SnsIO'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <SnsIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <SnsIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
     labelLower.includes('jms') || 
     transformLower.includes('jms') || 
     beamTransform === 'ReadFromJms' || 
@@ -179,7 +190,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     labelLower.includes('mqtt') || 
     transformLower.includes('mqtt') || 
     beamTransform === 'MqttIO' ||
-    beamTransform === 'ReadFromMqtt' || 
+    beamTransform === 'ReadFromMqtt' ||
     beamTransform === 'WriteToMqtt'
   ) {
     if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
