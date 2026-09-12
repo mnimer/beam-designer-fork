@@ -586,6 +586,46 @@ describe('PropertyForm', () => {
     expect(toInput).toHaveValue('gs://bucket/output/records');
   });
 
+  it('renders SnsIOSourceProperties when label or beam_transform is SnsIO with type SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'SNS',
+        type: 'SOURCE',
+        beam_transform: 'SnsIO',
+        properties: {
+          topicArn: 'arn:aws:sns:us-east-1:123456789012:test-topic',
+          queueUrl: 'https://sqs.us-east-1.amazonaws.com/123456789012/test-queue'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('arn:aws:sns:us-east-1:123456789012:my-topic')).toHaveValue('arn:aws:sns:us-east-1:123456789012:test-topic');
+    expect(screen.getByPlaceholderText('https://sqs.us-east-1.amazonaws.com/123456789012/my-queue')).toHaveValue('https://sqs.us-east-1.amazonaws.com/123456789012/test-queue');
+  });
+
+  it('renders SnsIOSinkProperties when label or beam_transform is SnsIO with type SINK', () => {
+    const mockNode = {
+      data: {
+        label: 'SNS',
+        type: 'SINK',
+        beam_transform: 'SnsIO',
+        properties: {
+          topicArn: 'arn:aws:sns:us-east-1:123456789012:sink-topic',
+          subject: 'Test Notification'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('arn:aws:sns:us-east-1:123456789012:my-topic')).toHaveValue('arn:aws:sns:us-east-1:123456789012:sink-topic');
+    expect(screen.getByPlaceholderText('e.g. Pipeline Notification')).toHaveValue('Test Notification');
+  });
+
   it('renders JmsIOSourceProperties when label or beam_transform is JmsIO with type SOURCE', () => {
     const mockNode = {
       data: {

@@ -144,6 +144,15 @@ Language: Java
     - Syntax: `KafkaIO.<K, V>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(KeySerializer.class).withValueSerializer(ValueSerializer.class)`
     - Supports `.withProducerConfigUpdates(Map<String, Object> configUpdates)` for producer configurations (such as `acks`, `retries`, `compression.type`, etc.).
     - Supports `.withEOS(numPartitions, sinkGroupId)` when Exactly-Once Semantics (`useEOS`) is enabled. Note: When writing to Kafka, input PCollection must be `PCollection<KV<K, V>>` (e.g. using `WithKeys.of(...)` or `MapElements` to map values into KV pairs before writing).
+- **`SnsIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.aws2.sns.SnsIO`, `software.amazon.awssdk.services.sns.model.PublishRequest`
+  - Maven Dependency: Always add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` and `software.amazon.awssdk:sns` to `pom.xml`.
+  - Sink (Write):
+    - Syntax: `SnsIO.write().to(topicArn)`
+    - Elements should be mapped to `PublishRequest` (e.g. `PublishRequest.builder().topicArn(topicArn).message(msg).subject(subject).build()`) or written directly with string payload.
+  - Source (Read):
+    - AWS Standard: Ingested via Amazon SQS subscription fan-out queue using `SqsIO.read().from(queueUrl)`.
+    - GCP Dataflow Bridge: Ingested via bridged GCP Pub/Sub topic using `PubsubIO.readStrings().fromTopic(pubsubTopic)`.
 - **`SqsIO`**:
   - Required Imports: `org.apache.beam.sdk.io.aws2.sqs.SqsIO`, `software.amazon.awssdk.services.sqs.model.Message`, `software.amazon.awssdk.services.sqs.model.SendMessageRequest`
   - Maven Dependencies:
