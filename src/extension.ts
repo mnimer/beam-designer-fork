@@ -1193,8 +1193,8 @@ function handleMessages(
                 });
                 return;
             case 'getSecrets':
-                // NOTE: Query Secret Manager for secrets to populate secure credential selectors
-                execFile('gcloud', ['secrets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                // NOTE: Query Google Cloud Secret Manager for stored secret names/IDs to prevent hardcoded credentials
+                execFile('gcloud', ['secrets', 'list', '--format=json'], { timeout: 10000 }, (error: any, stdout: string, stderr: string) => {
                     if (error) {
                         console.error(`gcloud secrets error: ${error}`);
                         console.error(`stderr: ${stderr}`);
@@ -1208,6 +1208,7 @@ function handleMessages(
                             const shortName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : s.name;
                             return {
                                 name: shortName,
+                                id: shortName,
                                 fullName: s.name,
                                 value: shortName
                             };
@@ -1216,6 +1217,23 @@ function handleMessages(
                     } catch (e) {
                         console.error('Failed to parse secrets output', e);
                         webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                    }
+                });
+                return;
+            case 'getAwsQueues':
+                // NOTE: Attempt to list AWS SQS queues via AWS CLI if available on the host machine
+                execFile('aws', ['sqs', 'list-queues', '--output', 'json'], { timeout: 10000 }, (error: any, stdout: string) => {
+                    if (error) {
+                        // Gracefully fallback when AWS CLI is not configured or installed locally
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues: [] });
+                        return;
+                    }
+                    try {
+                        const queuesJson = JSON.parse(stdout);
+                        const queues = Array.isArray(queuesJson?.QueueUrls) ? queuesJson.QueueUrls : [];
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues });
+                    } catch (e) {
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues: [] });
                     }
                 });
                 return;

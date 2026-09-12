@@ -165,6 +165,25 @@ Language: Python
   - Sink (Write):
     - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
     - Input elements to `WriteToKafka` must be `(key, value)` tuples.
+- **`SqsIO`**:
+  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService`
+  - Note: SqsIO is not implemented natively in pure Python; use the cross-language (x-lang) option targeting the Java expansion service (`sdks:java:io:expansion-service:shadowJar`):
+  - Source (Read):
+    ```python
+    ExternalTransform(
+        'beam:transform:org.apache.beam:sqs_read:v1',
+        ImplicitSchemaPayloadBuilder({'queue_url': queue_url}),
+        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+    )
+    ```
+  - Sink (Write):
+    ```python
+    ExternalTransform(
+        'beam:transform:org.apache.beam:sqs_write:v1',
+        ImplicitSchemaPayloadBuilder({'queue_url': queue_url, 'batch_size': batch_size}),
+        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+    )
+    ```
 - **`MqttIO`**:
   - Required Imports: `from apache_beam.transforms.xlang.io import ReadFromMqtt, WriteToMqtt`
   - Note: Uses Apache Beam Cross-Language expansion service.

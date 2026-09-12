@@ -41,6 +41,8 @@ import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
 import { AvroIOSourceProperties } from '../properties/source/AvroIO';
 import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
+import { SqsIOSourceProperties } from '../properties/source/SqsIO';
+import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
 interface PropertyFormProps {
@@ -120,6 +122,18 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('sqs') || 
+    transformLower.includes('sqs') || 
+    beamTransform === 'ReadFromSqs' || 
+    beamTransform === 'WriteToSqs' ||
+    beamTransform === 'SqsIO'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <SqsIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <SqsIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     labelLower.includes('mqtt') || 
