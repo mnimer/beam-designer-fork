@@ -1,0 +1,615 @@
+# TASK.md — Code Review Findings
+
+Principal-engineer review of `apache-beam-extension` (branch `develop`, clean tree @ `3571ba8`).
+Scope: correctness, security, performance, maintainability. Style/formatting nits excluded.
+
+**Verification status:** every finding below was confirmed by reading the cited lines. Items marked
+🧪 **PoC verified** were reproduced by executing code. Findings that were *suspected but disproven*
+are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--cleared) so nobody re-litigates them.
+
+---
+
+## Task Index
+
+**This table is the single source of truth for status.** Detail for each task is linked from its ID;
+[Section 4](#4-actionable-remediation-plan) sequences the same tasks into execution phases.
+
+`⬜ Not Started` · `🟦 In Progress` · `⏸️ Deferred` · `✅ Done` · `❌ Won't Fix`
+
+> [!IMPORTANT]
+> When a task's state changes, update **only** the Status cell below. Findings and plan steps
+> deliberately carry no checkboxes so status can never disagree with itself.
+
+> [!NOTE]
+> **P1-P5 are cross-references**, not additional work — they restate M10/M11/M12/M18/M17
+> from a performance viewpoint. Distinct tasks: **34** (3 Critical, 21 Major, 8 Architecture, 2 Perf).
+> Section 4 sequences these into execution phases.
+
+| # | Sev | Label | Description | Status |
+|---|-----|-------|-------------|--------|
+| [C1](#c1) | 🔴 Critical | Path traversal in codegen writes | `../` sanitiser strips only *leading* segments; Gemini-supplied filenames can write executables anywhere on disk. **PoC verified.** | ⬜ Not Started |
+| [C2](#c2) | 🔴 Critical | Plaintext credentials persisted | JDBC/JMS passwords saved into the git-tracked `.beam` file, sent to Gemini, and written to `gemini.log`. | ⬜ Not Started |
+| [C3](#c3) | 🔴 Critical | Unsafe cleanup strategy | Wipes the target folder *before* the model call, over-deletes user files, and never removes `.venv`/`.gradle`. Needs ownership marker + allowlist. | ⬜ Not Started |
+| [M1](#m1) | 🟠 Major | Duplicate `getSecrets` case | Second handler is unreachable dead code; the live one emits full resource paths instead of short secret IDs. | ⬜ Not Started |
+| [M2](#m2) | 🟠 Major | No webview CSP | `enableScripts` with no CSP/nonce, plus `dangerouslySetInnerHTML` behind a hand-rolled escaper. | ⬜ Not Started |
+| [M3](#m3) | 🟠 Major | Terminal command injection | `outputFolder` interpolated unquoted into ``terminal.sendText(`cd "…"`)``. | ⬜ Not Started |
+| [M4](#m4) | 🟠 Major | Bypasses VS Code document model | `fs.writeFileSync` on an open `TextDocument`; the documented two-way sync is not implemented. | ⬜ Not Started |
+| [M5](#m5) | 🟠 Major | Undisposed webview listeners | `onDidReceiveMessage` disposable discarded and no `onDidDispose`; leaks on every editor open. | ⬜ Not Started |
+| [M6](#m6) | 🟠 Major | Silent CLI failures | ~12 handlers swallow errors and post empty arrays, so auth failures look like zero resources. | ⬜ Not Started |
+| [M7](#m7) | 🟠 Major | Hardcoded developer path | The author's local `google-cloud-sdk` path is the first candidate in `findGcloudPath()`. | ⬜ Not Started |
+| [M8](#m8) | 🟠 Major | Inconsistent CLI resolution | Only 3 of ~13 call sites use `findGcloudPath()`; the rest break when VS Code lacks the shell `PATH`. | ⬜ Not Started |
+| [M9](#m9) | 🟠 Major | Lint and test scripts broken | No root ESLint config, missing `runTest.js`, and a 0-byte test file breaks vitest. **Verified.** | ⬜ Not Started |
+| [M10](#m10) | 🟠 Major | O(n²) JSON repair | Backward `}` scan re-parses the entire string per candidate, blocking the extension host. | ⬜ Not Started |
+| [M11](#m11) | 🟠 Major | O(tokens × length) highlighter | Per-token full-string `replace`, unmemoised in JSX, plus `$`-pattern preview corruption. | ⬜ Not Started |
+| [M12](#m12) | 🟠 Major | React Flow identity churn | `nodes.map()` inline in the prop builds new objects each render, defeating memoisation. | ⬜ Not Started |
+| [M13](#m13) | 🟠 Major | Stale closure on folder refresh | Static dep array captures the initial `outputFolder`, so files are read from the wrong path. | ⬜ Not Started |
+| [M14](#m14) | 🟠 Major | Label-based form dispatch | ~200-line if/else keyed on the user-editable node label; renaming loads the wrong form. | ⬜ Not Started |
+| [M15](#m15) | 🟠 Major | `gemini.log` shipped to Cloud Build | Generated `.gcloudignore` omits `*.log`, so the full prompt travels in the build context. | ⬜ Not Started |
+| [M16](#m16) | 🟠 Major | Partial edge rewiring | `findIndex` redirects only the first inbound edge when inserting a KV Mapper. | ⬜ Not Started |
+| [M17](#m17) | 🟠 Major | Eager activation | `activationEvents: ["*"]` plus a workspace-wide `findFiles` on every window. | ⬜ Not Started |
+| [M18](#m18) | 🟠 Major | Blocking synchronous I/O | `fs.*Sync` on the autosave, codegen, and folder-walk hot paths in the extension host. | ⬜ Not Started |
+| [M19](#m19) | 🟠 Major | `BigQueryIO` stale closure | Async `datasetsLoaded` spreads first-render props, erasing anything typed in the meantime. | ⬜ Not Started |
+| [M20](#m20) | 🟠 Major | Unnormalised secrets in Kinesis sink | Missing `.map(s => s.name)`; renders `[object Object]` the moment M1 is fixed. **Ship with M1.** | ⬜ Not Started |
+| [M21](#m21) | 🟠 Major | Test gaps + orphaned test | No tests for Aggregations/Map/ParseMessage; `ElementTransforms.test.tsx` has no component. | ⬜ Not Started |
+| [A1](#a1) | 🔵 Architecture | 1,000-line message switch | `handleMessages` mixes GCP, AWS, file I/O, samples, terminal, and codegen. Untestable as written. | ⬜ Not Started |
+| [A2](#a2) | 🔵 Architecture | 10 copy-pasted asset handlers | ~210 lines of identical exec→parse→post logic; collapse into a single `listAssets()`. | ⬜ Not Started |
+| [A3](#a3) | 🔵 Architecture | Monolithic codegen closure | 260-line block doing prompt, API, repair, routing, and writing; needs a `LanguageStrategy`. | ⬜ Not Started |
+| [A4](#a4) | 🔵 Architecture | DRY violation across 41 forms | 13,641 LOC with 163/171 duplicated class strings and 34 hand-rolled `handleChange` copies. | ⬜ Not Started |
+| [A5](#a5) | 🔵 Architecture | Committed build artifacts | Stale `App.js` / `main.js` and their maps tracked beside their `.tsx` sources. | ⬜ Not Started |
+| [A6](#a6) | 🔵 Architecture | `App.tsx` is 1,232 lines | Owns canvas state, IPC, autosave, samples, and layout; extract into hooks. | ⬜ Not Started |
+| [A7](#a7) | 🔵 Architecture | Model constant mismatch | `constants.ts` pins `gemini-3.5-flash`; project `GEMINI.md` mandates `gemini-3.7-flash`. | ⬜ Not Started |
+| [A8](#a8) | 🔵 Architecture | JSON created, YAML saved | New pipelines are written as JSON but silently rewritten as YAML on first edit. | ⬜ Not Started |
+| [P1](#p1) | 🟡 Perf | O(n²) JSON repair | Cross-reference — fixed by **M10**. | ⬜ Not Started |
+| [P2](#p2) | 🟡 Perf | Unmemoised highlighter | Cross-reference — fixed by **M11**. | ⬜ Not Started |
+| [P3](#p3) | 🟡 Perf | React Flow re-render storm | Cross-reference — fixed by **M12**. | ⬜ Not Started |
+| [P4](#p4) | 🟡 Perf | Synchronous `fs.*` hot paths | Cross-reference — fixed by **M18**. | ⬜ Not Started |
+| [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ⬜ Not Started |
+| [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ⬜ Not Started |
+| [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ⬜ Not Started |
+
+---
+
+## 1. Critical Findings (Must-Fix)
+
+### [Critical]
+
+- <a id="c1"></a>**C1 — Arbitrary file write + `chmod 755` outside the workspace via LLM-controlled filenames.**
+  🧪 **PoC verified.**
+  [extension.ts:1911](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1911)
+  sanitises the model-supplied filename with `normalizedFilename.replace(/^(\.\.[\/\\])+/, '')`, which
+  only strips **leading** `../` sequences. A `..` appearing after any path segment survives, and the
+  result is passed straight to `path.join(targetFolderPath, normalizedFilename)` +
+  `fs.writeFileSync` at [extension.ts:1966-1971](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1966-L1971),
+  then `fs.chmodSync(filePath, '755')` when `file.executable` is set
+  ([extension.ts:1973-1979](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1973-L1979)).
+  Executed against target `/Users/me/ws/mypipeline`:
+  ```
+  "../../../../tmp/pwned.sh"            -> /Users/me/ws/mypipeline/tmp/pwned.sh   (blocked)
+  "src/../../../../tmp/pwned.sh"        -> /Users/tmp/pwned.sh                    (ESCAPED)
+  "a/b/../../../../../../tmp/pwned.sh"  -> /tmp/pwned.sh                          (ESCAPED)
+  ```
+  The filename originates from Gemini's JSON output, which is steered by the `.beam` pipeline content
+  embedded in the prompt ([extension.ts:1848](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1848)).
+  A malicious/shared `.beam` file is therefore a prompt-injection path to **writing an executable file
+  anywhere the VS Code process can write** (e.g. `~/.zshrc`, `~/Library/LaunchAgents`).
+  **Fix:** resolve then assert containment before every write; never trust the model for paths.
+  ```ts
+  const filePath = path.resolve(targetFolderPath, normalizedFilename);
+  const rel = path.relative(targetFolderPath, filePath);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      console.error(`[regenerateCode] Rejected out-of-bounds file: ${file.filename}`);
+      continue;
+  }
+  ```
+  Also gate `chmod 755` to an allowlist of expected script names rather than a model-controlled boolean.
+
+- <a id="c2"></a>**C2 — Plaintext database/broker passwords are persisted to the `.beam` file, committed to git, and transmitted to Gemini.**
+  Password inputs write straight into node properties via the shared `handleChange`:
+  [source/JdbcIO.tsx:264-272](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/JdbcIO.tsx#L264-L272),
+  [sink/JdbcIO.tsx:209](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/sink/JdbcIO.tsx#L209),
+  [source/JmsIO.tsx:518](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/JmsIO.tsx#L518),
+  [sink/JmsIO.tsx:518](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/sink/JmsIO.tsx#L518).
+  That state is `YAML.stringify`'d wholesale into the document
+  ([App.tsx:329-343](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L329-L343))
+  and written to the `.beam` file. **`.beam` is not gitignored**, so credentials land in source control.
+  The same YAML is then interpolated into the Gemini prompt
+  ([extension.ts:1848](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1848))
+  and the **full prompt is written verbatim to `gemini.log`**
+  ([extension.ts:1874, 1883](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1874-L1883)).
+  **Fix:** these four fields must store a Secret Manager *reference* only (the `secretManager` auth mode
+  already exists in 6 other components — reuse it). Redact any `password`/`secret`/`accessKey` value
+  before it enters the prompt or the log. Add `*.beam` credential linting to CI.
+
+- <a id="c3"></a>**C3 — Destructive delete runs *before* code generation → unrecoverable loss of user files on any failure.**
+  [extension.ts:1810](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1810)
+  calls `deleteCodeFiles(targetFolderPath)` **before** the Gemini request at
+  [extension.ts:1859](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1859).
+  `deleteCodeFiles` ([extension.ts:880-930](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L880-L930))
+  recursively removes **every** non-hidden entry except `*.beam` — including hand-written README,
+  `metadata.json`, `*.tf`, and any user edits. Its only guard is "inside the workspace and not the
+  workspace root", so pointing *Target Folder* at an existing project directory (trivially done via the
+  folder picker) wipes it. If the API call then times out, is rate-limited, or returns unparseable JSON,
+  the user is left with nothing and no backup.
+
+  **Additionally, the current filter is wrong in *both* directions.**
+  [extension.ts:904](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L904)
+  skips every dot-prefixed entry:
+  ```ts
+  if (item.startsWith('.') && item !== '.dockerignore' && item !== '.gcloudignore') continue;
+  ```
+  | Entry | Today | Desired |
+  |---|---|---|
+  | `.venv`, `.gradle`, `.pytest_cache`, `.mypy_cache` | **never deleted** (dot-prefixed) | delete on language switch |
+  | `target/`, `__pycache__`, `node_modules/` | deleted every regen | delete on language switch only |
+  | user's `README.md`, `metadata.json`, `*.tf` | **deleted every regen** | never delete |
+
+  So it *under*-deletes exactly the dependency folders that must go on a Python↔Java switch, while
+  *over*-deleting hand-written user files. The root cause is the strategy: it `readdir`s the folder and
+  denylists a few exceptions. It must instead **allowlist what we know we created.**
+
+  **Fix — four layers. A manifest alone is *not* sufficient (see rationale in each layer).**
+
+  1. **Reorder (fixes the data-loss window).** Delete *after* a validated payload is in memory, not
+     before the API call. A temp-dir-and-swap is unnecessary complexity here — plain reordering gives the
+     same atomicity with no cross-device-rename or partial-swap failure modes:
+     `resolve+gate → generate → validate all paths (C1) → clean → write`.
+  2. **Ownership marker (fixes the retarget hazard).** A manifest says *which files*; it does not say
+     *whose folder this is*. Write `.beamgen.json` into the output folder holding
+     `{schemaVersion, pipelineId, language, generatedAt, files:[{path, sha256}]}`, and add a stable
+     `pipelineId` to `pipelineConfig` — **none exists today**
+     ([extension.ts:70-87](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L70-L87)),
+     so it must be generated at creation and backfilled on first save.
+  3. **Gate before any deletion.** This is the answer to "can't the user still mess it up by changing the
+     target dir?" — yes, unless retargeting is explicitly detected:
+     | Marker | Folder | Action |
+     |---|---|---|
+     | absent | empty | proceed (fresh folder) |
+     | absent | **non-empty** | **prompt, never auto-delete** — *"Not created by the designer (N files). [Generate without cleaning] [Pick another folder] [Cancel]"* |
+     | present, `pipelineId` mismatch | any | prompt (two pipelines share one folder) |
+     | present, matches | any | clean per layer 4 |
+  4. **Scope deletion by scenario** — and *only* inside a folder that passed layer 3:
+     - **Same-language regen:** delete manifest entries only. **Keep `.venv`/`target`** — wiping them on
+       every generation costs the user a full `pip install`/Maven resolve for no benefit.
+     - **Language switch** (`manifest.language !== requested`): manifest entries **+** the build-artifact
+       allowlist **+** the other language's descriptors (`pom.xml`, `requirements.txt`, `src/main/java/`).
+       This is the only path that removes dependency folders, which is what you actually want.
+     - **Build-artifact allowlist** (exact names, owned folders only): `.venv`, `venv`, `env`,
+       `__pycache__`, `.pytest_cache`, `.mypy_cache`, `*.egg-info`, `target`, `.gradle`, `build`, `out`,
+       `node_modules`.
+     - **Hash check:** if a manifest file's current `sha256` differs, the user hand-edited generated code.
+       Overwriting is documented behaviour, so proceed — but list the modified files in the output channel
+       so they can recover from git.
+     - **In-use guard:** deleting `.venv` while the *Apache Beam Runner* terminal has it activated breaks
+       that shell. Warn (or skip) if that terminal is live.
+
+  **Residual risk this cannot eliminate:** once a folder is designer-owned, a user who later stores their
+  own work *in that same folder* is still exposed. Layer 4 contains the blast radius — we only ever remove
+  manifest entries and known build artifacts, never "everything in the directory" — so unknown user files
+  survive by default. That property is the real fix, and it is what a manifest *alone* does not give you.
+
+---
+
+### [Major]
+
+- <a id="m1"></a>**M1 — Duplicate `case 'getSecrets'`: the second handler is unreachable dead code, and the live one returns the wrong data shape.**
+  `handleMessages` has two `case 'getSecrets':` labels in the same `switch`:
+  [extension.ts:1168](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1168)
+  and [extension.ts:1274](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1274).
+  JS dispatches to the **first**, so the second is permanently dead.
+  The live handler returns raw `s.name` — the *fully-qualified* resource path
+  (`projects/123456/secrets/my-secret`). The dead one does
+  `nameParts[nameParts.length - 1]` to produce the short ID and richer `{name,id,fullName,value}` objects —
+  i.e. it was written specifically to fix this, but never runs.
+  Consumers such as
+  [source/KinesisIO.tsx:136](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/KinesisIO.tsx#L136)
+  (`typeof s === 'string' ? s : s.name`) therefore populate the dropdown with full resource paths, and
+  that path is what gets baked into the generated pipeline as the secret ID → **runtime failure in the
+  deployed Dataflow job**, with no error at design time.
+  **Fix:** delete the handler at 1168, keep 1274. Add ESLint `no-duplicate-case` (see M9) so this class
+  of bug is caught mechanically.
+
+- <a id="m2"></a>**M2 — Webview has no Content-Security-Policy, and renders code through `dangerouslySetInnerHTML`.**
+  [extension.ts:1062-1068](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1062-L1068)
+  sets `enableScripts: true` and assigns `webview.html` from the built `index.html`, which contains **no
+  CSP `<meta>` tag** (confirmed: zero matches for `Content-Security-Policy`/`nonce` across the repo).
+  Meanwhile [SourceCodeTab.tsx:282-288](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/SourceCodeTab.tsx#L282-L288)
+  injects the output of a hand-rolled regex highlighter as raw HTML.
+  *Assessed honestly:* `highlightCode` **does** escape `&`, `<`, `>` first
+  ([SourceCodeTab.tsx:62-65](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/SourceCodeTab.tsx#L62-L65)),
+  so I could **not** construct a working tag-injection payload — this is *not* a proven XSS today.
+  It is nonetheless Major because the only thing standing between untrusted model output and script
+  execution in a privileged webview is three hand-written `.replace()` calls, with **no CSP as a second
+  line of defence**. Absent CSP the webview may also load arbitrary remote scripts/images (exfiltration channel).
+  **Fix:** (a) inject a strict CSP with a per-load nonce (`default-src 'none'; script-src 'nonce-…'; style-src ${cspSource}`);
+  (b) replace the bespoke highlighter with Prism/`highlight.js` rendering to React elements, dropping `dangerouslySetInnerHTML`.
+
+- <a id="m3"></a>**M3 — Shell command injection into the integrated terminal via `outputFolder`.**
+  [extension.ts:1756](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1756):
+  ```ts
+  terminal.sendText(`cd "${folderPath}" && ./${scriptName}`);
+  ```
+  `folderPath` derives from `message.pipelineConfig?.outputFolder`
+  ([extension.ts:1709-1719](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1709-L1719)),
+  which comes from the `.beam` document. A value containing `"` escapes the quoting and appends arbitrary
+  commands. *Precondition (stated honestly):* the `scriptExists` check at
+  [extension.ts:1735-1742](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1735-L1742)
+  means a directory with that literal name must exist — achievable in a malicious repo, since POSIX
+  directory names may contain `"` and `;`. Requires the user to click Run.
+  **Fix:** the terminal is already created with `cwd: folderPath`; drop the `cd` entirely, or shell-quote
+  via `'` + `replace(/'/g, `'\\''`)`. Reject `outputFolder` values containing shell metacharacters.
+
+- <a id="m4"></a>**M4 — Extension writes the open document straight to disk, bypassing the VS Code document model.**
+  `BeamEditorProvider` is a `CustomTextEditorProvider`, but `savePipeline` calls
+  `fs.writeFileSync(targetUri.fsPath, …)` ([extension.ts:952](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L952))
+  on a file VS Code currently holds open as a `TextDocument`. This desynchronises the in-memory document
+  from disk, produces spurious "file changed on disk" conflicts, and breaks undo/dirty state.
+  Compounding it, [resolveCustomTextEditor](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1042-L1074)
+  registers **no `onDidChangeTextDocument`** listener, so the class doc's claim of *"two-way
+  synchronization of .beam files"* ([extension.ts:20](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L20))
+  is not implemented — editing the `.beam` in the text editor never updates the canvas.
+  **Fix:** persist via `vscode.WorkspaceEdit`/`applyEdit`, and subscribe to `onDidChangeTextDocument`
+  (filtering on `e.document.uri`) to push updates into the webview.
+
+- <a id="m5"></a>**M5 — Webview message listener and panel are never disposed (resource leak).**
+  [extension.ts:1071-1073](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1071-L1073)
+  discards the `Disposable` returned by `webview.onDidReceiveMessage(...)`, and there is no
+  `webviewPanel.onDidDispose(...)` handler. Every open/close of a `.beam` editor leaks a listener that
+  still holds `context` and `document`; in-flight `execFile` callbacks then `postMessage` to a disposed
+  webview.
+  **Fix:** collect disposables, register `webviewPanel.onDidDispose(() => disposables.forEach(d => d.dispose()))`,
+  and guard `postMessage` with a disposed flag.
+
+- <a id="m6"></a>**M6 — Every GCP CLI failure is swallowed and surfaced as an empty dropdown.**
+  All ~12 asset-discovery handlers follow the same shape: log to `console.error`, then
+  `postMessage({ …, items: [] })`. Examples:
+  [getDatasets:1091-1107](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1091-L1107),
+  [getTopics:1132-1149](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1132-L1149),
+  [getNetworks:1186-1207](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1186-L1207),
+  [getComputeInstances:1319-1348](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1319-L1348).
+  "Not authenticated", "API disabled", "wrong project" and "genuinely zero resources" are indistinguishable
+  to the user, and `console.error` in the extension host is invisible without opening the dev tools.
+  This directly contradicts the project rule *"do not add undocumented fallbacks … fail fast instead."*
+  **Fix:** add an `error` field to every `*Loaded` message (the `runningJobsLoaded` handler at
+  [1660-1665](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1660-L1665)
+  already models this correctly) and render it inline in the picker.
+
+- <a id="m7"></a>**M7 — Hardcoded developer-specific absolute path shipped in the extension.**
+  [extension.ts:599](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L599):
+  ```ts
+  '/Users/mikenimer/Development/libraries/google-cloud-sdk/bin/gcloud',
+  ```
+  is the first candidate in `findGcloudPath()`. Dead weight for every other user and a leak of the
+  author's local layout into a published VSIX.
+  **Fix:** delete the line; resolve from `PATH`, then a `dataflowDesigner.gcloudPath` setting.
+
+- <a id="m8"></a>**M8 — `gcloud`/`bq` resolution is inconsistent, breaking asset discovery on GUI-launched VS Code.**
+  Only 3 call sites use `findGcloudPath()`
+  ([262](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L262),
+  [1169](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1169),
+  [1639](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1639)).
+  The other ~10 invoke bare `'gcloud'`, `'bq'`, `'gsutil'`, `'aws'`. On macOS, VS Code launched from
+  Finder/Dock does not inherit the shell `PATH`, so those `execFile` calls fail with `ENOENT` → and per
+  M6 the user just sees empty lists.
+  **Fix:** route every CLI invocation through one resolver (`resolveCli('gcloud'|'bq'|'gsutil'|'aws')`)
+  and surface a single actionable "CLI not found" error.
+
+- <a id="m9"></a>**M9 — `npm run lint` and `npm test` are both broken; the duplicate-case bug (M1) went undetected as a result.**
+  🧪 **Verified by execution.**
+  - `npx eslint src --ext ts` → *"ESLint couldn't find a configuration file."* There is no root
+    `.eslintrc*` / `eslint.config.js` (only `webview/eslint.config.js`).
+  - `pretest` = `compile && lint`, so **`npm test` can never run**.
+  - `npm test` = `node ./out/test/runTest.js`; that file does not exist and no `src/test/runTest.ts`
+    exists to produce it.
+  - [src/test/error-handling.test.ts](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/test/error-handling.test.ts)
+    is **0 bytes** but matches the vitest `include` glob → vitest fails the run with "No test suite found".
+  - `vitest.config.mts` mixes real-Gemini integration tests (180 s timeouts, live billable API, requires
+    gcloud auth) into the default `test:integration` run.
+  - Root vitest does **not** cover the ~45 webview test files (separate `webview` project); there is no
+    single command that runs everything.
+  **Fix:** add a root `eslint.config.js` enabling `no-duplicate-case`, `no-fallthrough`, `no-unused-vars`;
+  delete or populate the empty test file; split `test:unit` from `test:integration`; add a root script
+  that runs both projects. `tsc -p ./ --noEmit` passes cleanly today — keep it that way in CI.
+
+- <a id="m10"></a>**M10 — `parseOrRepairJson` is O(n²) on large truncated responses.**
+  [extension.ts:568-587](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L568-L587)
+  walks backwards through every `}` and calls `JSON.parse` on a fresh substring each iteration. Generated
+  payloads are routinely 50-200 KB with thousands of `}`, so a truncated response costs thousands of
+  full-string parses — seconds of blocked event loop in the extension host, right after the user already
+  waited on the model.
+  **Fix:** track brace depth in a single forward pass to find the last complete element of `files`, then
+  parse once. Better: request `maxOutputTokens` explicitly and treat truncation as a hard error.
+
+- <a id="m11"></a>**M11 — `highlightCode` is O(tokens × length) and re-runs on every render.**
+  [SourceCodeTab.tsx:100-103](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/SourceCodeTab.tsx#L100-L103)
+  performs one full-string `.replace()` **per token** to re-insert placeholders; with thousands of tokens
+  in a large generated file this is tens of millions of character scans. It is called inline in JSX at
+  [SourceCodeTab.tsx:283](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/SourceCodeTab.tsx#L283)
+  with no `useMemo`, so it re-runs on **every** parent re-render — including each keystroke elsewhere in the panel.
+  Separately, a real correctness bug: the replacement string is passed to `String.replace`, so `$&`,
+  `` $` ``, `$'`, `$1` inside generated code are interpreted as **special replacement patterns** and corrupt
+  the preview (e.g. a Python string `"cost: $& tax"`).
+  **Fix:** single-pass tokenise+join (no repeated `replace`), use a replacer *function* to neutralise `$`
+  patterns, and wrap the call in `useMemo([code, fileName, language])`.
+
+- <a id="m12"></a>**M12 — React Flow node identity is destroyed on every render.**
+  [App.tsx:1113-1119](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L1113-L1119)
+  builds brand-new node objects (and new `data` objects) inline in the `nodes` prop. React Flow memoises
+  on node reference, so this defeats it entirely and re-renders every node on any state change — visibly
+  janky while dragging on medium/large graphs.
+  **Fix:** attach `onLabelChange` once at node-creation time, or expose it via context so `data` stays
+  referentially stable; pass `nodes` straight through.
+
+- <a id="m13"></a>**M13 — Stale closure sends folder refresh to the wrong directory.**
+  The IPC `handleMessage` effect ([App.tsx:358-497](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L358-L497))
+  has a static dependency array, so the `refreshFolderFiles` it calls on `codeRegenerated`
+  ([App.tsx:441](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L441))
+  is the **first-render** instance, which captured `pipelineConfig.outputFolder === ''`
+  (`refreshFolderFiles` is `useCallback(..., [pipelineConfig.outputFolder])` at
+  [App.tsx:317-321](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L317-L321)).
+  After generating into a non-default folder, the file list is read from the wrong path.
+  **Fix:** read the folder from a ref (`pipelineConfigRef.current.outputFolder`) inside the handler.
+
+- <a id="m14"></a>**M14 — `PropertyForm` dispatches on the user-editable node label.**
+  [PropertyForm.tsx:71-265](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/PropertyForm.tsx#L71-L265)
+  is a ~200-line `if/else` chain matching substrings of `label` (e.g. `label.includes('PubSub')`).
+  Renaming a node to something containing a connector name silently swaps in the wrong property form and
+  corrupts that node's configuration.
+  **Fix:** dispatch from immutable `beam_transform`/`componentType` metadata via a
+  `Record<string, React.FC>` registry; never from the display label.
+
+- <a id="m15"></a>**M15 — `gemini.log` (full prompt, incl. any plaintext credentials) is uploaded to Cloud Build.**
+  The generated `.gcloudignore`/`.dockerignore`
+  ([extension.ts:2036-2043](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L2036-L2043))
+  list `.git .venv node_modules __pycache__ target/ *.beam *.tf` but **not `*.log`**, while
+  [run_dataflowrunner.sh](file:///Users/mikenimer/Development/projects/apache-beam-designer/resources/templates/python/run_dataflowrunner.sh)
+  runs `gcloud builds submit --tag "${TEMPLATE_IMAGE}" .` — uploading the whole folder, `gemini.log` included,
+  to Cloud Build/GCS. (Root `.gitignore` does cover `*.log`, so git is safe; the build context is not.)
+  **Fix:** add `*.log` and `gemini.log` to both ignore files, and stop logging the raw prompt (see C2).
+
+- <a id="m16"></a>**M16 — Edge redirection only rewires the first incoming edge.**
+  [App.tsx:804-817](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L804-L817)
+  uses `edges.findIndex(e => e.target === windowNodeId)` when inserting a KV Mapper. With multiple inbound
+  edges the remaining ones keep pointing at the old node, silently producing a wrong DAG — which is then
+  handed to Gemini as the spec.
+  **Fix:** `edges.filter(...)`/`map(...)` to redirect **all** matching edges.
+
+- <a id="m17"></a>**M17 — `activationEvents: ["*"]` forces eager activation.**
+  [package.json:13-15](file:///Users/mikenimer/Development/projects/apache-beam-designer/package.json#L13-L15).
+  The extension boots on every window, and `DataFlowTreeProvider`'s constructor immediately runs
+  `scanPipelines()` → `workspace.findFiles('**/*.beam')`
+  ([extension.ts:197-215](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L197-L215))
+  across the entire workspace, even for users who never open a `.beam` file.
+  **Fix:** `onCustomEditor:dataflow-pipeline-builder.beamEditor`, `onView:dataflowExplorer`, plus the
+  explicit command IDs. Exclude `**/node_modules/**` from `findFiles`.
+
+- <a id="m18"></a>**M18 — Blocking synchronous I/O throughout the extension host.**
+  `fs.writeFileSync`/`readFileSync`/`readdirSync`/`statSync`/`existsSync` are used on every hot path —
+  autosave ([952](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L952)),
+  per-file codegen writes ([1971](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1971)),
+  recursive folder walk ([1539-1555](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1539-L1555)),
+  sample loading ([800-847](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L800-L847)).
+  Combined with the 1 s autosave debounce ([App.tsx:327-346](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L327-L346))
+  the UI thread stalls on disk during editing.
+  **Fix:** migrate to `fs.promises` / `vscode.workspace.fs`.
+
+- <a id="m19"></a>**M19 — Stale closure in `BigQueryIO` silently erases user input.**
+  [source/BigQueryIO.tsx:45-65](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/BigQueryIO.tsx#L45-L65)
+  (and the twin at [sink/BigQueryIO.tsx:42-61](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/sink/BigQueryIO.tsx#L42-L61))
+  registers a `message` listener in a `useEffect` with an **empty dependency array**, so `handleMessage`
+  permanently captures the *first-render* `properties` object
+  ([line 40](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/BigQueryIO.tsx#L40)).
+  When the async `datasetsLoaded` reply arrives it executes:
+  ```ts
+  onChange({ ...properties, projectId: message.projectId });   // line 51 — `properties` is stale
+  ```
+  Anything the user typed between mount and the `bq ls` response (typically 1-3 s) is **reverted**.
+  Worse, `datasetsLoaded` is a broadcast on `window`, so *any* component triggering `getDatasets` resets
+  *every* mounted BigQueryIO form.
+  **Fix:** keep `properties` in a ref (`propertiesRef.current = properties` each render) and read
+  `propertiesRef.current` inside the handler before calling `onChange`.
+
+- <a id="m20"></a>**M20 — `sink/KinesisIO` does not normalise the secrets payload — latent `[object Object]`, and it breaks the moment M1 is fixed.**
+  ⚠️ **Read together with M1 before touching either.**
+  [source/KinesisIO.tsx:136](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/source/KinesisIO.tsx#L136)
+  defensively normalises: `rawSecrets.map(s => typeof s === 'string' ? s : s.name)`.
+  Its sibling [sink/KinesisIO.tsx:131](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/sink/KinesisIO.tsx#L131)
+  omits it entirely — `setSecrets(message.secrets || [])` — then renders the values directly at
+  [sink/KinesisIO.tsx:370-372](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/sink/KinesisIO.tsx#L370-L372):
+  ```tsx
+  {secrets.map((sec) => (<option key={sec} value={sec} />))}
+  ```
+  **It works today only by accident:** the *live* `getSecrets` handler
+  ([extension.ts:1168](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1168))
+  emits an array of **strings**. The dead handler at
+  [1274](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1274)
+  emits **objects**. So if M1 is fixed the obvious way — delete the first handler, keep the correct
+  second one — this sink immediately renders `[object Object]` in the dropdown and writes that string
+  into the pipeline.
+  **Fix:** normalise in `sink/KinesisIO.tsx` **in the same commit** as M1, and audit the other 13
+  `secretsLoaded` listeners for the same omission. This is exactly the drift predicted by A4.
+
+- <a id="m21"></a>**M21 — Test-coverage gaps and an orphaned test file.**
+  No sibling test exists for
+  [step/Aggregations.tsx](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/step/Aggregations.tsx),
+  [step/Map.tsx](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/step/Map.tsx), or
+  [step/ParseMessage.tsx](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/step/ParseMessage.tsx),
+  against a project standard of 100% coverage. Conversely,
+  [step/ElementTransforms.test.tsx](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/properties/step/ElementTransforms.test.tsx)
+  tests an `ElementTransforms.tsx` that **does not exist** — either a deleted component whose test was
+  left behind, or a component missing from a commit. Resolve which, then add the three missing suites.
+
+---
+
+## 2. Architecture & Code Quality
+
+- <a id="a1"></a>**A1 — `handleMessages` is a ~1,000-line switch: the single largest SRP breach in the codebase.**
+  [extension.ts:1081-2077](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1081-L2077)
+  is one function handling GCP asset discovery, AWS discovery, file I/O, save dialogs, sample management,
+  terminal execution, and the whole Gemini codegen pipeline. It is untestable in isolation (no seam for
+  mocking `execFile`), and it is exactly where M1's duplicate `case` hid.
+  **Fix:** replace with a handler registry `Record<string, (msg, ctx) => Promise<void>>` split into
+  `src/handlers/gcpAssets.ts`, `fileSystem.ts`, `samples.ts`, `codegen.ts`, `runner.ts`. A registry makes
+  duplicate keys impossible by construction.
+
+- <a id="a2"></a>**A2 — The 10 asset-discovery handlers are the same function copy-pasted 10 times.**
+  `getDatasets`/`getTables`/`getTopics`/`getSubscriptions`/`getSecrets`/`getNetworks`/`getSubnetworks`/
+  `getStorageBuckets`/`getAwsQueues`/`getComputeInstances` all implement: exec CLI → on error log+post empty →
+  `JSON.parse` → map → post. ~210 lines that should be ~30.
+  **Fix:**
+  ```ts
+  async function listAssets<T>(cli: string, args: string[], map: (json: any) => T[],
+                               responseCommand: string, key: string) { /* one impl, real errors */ }
+  ```
+  This fixes M6 and M8 in one place for all ten.
+
+- <a id="a3"></a>**A3 — Extract the Gemini codegen pipeline out of the message handler.**
+  [extension.ts:1812-2073](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1812-L2073)
+  is a single 260-line closure doing prompt assembly, API call, logging, JSON repair, filename
+  normalisation, language filtering, path routing, content rewriting, file writing, chmod, and main-file
+  detection. The Java/Python routing blocks at
+  [1933-1954](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1933-L1954)
+  and the near-identical main-file detection at
+  [1983-2002](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1983-L2002)
+  are parallel implementations that will drift.
+  **Fix:** `CodeGenerator` class + a `LanguageStrategy` interface (`JavaStrategy`/`PythonStrategy`) exposing
+  `normalizePath()`, `isMainFile()`, `shouldSkip()`. Makes each unit testable without calling the model.
+
+- <a id="a4"></a>**A4 — Severe DRY violation across 41 property components (13,641 LOC). Measured, not estimated:**
+  | Duplicated pattern | Occurrences |
+  |---|---|
+  | Identical Tailwind `<input>` class string | **163** |
+  | Identical Tailwind `<label>` class string | **171** |
+  | Hand-rolled `const handleChange` | **34 / 41 files** |
+  | Raw `window.addEventListener('message', …)` IPC block | **14 files** |
+  | Manual `onChange({...})` parent-sync block | **38 files** |
+  | Duplicated Secret Manager auth-mode UI | **6 files** |
+
+  Every one of these is a place M1-style drift can hide, and it is why sink/source siblings diverge.
+  **Fix (highest maintainability ROI in the repo):**
+  1. `<PropertyField label icon tooltip type value onChange/>` — collapses the 163+171 class-string copies
+     and centralises the 8pt-grid styling the project standard requires.
+  2. `useExtensionMessage(command, handler)` hook — one listener with guaranteed `removeEventListener`
+     cleanup, replacing 14 hand-written effects.
+  3. `useAssetLoader('secrets'|'buckets'|'topics')` — request + loading + error state, once.
+  4. `<SecretManagerAuthFields/>` — the 6-file credential block, and the enforcement point for C2.
+  Realistic outcome: **13.6k → ~4-5k LOC** with materially better consistency.
+
+- <a id="a5"></a>**A5 — Dead compiled artifacts committed inside the source tree.**
+  `git ls-files` shows
+  [App.js](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.js),
+  [App.js.map](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.js.map),
+  [main.js](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/main.js),
+  [main.js.map](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/main.js.map)
+  tracked next to their `.tsx` sources. Stale duplicates that confuse search/navigation.
+  **Fix:** `git rm --cached` them; add `webview/src/**/*.js{,.map}` to `.gitignore`.
+
+- <a id="a6"></a>**A6 — `App.tsx` (1,232 lines) should be decomposed.**
+  It owns canvas state, IPC, autosave, samples, node/edge mutation helpers, and layout.
+  **Fix:** extract `useVsCodeBridge()` (IPC + `ready` handshake), `usePipelinePersistence()` (YAML +
+  debounced save), `usePipelineGraph()` (node/edge mutations incl. the M16 fix), leaving `App.tsx` as composition.
+
+- <a id="a7"></a>**A7 — Model constant contradicts the project's own standard.**
+  [constants.ts:4](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/constants.ts#L4)
+  pins `gemini-3.5-flash`, while
+  [.gemini/GEMINI.md:13](file:///Users/mikenimer/Development/projects/apache-beam-designer/.gemini/GEMINI.md#L13)
+  mandates `gemini-3.7-flash` (Recommended). One of the two is wrong — reconcile deliberately.
+  *(Note: `location: 'global'` at [extension.ts:1825](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1825) correctly follows the documented Vertex requirement.)*
+
+- <a id="a8"></a>**A8 — New pipelines are written as JSON but saved back as YAML.**
+  `createNewPipeline` writes `JSON.stringify(...)`
+  ([extension.ts:70-89](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L70-L89)),
+  whereas the webview persists `YAML.stringify(...)`
+  ([App.tsx:336](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L336)).
+  It happens to work (YAML ⊃ JSON) but means a file silently changes format on first edit, producing a
+  confusing whole-file diff. **Fix:** emit YAML at creation.
+
+---
+
+## 3. Performance Bottlenecks
+
+Consolidated; details in the linked items above.
+
+- <a id="p1"></a>**P1** — O(n²) `parseOrRepairJson` blocking the extension host → **M10**
+- <a id="p2"></a>**P2** — O(tokens × length) unmemoised `highlightCode` on every render → **M11**
+- <a id="p3"></a>**P3** — React Flow re-render storm from unstable node identity → **M12**
+- <a id="p4"></a>**P4** — Synchronous `fs.*` on autosave/codegen hot paths → **M18**
+- <a id="p5"></a>**P5** — Eager `activationEvents: ["*"]` + unfiltered workspace-wide `findFiles('**/*.beam')` → **M17**
+- <a id="p6"></a>**P6** — Full-document `YAML.stringify` of the entire graph every 1 s while editing
+  ([App.tsx:327-346](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/App.tsx#L327-L346)),
+  each triggering a synchronous whole-file rewrite on the host. Increase the debounce and/or dirty-check
+  against the last serialised value before posting.
+- <a id="p7"></a>**P7** — Unmemoised `.filter()` in render
+  ([BottomPanel.tsx:74-76](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/BottomPanel.tsx#L74-L76)); wrap in `useMemo`. *(Minor.)*
+
+---
+
+## 4. Actionable Remediation Plan
+
+Ordered by risk-reduction per unit of effort.
+
+**Phase 1 — Security & data loss (do before any further feature work)**
+- **1.** Add the containment check to the codegen write loop; gate `chmod` to an allowlist. **(C1)**
+- **2.** Rebuild cleanup as: reorder (delete *after* a validated payload) → `.beamgen.json` ownership
+      marker + `pipelineId` → prompt-on-unowned-folder gate → allowlist deletion, with dependency
+      folders (`.venv`/`target`/…) removed **only on language switch**. **(C3)**
+- **3.** Move the 4 password fields to Secret Manager references; redact secrets from the prompt and stop
+      writing the raw prompt to `gemini.log`; add `*.log` to the generated ignore files. **(C2, M15)**
+- **4.** Remove the `cd "${folderPath}"` interpolation. **(M3)**
+- **5.** Add a nonce-based CSP to the webview HTML. **(M2)**
+
+**Phase 2 — Make the safety net real (unblocks everything after)**
+- **6.** Add root `eslint.config.js` with `no-duplicate-case`; fix `npm test`; delete the empty test file;
+      split unit vs. live-Gemini integration runs. **(M9)**
+- **7.** Fix the `getSecrets` duplication **as one atomic commit**: delete the dead handler at line 1168,
+      keep the correct one at 1274, **and** add the missing `.map(s => s.name)` normalisation in
+      `sink/KinesisIO.tsx:131` — otherwise step 7 alone regresses the Kinesis sink to `[object Object]`.
+      Audit the other 13 `secretsLoaded` listeners in the same pass. Add a regression test asserting
+      short secret IDs reach the dropdown. **(M1 + M20 — do not split)**
+- **8.** Regression tests for C1 (traversal payloads rejected) and M16 (multi-edge rewiring) — per the
+      project's "every bug fix ships with a test" rule.
+
+**Phase 3 — Correctness & lifecycle**
+- **9.** Dispose webview listeners on panel dispose. **(M5)**
+- **10.** Persist via `WorkspaceEdit`; add `onDidChangeTextDocument` to deliver the documented two-way sync. **(M4)**
+- **11.** Fix the stale-closure folder refresh. **(M13)**
+- **12.** Fix the `BigQueryIO` stale-closure that erases user input (source + sink). **(M19)**
+- **13.** Fix multi-edge redirection. **(M16)**
+- **14.** Switch `PropertyForm` to a metadata-driven registry. **(M14)**
+
+**Phase 4 — Performance**
+- **15.** Single-pass JSON repair. **(M10/P1)**
+- **16.** Memoise + linearise `highlightCode`, and fix the `$`-pattern corruption. **(M11/P2)**
+- **17.** Stabilise React Flow node references. **(M12/P3)**
+- **18.** Narrow `activationEvents`; async `fs`. **(M17, M18)**
+
+**Phase 5 — Structural (highest long-term ROI)**
+- **19.** Extract `listAssets()`; collapse the 10 duplicated handlers and fix M6/M8 centrally. **(A2, M6, M7, M8)**
+- **20.** Split `handleMessages` into a handler registry across `src/handlers/*`. **(A1)**
+- **21.** Extract `CodeGenerator` + `LanguageStrategy`. **(A3)**
+- **22.** Introduce `<PropertyField>`, `useExtensionMessage`, `useAssetLoader`, `<SecretManagerAuthFields>`
+      and migrate the 41 property components. **(A4)**
+- **23.** Decompose `App.tsx` into hooks. **(A6)**
+- **24.** Untrack the 4 stale `.js`/`.map` files; reconcile the model constant; emit YAML at creation. **(A5, A7, A8)**
+- **25.** Resolve the orphaned `ElementTransforms.test.tsx` and add the 3 missing test suites. **(M21)**
+
+---
+
+## Appendix: Investigated & Cleared
+
+Recorded so these are not re-reviewed:
+
+- **XSS via `dangerouslySetInnerHTML`** — *not exploitable as written.* `highlightCode` escapes `&`, `<`, `>`
+  before tokenising ([SourceCodeTab.tsx:62-65](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/SourceCodeTab.tsx#L62-L65)),
+  and token contents are built from already-escaped text with hardcoded class names. `$`-substitution can
+  duplicate escaped text but cannot unescape it. Tracked as correctness + defence-in-depth under **M2/M11**.
+- **`readFileContent` path traversal** — *correctly defended* at
+  [extension.ts:1593-1604](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1593-L1604)
+  (resolve + `relative` + `..`/absolute rejection). This is the pattern C1 should copy.
+- **`deleteCodeFiles` deleting outside the workspace** — *correctly defended* at
+  [extension.ts:892-898](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L892-L898).
+  The C3 risk is deletion of legitimate user files *inside* the workspace, not escape.
+- **`folderPath` redeclared in the same `switch`** ([1526](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1526) / [1708](file:///Users/mikenimer/Development/projects/apache-beam-designer/src/extension.ts#L1708)) —
+  not a collision; the second sits inside a nested `if (runUri) {}` block.
+- **Compilation** — `npx tsc -p ./ --noEmit` passes with zero errors.
+- **`gemini.log` committed to git** — no; root `.gitignore` covers `*.log`. The real exposure is the Cloud
+  Build upload path (**M15**).
