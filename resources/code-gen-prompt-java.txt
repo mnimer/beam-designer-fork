@@ -92,6 +92,12 @@ Language: Java
   - Match Source (`FileIO.match` / `FileIO.matchAll`): `FileIO.match().filepattern(filePattern)` (supports `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.continuously(Duration.standardMinutes(...), Watch.Growth.never())`)
   - Read Matches Step (`FileIO.readMatches`): `FileIO.readMatches()` (produces `PCollection<FileIO.ReadableFile>`, supports `.withCompression(Compression.<TYPE>)`, `.withDirectoryTreatment(FileIO.ReadMatches.DirectoryTreatment.<TREATMENT>)`)
   - Sink (`FileIO.write`): `FileIO.<T>write().to(destinationDir)` (supports `.withPrefix(...)`, `.withSuffix(...)`, `.withCompression(Compression.<TYPE>)`, `.withNumShards(...)`, `.withIgnoreEmptyFiles(...)`)
+- **`ParquetIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.parquet.ParquetIO`, `org.apache.avro.Schema`, `org.apache.avro.generic.GenericRecord`, `org.apache.parquet.hadoop.metadata.CompressionCodecName`
+  - Maven Dependencies:
+    - Add `org.apache.beam:beam-sdks-java-io-parquet` and `org.apache.parquet:parquet-avro` to `pom.xml`.
+  - Source: `ParquetIO.read(schema).from(filePattern)` (reads into `PCollection<GenericRecord>`, supports `.withProjection(projectionSchema, encoderSchema)`)
+  - Sink: `FileIO.<GenericRecord>write().via(ParquetIO.sink(schema).withCompressionCodec(CompressionCodecName.<CODEC>)).to(destinationDir).withSuffix(".parquet").withNumShards(numShards)`
 - **`Create`**:
   - Source: `Create.of([...])`
 - **`JdbcIO`**:

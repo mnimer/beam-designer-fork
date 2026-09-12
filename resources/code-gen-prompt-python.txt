@@ -127,6 +127,11 @@ Language: Python
   - Match Source (`FileIO.match`): `fileio.MatchFiles(file_pattern)` / `fileio.MatchAll()`
   - Read Matches Step (`FileIO.readMatches`): `fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
   - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
+- **`ParquetIO`**:
+  - Required Imports: `from apache_beam.io.parquetio import ReadFromParquet, WriteToParquet` (or `beam.io.ReadFromParquet`, `beam.io.WriteToParquet`), `import pyarrow`
+  - Dependencies: `apache-beam[gcp]>=2.50.0`, `pyarrow>=10.0.0`
+  - Source: `beam.io.ReadFromParquet(file_pattern=file_pattern, columns=columns, validate=validate, min_bundle_size=min_bundle_size)` (or `beam.io.ReadFromParquetBatched` when batched mode is requested)
+  - Sink: `beam.io.WriteToParquet(file_path_prefix=file_path_prefix, schema=schema, codec=codec, file_name_suffix=suffix, num_shards=num_shards, row_group_buffer_size=row_group_buffer_size, record_batch_size=record_batch_size, use_compliant_nested_type=use_compliant_nested_type, use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)`
 - **`Create`**:
   - Source: `beam.Create([...])`
 - **`JdbcIO`**:

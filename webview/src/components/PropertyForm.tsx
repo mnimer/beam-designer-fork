@@ -39,6 +39,8 @@ import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
 import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
 import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
+import { ParquetIOSourceProperties } from '../properties/source/ParquetIO';
+import { ParquetIOSinkProperties } from '../properties/sink/ParquetIO';
 import { AvroIOSourceProperties } from '../properties/source/AvroIO';
 import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
 import { SqsIOSourceProperties } from '../properties/source/SqsIO';
@@ -122,6 +124,18 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('parquet') || 
+    transformLower.includes('parquet') ||
+    beamTransform === 'ParquetIO' ||
+    beamTransform === 'ReadFromParquet' ||
+    beamTransform === 'WriteToParquet'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <ParquetIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <ParquetIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     labelLower.includes('sqs') || 

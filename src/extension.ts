@@ -7,8 +7,21 @@ import YAML from 'yaml';
 import { DEFAULT_GEMINI_MODEL } from './constants';
 
 /**
- * Extension Activation Entry Point
- * Registers tree providers, custom text editor providers, and extension commands.
+ * Apache Beam Designer Extension Main Entry Point
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Activates the VS Code extension for Apache Beam pipeline visual authoring.
+ * Registers tree view providers, custom editor providers, commands, and IPC handlers
+ * between the VS Code extension host and the webview designer canvas.
+ * 
+ * Architectural Decisions:
+ * - Uses CustomTextEditorProvider (BeamEditorProvider) for two-way synchronization of .beam files.
+ * - Bridges gcloud and bq CLI commands for real-time asset discovery (BigQuery datasets/tables,
+ *   Pub/Sub topics/subscriptions, VPC networks/subnets, Cloud Storage buckets).
+ * - Executes AI code generation via Google GenAI SDK (@google/genai).
+ * - Provides non-blocking asynchronous IPC message dispatch to webview.
  * 
  * @param context The extension context provided by VS Code
  */
@@ -1189,6 +1202,42 @@ function handleMessages(
                     } catch (e) {
                         console.error('Failed to parse subnetworks output', e);
                         webview.postMessage({ command: 'subnetworksLoaded', subnetworks: [] });
+                    }
+                });
+                return;
+            case 'getStorageBuckets':
+                // NOTE: Query Google Cloud Storage buckets for Parquet and file-based IO nodes
+                execFile('gcloud', ['storage', 'buckets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud storage buckets error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        // Fallback attempt with gsutil in case gcloud storage is unavailable
+                        execFile('gsutil', ['ls'], (gsutilErr: any, gsutilOut: string) => {
+                            if (gsutilErr) {
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
+                                return;
+                            }
+                            try {
+                                const rawBuckets = gsutilOut.split('\n')
+                                    .map((b: string) => b.trim().replace(/^gs:\/\//, '').replace(/\/$/, ''))
+                                    .filter((b: string) => b.length > 0);
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: rawBuckets });
+                            } catch {
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
+                            }
+                        });
+                        return;
+                    }
+                    try {
+                        const bucketsJson = JSON.parse(stdout);
+                        const buckets = bucketsJson.map((b: any) => {
+                            const name = b.name || b.id || '';
+                            return name.replace(/^gs:\/\//, '').replace(/\/$/, '');
+                        }).filter((b: string) => b.length > 0);
+                        webview.postMessage({ command: 'storageBucketsLoaded', buckets });
+                    } catch (e) {
+                        console.error('Failed to parse storage buckets output', e);
+                        webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
                     }
                 });
                 return;
