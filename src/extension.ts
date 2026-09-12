@@ -1192,6 +1192,61 @@ function handleMessages(
                     }
                 });
                 return;
+            case 'getSecrets':
+                // NOTE: Query Secret Manager for secrets to populate secure credential selectors
+                execFile('gcloud', ['secrets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud secrets error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                        return;
+                    }
+                    try {
+                        const secretsJson = JSON.parse(stdout);
+                        const secrets = secretsJson.map((s: any) => {
+                            const nameParts = (s.name || '').split('/');
+                            const shortName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : s.name;
+                            return {
+                                name: shortName,
+                                fullName: s.name,
+                                value: shortName
+                            };
+                        });
+                        webview.postMessage({ command: 'secretsLoaded', secrets });
+                    } catch (e) {
+                        console.error('Failed to parse secrets output', e);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                    }
+                });
+                return;
+            case 'getComputeInstances':
+                // NOTE: Query Compute Engine instances to suggest broker host addresses
+                execFile('gcloud', ['compute', 'instances', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud compute instances error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        webview.postMessage({ command: 'computeInstancesLoaded', instances: [] });
+                        return;
+                    }
+                    try {
+                        const instancesJson = JSON.parse(stdout);
+                        const instances = instancesJson.map((inst: any) => {
+                            const internalIp = inst.networkInterfaces?.[0]?.networkIP || '';
+                            const externalIp = inst.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP || '';
+                            return {
+                                name: inst.name,
+                                status: inst.status,
+                                internalIp,
+                                externalIp
+                            };
+                        });
+                        webview.postMessage({ command: 'computeInstancesLoaded', instances });
+                    } catch (e) {
+                        console.error('Failed to parse compute instances output', e);
+                        webview.postMessage({ command: 'computeInstancesLoaded', instances: [] });
+                    }
+                });
+                return;
             case 'ready':
                 const gcloudProjectId = (await getGcloudProject()) || 'YOUR_PROJECT_ID';
 

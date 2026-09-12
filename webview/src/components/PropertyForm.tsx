@@ -10,6 +10,7 @@
  * - Delegates specific property forms to modular components in source, sink, and step subdirectories.
  * - Matches node labels and beam_transform metadata.
  * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse), Database, File, Aggregations, and Transform steps.
+ * - Supports MqttIO Source and Sink property forms for streaming IoT workloads.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -40,6 +41,8 @@ import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
 import { AvroIOSourceProperties } from '../properties/source/AvroIO';
 import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
+import { MqttIOSourceProperties } from '../properties/source/MqttIO';
+import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
 interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
@@ -117,6 +120,18 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('mqtt') || 
+    transformLower.includes('mqtt') || 
+    beamTransform === 'MqttIO' ||
+    beamTransform === 'ReadFromMqtt' || 
+    beamTransform === 'WriteToMqtt'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <MqttIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <MqttIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     label === 'Window' || 

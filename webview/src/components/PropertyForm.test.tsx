@@ -547,6 +547,47 @@ describe('PropertyForm', () => {
     expect(toInput).toBeInTheDocument();
     expect(toInput).toHaveValue('gs://bucket/output/records');
   });
+
+  it('renders MqttIOSourceProperties when label or beam_transform is MqttIO with type SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        type: 'SOURCE',
+        beam_transform: 'MqttIO',
+        properties: {
+          serverUri: 'tcp://broker.hivemq.com:1883',
+          topic: 'devices/+/telemetry'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Server URI/i)).toHaveValue('tcp://broker.hivemq.com:1883');
+    expect(screen.getByLabelText(/Subscription Topic \/ Filter/i)).toHaveValue('devices/+/telemetry');
+  });
+
+  it('renders MqttIOSinkProperties when label or beam_transform is MqttIO with type SINK', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        type: 'SINK',
+        beam_transform: 'MqttIO',
+        properties: {
+          serverUri: 'tcp://broker.hivemq.com:1883',
+          topic: 'commands/device1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Server URI/i)).toHaveValue('tcp://broker.hivemq.com:1883');
+    expect(screen.getByLabelText(/Publish Topic/i)).toHaveValue('commands/device1');
+    expect(screen.getByLabelText(/Retain Messages/i)).toBeInTheDocument();
+  });
 });
 
 

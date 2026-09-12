@@ -165,6 +165,7 @@ describe('NodesCard', () => {
     expect(screen.getByText('File Sources')).toBeInTheDocument();
     expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('MQTT')).toBeInTheDocument();
     expect(screen.getByText('Generate Sequence')).toBeInTheDocument();
     expect(screen.getByText('Periodic Impulse')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
@@ -222,6 +223,7 @@ describe('NodesCard', () => {
 
     expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('MQTT')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('JdbcIO')).toBeInTheDocument();
     expect(screen.getByText('FileIO')).toBeInTheDocument();

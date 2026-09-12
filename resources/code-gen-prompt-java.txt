@@ -138,6 +138,27 @@ Language: Java
     - Syntax: `KafkaIO.<K, V>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(KeySerializer.class).withValueSerializer(ValueSerializer.class)`
     - Supports `.withProducerConfigUpdates(Map<String, Object> configUpdates)` for producer configurations (such as `acks`, `retries`, `compression.type`, etc.).
     - Supports `.withEOS(numPartitions, sinkGroupId)` when Exactly-Once Semantics (`useEOS`) is enabled. Note: When writing to Kafka, input PCollection must be `PCollection<KV<K, V>>` (e.g. using `WithKeys.of(...)` or `MapElements` to map values into KV pairs before writing).
+- **`MqttIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.mqtt.MqttIO` and optionally `org.apache.beam.sdk.io.mqtt.MqttRecord`
+  - Maven Dependencies:
+    - Always add `org.apache.beam:beam-sdks-java-io-mqtt` to `pom.xml`.
+  - ConnectionConfiguration:
+    - Syntax: `MqttIO.ConnectionConfiguration.create(serverUri, topic)`
+    - Optional configuration methods:
+      - `.withClientId(clientId)`
+      - `.withUsername(username)`
+      - `.withPassword(password)`
+      - `.withConnectionTimeout(connectionTimeout)`
+      - `.withKeepAlive(keepAlive)`
+  - Source (Read):
+    - Syntax: `MqttIO.read().withConnectionConfiguration(connectionConfiguration)` (produces `PCollection<byte[]>`)
+    - With Metadata: When `useMetadata` is true:
+      `MqttIO.readWithMetadata().withConnectionConfiguration(connectionConfiguration)` (produces `PCollection<MqttRecord>`)
+    - QoS: Supports `.withQos(MqttIO.Qos.AT_LEAST_ONCE)` (or `EXACTLY_ONCE` / `AT_MOST_ONCE`)
+    - Bounded: Supports `.withMaxNumRecords(maxNumRecords)` and `.withMaxReadTime(org.joda.time.Duration.standardSeconds(seconds))`
+  - Sink (Write):
+    - Syntax: `MqttIO.write().withConnectionConfiguration(connectionConfiguration)` (consumes `PCollection<byte[]>`)
+    - Supports `.withRetain(retain)` when `retain` is true.
 
 #### 2. Element-Wise Transforms
 - **`WithTimestamps`** (Add Timestamp):

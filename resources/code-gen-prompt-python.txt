@@ -165,6 +165,15 @@ Language: Python
   - Sink (Write):
     - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
     - Input elements to `WriteToKafka` must be `(key, value)` tuples.
+- **`MqttIO`**:
+  - Required Imports: `from apache_beam.transforms.xlang.io import ReadFromMqtt, WriteToMqtt`
+  - Note: Uses Apache Beam Cross-Language expansion service.
+  - Source (Read):
+    - Syntax: `ReadFromMqtt(server_uri=server_uri, topic=topic, client_id=client_id, username=username, password=password, max_num_records=max_num_records, max_read_time=max_read_time)`
+    - Elements produced are raw payload `bytes`.
+  - Sink (Write):
+    - Syntax: `WriteToMqtt(server_uri=server_uri, topic=topic, client_id=client_id, username=username, password=password, retain=retain)`
+    - Input elements to `WriteToMqtt` must be `bytes`.
 
 #### 2. Element-Wise Transforms
 - **`WithTimestamps`** (Add Timestamp):
