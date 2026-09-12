@@ -92,6 +92,12 @@ Language: Java
   - Match Source (`FileIO.match` / `FileIO.matchAll`): `FileIO.match().filepattern(filePattern)` (supports `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.continuously(Duration.standardMinutes(...), Watch.Growth.never())`)
   - Read Matches Step (`FileIO.readMatches`): `FileIO.readMatches()` (produces `PCollection<FileIO.ReadableFile>`, supports `.withCompression(Compression.<TYPE>)`, `.withDirectoryTreatment(FileIO.ReadMatches.DirectoryTreatment.<TREATMENT>)`)
   - Sink (`FileIO.write`): `FileIO.<T>write().to(destinationDir)` (supports `.withPrefix(...)`, `.withSuffix(...)`, `.withCompression(Compression.<TYPE>)`, `.withNumShards(...)`, `.withIgnoreEmptyFiles(...)`)
+- **`ParquetIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.parquet.ParquetIO`, `org.apache.avro.Schema`, `org.apache.avro.generic.GenericRecord`, `org.apache.parquet.hadoop.metadata.CompressionCodecName`
+  - Maven Dependencies:
+    - Add `org.apache.beam:beam-sdks-java-io-parquet` and `org.apache.parquet:parquet-avro` to `pom.xml`.
+  - Source: `ParquetIO.read(schema).from(filePattern)` (reads into `PCollection<GenericRecord>`, supports `.withProjection(projectionSchema, encoderSchema)`)
+  - Sink: `FileIO.<GenericRecord>write().via(ParquetIO.sink(schema).withCompressionCodec(CompressionCodecName.<CODEC>)).to(destinationDir).withSuffix(".parquet").withNumShards(numShards)`
 - **`Create`**:
   - Source: `Create.of([...])`
 - **`JdbcIO`**:
@@ -138,6 +144,17 @@ Language: Java
     - Syntax: `KafkaIO.<K, V>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(KeySerializer.class).withValueSerializer(ValueSerializer.class)`
     - Supports `.withProducerConfigUpdates(Map<String, Object> configUpdates)` for producer configurations (such as `acks`, `retries`, `compression.type`, etc.).
     - Supports `.withEOS(numPartitions, sinkGroupId)` when Exactly-Once Semantics (`useEOS`) is enabled. Note: When writing to Kafka, input PCollection must be `PCollection<KV<K, V>>` (e.g. using `WithKeys.of(...)` or `MapElements` to map values into KV pairs before writing).
+- **`SqsIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.aws2.sqs.SqsIO`, `software.amazon.awssdk.services.sqs.model.Message`, `software.amazon.awssdk.services.sqs.model.SendMessageRequest`
+  - Maven Dependencies:
+    - Always add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` to `pom.xml`.
+  - Source (Read):
+    - Syntax: `SqsIO.read().withQueueUrl(queueUrl)`
+    - Supports `.withMaxNumRecords(long)` and `.withMaxReadTime(org.joda.time.Duration.standardSeconds(seconds))` when bounds are specified.
+    - Yields `PCollection<Message>`. Downstream steps extract message body via `message.body()`.
+  - Sink (Write):
+    - Syntax: `SqsIO.write().withQueueUrl(queueUrl)`
+    - Supports `.withBatchSize(batchSize)` (batch size between 1 and 10 per AWS SendMessageBatch limit).
 - **`MqttIO`**:
   - Required Imports: `org.apache.beam.sdk.io.mqtt.MqttIO` and optionally `org.apache.beam.sdk.io.mqtt.MqttRecord`
   - Maven Dependencies:

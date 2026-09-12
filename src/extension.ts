@@ -7,8 +7,21 @@ import YAML from 'yaml';
 import { DEFAULT_GEMINI_MODEL } from './constants';
 
 /**
- * Extension Activation Entry Point
- * Registers tree providers, custom text editor providers, and extension commands.
+ * Apache Beam Designer Extension Main Entry Point
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Activates the VS Code extension for Apache Beam pipeline visual authoring.
+ * Registers tree view providers, custom editor providers, commands, and IPC handlers
+ * between the VS Code extension host and the webview designer canvas.
+ * 
+ * Architectural Decisions:
+ * - Uses CustomTextEditorProvider (BeamEditorProvider) for two-way synchronization of .beam files.
+ * - Bridges gcloud and bq CLI commands for real-time asset discovery (BigQuery datasets/tables,
+ *   Pub/Sub topics/subscriptions, VPC networks/subnets, Cloud Storage buckets).
+ * - Executes AI code generation via Google GenAI SDK (@google/genai).
+ * - Provides non-blocking asynchronous IPC message dispatch to webview.
  * 
  * @param context The extension context provided by VS Code
  */
@@ -1009,7 +1022,19 @@ function savePipelineFiles(
 
 /**
  * BeamEditorProvider
- * Custom Text Editor provider for `.beam` visual pipeline design files.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Custom Text Editor provider for `.beam` visual pipeline design files in VS Code.
+ * Coordinates bidirectional IPC message passing between the React Webview canvas
+ * and host CLI tools (gcloud, bq), filesystem persistence, and Gemini code generation.
+ * 
+ * Architectural Decisions:
+ * - Implements vscode.CustomTextEditorProvider for .beam YAML file synchronization.
+ * - Handles CLI queries (BigQuery datasets/tables, PubSub topics/subscriptions, Secret Manager secrets, VPC networks/subnetworks).
+ * - Dispatches 'getSecrets' via gcloud secrets list to support safe credential selection for streaming nodes like KinesisIO.
+ * - Dispatches Gemini code generation requests and writes structured pipeline artifacts to disk.
  */
 class BeamEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(private readonly context: vscode.ExtensionContext) { }
@@ -1140,6 +1165,24 @@ function handleMessages(
                     }
                 });
                 return;
+            case 'getSecrets':
+                execFile(findGcloudPath(), ['secrets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud secrets error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                        return;
+                    }
+                    try {
+                        const secretsJson = JSON.parse(stdout);
+                        const secrets = secretsJson.map((s: any) => s.name);
+                        webview.postMessage({ command: 'secretsLoaded', secrets });
+                    } catch (e) {
+                        console.error('Failed to parse secrets output', e);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                    }
+                });
+                return;
             case 'getNetworks':
                 execFile('gcloud', ['compute', 'networks', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
                     if (error) {
@@ -1192,9 +1235,45 @@ function handleMessages(
                     }
                 });
                 return;
+            case 'getStorageBuckets':
+                // NOTE: Query Google Cloud Storage buckets for Parquet and file-based IO nodes
+                execFile('gcloud', ['storage', 'buckets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud storage buckets error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        // Fallback attempt with gsutil in case gcloud storage is unavailable
+                        execFile('gsutil', ['ls'], (gsutilErr: any, gsutilOut: string) => {
+                            if (gsutilErr) {
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
+                                return;
+                            }
+                            try {
+                                const rawBuckets = gsutilOut.split('\n')
+                                    .map((b: string) => b.trim().replace(/^gs:\/\//, '').replace(/\/$/, ''))
+                                    .filter((b: string) => b.length > 0);
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: rawBuckets });
+                            } catch {
+                                webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
+                            }
+                        });
+                        return;
+                    }
+                    try {
+                        const bucketsJson = JSON.parse(stdout);
+                        const buckets = bucketsJson.map((b: any) => {
+                            const name = b.name || b.id || '';
+                            return name.replace(/^gs:\/\//, '').replace(/\/$/, '');
+                        }).filter((b: string) => b.length > 0);
+                        webview.postMessage({ command: 'storageBucketsLoaded', buckets });
+                    } catch (e) {
+                        console.error('Failed to parse storage buckets output', e);
+                        webview.postMessage({ command: 'storageBucketsLoaded', buckets: [] });
+                    }
+                });
+                return;
             case 'getSecrets':
-                // NOTE: Query Secret Manager for secrets to populate secure credential selectors
-                execFile('gcloud', ['secrets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                // NOTE: Query Google Cloud Secret Manager for stored secret names/IDs to prevent hardcoded credentials
+                execFile('gcloud', ['secrets', 'list', '--format=json'], { timeout: 10000 }, (error: any, stdout: string, stderr: string) => {
                     if (error) {
                         console.error(`gcloud secrets error: ${error}`);
                         console.error(`stderr: ${stderr}`);
@@ -1208,6 +1287,7 @@ function handleMessages(
                             const shortName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : s.name;
                             return {
                                 name: shortName,
+                                id: shortName,
                                 fullName: s.name,
                                 value: shortName
                             };
@@ -1216,6 +1296,23 @@ function handleMessages(
                     } catch (e) {
                         console.error('Failed to parse secrets output', e);
                         webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                    }
+                });
+                return;
+            case 'getAwsQueues':
+                // NOTE: Attempt to list AWS SQS queues via AWS CLI if available on the host machine
+                execFile('aws', ['sqs', 'list-queues', '--output', 'json'], { timeout: 10000 }, (error: any, stdout: string) => {
+                    if (error) {
+                        // Gracefully fallback when AWS CLI is not configured or installed locally
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues: [] });
+                        return;
+                    }
+                    try {
+                        const queuesJson = JSON.parse(stdout);
+                        const queues = Array.isArray(queuesJson?.QueueUrls) ? queuesJson.QueueUrls : [];
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues });
+                    } catch (e) {
+                        webview.postMessage({ command: 'awsQueuesLoaded', queues: [] });
                     }
                 });
                 return;

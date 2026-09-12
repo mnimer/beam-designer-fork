@@ -127,6 +127,11 @@ Language: Python
   - Match Source (`FileIO.match`): `fileio.MatchFiles(file_pattern)` / `fileio.MatchAll()`
   - Read Matches Step (`FileIO.readMatches`): `fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
   - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
+- **`ParquetIO`**:
+  - Required Imports: `from apache_beam.io.parquetio import ReadFromParquet, WriteToParquet` (or `beam.io.ReadFromParquet`, `beam.io.WriteToParquet`), `import pyarrow`
+  - Dependencies: `apache-beam[gcp]>=2.50.0`, `pyarrow>=10.0.0`
+  - Source: `beam.io.ReadFromParquet(file_pattern=file_pattern, columns=columns, validate=validate, min_bundle_size=min_bundle_size)` (or `beam.io.ReadFromParquetBatched` when batched mode is requested)
+  - Sink: `beam.io.WriteToParquet(file_path_prefix=file_path_prefix, schema=schema, codec=codec, file_name_suffix=suffix, num_shards=num_shards, row_group_buffer_size=row_group_buffer_size, record_batch_size=record_batch_size, use_compliant_nested_type=use_compliant_nested_type, use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)`
 - **`Create`**:
   - Source: `beam.Create([...])`
 - **`JdbcIO`**:
@@ -165,6 +170,25 @@ Language: Python
   - Sink (Write):
     - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
     - Input elements to `WriteToKafka` must be `(key, value)` tuples.
+- **`SqsIO`**:
+  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService`
+  - Note: SqsIO is not implemented natively in pure Python; use the cross-language (x-lang) option targeting the Java expansion service (`sdks:java:io:expansion-service:shadowJar`):
+  - Source (Read):
+    ```python
+    ExternalTransform(
+        'beam:transform:org.apache.beam:sqs_read:v1',
+        ImplicitSchemaPayloadBuilder({'queue_url': queue_url}),
+        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+    )
+    ```
+  - Sink (Write):
+    ```python
+    ExternalTransform(
+        'beam:transform:org.apache.beam:sqs_write:v1',
+        ImplicitSchemaPayloadBuilder({'queue_url': queue_url, 'batch_size': batch_size}),
+        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
+    )
+    ```
 - **`MqttIO`**:
   - Required Imports: `from apache_beam.transforms.xlang.io import ReadFromMqtt, WriteToMqtt`
   - Note: Uses Apache Beam Cross-Language expansion service.

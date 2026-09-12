@@ -39,8 +39,14 @@ import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
 import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
 import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
 import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
+import { KinesisIOSourceProperties } from '../properties/source/KinesisIO';
+import { KinesisIOSinkProperties } from '../properties/sink/KinesisIO';
+import { ParquetIOSourceProperties } from '../properties/source/ParquetIO';
+import { ParquetIOSinkProperties } from '../properties/sink/ParquetIO';
 import { AvroIOSourceProperties } from '../properties/source/AvroIO';
 import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
+import { SqsIOSourceProperties } from '../properties/source/SqsIO';
+import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
 interface PropertyFormProps {
@@ -120,6 +126,41 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
       formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
     } else {
       formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('kinesis') ||
+    transformLower.includes('kinesis') ||
+    beamTransform === 'ReadDataFromKinesis' ||
+    beamTransform === 'WriteToKinesis'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <KinesisIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <KinesisIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('parquet') || 
+    transformLower.includes('parquet') ||
+    beamTransform === 'ParquetIO' ||
+    beamTransform === 'ReadFromParquet' ||
+    beamTransform === 'WriteToParquet'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <ParquetIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <ParquetIOSinkProperties node={node} onChange={onChange} />;
+    }
+  } else if (
+    labelLower.includes('sqs') || 
+    transformLower.includes('sqs') || 
+    beamTransform === 'ReadFromSqs' || 
+    beamTransform === 'WriteToSqs' ||
+    beamTransform === 'SqsIO'
+  ) {
+    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
+      formContent = <SqsIOSourceProperties node={node} onChange={onChange} />;
+    } else {
+      formContent = <SqsIOSinkProperties node={node} onChange={onChange} />;
     }
   } else if (
     labelLower.includes('mqtt') || 
