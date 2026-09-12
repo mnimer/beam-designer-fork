@@ -507,6 +507,44 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/Stop Condition/i, { selector: 'select' })).toHaveValue('never');
   });
 
+  it('renders KinesisIOSourceProperties when label or beam_transform is Kinesis SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        type: 'SOURCE',
+        beam_transform: 'KinesisIO',
+        properties: {
+          streamName: 'input-stream'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Initial Position/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Watermark Policy/i)).toBeInTheDocument();
+  });
+
+  it('renders KinesisIOSinkProperties when label or beam_transform is Kinesis SINK', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        type: 'SINK',
+        beam_transform: 'KinesisIO',
+        properties: {
+          streamName: 'output-stream'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Partition Key Source/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Serialization Format/i)).toBeInTheDocument();
+  });
+
   it('renders AvroIOSourceProperties when label or beam_transform is AvroIO with type SOURCE', () => {
     const mockNode = {
       data: {

@@ -510,6 +510,22 @@ describe('NodesCard', () => {
       expect(detailsList[1].open).toBe(true);
     });
 
+    it('renders Kinesis in Streaming Sources and Streaming Sinks tabs', () => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText('Kinesis')).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText('Kinesis')).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+    });
+
     it('renders AvroIO in SOURCES under File Sources and in SINKS under File Sinks', () => {
       const { rerender } = render(
         <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />

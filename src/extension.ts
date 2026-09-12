@@ -1022,7 +1022,19 @@ function savePipelineFiles(
 
 /**
  * BeamEditorProvider
- * Custom Text Editor provider for `.beam` visual pipeline design files.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Custom Text Editor provider for `.beam` visual pipeline design files in VS Code.
+ * Coordinates bidirectional IPC message passing between the React Webview canvas
+ * and host CLI tools (gcloud, bq), filesystem persistence, and Gemini code generation.
+ * 
+ * Architectural Decisions:
+ * - Implements vscode.CustomTextEditorProvider for .beam YAML file synchronization.
+ * - Handles CLI queries (BigQuery datasets/tables, PubSub topics/subscriptions, Secret Manager secrets, VPC networks/subnetworks).
+ * - Dispatches 'getSecrets' via gcloud secrets list to support safe credential selection for streaming nodes like KinesisIO.
+ * - Dispatches Gemini code generation requests and writes structured pipeline artifacts to disk.
  */
 class BeamEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(private readonly context: vscode.ExtensionContext) { }
@@ -1150,6 +1162,24 @@ function handleMessages(
                     } catch (e) {
                         console.error('Failed to parse subscriptions output', e);
                         webview.postMessage({ command: 'subscriptionsLoaded', subscriptions: [] });
+                    }
+                });
+                return;
+            case 'getSecrets':
+                execFile(findGcloudPath(), ['secrets', 'list', '--format=json'], (error: any, stdout: string, stderr: string) => {
+                    if (error) {
+                        console.error(`gcloud secrets error: ${error}`);
+                        console.error(`stderr: ${stderr}`);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
+                        return;
+                    }
+                    try {
+                        const secretsJson = JSON.parse(stdout);
+                        const secrets = secretsJson.map((s: any) => s.name);
+                        webview.postMessage({ command: 'secretsLoaded', secrets });
+                    } catch (e) {
+                        console.error('Failed to parse secrets output', e);
+                        webview.postMessage({ command: 'secretsLoaded', secrets: [] });
                     }
                 });
                 return;
