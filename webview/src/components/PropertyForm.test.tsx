@@ -586,6 +586,48 @@ describe('PropertyForm', () => {
     expect(toInput).toHaveValue('gs://bucket/output/records');
   });
 
+  it('renders JmsIOSourceProperties when label or beam_transform is JmsIO with type SOURCE', () => {
+    const mockNode = {
+      data: {
+        label: 'JMS',
+        type: 'SOURCE',
+        beam_transform: 'JmsIO',
+        properties: {
+          destinationType: 'queue',
+          queue: 'inbound.orders'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const destInput = container.querySelector('#jmsDestinationName') as HTMLInputElement;
+    expect(destInput).toBeInTheDocument();
+    expect(destInput).toHaveValue('inbound.orders');
+  });
+
+  it('renders JmsIOSinkProperties when label or beam_transform is JmsIO with type SINK', () => {
+    const mockNode = {
+      data: {
+        label: 'JMS',
+        type: 'SINK',
+        beam_transform: 'JmsIO',
+        properties: {
+          destinationType: 'topic',
+          topic: 'outbound.notifications'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const destInput = container.querySelector('#jmsSinkDestinationName') as HTMLInputElement;
+    expect(destInput).toBeInTheDocument();
+    expect(destInput).toHaveValue('outbound.notifications');
+  });
+
   it('renders MqttIOSourceProperties when label or beam_transform is MqttIO with type SOURCE', () => {
     const mockNode = {
       data: {

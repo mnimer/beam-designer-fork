@@ -1330,11 +1330,14 @@ function handleMessages(
                         const instances = instancesJson.map((inst: any) => {
                             const internalIp = inst.networkInterfaces?.[0]?.networkIP || '';
                             const externalIp = inst.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP || '';
+                            const zoneParts = (inst.zone || '').split('/');
+                            const zone = zoneParts[zoneParts.length - 1];
                             return {
                                 name: inst.name,
                                 status: inst.status,
-                                internalIp,
-                                externalIp
+                                zone: zone,
+                                internalIp: internalIp,
+                                externalIp: externalIp
                             };
                         });
                         webview.postMessage({ command: 'computeInstancesLoaded', instances });
