@@ -96,6 +96,31 @@ describe('BottomPanel', () => {
 
     expect(deploymentBtn.className).toContain('text-[var(--vscode-text-muted');
   });
+
+  // P7: Verify folderFiles filtering is memoised and does not recompute on every render
+  it('memoises the sourceFiles filtering across re-renders when folderFiles does not change (P7)', () => {
+    const folderFiles = ['pipeline.py', 'helper.py', 'config.json'];
+    const filterSpy = vi.spyOn(folderFiles, 'filter');
+
+    const { rerender } = render(
+      <BottomPanel {...mockProps} folderFiles={folderFiles} bottomTab="DEPLOYMENT" />
+    );
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+
+    // Re-rendering with an unrelated prop change (bottomTab) does not re-run filter
+    rerender(
+      <BottomPanel {...mockProps} folderFiles={folderFiles} bottomTab="SOURCE_CODE" />
+    );
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+
+    // Re-rendering with a new folderFiles reference re-runs filter
+    const newFiles = ['pipeline.py', 'updated.py'];
+    const newFilterSpy = vi.spyOn(newFiles, 'filter');
+    rerender(
+      <BottomPanel {...mockProps} folderFiles={newFiles} bottomTab="SOURCE_CODE" />
+    );
+    expect(newFilterSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 

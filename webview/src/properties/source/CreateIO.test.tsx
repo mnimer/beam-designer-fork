@@ -76,4 +76,41 @@ describe('CreateProperties', () => {
 
     expect(mockOnChange).toHaveBeenCalledWith({ elements: ['updated one'] });
   });
+
+  it('displays required validation error when all elements are empty', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          elements: ['   ']
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<CreateProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('At least one non-empty element is required.')).toBeInTheDocument();
+  });
+
+  it('updates system_instructions when instructions textarea changes', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          elements: ['item 1'],
+          system_instructions: 'Initial instructions'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<CreateProperties node={mockNode} onChange={mockOnChange} />);
+
+    const instructions = container.querySelector('#createSystemInstructions') as HTMLTextAreaElement;
+    expect(instructions).toHaveValue('Initial instructions');
+
+    fireEvent.change(instructions, { target: { value: 'Updated prompt instructions' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      system_instructions: 'Updated prompt instructions'
+    }));
+  });
 });

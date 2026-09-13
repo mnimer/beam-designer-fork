@@ -264,4 +264,51 @@ describe('MqttIOSourceProperties', () => {
     // Timeout should be within a 2-column grid, while QoS is on its own full line
     expect(timeoutInput.closest('.grid')).not.toContainElement(qosSelect);
   });
+
+  it('displays error when loading secret manager secrets fails', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        properties: {
+          passwordSource: 'secretManager' as const
+        }
+      }
+    };
+    render(<MqttIOSourceProperties node={mockNode} onChange={vi.fn()} />);
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          command: 'secretsLoaded',
+          error: 'Secret Manager API is not enabled'
+        }
+      }));
+    });
+
+    expect(screen.getByText('Secret Manager API is not enabled')).toBeInTheDocument();
+  });
+
+  it('displays error when loading compute instances fails', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        properties: {
+          serverUri: 'tcp://broker.example.com:1883'
+        }
+      }
+    };
+    render(<MqttIOSourceProperties node={mockNode} onChange={vi.fn()} />);
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          command: 'computeInstancesLoaded',
+          error: 'Failed to list Compute Engine instances'
+        }
+      }));
+    });
+
+    expect(screen.getByText('Failed to list Compute Engine instances')).toBeInTheDocument();
+  });
 });
+

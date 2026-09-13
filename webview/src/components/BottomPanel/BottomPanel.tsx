@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { DeploymentTab } from './DeploymentTab';
 import { SourceCodeTab } from './SourceCodeTab';
@@ -70,9 +70,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   isExpanded = false,
   onToggleExpand
 }) => {
-  // Filter only .java and .py source files for tab badge count
-  const sourceFiles = (folderFiles || []).filter(
-    (f) => f.endsWith('.py') || f.endsWith('.java')
+  // Filter only .java and .py source files for tab badge count (memoised to avoid re-filtering on every render)
+  const sourceFiles = useMemo(
+    () => (folderFiles || []).filter((f) => f.endsWith('.py') || f.endsWith('.java')),
+    [folderFiles]
   );
 
   return (
@@ -140,9 +141,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           <SourceCodeTab 
             generatedCode={generatedCode}
             language={pipelineConfig.language}
-            setLanguage={(lang) => setPipelineConfig({ ...pipelineConfig, language: lang })}
+            setLanguage={(lang) => setPipelineConfig((prev: any) => ({ ...prev, language: lang }))}
             outputFolder={pipelineConfig.outputFolder}
-            setOutputFolder={(folder) => setPipelineConfig({ ...pipelineConfig, outputFolder: folder })}
+            setOutputFolder={(folder) => setPipelineConfig((prev: any) => ({ ...prev, outputFolder: folder }))}
             onPickFolder={onPickFolder}
             onRegenerate={onRegenerate}
             needsRebuild={pipelineConfig.needsRebuild}

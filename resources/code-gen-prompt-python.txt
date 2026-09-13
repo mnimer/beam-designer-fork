@@ -60,6 +60,45 @@ I will also need you to generate:
 
 Language: Python
 
+## Credential Handling Rules (GLOBAL - applies to every transform)
+
+Credentials are never stored inline in the pipeline definition. A node configures
+authentication in one of two ways, and you MUST inspect each node's properties to tell
+them apart:
+
+1. **Secret Manager reference (preferred).** The node has `authMode: secretManager` and/or
+   a property whose name ends in `Secret` -- for example `passwordSecret`,
+   `accessKeySecret` -- or a `secretName` property. The VALUE of that property is the
+   SHORT ID of a Google Cloud Secret Manager secret. It is NOT the credential.
+   - You MUST generate code that resolves the secret at runtime.
+   - Required import: `from google.cloud import secretmanager`
+   - Add `google-cloud-secret-manager` to `requirements.txt`.
+   - Resolve the secret ONCE during pipeline construction, never per element. Fetching
+     inside a `DoFn` would issue one API call per record.
+   - Use this shape:
+     ```python
+     def _access_secret(project_id: str, secret_id: str, version: str = "latest") -> str:
+         """Reads the payload of a Secret Manager secret."""
+         client = secretmanager.SecretManagerServiceClient()
+         name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
+         return client.access_secret_version(request={"name": name}).payload.data.decode("UTF-8")
+     ```
+   - Pass the resolved value into the transform where the plaintext property would
+     otherwise have gone. For example, a JdbcIO node with `passwordSecret: prod-db-pw`
+     becomes `password=_access_secret(project_id, "prod-db-pw")`.
+   - Derive `project_id` from the pipeline options / `--project` argument. Do NOT hardcode it.
+
+2. **Plaintext (discouraged, legacy).** The node has `authMode: plaintext` or simply a
+   `password` property with no corresponding `passwordSecret`. Use the value as given.
+
+**MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
+plaintext property of the same name and use the Secret Manager path.
+
+**REDACTED VALUES**: if a property value is exactly `__REDACTED_BY_BEAM_DESIGNER__`, that is
+a placeholder, not a credential. Never emit it as a string literal. Read the value from an
+environment variable named after the property in upper snake case and add a brief comment
+noting that the operator must supply it.
+
 ## Built-in Beam Transform Rules & Syntax Reference
 - **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
 - **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
@@ -73,7 +112,19 @@ Language: Python
   - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
   - Sink: `beam.io.WriteToPubSub(topic=...)`
 - **`GenerateSequence`**:
-  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
+  - **CRITICAL — PREFER `PeriodicImpulse` FOR PERIODIC TRIGGERS**: `GenerateSequence` has **no native Python implementation**. It is a Java transform reached over cross-language expansion, which means it requires (a) downloading an ~800MB Java expansion-service JAR and (b) **a running Docker daemon** to host the Java SDK harness that actually executes it. On a developer machine without Docker the pipeline starts, logs unrelated JVM noise from every connector bundled in the shadowJar (e.g. `Running JvmInitializer#beforeProcessing for ...KafkaIOInitializer`), and **produces no elements**.
+    - Therefore, when the node is only being used as a **periodic trigger / tick source** (i.e. the emitted numbers are discarded and downstream only needs "fire every N seconds"), you **MUST** generate `PeriodicImpulse` instead. It is pure Python, needs no JVM and no Docker:
+      ```python
+      import time
+      from apache_beam.transforms.periodicsequence import PeriodicImpulse
+
+      trigger_stream = p | 'trigger' >> PeriodicImpulse(
+          start_timestamp=time.time(),
+          fire_interval=period_seconds,   # seconds, NOT milliseconds
+      )
+      ```
+    - Only fall through to the cross-language forms below when the pipeline genuinely consumes the **sequence values themselves** (e.g. the numbers are used as keys or IDs) and a periodic tick is not sufficient.
+  - Required Imports (cross-language forms only): `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
   - **CRITICAL RATE LIMITING & PERIOD RULE**:
     - Python SDK's helper class `GenerateSequence.__init__` omitted the `period` parameter in its constructor, so calling `GenerateSequence(elements_per_period=1)` causes the Java expansion service to throw `java.lang.IllegalArgumentException: elements per period specified, but no period specified`.
     - Therefore, when rate limiting or period is configured (e.g. `elementsPerPeriod` or `periodSeconds`), you **MUST** use `ExternalTransform('beam:external:java:generate_sequence:v1', ...)` with `ImplicitSchemaPayloadBuilder` supplying both `elements_per_period` AND `period` in milliseconds (`periodSeconds * 1000`):
@@ -89,6 +140,7 @@ Language: Python
           BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
       )
       ```
+    - NOTE: `ImplicitSchemaPayloadBuilder` **silently drops any key whose value is `None`**, so `'stop': None` is simply absent from the payload and correctly yields an unbounded sequence. Do not attempt to pass `-1` or `0` to mean "unbounded".
   - Bounded without Rate Limiting (start to stop):
     ```python
     from apache_beam.io.external.generate_sequence import GenerateSequence
@@ -334,6 +386,27 @@ Use the following static templates as exact starting points when generating the 
 - **JdbcIO Cross-Language Driver Classpath**: When connecting to MySQL, SQL Server, Oracle, SQLite, or Derby via `ReadFromJdbc` / `WriteToJdbc`, always supply the corresponding Maven coordinate in `classpath=[...]` so the Beam Java expansion service loads the JDBC driver.
 - **JdbcIO Write Statement Placeholders**: When using `statement` with `WriteToJdbc`, always ensure the number of columns in the SQL statement, the number of `?` placeholders, and the number of tuple items yielded by the upstream `DoFn` match 1-to-1.
 - **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
+- **Tagged Outputs — NEVER wrap the main output in `TaggedOutput`**: This silently discards every element. Beam routes an unrecognised tag to a null receiver, so there is **no error, no warning, and no output** — the pipeline runs to completion emitting nothing, which is extremely hard to debug.
+  - When a `DoFn` has multiple outputs, `yield` the main output **bare** and wrap only the additional outputs:
+    ```python
+    TAG_ERRORS = 'errors'
+
+    class MyDoFn(beam.DoFn):
+        def process(self, element):
+            try:
+                yield transform(element)                              # CORRECT: main output, bare
+            except Exception as e:
+                yield TaggedOutput(TAG_ERRORS, {'error': str(e)})     # CORRECT: additional output
+
+    results = pcoll | beam.ParDo(MyDoFn()).with_outputs(TAG_ERRORS, main='valid')
+    _ = results['valid']      | 'Log'    >> beam.Map(...)
+    _ = results[TAG_ERRORS]   | 'Errors' >> beam.Map(...)
+    ```
+  - **NEVER** do this — `main='valid'` names the main output, it does NOT register `'valid'` as a wrappable tag:
+    ```python
+    yield TaggedOutput('valid', record)   # WRONG: silently dropped, produces zero output
+    ```
+  - The `main=` keyword only sets the *attribute name* used to read the main output off the result (`results['valid']`). Inside `process`, the main output is always the untagged one.
 
 ## Documentation References
 - Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/

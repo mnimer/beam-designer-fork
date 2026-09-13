@@ -19,6 +19,7 @@
 
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 import { FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 
 export interface ParquetIOSinkNode {
@@ -74,6 +75,9 @@ const SAMPLE_AVRO_SINK_SCHEMA = JSON.stringify(
   2
 );
 
+/**
+ * ParquetIOSinkProperties renders the property configuration form for ParquetIO writes.
+ */
 export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -128,7 +132,7 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   /**
    * Updates AI prompt / system instructions
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -138,52 +142,32 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Destination Directory (.to) Input */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="parquetSinkTo" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>Destination Directory / Prefix (.to)</span>
-          <span className="text-red-400 font-bold" title="Required">*</span>
-          <InfoTooltip text="Base output directory path or prefix where Parquet files will be written (e.g. gs://bucket/output/, s3://bucket/output/, hdfs://path/output/, or /local/output/). Required." />
-        </label>
-        <input
-          id="parquetSinkTo"
-          type="text"
-          name="to"
-          aria-required="true"
-          aria-invalid={isToInvalid}
-          value={to}
-          onChange={handleChange}
-          placeholder="gs://bucket/output/, s3://bucket/output/, or /local/output/"
-          className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm focus:outline-none font-mono ${
-            isToInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)]'
-          }`}
-        />
-        {isToInvalid ? (
-          <span className="text-xs text-red-400 font-medium">Destination Directory is required.</span>
-        ) : (
-          <span className="text-xs text-[var(--vscode-text-muted)]">
-            Target storage prefix across Cloud Storage, Amazon S3, HDFS, or local storage.
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="parquetSinkTo"
+        name="to"
+        label="Destination Directory / Prefix (.to)"
+        required={true}
+        tooltip="Base output directory path or prefix where Parquet files will be written (e.g. gs://bucket/output/, s3://bucket/output/, hdfs://path/output/, or /local/output/). Required."
+        value={to}
+        invalid={isToInvalid}
+        error={isToInvalid ? 'Destination Directory is required.' : null}
+        onChange={handleChange}
+        placeholder="gs://bucket/output/, s3://bucket/output/, or /local/output/"
+        helperText={
+          isToInvalid ? undefined : 'Target storage prefix across Cloud Storage, Amazon S3, HDFS, or local storage.'
+        }
+      />
 
       {/* File Suffix Input */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="parquetSinkSuffix" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>File Name Suffix</span>
-          <InfoTooltip text="File extension appended to each shard (e.g. .parquet). Defaults to .parquet." />
-        </label>
-        <input
-          id="parquetSinkSuffix"
-          type="text"
-          name="suffix"
-          value={suffix}
-          onChange={handleChange}
-          placeholder=".parquet"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-        />
-      </div>
+      <PropertyField
+        id="parquetSinkSuffix"
+        name="suffix"
+        label="File Name Suffix"
+        tooltip="File extension appended to each shard (e.g. .parquet). Defaults to .parquet."
+        value={suffix}
+        onChange={handleChange}
+        placeholder=".parquet"
+      />
 
       {/* Compression Codec Dropdown */}
       <div className="flex flex-col gap-1.5">
@@ -272,18 +256,14 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
           0 or empty lets the runner automatically size output shards.
         </span>
 
-        <label htmlFor="parquetSinkShardTemplate" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5 mt-2">
-          <span>Shard Name Template (Optional)</span>
-          <InfoTooltip text="Custom template for shard naming (e.g. -SSSSS-of-NNNNN). Leave blank for Beam standard default." />
-        </label>
-        <input
+        <PropertyField
           id="parquetSinkShardTemplate"
-          type="text"
           name="shardTemplate"
+          label="Shard Name Template (Optional)"
+          tooltip="Custom template for shard naming (e.g. -SSSSS-of-NNNNN). Leave blank for Beam standard default."
           value={shardTemplate}
           onChange={handleChange}
           placeholder="-SSSSS-of-NNNNN"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
         />
       </div>
 
@@ -371,20 +351,19 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--vscode-border-light)]">
-        <label htmlFor="parquetSinkInstructions" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO writer step." />
-        </label>
-        <textarea
+        <PropertyField
           id="parquetSinkInstructions"
+          name="system_instructions"
+          label="Code Generation Instructions"
+          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO writer step."
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="e.g. Ensure Parquet writer configures snappy compression and uses Avro SpecificRecord serialization."
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-[var(--vscode-highlight)] resize-y h-24"
+          rows={3}
+          mono={false}
+          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
         />
-        <span className="text-xs text-[var(--vscode-text-muted)]">
-          Additional guidance appended to prompt when synthesizing Java/Python code.
-        </span>
       </div>
     </div>
   );

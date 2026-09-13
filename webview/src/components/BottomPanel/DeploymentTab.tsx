@@ -56,7 +56,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
             <label className="text-xs font-bold uppercase text-slate-500">Runner</label>
             <select 
               value={jobConfig.runner} 
-              onChange={(e) => setJobConfig({...jobConfig, runner: e.target.value})}
+              onChange={(e) => { const nextValue = e.target.value; setJobConfig((prev: any) => ({ ...prev, runner: nextValue })); }}
               className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
             >
               <option>DirectRunner</option>
@@ -70,7 +70,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
               <input 
                 type="text" 
                 value={jobConfig.gcsStagingPath || ''} 
-                onChange={(e) => setJobConfig({...jobConfig, gcsStagingPath: e.target.value})}
+                onChange={(e) => { const nextValue = e.target.value; setJobConfig((prev: any) => ({ ...prev, gcsStagingPath: nextValue })); }}
                 placeholder="gs://<bucket>"
                 className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
               />
@@ -93,7 +93,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
             <label className="text-xs font-bold uppercase text-slate-500">Machine Type</label>
             <select 
               value={jobConfig.machineType} 
-              onChange={(e) => setJobConfig({...jobConfig, machineType: e.target.value})}
+              onChange={(e) => { const nextValue = e.target.value; setJobConfig((prev: any) => ({ ...prev, machineType: nextValue })); }}
               className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm ${jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark' ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={jobConfig.runner === 'DirectRunner' || jobConfig.runner === 'Spark'}
             >
@@ -110,7 +110,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
                 min={0} 
                 max={999} 
                 value={jobConfig.minInstances} 
-                onChange={(e) => setJobConfig({...jobConfig, minInstances: parseInt(e.target.value, 10) || 0})}
+                onChange={(e) => { const nextValue = parseInt(e.target.value, 10) || 0; setJobConfig((prev: any) => ({ ...prev, minInstances: nextValue })); }}
                 className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={jobConfig.runner === 'DirectRunner'}
               />
@@ -122,7 +122,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
                 min={0} 
                 max={999} 
                 value={jobConfig.maxInstances} 
-                onChange={(e) => setJobConfig({...jobConfig, maxInstances: parseInt(e.target.value, 10) || 0})}
+                onChange={(e) => { const nextValue = parseInt(e.target.value, 10) || 0; setJobConfig((prev: any) => ({ ...prev, maxInstances: nextValue })); }}
                 className={`bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm w-[100px] ${jobConfig.runner === 'DirectRunner' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={jobConfig.runner === 'DirectRunner'}
               />
@@ -133,7 +133,7 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
               <label className="text-xs font-bold uppercase text-slate-500">Subnetwork</label>
               <select 
                 value={jobConfig.subnetwork || ''} 
-                onChange={(e) => setJobConfig({...jobConfig, subnetwork: e.target.value})}
+                onChange={(e) => { const nextValue = e.target.value; setJobConfig((prev: any) => ({ ...prev, subnetwork: nextValue })); }}
                 className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm"
               >
                 <option value="">Select Subnetwork</option>

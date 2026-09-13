@@ -16,6 +16,7 @@
 import React from 'react';
 import { BEAM_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface TextIOSinkNode {
   data: {
@@ -46,6 +47,9 @@ interface TextIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * TextIOSinkProperties renders the property configuration form for TextIO writes.
+ */
 export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -67,7 +71,10 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /**
+   * Handles text, number, and select input updates.
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
@@ -78,7 +85,10 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles AI code generation instruction modifications.
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -88,52 +98,32 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Destination File Prefix / Path */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="textSinkTo" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Destination File Prefix (.to)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="File prefix or path where output shards will be written (e.g. gs://my-bucket/output/data or /local/path/output). Required." />
-        </label>
-        <input
-          id="textSinkTo"
-          type="text"
-          name="to"
-          aria-required="true"
-          aria-invalid={isToInvalid}
-          value={to}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/output/results or /local/out/file"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isToInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isToInvalid ? (
-          <span className="text-xs text-red-400">Destination file prefix is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Output prefix for shards (e.g. gs://bucket/output/data)
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="textSinkTo"
+        name="to"
+        label="Destination File Prefix (.to)"
+        required={true}
+        tooltip="File prefix or path where output shards will be written (e.g. gs://my-bucket/output/data or /local/path/output). Required."
+        value={to}
+        invalid={isToInvalid}
+        error={isToInvalid ? 'Destination file prefix is required.' : null}
+        onChange={handleChange}
+        placeholder="gs://my-bucket/output/results or /local/out/file"
+        helperText={
+          isToInvalid ? undefined : 'Output prefix for shards (e.g. gs://bucket/output/data)'
+        }
+      />
 
       {/* Suffix */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="textSinkSuffix" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>File Suffix / Extension</span>
-          <InfoTooltip text="File extension or suffix added to each output shard (e.g. .txt, .csv, .json)." />
-        </label>
-        <input
-          id="textSinkSuffix"
-          type="text"
-          name="suffix"
-          value={suffix}
-          onChange={handleChange}
-          placeholder=".txt, .csv, .json"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="textSinkSuffix"
+        name="suffix"
+        label="File Suffix / Extension"
+        tooltip="File extension or suffix added to each output shard (e.g. .txt, .csv, .json)."
+        value={suffix}
+        onChange={handleChange}
+        placeholder=".txt, .csv, .json"
+      />
 
       {/* Sharding */}
       <div className="flex flex-col gap-3 p-3 bg-slate-800/40 rounded border border-slate-700/50">
@@ -152,19 +142,17 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
 
         {!withoutSharding && (
           <div className="flex flex-col gap-1 mt-1">
-            <label htmlFor="textSinkNumShards" className="flex items-center text-xs font-semibold text-slate-400">
-              <span>Number of Shards</span>
-              <InfoTooltip text="Fixed number of shards to write. Set to 0 or leave empty for runner-determined sharding." />
-            </label>
-            <input
+            <PropertyField
               id="textSinkNumShards"
-              type="number"
               name="numShards"
+              label="Number of Shards"
+              tooltip="Fixed number of shards to write. Set to 0 or leave empty for runner-determined sharding."
+              type="number"
               min="0"
               value={numShards}
               onChange={handleChange}
               placeholder="0 (Runner Determined)"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+              mono={false}
             />
           </div>
         )}
@@ -208,36 +196,24 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
 
       {/* Header and Footer */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="textSinkHeader" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Header Line (Optional)</span>
-            <InfoTooltip text="Text written once at the beginning of each output file shard (e.g. CSV header line)." />
-          </label>
-          <input
-            id="textSinkHeader"
-            type="text"
-            name="header"
-            value={header}
-            onChange={handleChange}
-            placeholder="id,name,timestamp"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="textSinkFooter" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Footer Line (Optional)</span>
-            <InfoTooltip text="Text written once at the end of each output file shard." />
-          </label>
-          <input
-            id="textSinkFooter"
-            type="text"
-            name="footer"
-            value={footer}
-            onChange={handleChange}
-            placeholder="EOF"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="textSinkHeader"
+          name="header"
+          label="Header Line (Optional)"
+          tooltip="Text written once at the beginning of each output file shard (e.g. CSV header line)."
+          value={header}
+          onChange={handleChange}
+          placeholder="id,name,timestamp"
+        />
+        <PropertyField
+          id="textSinkFooter"
+          name="footer"
+          label="Footer Line (Optional)"
+          tooltip="Text written once at the end of each output file shard."
+          value={footer}
+          onChange={handleChange}
+          placeholder="EOF"
+        />
       </div>
 
       {/* Flexible Spacer */}
@@ -245,17 +221,16 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="textSinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="textSinkSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for TextIO sink code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

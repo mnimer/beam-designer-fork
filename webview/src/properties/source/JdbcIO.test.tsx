@@ -170,4 +170,84 @@ describe('JdbcIOSourceProperties', () => {
     expect(screen.getByRole('option', { name: 'MySQL' })).toHaveValue('com.mysql.cj.jdbc.Driver');
     expect(select.querySelectorAll('option').length).toBe(JDBC_DRIVER_PRESETS.length);
   });
+
+  it('opens a legacy node with a password and no authMode in plaintext mode with value preserved', () => {
+    const mockNode: any = {
+      data: {
+        label: 'JdbcIO',
+        properties: {
+          password: 'legacy-cleartext-password',
+        },
+      },
+    };
+
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
+    expect(authModeSelect).toBeInTheDocument();
+    expect(authModeSelect).toHaveValue('plaintext');
+
+    const passwordInput = container.querySelector('input[name="password"]') as HTMLInputElement;
+    expect(passwordInput).toBeInTheDocument();
+    expect(passwordInput).toHaveValue('legacy-cleartext-password');
+  });
+
+  it('opens a fresh node with no credential in Secret Manager mode', () => {
+    const mockNode: any = {
+      data: {
+        label: 'JdbcIO',
+        properties: {},
+      },
+    };
+
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
+    expect(authModeSelect).toBeInTheDocument();
+    expect(authModeSelect).toHaveValue('secretManager');
+
+    expect(container.querySelector('input[name="passwordSecret"]')).toBeInTheDocument();
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+  });
+
+  it('choosing a secret writes passwordSecret and does NOT write password', () => {
+    const mockNode: any = {
+      data: {
+        label: 'JdbcIO',
+        properties: {
+          authMode: 'secretManager',
+        },
+      },
+    };
+
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const secretInput = container.querySelector('input[name="passwordSecret"]') as HTMLInputElement;
+    expect(secretInput).toBeInTheDocument();
+
+    fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'db-secret-id' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        passwordSecret: 'db-secret-id',
+      })
+    );
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
+  });
+
+  it('renders cleartext warning in plaintext mode', () => {
+    const mockNode: any = {
+      data: {
+        label: 'JdbcIO',
+        properties: {
+          authMode: 'plaintext',
+          password: 'my-password',
+        },
+      },
+    };
+
+    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/cleartext/i)).toBeInTheDocument();
+  });
 });

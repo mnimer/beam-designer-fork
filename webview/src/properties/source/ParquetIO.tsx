@@ -18,6 +18,7 @@
 
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 import { FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 
 export interface ParquetIOSourceNode {
@@ -111,7 +112,7 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
   /**
    * Updates AI prompt / system instructions
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -121,55 +122,45 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="parquetSourceFilePattern" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>File Pattern / Path (.from)</span>
-          <span className="text-red-400 font-bold" title="Required">*</span>
-          <InfoTooltip text="Target Parquet file path or glob pattern (e.g. gs://bucket/*.parquet, s3://bucket/*.parquet, hdfs://path/*.parquet, or /local/path/*.parquet). Required." />
-        </label>
-        <input
-          id="parquetSourceFilePattern"
-          type="text"
-          name="filePattern"
-          aria-required="true"
-          aria-invalid={isInvalid}
-          value={filePattern}
-          onChange={handleChange}
-          placeholder="gs://bucket/data/*.parquet, s3://bucket/data/*.parquet, or /local/*.parquet"
-          className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm focus:outline-none font-mono ${
-            isInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)]'
-          }`}
-        />
-        {isInvalid ? (
-          <span className="text-xs text-red-400 font-medium">File Pattern is required.</span>
-        ) : (
-          <span className="text-xs text-[var(--vscode-text-muted)]">
-            Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage.
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="parquetSourceFilePattern"
+        name="filePattern"
+        label="File Pattern / Path (.from)"
+        required="File Pattern is required."
+        tooltip="Target Parquet file path or glob pattern (e.g. gs://bucket/*.parquet, s3://bucket/*.parquet, hdfs://path/*.parquet, or /local/path/*.parquet). Required."
+        aria-required="true"
+        aria-invalid={isInvalid}
+        value={filePattern}
+        onChange={handleChange}
+        placeholder="gs://bucket/data/*.parquet, s3://bucket/data/*.parquet, or /local/*.parquet"
+        invalid={isInvalid}
+        error={isInvalid ? 'File Pattern is required.' : null}
+        mono={true}
+        helperText={
+          !isInvalid ? (
+            <span className="text-xs text-[var(--vscode-text-muted)]">
+              Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage.
+            </span>
+          ) : null
+        }
+      />
 
       {/* Projected Columns (Python: columns=[...]) */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="parquetSourceColumns" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>Projected Columns (Python <code>columns=[...]</code>)</span>
-          <InfoTooltip text="For Python pipelines: Comma-separated column names to read (e.g. 'id, name, timestamp'). PyArrow reads types directly from the Parquet footer and skips unselected columns. In Java, use the Avro Schema below instead." />
-        </label>
-        <input
-          id="parquetSourceColumns"
-          type="text"
-          name="columns"
-          value={columns}
-          onChange={handleChange}
-          placeholder="id, name, email, timestamp"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-        />
-        <span className="text-[11px] text-[var(--vscode-text-muted)]">
-          <strong>Python:</strong> Specify comma-separated column names for projection pruning (leave blank to read all). Not used in Java.
-        </span>
-      </div>
+      <PropertyField
+        id="parquetSourceColumns"
+        name="columns"
+        label="Projected Columns (Python columns=[...])"
+        tooltip="For Python pipelines: Comma-separated column names to read (e.g. 'id, name, timestamp'). PyArrow reads types directly from the Parquet footer and skips unselected columns. In Java, use the Avro Schema below instead."
+        value={columns}
+        onChange={handleChange}
+        placeholder="id, name, email, timestamp"
+        mono={true}
+        helperText={
+          <span className="text-[11px] text-[var(--vscode-text-muted)]">
+            <strong>Python:</strong> Specify comma-separated column names for projection pruning (leave blank to read all). Not used in Java.
+          </span>
+        }
+      />
 
       {/* Schema Accordion Section (Java: ParquetIO.read(schema)) */}
       <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
@@ -261,42 +252,38 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
             </label>
 
             {/* Min Bundle Size */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="parquetSourceMinBundleSize" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Minimum Bundle Size (bytes)</span>
-                <InfoTooltip text="Minimum byte size to consider when splitting input into bundles for parallel worker execution. Default 0." />
-              </label>
-              <input
-                id="parquetSourceMinBundleSize"
-                type="number"
-                name="minBundleSize"
-                value={minBundleSize}
-                onChange={handleChange}
-                placeholder="0"
-                min="0"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-              />
-            </div>
+            <PropertyField
+              id="parquetSourceMinBundleSize"
+              type="number"
+              name="minBundleSize"
+              label="Minimum Bundle Size (bytes)"
+              tooltip="Minimum byte size to consider when splitting input into bundles for parallel worker execution. Default 0."
+              value={minBundleSize}
+              onChange={handleChange}
+              placeholder="0"
+              min="0"
+              mono={true}
+            />
           </div>
         )}
       </div>
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--vscode-border-light)]">
-        <label htmlFor="parquetSourceInstructions" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO reader step." />
-        </label>
-        <textarea
+      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
+        <PropertyField
           id="parquetSourceInstructions"
+          name="system_instructions"
+          label="Code Generation Instructions"
+          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO reader step."
+          type="textarea"
+          rows={3}
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="e.g. Filter records where status is active, or use specific Avro SpecificRecord model class."
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-[var(--vscode-highlight)] resize-y h-24"
+          mono={false}
+          className="resize-y h-24"
+          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
         />
-        <span className="text-xs text-[var(--vscode-text-muted)]">
-          Additional guidance appended to prompt when synthesizing Java/Python code.
-        </span>
       </div>
     </div>
   );

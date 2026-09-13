@@ -165,6 +165,35 @@ describe('KinesisIOSinkProperties', () => {
     expect(postMessageMock).toHaveBeenCalledTimes(2);
   });
 
+  it('displays secret loading error alert when secretsLoaded contains error', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        properties: {
+          authMode: 'secretManager' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            error: 'Failed to authenticate with Secret Manager'
+          }
+        })
+      );
+    });
+
+    const errorAlerts = screen.getAllByRole('alert');
+    const secretErrorAlert = errorAlerts.find(el => el.textContent?.includes('Failed to authenticate with Secret Manager'));
+    expect(secretErrorAlert).toBeInTheDocument();
+  });
+
   it('supports direct credentials and toggles secret key visibility', () => {
     const mockNode = {
       data: {
@@ -355,5 +384,56 @@ describe('KinesisIOSinkProperties', () => {
     const mockOnChange = vi.fn();
 
     expect(() => render(<KinesisIOSinkProperties node={mockNode as any} onChange={mockOnChange} />)).not.toThrow();
+  });
+
+  it('normalizes object-shaped secrets payload to short secret IDs and never renders [object Object]', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        properties: {
+          streamName: 'order-stream',
+          authMode: 'secretManager' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    // Simulate extension response with object-shaped secrets payload (M1 shape)
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            secrets: [
+              {
+                name: 'kinesis-sink-key',
+                id: 'kinesis-sink-key',
+                fullName: 'projects/123456/secrets/kinesis-sink-key',
+                value: 'kinesis-sink-key'
+              },
+              {
+                name: 'kinesis-sink-secret',
+                id: 'kinesis-sink-secret',
+                fullName: 'projects/123456/secrets/kinesis-sink-secret',
+                value: 'kinesis-sink-secret'
+              }
+            ]
+          }
+        })
+      );
+    });
+
+    const datalist = container.querySelector('#kinesis-sink-secrets-list');
+    expect(datalist).toBeInTheDocument();
+    const options = datalist?.querySelectorAll('option');
+    expect(options).toBeDefined();
+    expect(options?.length).toBe(2);
+
+    const values = Array.from(options || []).map(opt => opt.getAttribute('value'));
+    expect(values).toEqual(['kinesis-sink-key', 'kinesis-sink-secret']);
+    expect(values).not.toContain('[object Object]');
+    expect(values.some(v => v?.includes('[object'))).toBe(false);
   });
 });

@@ -26,6 +26,7 @@
 
 import React, { useMemo } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 import { SAMPLE_AVRO_SCHEMA } from '../source/AvroIO';
 
 export const AVRO_CODECS = [
@@ -145,7 +146,7 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
   /**
    * Updates custom instructions for code generation.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -155,69 +156,41 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Section 1: Destination & Shard Naming */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="avroSinkTo" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Destination File Prefix (.to / file_path_prefix)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="File prefix or path where Avro output shards will be written (e.g. gs://my-bucket/output/data or /local/path/output). Required." />
-        </label>
-        <input
-          id="avroSinkTo"
-          type="text"
-          name="to"
-          aria-required="true"
-          aria-invalid={isToInvalid}
-          value={to}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/output/records or /path/to/output"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isToInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isToInvalid ? (
-          <span className="text-xs text-red-400">Destination file prefix is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Output file prefix (e.g. gs://bucket/output/records)
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="avroSinkTo"
+        name="to"
+        label="Destination File Prefix (.to / file_path_prefix)"
+        required={true}
+        tooltip="File prefix or path where Avro output shards will be written (e.g. gs://my-bucket/output/data or /local/path/output). Required."
+        value={to}
+        invalid={isToInvalid}
+        error={isToInvalid ? 'Destination file prefix is required.' : null}
+        onChange={handleChange}
+        placeholder="gs://my-bucket/output/records or /path/to/output"
+        helperText={isToInvalid ? undefined : 'Output file prefix (e.g. gs://bucket/output/records)'}
+      />
 
       {/* Suffix / Extension */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="avroSinkSuffix" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Suffix / Extension</span>
-          <InfoTooltip text="File extension appended to each shard (default: .avro)." />
-        </label>
-        <input
-          id="avroSinkSuffix"
-          type="text"
-          name="suffix"
-          value={suffix}
-          onChange={handleChange}
-          placeholder=".avro"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="avroSinkSuffix"
+        name="suffix"
+        label="Suffix / Extension"
+        tooltip="File extension appended to each shard (default: .avro)."
+        value={suffix}
+        onChange={handleChange}
+        placeholder=".avro"
+      />
 
       {/* Shard Template */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="avroSinkShardTemplate" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Shard Template</span>
-          <InfoTooltip text="Shard naming template pattern (e.g. -SS-of-NN). Leave empty for Beam default." />
-        </label>
-        <input
-          id="avroSinkShardTemplate"
-          type="text"
-          name="shardNameTemplate"
-          value={shardNameTemplate}
-          onChange={handleChange}
-          placeholder="-SS-of-NN"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="avroSinkShardTemplate"
+        name="shardNameTemplate"
+        label="Shard Template"
+        tooltip="Shard naming template pattern (e.g. -SS-of-NN). Leave empty for Beam default."
+        value={shardNameTemplate}
+        onChange={handleChange}
+        placeholder="-SS-of-NN"
+      />
 
       {/* Section 2: Output Schema Configuration (Mandatory in Avro) */}
       <div className="flex flex-col gap-3 p-4 bg-slate-800/40 rounded border border-slate-700/50">
@@ -476,17 +449,16 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
 
       {/* Section 6: Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="avroSinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="avroSinkSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for AvroIO sink code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

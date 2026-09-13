@@ -1,6 +1,6 @@
 I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
 
-I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Java, using the latest version of all libraries. 
+I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Java, using the exact library versions pinned in the canonical `pom.xml` baseline in this prompt. 
 
 I will also need you to generate:
 - A valid dependency file (pom.xml) 
@@ -50,13 +50,65 @@ I will also need you to generate:
 - Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
 - **Step Names**: Use the node's `label` attribute as the step name in the Java Beam pipeline (e.g. `p.apply("<label>", ...)`). If a node has a customized label, you MUST use that exact string as the step name. If the label is a default transform name, provide a clean, descriptive step name adhering to Apache Beam best practices.
 - If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
-- Use the latest version of all libraries.
+- **Library Versions**: Use the exact versions pinned in the canonical `pom.xml` baseline and in the per-connector dependency lists below. Do NOT invent, guess, or "upgrade to latest" a version number. If a library you need is not pinned anywhere in this prompt, choose a version whose API you are certain matches the code you are writing, and pin it explicitly in `pom.xml`. A version pinned in `pom.xml` that does not expose the methods called from the Java source is a build-breaking error.
 
 ## Compile instructions
 - Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
 - Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
 
 Language: Java
+
+## Credential Handling Rules (GLOBAL - applies to every transform)
+
+Credentials are never stored inline in the pipeline definition. A node configures
+authentication in one of two ways, and you MUST inspect each node's properties to tell
+them apart:
+
+1. **Secret Manager reference (preferred).** The node has `authMode: secretManager` and/or
+   a property whose name ends in `Secret` -- for example `passwordSecret`,
+   `accessKeySecret` -- or a `secretName` property. The VALUE of that property is the
+   SHORT ID of a Google Cloud Secret Manager secret. It is NOT the credential.
+   - You MUST generate code that resolves the secret at runtime.
+   - Required import: `com.google.cloud.secretmanager.v1.SecretManagerServiceClient`,
+     `com.google.cloud.secretmanager.v1.SecretVersionName`
+   - Required Maven dependency:
+     ```xml
+     <dependency>
+       <groupId>com.google.cloud</groupId>
+       <artifactId>google-cloud-secretmanager</artifactId>
+     </dependency>
+     ```
+     (the `libraries-bom` already manages its version if present; otherwise pin one)
+   - Resolve the secret ONCE at pipeline construction time, in `main`, never inside a
+     `DoFn`. A `DoFn` runs per element and per worker, and `SecretManagerServiceClient`
+     is not serializable -- fetching there would both break serialization and issue one
+     API call per record.
+   - Use this shape:
+     ```java
+     /** Reads the payload of a Secret Manager secret. */
+     private static String accessSecret(String projectId, String secretId) throws IOException {
+       try (SecretManagerServiceClient client = SecretManagerServiceClient.create()) {
+         SecretVersionName name = SecretVersionName.of(projectId, secretId, "latest");
+         return client.accessSecretVersion(name).getPayload().getData().toStringUtf8();
+       }
+     }
+     ```
+   - Assign the resolved value to a `final String` local in `main` and pass that into the
+     transform where the plaintext property would otherwise have gone. For example, a
+     JdbcIO node with `passwordSecret: prod-db-pw` becomes
+     `.withPassword(accessSecret(projectId, "prod-db-pw"))`.
+   - Derive `projectId` from the pipeline options (`options.getProject()`). Do NOT hardcode it.
+
+2. **Plaintext (discouraged, legacy).** The node has `authMode: plaintext` or simply a
+   `password` property with no corresponding `passwordSecret`. Use the value as given.
+
+**MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
+plaintext property of the same name and use the Secret Manager path.
+
+**REDACTED VALUES**: if a property value is exactly `__REDACTED_BY_BEAM_DESIGNER__`, that is
+a placeholder, not a credential. Never emit it as a string literal. Read the value from an
+environment variable named after the property in upper snake case via `System.getenv(...)`
+and add a brief comment noting that the operator must supply it.
 
 ## Built-in Beam Transform Rules & Syntax Reference
 - **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
@@ -437,6 +489,10 @@ Use the following static templates as exact starting points when generating the 
   - Use `TextIO.read().from(...).withSkipHeaderLines(n)` (the method is named `.withSkipHeaderLines(int)`, NOT `.skipHeaderLines(int)`).
   - Use `.withDelimiter(byte[])`, `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TYPE>)`, and `.withHintMatchesManyFiles()`.
 - **Jackson Dependency Alignment**: Explicitly declare `com.fasterxml.jackson.core:jackson-core`, `jackson-databind`, and `jackson-annotations` version `2.15.3` (or higher) in `pom.xml` to avoid runtime `NoClassDefFoundError: StreamReadConstraints`.
+- **Datafaker (mock / synthetic data generation)**: When the pipeline generates mock data with Datafaker, pin `<groupId>net.datafaker</groupId><artifactId>datafaker</artifactId><version>2.7.0</version>`. The date API changed between releases, so the pinned version and the called method MUST agree:
+  - `faker.timeAndDate()` returns `net.datafaker.providers.base.TimeAndDate`; `past(long, TimeUnit)` returns `java.time.Instant`, whose `toString()` is ISO-8601 (`2025-03-12T10:15:30Z`). This accessor does NOT exist in Datafaker 2.1.0 and calling it there fails with `cannot find symbol: method timeAndDate()`.
+  - `faker.date()` returns `net.datafaker.providers.base.DateAndTime`; `past(int, TimeUnit)` returns `java.sql.Timestamp`, whose `toString()` is space-separated (`2025-03-12 10:15:30.123`), NOT ISO-8601.
+  - Prefer `faker.timeAndDate()` for any value written as a timestamp to BigQuery, because ISO-8601 is the canonical literal format. Do NOT mix: `timeAndDate()` requires the 2.7.0 pin above.
 - **Testing & Hamcrest Dependencies**: Include `org.hamcrest:hamcrest:2.2` at compile/runtime scope (do NOT place Hamcrest under `<scope>test</scope>` because Beam's SparkRunner registers `TestSparkPipelineOptions` which requires `org.hamcrest.Matcher` at runtime when `PipelineOptionsFactory` initializes). Unit testing dependencies like `junit:junit:4.13.2` and `org.junit.vintage:junit-vintage-engine:${junit.version}` can be under `<scope>test</scope>`.
 - **Maven Shade Plugin Output & Filters**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin`. Always configure `<filter><artifact>*:*</artifact><excludes><exclude>META-INF/*.SF</exclude><exclude>META-INF/*.DSA</exclude><exclude>META-INF/*.RSA</exclude></excludes></filter>` (with no spaces in `*:*`) to strip signed JAR digests and prevent `SecurityException: Invalid signature file digest`.
 - **Coders**: Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. Use `.setCoder(...)` or Beam `Row` schema (`PCollection<Row>`).

@@ -147,6 +147,33 @@ describe('MqttIOSinkProperties', () => {
     }));
   });
 
+  it('displays secret loading error alert when secretsLoaded contains error', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        properties: {
+          passwordSource: 'secretManager' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          command: 'secretsLoaded',
+          error: 'Secret Manager API is not enabled in project'
+        }
+      }));
+    });
+
+    const errorAlerts = screen.getAllByRole('alert');
+    const secretAlert = errorAlerts.find(el => el.textContent?.includes('Secret Manager API is not enabled in project'));
+    expect(secretAlert).toBeInTheDocument();
+  });
+
   it('switches to direct password entry and toggles visibility', () => {
     const mockNode = {
       data: {
