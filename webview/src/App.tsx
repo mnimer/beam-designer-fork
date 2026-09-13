@@ -18,6 +18,7 @@ import YAML from 'yaml';
 import { LayoutTemplate, Map } from 'lucide-react';
 
 import { computeUpdatedOutputFolder } from './utils/outputFolder';
+import { isIgnoredPath } from './utils/fileFilters';
 
 import ReactFlow, {
   MiniMap,
@@ -50,11 +51,14 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java', filename?: string): string | null => {
   if (!files || files.length === 0) return null;
 
+  const validFiles = files.filter(f => !isIgnoredPath(f));
+  if (validFiles.length === 0) return null;
+
   const baseName = filename ? filename.replace(/\.beam$/, '').toLowerCase() : '';
   const pascalBaseName = baseName ? baseName.charAt(0).toUpperCase() + baseName.slice(1) : '';
 
   // Filter code files by language preference, but fall back to the other language if preferred language has no files
-  let codeFiles = files.filter(f => {
+  let codeFiles = validFiles.filter(f => {
     const lower = f.toLowerCase();
     if (language === 'Java') {
       return lower.endsWith('.java') && !lower.includes('test');
@@ -65,7 +69,7 @@ export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java
 
   // If preferred language returned no code files, check if the other language has code files in the directory
   if (codeFiles.length === 0) {
-    codeFiles = files.filter(f => {
+    codeFiles = validFiles.filter(f => {
       const lower = f.toLowerCase();
       return (lower.endsWith('.java') || lower.endsWith('.py')) && !lower.includes('test') && !lower.endsWith('__init__.py');
     });
@@ -73,12 +77,12 @@ export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java
 
   if (codeFiles.length === 0) {
     // If still no code files found, try any .java or .py file
-    codeFiles = files.filter(f => f.endsWith('.java') || f.endsWith('.py'));
+    codeFiles = validFiles.filter(f => f.endsWith('.java') || f.endsWith('.py'));
   }
 
   if (codeFiles.length === 0) {
     // No code files exist in folder at all
-    return files[0];
+    return validFiles[0];
   }
 
   // Find best match among codeFiles matching baseName or pascalBaseName or pipeline
@@ -224,6 +228,7 @@ function App() {
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef<boolean>(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -434,7 +439,15 @@ function App() {
           }, 100);
         } else if (message.command === 'updateSource') {
           setGeneratedCode(message.data);
+        } else if (message.command === 'codeGenerationStopped') {
+          isGeneratingRef.current = false;
+          setIsGenerating(false);
         } else if (message.command === 'codeRegenerated') {
+          if (!isGeneratingRef.current) {
+            console.log('[@App.tsx] Discarding codeRegenerated message because generation is inactive or stopped.');
+            return;
+          }
+          isGeneratingRef.current = false;
           setIsGenerating(false);
           if (message.success) {
             setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
@@ -446,7 +459,7 @@ function App() {
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
         } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
-          const loadedFiles: string[] = message.files || [];
+          const loadedFiles: string[] = (message.files || []).filter((f: string) => !isIgnoredPath(f));
           setFolderFiles(loadedFiles);
           if (loadedFiles.length > 0) {
             const currentLang = pipelineConfigRef.current.language;
@@ -613,6 +626,15 @@ function App() {
       alert('VS Code API is not available. This feature only works when running inside the VS Code extension.');
     }
   }, [jobConfig, runtimeVariables, pipelineConfig]);
+
+  const handleStopPipeline = useCallback(() => {
+    console.log('[@App.tsx] handleStopPipeline called');
+    if (vscode) {
+      vscode.postMessage({
+        command: 'stopPipeline'
+      });
+    }
+  }, []);
 
   const onLayout = useCallback(() => {
     // 1. Build adjacency lists
@@ -833,6 +855,7 @@ function App() {
 
   const handleRegenerate = useCallback(() => {
     if (vscode) {
+      isGeneratingRef.current = true;
       setIsGenerating(true);
       const state = { 
         nodes, 
@@ -851,6 +874,16 @@ function App() {
       });
     }
   }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, filename]);
+
+  const handleStopGeneration = useCallback(() => {
+    isGeneratingRef.current = false;
+    setIsGenerating(false);
+    if (vscode) {
+      vscode.postMessage({
+        command: 'stopCodeGeneration'
+      });
+    }
+  }, []);
 
   const handlePickFolder = useCallback(() => {
     if (vscode) {
@@ -1202,10 +1235,12 @@ function App() {
           isJobIdValid={isJobIdValid}
           generatedCode={generatedCode}
           onRunNow={handleRunNow}
+          onStopPipeline={handleStopPipeline}
           subnetworks={subnetworks}
           pipelineConfig={pipelineConfig}
           setPipelineConfig={setPipelineConfig}
           onRegenerate={handleRegenerate}
+          onStopGeneration={handleStopGeneration}
           folderFiles={folderFiles}
           selectedFileName={selectedFileName}
           selectedFileContent={selectedFileContent}

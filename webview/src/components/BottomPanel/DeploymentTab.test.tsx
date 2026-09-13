@@ -45,4 +45,16 @@ describe('DeploymentTab', () => {
 
     expect(defaultProps.onRunNow).toHaveBeenCalledTimes(1);
   });
+
+  it('renders STOP button and calls onStopPipeline when clicked', () => {
+    const onStopPipeline = vi.fn();
+    render(<DeploymentTab {...defaultProps} onStopPipeline={onStopPipeline} />);
+
+    const stopButton = screen.getByRole('button', { name: /STOP/i });
+    expect(stopButton).toBeInTheDocument();
+    expect(stopButton.className).toContain('w-1/4');
+
+    fireEvent.click(stopButton);
+    expect(onStopPipeline).toHaveBeenCalledTimes(1);
+  });
 });

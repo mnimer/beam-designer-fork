@@ -40,7 +40,7 @@ describe('BottomPanel', () => {
     render(<BottomPanel {...mockProps} folderFiles={['pipeline.py', 'helper.py', 'requirements.txt']} />);
 
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
-    expect(screen.getByText('SOURCE CODE')).toBeInTheDocument();
+    expect(screen.getByText('Generate Code')).toBeInTheDocument();
     expect(screen.getByText('2 files')).toBeInTheDocument();
     expect(screen.queryByText('RUNNING JOBS')).not.toBeInTheDocument();
   });
@@ -61,7 +61,7 @@ describe('BottomPanel', () => {
   it('calls setBottomTab when clicking tabs', () => {
     render(<BottomPanel {...mockProps} />);
 
-    fireEvent.click(screen.getByText('SOURCE CODE'));
+    fireEvent.click(screen.getByText('Generate Code'));
     expect(mockProps.setBottomTab).toHaveBeenCalledWith('SOURCE_CODE');
 
     fireEvent.click(screen.getByText('DEPLOYMENT'));
@@ -88,11 +88,11 @@ describe('BottomPanel', () => {
   it('applies high-contrast active styling to the selected tab and muted styling to inactive tabs', () => {
     render(<BottomPanel {...mockProps} bottomTab="SOURCE_CODE" />);
 
-    const sourceCodeBtn = screen.getByRole('button', { name: /SOURCE CODE/i });
+    const generateCodeBtn = screen.getByRole('button', { name: /Generate Code/i });
     const deploymentBtn = screen.getByRole('button', { name: /DEPLOYMENT/i });
 
-    expect(sourceCodeBtn.className).toContain('text-[var(--vscode-text-primary');
-    expect(sourceCodeBtn.className).toContain('border-[var(--vscode-highlight');
+    expect(generateCodeBtn.className).toContain('text-[var(--vscode-text-primary');
+    expect(generateCodeBtn.className).toContain('border-[var(--vscode-highlight');
 
     expect(deploymentBtn.className).toContain('text-[var(--vscode-text-muted');
   });

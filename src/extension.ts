@@ -39,8 +39,23 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(
             'dataflow-pipeline-builder.beamEditor',
-            new BeamEditorProvider(context)
+            new BeamEditorProvider(context),
+            {
+                webviewOptions: {
+                    retainContextWhenHidden: true
+                },
+                supportsMultipleEditorsPerDocument: false
+            }
         )
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dataflow-pipeline-builder.openWithDesigner', async (uri?: vscode.Uri) => {
+            const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
+            if (targetUri) {
+                await vscode.commands.executeCommand('vscode.openWith', targetUri, 'dataflow-pipeline-builder.beamEditor');
+            }
+        })
     );
 
     context.subscriptions.push(
@@ -514,9 +529,9 @@ export class DataItem extends vscode.TreeItem {
 
         if (contextValue === 'pipeline-edit') {
             this.command = {
-                command: 'vscode.open',
+                command: 'vscode.openWith',
                 title: 'Open Pipeline',
-                arguments: [this.resourceUri]
+                arguments: [this.resourceUri, 'dataflow-pipeline-builder.beamEditor']
             };
             this.iconPath = new vscode.ThemeIcon('file');
         } else if (contextValue === 'pipeline-view') {
@@ -872,8 +887,56 @@ function readResourceFile(context: vscode.ExtensionContext, fileName: string): s
 }
 
 /**
+ * Directory names, system paths, and dependency folders to ignore during file tree scans and cleanup.
+ */
+export const IGNORED_DIRECTORY_NAMES = new Set([
+    'venv',
+    '.venv',
+    'env',
+    '.env',
+    'virtualenv',
+    '.virtualenv',
+    'node_modules',
+    '__pycache__',
+    'target',
+    'build',
+    'dist',
+    'out',
+    'bin',
+    'site-packages',
+    'dist-packages',
+    '.pytest_cache',
+    '.mypy_cache',
+    '.ruff_cache',
+    '.tox',
+    '.nox',
+    '.eggs',
+    '.git',
+    '.github',
+    '.idea',
+    '.vscode'
+]);
+
+/**
+ * Checks if a given relative or absolute file path belongs to an ignored directory,
+ * virtual environment, or hidden cache structure.
+ */
+export function isIgnoredPath(fileNameOrPath: string): boolean {
+    if (!fileNameOrPath) return true;
+    const parts = fileNameOrPath.toLowerCase().replace(/\\/g, '/').split('/');
+    return parts.some(part => {
+        if (!part) return false;
+        if (part === '.dockerignore' || part === '.gcloudignore') return false;
+        if (IGNORED_DIRECTORY_NAMES.has(part)) return true;
+        if (part.startsWith('.') || part.endsWith('.egg-info')) return true;
+        return false;
+    });
+}
+
+/**
  * Safely deletes all files and subdirectories generated for a given pipeline in the output folder.
  * Validates path bounds to ensure it never deletes files outside a valid workspace subfolder.
+ * Protects virtual environments, package directories, git, and custom design files.
  * 
  * @param folderPath The directory path where the pipeline's code is generated.
  */
@@ -900,8 +963,8 @@ function deleteCodeFiles(folderPath: string) {
     try {
         const items = fs.readdirSync(resolvedFolderPath);
         for (const item of items) {
-            // Ignore hidden files and folders except generated ignores
-            if (item.startsWith('.') && item !== '.dockerignore' && item !== '.gcloudignore') {
+            // Protect virtual environments, dependencies, build caches, and hidden directories
+            if (isIgnoredPath(item)) {
                 continue;
             }
 
@@ -1051,20 +1114,21 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
         const htmlPath = path.join(distPath, 'index.html');
         let htmlContent = fs.readFileSync(htmlPath, 'utf-8');
 
-        // Resolve paths to assets
-        const jsUri = webview.asWebviewUri(vscode.Uri.file(path.join(distPath, 'assets', 'index.js')));
-        const cssUri = webview.asWebviewUri(vscode.Uri.file(path.join(distPath, 'assets', 'index.css')));
-
-        htmlContent = htmlContent
-            .replace('./assets/index.js', jsUri.toString())
-            .replace('./assets/index.css', cssUri.toString());
-
         webview.options = {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist'))
             ]
         };
+
+        // Resolve paths to assets
+        const jsUri = webview.asWebviewUri(vscode.Uri.file(path.join(distPath, 'assets', 'index.js')));
+        const cssUri = webview.asWebviewUri(vscode.Uri.file(path.join(distPath, 'assets', 'index.css')));
+
+        htmlContent = htmlContent
+            .replace(/(?:\.\/|\/)?assets\/index\.js/g, jsUri.toString())
+            .replace(/(?:\.\/|\/)?assets\/index\.css/g, cssUri.toString());
+
         webview.html = htmlContent;
 
         // Handle messages from webview
@@ -1076,7 +1140,15 @@ class BeamEditorProvider implements vscode.CustomTextEditorProvider {
 
 /**
  * Handles incoming IPC messages from the Webview frontend.
- * Provides safe parameter handling and non-blocking shell executions.
+ * Provides safe parameter handling, non-blocking shell executions,
+ * and robust cancellation controls for long-running Gemini code generation.
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Architectural Decisions:
+ * - Tracks in-flight Gemini code generation via activeGenerationCts (CancellationTokenSource) and activeGenerationId.
+ * - When stopCodeGeneration is triggered, the cancellation token is invoked immediately and the generation ID is incremented.
+ * - Ongoing background async tasks check cancellation tokens before and after LLM invocations and file writes, ensuring aborted requests do not overwrite code.
  */
 function handleMessages(
     webview: vscode.Webview,
@@ -1085,6 +1157,9 @@ function handleMessages(
     uri?: vscode.Uri,
     pipelineName?: string
 ) {
+    let activeGenerationCts: vscode.CancellationTokenSource | null = null;
+    let activeGenerationId = 0;
+
     return async (message: any) => {
         switch (message.command) {
             case 'getDatasets':
@@ -1540,14 +1615,16 @@ function handleMessages(
                             let results: string[] = [];
                             const list = fs.readdirSync(dir);
                             for (const item of list) {
-                                if (item.startsWith('.')) continue;
+                                if (isIgnoredPath(item)) continue;
                                 const fullPath = path.join(dir, item);
                                 const stat = fs.statSync(fullPath);
                                 if (stat.isDirectory()) {
                                     results = results.concat(getFilesRecursively(fullPath, baseDir));
                                 } else if (stat.isFile()) {
                                     const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-                                    results.push(relPath);
+                                    if (!isIgnoredPath(relPath)) {
+                                        results.push(relPath);
+                                    }
                                 }
                             }
                             return results;
@@ -1766,7 +1843,31 @@ function handleMessages(
                     vscode.window.showErrorMessage("Please save the pipeline first to run it.");
                 }
                 return;
+            case 'stopPipeline':
+                const runnerTerminals = vscode.window.terminals.filter(t => t.name === "Apache Beam Runner");
+                if (runnerTerminals.length > 0) {
+                    for (const term of runnerTerminals) {
+                        term.sendText('\x03'); // Send SIGINT (Ctrl+C)
+                        term.dispose(); // Terminate terminal process tree
+                    }
+                    vscode.window.showInformationMessage("Stopped running Apache Beam pipeline process.");
+                    designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Apache Beam pipeline runner process stopped by user.`);
+                } else {
+                    vscode.window.showInformationMessage("No active Apache Beam runner process found.");
+                }
+                return;
             case 'regenerateCode':
+                if (activeGenerationCts) {
+                    activeGenerationCts.cancel();
+                    activeGenerationCts.dispose();
+                    activeGenerationCts = null;
+                }
+                activeGenerationId++;
+                const currentGenId = activeGenerationId;
+                const generationCts = new vscode.CancellationTokenSource();
+                activeGenerationCts = generationCts;
+                const cancellationToken = generationCts.token;
+
                 const yamlData = message.data;
                 const filenameVal = message.filename;
                 const languageVal = message.language;
@@ -1807,16 +1908,27 @@ function handleMessages(
                 }
 
                 const baseName = filenameVal.replace('.beam', '');
-                deleteCodeFiles(targetFolderPath);
 
                 vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
                     title: "Generating code using Gemini...",
-                    cancellable: false
-                }, async (_progress) => {
+                    cancellable: true
+                }, async (_progress, progressToken) => {
+                    progressToken.onCancellationRequested(() => {
+                        generationCts.cancel();
+                    });
+
                     let promptText = '';
                     try {
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
+
                         const gcloudProjectId = await getGcloudProject();
+
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
 
                         const aiOptions: any = {};
                         if (gcloudProjectId) {
@@ -1851,10 +1963,11 @@ function handleMessages(
                             .replace('{{run_dataflowrunner_template}}', dataflowRunnerTemplate)
                             .replace('{{run_sparkrunner_template}}', sparkRunnerTemplate);
 
-
-
                         const responseSchema = JSON.parse(readResourceFile(context, 'code-gen-schema.json'));
 
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
 
                         const response = await ai.models.generateContent({
                             model: DEFAULT_GEMINI_MODEL,
@@ -1864,6 +1977,11 @@ function handleMessages(
                                 responseSchema: responseSchema
                             }
                         });
+
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Discarded Gemini response because generation was cancelled.`);
+                            return;
+                        }
 
                         // Log successful request and usage data to gemini.log
                         try {
@@ -1890,12 +2008,22 @@ function handleMessages(
                         }
                         const responseObj = parseOrRepairJson(response.text);
 
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
+
+                        // Clean old code files only when new code is received and uncancelled
+                        deleteCodeFiles(targetFolderPath);
 
                         let mainPipelineCode = '';
                         const fileExt = languageVal.toLowerCase() === 'python' ? 'py' : 'java';
 
                         if (responseObj.files && Array.isArray(responseObj.files)) {
                             for (const file of responseObj.files) {
+                                if (cancellationToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                                    return;
+                                }
+
                                 if (!file.filename || file.content === undefined) {
                                     continue;
                                 }
@@ -2006,6 +2134,10 @@ function handleMessages(
                             throw new Error("Invalid response format from Gemini: 'files' array is missing.");
                         }
 
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
+
                         // Default code if the main pipeline file wasn't found in the generated list
                         if (!mainPipelineCode && responseObj.files.length > 0) {
                             const codeFile = responseObj.files.find((f: any) => 
@@ -2030,8 +2162,6 @@ function handleMessages(
                             }
                         }
 
-
-
                         // Write default ignore files if not present in generated files
                         const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
                         if (!fs.existsSync(dockerIgnorePath)) {
@@ -2042,6 +2172,9 @@ function handleMessages(
                             fs.writeFileSync(gcloudIgnorePath, `.git\n.venv\nnode_modules\n__pycache__\ntarget/\n*.beam\n*.tf\n`, 'utf-8');
                         }
 
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            return;
+                        }
 
                         vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
 
@@ -2052,6 +2185,11 @@ function handleMessages(
                         });
 
                     } catch (err: any) {
+                        if (cancellationToken.isCancellationRequested || progressToken.isCancellationRequested || currentGenId !== activeGenerationId) {
+                            designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Code generation canceled. Suppressed error notification.`);
+                            return;
+                        }
+
                         // Log failure to gemini.log
                         try {
                             const logFilePath = path.join(targetFolderPath, 'gemini.log');
@@ -2071,6 +2209,17 @@ function handleMessages(
                         webview.postMessage({ command: 'codeRegenerated', success: false, error: err.message });
                     }
                 });
+                return;
+            case 'stopCodeGeneration':
+                activeGenerationId++;
+                if (activeGenerationCts) {
+                    activeGenerationCts.cancel();
+                    activeGenerationCts.dispose();
+                    activeGenerationCts = null;
+                }
+                designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Code generation canceled by user.`);
+                vscode.window.showInformationMessage("Gemini code generation stopped.");
+                webview.postMessage({ command: 'codeGenerationStopped' });
                 return;
         }
     };

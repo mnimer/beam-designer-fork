@@ -191,12 +191,12 @@ edges:
   it('updates output folder when receiving loadPipeline and updateOutputFolder messages', () => {
     render(<AppWithProvider />);
 
-    // Switch to SOURCE CODE tab
-    const sourceCodeTabBtn = screen.getByText('SOURCE CODE');
+    // Switch to Generate Code tab
+    const sourceCodeTabBtn = screen.getAllByText('Generate Code')[0];
     fireEvent.click(sourceCodeTabBtn);
 
     // Verify initial output folder is empty (placeholder is visible)
-    const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
+    const outputFolderInput = screen.getByPlaceholderText('./scratch_flow/') as HTMLInputElement;
     expect(outputFolderInput.value).toBe('');
 
     // Simulate receiving loadPipeline message with relativeFolder and defaultOutputFolder
@@ -228,11 +228,11 @@ edges:
   it('updates output folder when a renamed pipeline is loaded via loadPipeline message', () => {
     render(<AppWithProvider />);
 
-    // Switch to SOURCE CODE tab
-    const sourceCodeTabBtn = screen.getByText('SOURCE CODE');
+    // Switch to Generate Code tab
+    const sourceCodeTabBtn = screen.getAllByText('Generate Code')[0];
     fireEvent.click(sourceCodeTabBtn);
 
-    const outputFolderInput = screen.getByPlaceholderText('Default (pipeline directory)') as HTMLInputElement;
+    const outputFolderInput = screen.getByPlaceholderText('./scratch_flow/') as HTMLInputElement;
 
     // Simulate loading renamed file test/parse message/parse-message-pipeline.beam
     // with stale output folder test/job1/job1 in saved YAML

@@ -28,10 +28,11 @@ describe('SourceCodeTab', () => {
     expect(screen.getByLabelText('Python')).toBeChecked();
 
     // Check folder inputs
-    expect(screen.getByPlaceholderText('Default (pipeline directory)')).toHaveValue('src/output');
+    expect(screen.getByPlaceholderText('./scratch_flow/')).toHaveValue('src/output');
 
     // Check action buttons
     expect(screen.getByText('Generate Code')).toBeInTheDocument();
+    expect(screen.getByText('Stop')).toBeInTheDocument();
 
     // Check only .py and .java files are shown in the horizontal tabs
     expect(screen.getByText('job.py')).toBeInTheDocument();
@@ -41,6 +42,34 @@ describe('SourceCodeTab', () => {
     expect(screen.getByText((_content, node) => {
       return node?.tagName === 'CODE' && node?.textContent === 'print("pipeline")';
     })).toBeInTheDocument();
+  });
+
+  it('filters out venv, node_modules, and build cache files from the file list', () => {
+    render(
+      <SourceCodeTab
+        {...mockProps}
+        files={[
+          'pipeline.py',
+          'venv/lib/python3.11/site-packages/beam.py',
+          'node_modules/pkg/index.js',
+          '.venv/lib/site-packages/test.py',
+          '__pycache__/pipeline.pyc'
+        ]}
+      />
+    );
+
+    expect(screen.getByText('pipeline.py')).toBeInTheDocument();
+    expect(screen.queryByText('venv/lib/python3.11/site-packages/beam.py')).not.toBeInTheDocument();
+    expect(screen.queryByText('.venv/lib/site-packages/test.py')).not.toBeInTheDocument();
+  });
+
+  it('calls onStopGeneration when clicking Stop button', () => {
+    const onStopGeneration = vi.fn();
+    render(<SourceCodeTab {...mockProps} isGenerating={true} onStopGeneration={onStopGeneration} />);
+
+    const stopBtn = screen.getByText('Stop');
+    fireEvent.click(stopBtn);
+    expect(onStopGeneration).toHaveBeenCalled();
   });
 
   it('calls setLanguage when selecting radio buttons', () => {
@@ -53,7 +82,7 @@ describe('SourceCodeTab', () => {
   it('calls setOutputFolder when typing in folder input', () => {
     render(<SourceCodeTab {...mockProps} />);
 
-    const input = screen.getByPlaceholderText('Default (pipeline directory)');
+    const input = screen.getByPlaceholderText('./scratch_flow/');
     fireEvent.change(input, { target: { value: 'new/path' } });
     expect(mockProps.setOutputFolder).toHaveBeenCalledWith('new/path');
   });

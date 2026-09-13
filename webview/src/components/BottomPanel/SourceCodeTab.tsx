@@ -1,5 +1,6 @@
 import React from 'react';
-import { FolderOpen, RefreshCw, FileCode, FileText, Play } from 'lucide-react';
+import { Folder, RefreshCw, FileCode, FileText, Play, Sliders, CheckCircle2, Square } from 'lucide-react';
+import { filterSourceFiles } from '../../utils/fileFilters';
 
 /**
  * SourceCodeTab Component
@@ -12,9 +13,9 @@ import { FolderOpen, RefreshCw, FileCode, FileText, Play } from 'lucide-react';
  * 
  * Architectural Decisions:
  * - Displays generated files as horizontal scrollable tabs directly above the code preview block.
- * - Left column contains Generator Settings (Target Language, Output Folder, and Generate Code trigger).
+ * - Left column contains Generator Settings (Target Language, Output Folder, Generate Code, and Stop action).
+ * - Styled to match modern dark theme design with 8pt grid spacing system and tailwindcss styling.
  * - Code syntax highlighting supports Python, Java, XML, shell scripts, and configuration files.
- * - Adheres to 8pt grid spacing system and tailwindcss styling.
  */
 interface SourceCodeTabProps {
   generatedCode: string;
@@ -24,6 +25,7 @@ interface SourceCodeTabProps {
   setOutputFolder: (folder: string) => void;
   onPickFolder: () => void;
   onRegenerate: () => void;
+  onStopGeneration?: () => void;
   needsRebuild: boolean;
   files: string[];
   selectedFile: string | null;
@@ -113,6 +115,7 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   setOutputFolder,
   onPickFolder,
   onRegenerate,
+  onStopGeneration,
   needsRebuild,
   files,
   selectedFile,
@@ -120,10 +123,8 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   selectedFileContent,
   isGenerating = false
 }) => {
-  // Filter files to only show .java and .py source files
-  const sourceFiles = (files || []).filter(
-    (file) => file.endsWith('.py') || file.endsWith('.java')
-  );
+  // Filter files to only show visible .java and .py source files (ignoring venv, caches, dependencies)
+  const sourceFiles = filterSourceFiles(files);
 
   // Determine the active file for preview
   const defaultFile = language === 'Python' ? 'pipeline.py' : 'Pipeline.java';
@@ -139,91 +140,155 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
 
   const displayedFiles = sourceFiles.length > 0 ? sourceFiles : [defaultFile];
 
+  // Derive display package name for validation indicator
+  const rawFolderName = outputFolder ? outputFolder.replace(/^\.\//, '').replace(/\/$/, '') : '';
+  const packageDisplayName = rawFolderName || 'scratch_flow';
+
   return (
     <div className="flex h-full gap-4 text-slate-300">
-      {/* Left Column: Generator Settings (280px fixed width) */}
-      <div className="w-72 shrink-0 flex flex-col bg-[#1E202A] rounded border border-slate-700 overflow-hidden">
+      {/* Left Column: Generator Settings (300px width) */}
+      <div className="w-76 shrink-0 flex flex-col bg-[#161922] rounded-xl border border-slate-700/80 overflow-hidden shadow-lg">
         {/* Panel Header */}
-        <div className="border-b border-slate-700 bg-[#151722] py-2 px-4 flex items-center justify-between">
-          <span className="text-xs font-bold tracking-wider text-slate-300 uppercase">
-            Generator Settings
-          </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded border border-slate-700">
-            {language}
-          </span>
+        <div className="border-b border-slate-700/80 bg-[#11141c] py-2.5 px-4 flex items-center">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="text-xs font-bold tracking-wider text-slate-200 uppercase">
+              GENERATOR SETTINGS
+            </span>
+          </div>
         </div>
 
         {/* Panel Content */}
         <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
-          {/* Target Framework / Language */}
-          <div>
-            <label className="text-xs font-bold uppercase text-slate-400 block mb-2">Language</label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className={`flex items-center justify-center gap-2 py-2 px-3 rounded border text-xs font-semibold cursor-pointer transition ${language === 'Python' ? 'bg-blue-600/20 text-blue-300 border-blue-500' : 'bg-[#252836] text-slate-400 border-slate-700 hover:border-slate-600'}`}>
+          {/* Language Selection */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                LANGUAGE
+              </label>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+                {language}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-[#0d1017] rounded-lg border border-slate-800">
+              <label
+                className={`py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition ${
+                  language === 'Python'
+                    ? 'bg-[#1c2333] text-white border border-slate-600/80 shadow-sm'
+                    : 'bg-transparent text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'
+                }`}
+              >
                 <input
                   type="radio"
                   name="language"
                   value="Python"
+                  aria-label="Python"
                   checked={language === 'Python'}
                   onChange={() => setLanguage('Python')}
                   className="sr-only"
                 />
+                <span className="text-sm leading-none">🐍</span>
                 <span>Python</span>
               </label>
-              <label className={`flex items-center justify-center gap-2 py-2 px-3 rounded border text-xs font-semibold cursor-pointer transition ${language === 'Java' ? 'bg-blue-600/20 text-blue-300 border-blue-500' : 'bg-[#252836] text-slate-400 border-slate-700 hover:border-slate-600'}`}>
+
+              <label
+                className={`py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition ${
+                  language === 'Java'
+                    ? 'bg-[#1c2333] text-white border border-slate-600/80 shadow-sm'
+                    : 'bg-transparent text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'
+                }`}
+              >
                 <input
                   type="radio"
                   name="language"
                   value="Java"
+                  aria-label="Java"
                   checked={language === 'Java'}
                   onChange={() => setLanguage('Java')}
                   className="sr-only"
                 />
+                <span className="text-sm leading-none">☕</span>
                 <span>Java</span>
               </label>
             </div>
           </div>
 
-          {/* Output Folder Picker */}
+          {/* Target Folder Picker */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold uppercase text-slate-400 block">Target Folder</label>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  TARGET FOLDER
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={onPickFolder}
+                className="text-xs font-medium text-blue-400 hover:text-blue-300 cursor-pointer hover:underline transition"
+              >
+                Paths
+              </button>
+            </div>
+
+            <div className="flex gap-2 items-center">
               <input
                 type="text"
                 value={outputFolder}
                 onChange={(e) => setOutputFolder(e.target.value)}
-                placeholder="Default (pipeline directory)"
-                className="bg-[#252836] text-white px-3 py-2 rounded border border-slate-700 text-xs flex-1 min-w-0 font-mono focus:outline-none focus:border-blue-500"
+                placeholder="./scratch_flow/"
+                className="bg-[#0d1017] text-white px-3 py-2 rounded-lg border border-slate-800 focus:outline-none focus:border-blue-500 text-xs flex-1 min-w-0 font-mono shadow-inner transition"
               />
               <button
                 type="button"
                 onClick={onPickFolder}
-                className="bg-slate-700 hover:bg-slate-600 text-white px-2.5 py-2 rounded border border-slate-600 flex items-center justify-center shrink-0 transition cursor-pointer"
+                className="bg-[#1c2333] hover:bg-[#252f42] text-slate-300 hover:text-white p-2 rounded-lg border border-slate-700/80 flex items-center justify-center shrink-0 cursor-pointer transition shadow-sm"
                 title="Browse Folder"
               >
-                <FolderOpen className="w-4 h-4" />
+                <Folder className="w-4 h-4 text-slate-300" />
               </button>
+            </div>
+
+            {/* Validation subtitle matching screenshot */}
+            <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] font-mono mt-0.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">Valid {language} package name: {packageDisplayName}</span>
             </div>
           </div>
 
-          {/* Generate Code Action Button */}
-          <div className="mt-auto pt-2">
+          {/* Action Buttons: Generate Code & Stop */}
+          <div className="mt-auto pt-3 border-t border-slate-800/80 flex gap-2.5">
             <button
               type="button"
               onClick={onRegenerate}
               disabled={isGenerating}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded text-xs font-bold w-full cursor-pointer transition shadow-md ${
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 cursor-pointer transition shadow-lg shadow-emerald-950/40 ${
                 isGenerating
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.98]'
+                  : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98]'
               }`}
             >
               {isGenerating ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Play className="w-3.5 h-3.5 fill-current" />
               )}
-              <span>{isGenerating ? 'GENERATING CODE...' : 'Generate Code'}</span>
+              <span>{isGenerating ? 'Generating...' : 'Generate Code'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onStopGeneration}
+              disabled={!isGenerating && !onStopGeneration}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-lg text-xs font-bold transition shadow-sm ${
+                isGenerating
+                  ? 'bg-[#881337] hover:bg-[#9f1239] active:bg-[#4c0519] border border-rose-800/80 text-rose-200 hover:text-white cursor-pointer active:scale-[0.98]'
+                  : 'bg-[#881337]/70 text-rose-300/80 border border-rose-900/40 cursor-pointer hover:bg-[#881337] hover:text-rose-100'
+              }`}
+              title="Stop Code Generation"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Stop</span>
             </button>
           </div>
         </div>

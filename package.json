@@ -11,10 +11,35 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onCustomEditor:dataflow-pipeline-builder.beamEditor",
+    "onLanguage:beam",
+    "onView:dataflowExplorer"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "beam",
+        "aliases": [
+          "Apache Beam Pipeline",
+          "beam",
+          "Beam"
+        ],
+        "extensions": [
+          ".beam"
+        ],
+        "mimetypes": [
+          "application/x-yaml",
+          "text/yaml"
+        ]
+      }
+    ],
+    "configurationDefaults": {
+      "workbench.editorAssociations": {
+        "*.beam": "dataflow-pipeline-builder.beamEditor",
+        "{**/*.beam}": "dataflow-pipeline-builder.beamEditor"
+      }
+    },
     "customEditors": [
       {
         "viewType": "dataflow-pipeline-builder.beamEditor",
@@ -22,6 +47,9 @@
         "selector": [
           {
             "filenamePattern": "*.beam"
+          },
+          {
+            "filenamePattern": "**/*.beam"
           }
         ],
         "priority": "default"
@@ -32,6 +60,11 @@
         "command": "dataflow-pipeline-builder.createNewPipeline",
         "title": "Beam: New Pipeline",
         "icon": "$(plus)"
+      },
+      {
+        "command": "dataflow-pipeline-builder.openWithDesigner",
+        "title": "Open in Beam Pipeline Designer",
+        "icon": "$(layout)"
       },
       {
         "command": "dataflow-pipeline-builder.showEditor",
@@ -71,11 +104,23 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "dataflow-pipeline-builder.openWithDesigner",
+          "when": "resourceExtname == .beam",
+          "group": "navigation@1"
+        }
+      ],
       "editor/title": [
         {
           "command": "dataflow-pipeline-builder.createNewPipeline",
           "when": "activeCustomEditorId == 'dataflow-pipeline-builder.beamEditor'",
           "group": "navigation@1"
+        },
+        {
+          "command": "dataflow-pipeline-builder.openWithDesigner",
+          "when": "resourceExtname == .beam && activeCustomEditorId != 'dataflow-pipeline-builder.beamEditor'",
+          "group": "navigation@2"
         }
       ],
       "view/title": [
