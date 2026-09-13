@@ -73,49 +73,61 @@ Language: Python
   - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
   - Sink: `beam.io.WriteToPubSub(topic=...)`
 - **`GenerateSequence`**:
-  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
-  - **CRITICAL RATE LIMITING & PERIOD RULE**:
-    - Python SDK's helper class `GenerateSequence.__init__` omitted the `period` parameter in its constructor, so calling `GenerateSequence(elements_per_period=1)` causes the Java expansion service to throw `java.lang.IllegalArgumentException: elements per period specified, but no period specified`.
-    - Therefore, when rate limiting or period is configured (e.g. `elementsPerPeriod` or `periodSeconds`), you **MUST** use `ExternalTransform('beam:external:java:generate_sequence:v1', ...)` with `ImplicitSchemaPayloadBuilder` supplying both `elements_per_period` AND `period` in milliseconds (`periodSeconds * 1000`):
-      ```python
-      ExternalTransform(
-          'beam:external:java:generate_sequence:v1',
-          ImplicitSchemaPayloadBuilder({
-              'start': start,
-              'stop': stop, # None for unbounded
-              'elements_per_period': elements_per_period,
-              'period': period_seconds * 1000, # period in milliseconds
-          }),
-          BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
-      )
-      ```
-  - Bounded without Rate Limiting (start to stop):
-    ```python
-    from apache_beam.io.external.generate_sequence import GenerateSequence
-    from apache_beam.transforms.external import BeamJarExpansionService
+  - **CRITICAL — THERE IS NO NATIVE PYTHON `GenerateSequence`**: It is a Java-only transform, reachable from Python ONLY through the cross-language (x-lang) Java expansion service. That requires a JVM plus a large expansion-service jar download, and it changes the pipeline's execution topology (see the deadlock rule below).
+  - **MANDATORY SUBSTITUTION RULE — UNBOUNDED SEQUENCES MUST BECOME `PeriodicImpulse`**:
+    - If a `GenerateSequence` node is unbounded (`sequenceMode: unbounded`, or no `stop` value is configured), you are **STRICTLY FORBIDDEN** from generating `ExternalTransform('beam:external:java:generate_sequence:v1', ...)`. You **MUST** generate a pure-Python `PeriodicImpulse` instead.
+    - **Why (verified silent-deadlock failure mode)**: A cross-language transform executes in a separate Java environment, so it can never be fused into the same stage as the downstream Python transforms. The Python DirectRunner (`FnApiRunner`) will not schedule a downstream stage until the upstream stage's bundle completes — and an *unbounded* Java source bundle never completes. The pipeline therefore deadlocks silently: the Java harness prints `Entering instruction processing loop` and then nothing, and **no downstream Python `DoFn` ever runs**. There is no error, no crash, and zero output.
+    - A *bounded* x-lang sequence works because its bundle terminates; this failure is specific to unbounded sources. The equivalent Java pipeline works because every transform shares one environment and fuses into a single stage.
+  - **Mapping table — always pick the pure-Python option:**
 
-    GenerateSequence(start=start, stop=stop, expansion_service=BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar'))
+    | YAML node configuration | Generate this Python |
+    | --- | --- |
+    | Unbounded (with or without `withRateLimit`) | `PeriodicImpulse(start_timestamp=time.time(), fire_interval=period_seconds)` |
+    | Bounded, no rate limit | `beam.Create(range(start, stop))` |
+    | Bounded + rate limit | `PeriodicImpulse` with a computed `stop_timestamp` (see below) |
+
+  - Required Imports: `import time`, `from apache_beam.transforms.periodicsequence import PeriodicImpulse`
+  - Unbounded, rate limited (e.g. `start: 0`, `periodSeconds: 2`) — the standard "ticker / trigger" source:
+    ```python
+    import time
+    from apache_beam.transforms.periodicsequence import PeriodicImpulse
+
+    p | 'trigger' >> PeriodicImpulse(start_timestamp=time.time(), fire_interval=2)
     ```
-  - Unbounded / Streaming with Rate Limiting (e.g., start=1, 1 element every 15s):
+  - Bounded without rate limiting — do NOT use x-lang, use a plain in-memory range:
     ```python
-    from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService
+    p | 'trigger' >> beam.Create(range(start, stop))
+    ```
+  - Bounded WITH rate limiting — emit `(stop - start)` elements, then stop:
+    ```python
+    import time
+    from apache_beam.transforms.periodicsequence import PeriodicImpulse
 
-    ExternalTransform(
-        'beam:external:java:generate_sequence:v1',
-        ImplicitSchemaPayloadBuilder({
-            'start': 1,
-            'stop': None,
-            'elements_per_period': 1,
-            'period': 15000, # 15 seconds in milliseconds
-        }),
-        BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
-    )
+    _start_ts = time.time()
+    _duration = ((stop - start) / elements_per_period) * period_seconds
+
+    p | 'trigger' >> PeriodicImpulse(
+            start_timestamp=_start_ts,
+            stop_timestamp=_start_ts + _duration,
+            fire_interval=period_seconds,
+        )
+    ```
+  - **Sequence value semantics**: `PeriodicImpulse` emits the fire *timestamp* (a float), whereas `GenerateSequence` emits an incrementing integer. In the overwhelmingly common case the downstream step only needs the tick (a trigger to do work) and MUST simply ignore the element value. ONLY if a downstream step genuinely needs the incrementing counter, derive it from the timestamp:
+    ```python
+    | 'to sequence' >> beam.Map(
+          lambda ts, s=_start_ts, iv=period_seconds: start + int(round((ts - s) / iv))
+      )
+    ```
+  - **`elementsPerPeriod` > 1**: `PeriodicImpulse` fires exactly once per interval. To emit N elements per tick, fan out the tick with a `FlatMap`:
+    ```python
+    | 'fan out' >> beam.FlatMap(lambda ts, n=elements_per_period: range(n))
     ```
 - **`PeriodicImpulse`**:
   - Required Imports: `import time`, `from apache_beam.transforms.periodicsequence import PeriodicImpulse`
   - Unbounded: `PeriodicImpulse(start_timestamp=time.time(), fire_interval=interval_seconds)`
   - Bounded / With Duration: `PeriodicImpulse(start_timestamp=time.time(), stop_timestamp=time.time() + duration_seconds, fire_interval=interval_seconds)`
   - With Custom Start/Stop: `PeriodicImpulse(start_timestamp=start_timestamp, stop_timestamp=stop_timestamp, fire_interval=interval_seconds)`
+  - NOTE: `PeriodicImpulse` is a pure-Python Splittable DoFn. It fuses with downstream Python transforms and streams elements incrementally under the DirectRunner, which is exactly why it is the mandated replacement for unbounded `GenerateSequence`.
 - **`BigQueryIO`**:
   - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
   - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
