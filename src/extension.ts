@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFile } from 'child_process';
+import { execFile, spawn, ChildProcess } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
 import YAML from 'yaml';
 import { DEFAULT_GEMINI_MODEL } from './constants';
@@ -960,16 +960,23 @@ function deleteCodeFiles(folderPath: string) {
         return;
     }
 
+    const PROTECTED_CLEANUP_NAMES = new Set([
+        '.git',
+        '.github',
+        '.idea',
+        '.vscode'
+    ]);
+
     try {
         const items = fs.readdirSync(resolvedFolderPath);
         for (const item of items) {
-            // Protect virtual environments, dependencies, build caches, and hidden directories
-            if (isIgnoredPath(item)) {
+            // Never delete .beam files containing source designs
+            if (item.endsWith('.beam')) {
                 continue;
             }
 
-            // Never delete .beam files containing source designs
-            if (item.endsWith('.beam')) {
+            // Protect repository metadata and IDE configuration directories
+            if (PROTECTED_CLEANUP_NAMES.has(item.toLowerCase())) {
                 continue;
             }
 
@@ -1159,6 +1166,7 @@ function handleMessages(
 ) {
     let activeGenerationCts: vscode.CancellationTokenSource | null = null;
     let activeGenerationId = 0;
+    let activeExecutionProcess: ChildProcess | null = null;
 
     return async (message: any) => {
         switch (message.command) {
@@ -1789,14 +1797,13 @@ function handleMessages(
                             folderPath = outputFolder;
                         } else {
                             const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
                             if (workspaceFolder) {
                                 folderPath = path.join(workspaceFolder, outputFolder);
                             }
                         }
                     }
 
-                    const runner = message.jobConfig?.runner;
+                    const runner = message.jobConfig?.runner || 'DirectRunner';
                     let scriptName = '';
                     let possibleNames: string[] = [];
 
@@ -1820,41 +1827,269 @@ function handleMessages(
 
                     if (scriptExists) {
                         try {
-                            // Find existing runner terminal or create a new dedicated terminal
-                            let terminal = vscode.window.terminals.find(t => t.name === "Apache Beam Runner");
-                            if (!terminal) {
-                                terminal = vscode.window.createTerminal({
-                                    name: "Apache Beam Runner",
-                                    cwd: folderPath
-                                });
+                            // Terminate any previous execution process
+                            if (activeExecutionProcess) {
+                                try {
+                                    if (activeExecutionProcess.pid) {
+                                        process.kill(-activeExecutionProcess.pid, 'SIGINT');
+                                    } else {
+                                        activeExecutionProcess.kill('SIGINT');
+                                    }
+                                } catch (e) {
+                                    try { activeExecutionProcess.kill('SIGINT'); } catch (err) {}
+                                }
+                                activeExecutionProcess = null;
                             }
-                            // Reveal the terminal panel and execute the runner script directly
-                            terminal.show(true);
-                            terminal.sendText(`cd "${folderPath}" && ./${scriptName}`);
-                        } catch (e) {
-                            console.error('Failed to run script in terminal', e);
-                            vscode.window.showErrorMessage(`Failed to run script: ${e}`);
+
+                            const scriptFullPath = path.join(folderPath, scriptName);
+                            // Ensure executable bit is set
+                            try {
+                                fs.chmodSync(scriptFullPath, '755');
+                            } catch (e) {}
+
+                            // Format runner command preview
+                            let runnerDesc = runner === 'DirectRunner' 
+                                ? '# Using Python / Java Direct Runner (Local Machine)' 
+                                : runner === 'Dataflow' 
+                                    ? '# Submitting Apache Beam Flex Template Job to Google Cloud Dataflow' 
+                                    : '# Submitting Apache Beam Job to Serverless Spark (Dataproc)';
+                            const commandLine = `${runnerDesc}\ncd "${folderPath}" && bash ./${scriptName}`;
+
+                            // Notify webview that pipeline has started
+                            webview.postMessage({
+                                command: 'pipelineStarted',
+                                runner: runner,
+                                commandLine: commandLine,
+                                folderPath: folderPath
+                            });
+
+                            designerOutputChannel?.appendLine(`\n[${new Date().toLocaleTimeString()}] Starting pipeline execution with ${runner}:`);
+                            designerOutputChannel?.appendLine(`Command: cd "${folderPath}" && bash ./${scriptName}`);
+
+                            // Build custom environment variables with enriched PATH for tool discovery (python3, gcloud, maven, java)
+                            const extraPathDirs = [
+                                '/opt/homebrew/bin',
+                                '/opt/homebrew/sbin',
+                                '/usr/local/bin',
+                                '/usr/bin',
+                                '/bin',
+                                '/usr/sbin',
+                                '/sbin',
+                                path.join(process.env.HOME || '', 'Development/libraries/google-cloud-sdk/bin'),
+                                path.join(process.env.HOME || '', 'google-cloud-sdk/bin'),
+                                path.join(process.env.HOME || '', '.local/bin'),
+                                path.join(process.env.HOME || '', '.pyenv/shims'),
+                                path.join(process.env.HOME || '', '.sdkman/candidates/maven/current/bin'),
+                                path.join(process.env.HOME || '', '.sdkman/candidates/java/current/bin')
+                            ];
+                            const existingPaths = (process.env.PATH || '').split(path.delimiter);
+                            const mergedPaths = Array.from(new Set([...extraPathDirs.filter(d => fs.existsSync(d)), ...existingPaths]));
+
+                            const customEnv: Record<string, string> = { 
+                                ...process.env as Record<string, string>,
+                                PATH: mergedPaths.join(path.delimiter),
+                                PYTHONUNBUFFERED: '1',
+                                FORCE_COLOR: '0'
+                            };
+
+                            if (message.runtimeVariables && Array.isArray(message.runtimeVariables)) {
+                                for (const v of message.runtimeVariables) {
+                                    if (v.key && v.key.trim()) {
+                                        customEnv[v.key.trim()] = v.value || '';
+                                    }
+                                }
+                            }
+                            if (message.jobConfig) {
+                                if (message.jobConfig.gcsStagingPath) {
+                                    customEnv['GCS_STAGING_PATH'] = message.jobConfig.gcsStagingPath;
+                                }
+                                if (message.jobConfig.subnetwork) {
+                                    customEnv['SUBNETWORK'] = message.jobConfig.subnetwork;
+                                }
+                            }
+
+                            // Determine spawn executable and arguments across platforms
+                            const isWindows = process.platform === 'win32';
+                            const spawnCmd = isWindows ? scriptFullPath : 'bash';
+                            const spawnArgs = isWindows ? [] : [scriptFullPath];
+
+                            const child = spawn(spawnCmd, spawnArgs, {
+                                cwd: folderPath,
+                                env: customEnv,
+                                detached: !isWindows
+                            });
+                            activeExecutionProcess = child;
+
+                            let detectedJobId: string | null = null;
+                            let targetProject = message.jobConfig?.projectId || 'YOUR_PROJECT_ID';
+                            const targetRegion = message.jobConfig?.region || 'us-central1';
+
+                            // Lazily resolve gcloud active project in the background without blocking stream attachment
+                            getGcloudProject().then(proj => {
+                                if (proj) {
+                                    targetProject = proj;
+                                }
+                            }).catch(() => {});
+
+                            const checkForJobId = (chunkStr: string) => {
+                                if (detectedJobId) return;
+
+                                // Check Dataflow Job ID patterns: e.g. "id: 2026-09-12_...", "Submitted job: 2026-09-12_..."
+                                const dataflowMatch = chunkStr.match(/(?:id:\s*['"]?|Submitted job:\s*|\b)([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9a-zA-Z_-]{10,})/i);
+                                if (dataflowMatch && dataflowMatch[1]) {
+                                    detectedJobId = dataflowMatch[1];
+                                    designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Detected Dataflow Job ID: ${detectedJobId}`);
+                                    webview.postMessage({
+                                        command: 'pipelineJobIdDetected',
+                                        jobId: detectedJobId,
+                                        runner: 'Dataflow',
+                                        projectId: targetProject,
+                                        region: targetRegion
+                                    });
+                                    return;
+                                }
+
+                                // Check Dataproc/Spark Batch ID patterns: e.g. "Batch [batch-id] created", "batches/batch-id"
+                                const sparkMatch = chunkStr.match(/(?:batches\/|Batch\s*\[|Batch ID:\s*)([a-zA-Z0-9_-]{4,})/i);
+                                if (sparkMatch && sparkMatch[1] && !['created', 'running', 'pending', 'failed'].includes(sparkMatch[1].toLowerCase())) {
+                                    detectedJobId = sparkMatch[1];
+                                    designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Detected Spark Batch ID: ${detectedJobId}`);
+                                    webview.postMessage({
+                                        command: 'pipelineJobIdDetected',
+                                        jobId: detectedJobId,
+                                        runner: 'Spark',
+                                        projectId: targetProject,
+                                        region: targetRegion
+                                    });
+                                }
+                            };
+
+                            // SYNCHRONOUSLY attach all stdout, stderr, error, and close listeners immediately
+                            child.stdout?.on('data', (data: Buffer | string) => {
+                                const text = data.toString();
+                                designerOutputChannel?.append(text);
+                                webview.postMessage({
+                                    command: 'pipelineLog',
+                                    text: text,
+                                    stream: 'stdout'
+                                });
+                                checkForJobId(text);
+                            });
+
+                            child.stderr?.on('data', (data: Buffer | string) => {
+                                const text = data.toString();
+                                designerOutputChannel?.append(text);
+                                webview.postMessage({
+                                    command: 'pipelineLog',
+                                    text: text,
+                                    stream: 'stderr'
+                                });
+                                checkForJobId(text);
+                            });
+
+                            child.on('error', (err: any) => {
+                                const errText = `\n[Process execution error: ${err.message}]\n`;
+                                designerOutputChannel?.appendLine(errText);
+                                webview.postMessage({
+                                    command: 'pipelineLog',
+                                    text: errText,
+                                    stream: 'stderr'
+                                });
+                                webview.postMessage({
+                                    command: 'pipelineFinished',
+                                    exitCode: 1,
+                                    status: 'failed'
+                                });
+                                if (activeExecutionProcess === child) {
+                                    activeExecutionProcess = null;
+                                }
+                            });
+
+                            child.on('close', (code: number | null, signal: string | null) => {
+                                const status = (code === 0) ? 'completed' : (signal ? 'stopped' : 'failed');
+                                const finishText = `\n[Execution ${status} (exit code: ${code ?? 0}${signal ? `, signal: ${signal}` : ''})]\n`;
+                                designerOutputChannel?.appendLine(finishText);
+                                webview.postMessage({
+                                    command: 'pipelineLog',
+                                    text: finishText,
+                                    stream: 'stdout'
+                                });
+                                webview.postMessage({
+                                    command: 'pipelineFinished',
+                                    exitCode: code ?? 0,
+                                    status: status
+                                });
+                                if (activeExecutionProcess === child) {
+                                    activeExecutionProcess = null;
+                                }
+                            });
+
+                        } catch (e: any) {
+                            console.error('Failed to spawn runner process', e);
+                            vscode.window.showErrorMessage(`Failed to execute runner process: ${e.message}`);
+                            webview.postMessage({
+                                command: 'pipelineLog',
+                                text: `\nFailed to start runner process: ${e.message}\n`,
+                                stream: 'stderr'
+                            });
+                            webview.postMessage({
+                                command: 'pipelineFinished',
+                                exitCode: 1,
+                                status: 'failed'
+                            });
                         }
                     } else {
                         const namesStr = possibleNames.join(' or ');
-                        vscode.window.showErrorMessage(`Runner script not found (${namesStr}) in ${folderPath}. Please save and/or generate code first.`);
+                        const notFoundMsg = `Runner script not found (${namesStr}) in ${folderPath}. Please generate code first.`;
+                        vscode.window.showErrorMessage(notFoundMsg);
+                        webview.postMessage({
+                            command: 'pipelineLog',
+                            text: `[Error]: ${notFoundMsg}\n`,
+                            stream: 'stderr'
+                        });
+                        webview.postMessage({
+                            command: 'pipelineFinished',
+                            exitCode: 1,
+                            status: 'failed'
+                        });
                     }
                 } else {
                     vscode.window.showErrorMessage("Please save the pipeline first to run it.");
                 }
                 return;
             case 'stopPipeline':
-                const runnerTerminals = vscode.window.terminals.filter(t => t.name === "Apache Beam Runner");
-                if (runnerTerminals.length > 0) {
-                    for (const term of runnerTerminals) {
-                        term.sendText('\x03'); // Send SIGINT (Ctrl+C)
-                        term.dispose(); // Terminate terminal process tree
+                if (activeExecutionProcess) {
+                    const procToKill = activeExecutionProcess;
+                    activeExecutionProcess = null;
+                    try {
+                        if (procToKill.pid && process.platform !== 'win32') {
+                            try { process.kill(-procToKill.pid, 'SIGINT'); } catch (e) { procToKill.kill('SIGINT'); }
+                        } else {
+                            procToKill.kill('SIGINT');
+                        }
+                        setTimeout(() => {
+                            try {
+                                if (procToKill.pid && process.platform !== 'win32') {
+                                    try { process.kill(-procToKill.pid, 'SIGKILL'); } catch (e) { procToKill.kill('SIGKILL'); }
+                                } else {
+                                    procToKill.kill('SIGKILL');
+                                }
+                            } catch (e) {}
+                        }, 1000);
+                    } catch (e) {
+                        console.error('Failed to kill active execution process', e);
                     }
-                    vscode.window.showInformationMessage("Stopped running Apache Beam pipeline process.");
-                    designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Apache Beam pipeline runner process stopped by user.`);
-                } else {
-                    vscode.window.showInformationMessage("No active Apache Beam runner process found.");
                 }
+                const runnerTerminals = vscode.window.terminals.filter(t => t.name === "Apache Beam Runner");
+                for (const term of runnerTerminals) {
+                    term.sendText('\x03');
+                    term.dispose();
+                }
+                webview.postMessage({
+                    command: 'pipelineStopped'
+                });
+                vscode.window.showInformationMessage("Stopped running Apache Beam pipeline process.");
+                designerOutputChannel?.appendLine(`[${new Date().toLocaleTimeString()}] Apache Beam pipeline runner process stopped by user.`);
                 return;
             case 'regenerateCode':
                 if (activeGenerationCts) {

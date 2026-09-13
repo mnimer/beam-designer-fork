@@ -19,6 +19,7 @@ import { LayoutTemplate, Map } from 'lucide-react';
 
 import { computeUpdatedOutputFolder } from './utils/outputFolder';
 import { isIgnoredPath } from './utils/fileFilters';
+import type { LogEntry } from './components/BottomPanel/DeploymentTab';
 
 import ReactFlow, {
   MiniMap,
@@ -176,15 +177,32 @@ function App() {
     { key: 'LOG_LEVEL', value: 'INFO' },
     { key: 'NUM_WORKERS', value: '2' }
   ]);
-  const [jobConfig, setJobConfig] = useState({
+  const [jobConfig, setJobConfig] = useState<{
+    runner: string;
+    machineType?: string;
+    minInstances?: number;
+    maxInstances?: number;
+    gcsStagingPath?: string;
+    network?: string;
+    subnetwork?: string;
+    jobId?: string;
+    region?: string;
+    projectId?: string;
+  }>({
     runner: 'DirectRunner',
     machineType: 'n1-standard-1',
     minInstances: 1,
     maxInstances: 10,
     gcsStagingPath: '',
     network: '',
-    subnetwork: ''
+    subnetwork: '',
+    jobId: '',
+    region: 'us-central1',
+    projectId: ''
   });
+  const [pipelineLogs, setPipelineLogs] = useState<LogEntry[]>([]);
+  const [pipelineStatus, setPipelineStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'stopped'>('idle');
+  const [runnerCommand, setRunnerCommand] = useState<string>('');
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
@@ -499,6 +517,37 @@ function App() {
             }
             return prev;
           });
+        } else if (message.command === 'pipelineStarted') {
+          setPipelineStatus('running');
+          if (message.commandLine) {
+            setRunnerCommand(message.commandLine);
+          }
+          const startEntry: LogEntry = {
+            id: `start-${Date.now()}`,
+            text: `[${new Date().toLocaleTimeString()}] Pipeline execution initiated (${message.runner || 'DirectRunner'})...\n`,
+            stream: 'stdout',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setPipelineLogs(prev => [...prev, startEntry]);
+        } else if (message.command === 'pipelineLog') {
+          const logEntry: LogEntry = {
+            id: `log-${Date.now()}-${Math.random()}`,
+            text: message.text || '',
+            stream: (message.stream === 'stderr' ? 'stderr' : 'stdout'),
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setPipelineLogs(prev => [...prev, logEntry]);
+        } else if (message.command === 'pipelineJobIdDetected') {
+          setJobConfig(prev => ({
+            ...prev,
+            jobId: message.jobId,
+            region: message.region || prev.region || 'us-central1',
+            projectId: message.projectId || prev.projectId || projectIdRef.current
+          }));
+        } else if (message.command === 'pipelineFinished') {
+          setPipelineStatus(message.status || (message.exitCode === 0 ? 'completed' : 'failed'));
+        } else if (message.command === 'pipelineStopped') {
+          setPipelineStatus('stopped');
         }
       };
       window.addEventListener('message', handleMessage);
@@ -616,6 +665,8 @@ function App() {
   const handleRunNow = useCallback(() => {
     console.log('[@App.tsx] handleRunNow called');
     if (vscode) {
+      setPipelineLogs([]);
+      setPipelineStatus('running');
       vscode.postMessage({ 
         command: 'runPipeline',
         jobConfig,
@@ -633,6 +684,21 @@ function App() {
       vscode.postMessage({
         command: 'stopPipeline'
       });
+    }
+  }, []);
+
+  const handleClearLogs = useCallback(() => {
+    setPipelineLogs([]);
+  }, []);
+
+  const handleOpenConsole = useCallback((url: string) => {
+    if (vscode) {
+      vscode.postMessage({
+        command: 'openExternal',
+        url
+      });
+    } else {
+      window.open(url, '_blank');
     }
   }, []);
 
@@ -1250,6 +1316,12 @@ function App() {
           isGenerating={isGenerating}
           isExpanded={isBottomPanelExpanded}
           onToggleExpand={() => setIsBottomPanelExpanded(prev => !prev)}
+          pipelineLogs={pipelineLogs}
+          pipelineStatus={pipelineStatus}
+          runnerCommand={runnerCommand}
+          onClearLogs={handleClearLogs}
+          onOpenConsole={handleOpenConsole}
+          projectId={projectId}
         />
       </div>
     </div>

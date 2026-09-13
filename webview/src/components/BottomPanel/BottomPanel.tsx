@@ -1,6 +1,6 @@
 import React from 'react';
 import { Maximize2, Minimize2, Code2 } from 'lucide-react';
-import { DeploymentTab } from './DeploymentTab';
+import { DeploymentTab, type LogEntry } from './DeploymentTab';
 import { SourceCodeTab } from './SourceCodeTab';
 import { filterSourceFiles } from '../../utils/fileFilters';
 
@@ -16,6 +16,7 @@ import { filterSourceFiles } from '../../utils/fileFilters';
  * - Running Jobs was moved to the dedicated VS Code sidebar view.
  * - Provides an expand/collapse toggle icon on the far right of the tab bar (100% full height vs default height).
  * - Displays file count badge on the GENERATE CODE tab when generated files exist.
+ * - Relays execution logs, pipeline status, and GCP deep linking to DeploymentTab.
  * - Uses semantic VS Code theme tokens with 8pt grid spacing system and tailwindcss styling.
  */
 interface BottomPanelProps {
@@ -45,6 +46,12 @@ interface BottomPanelProps {
   isGenerating?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  pipelineLogs?: LogEntry[];
+  pipelineStatus?: 'idle' | 'running' | 'completed' | 'failed' | 'stopped';
+  runnerCommand?: string;
+  onClearLogs?: () => void;
+  onOpenConsole?: (url: string) => void;
+  projectId?: string;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -73,7 +80,13 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   height,
   isGenerating,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  pipelineLogs = [],
+  pipelineStatus = 'idle',
+  runnerCommand = '',
+  onClearLogs,
+  onOpenConsole,
+  projectId = 'YOUR_PROJECT_ID'
 }) => {
   // Filter only .java and .py source files (excluding venv, caches, dependencies) for tab badge count
   const sourceFiles = filterSourceFiles(folderFiles);
@@ -138,6 +151,12 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onStopPipeline={onStopPipeline}
             subnetworks={subnetworks}
             needsRebuild={pipelineConfig.needsRebuild}
+            pipelineLogs={pipelineLogs}
+            pipelineStatus={pipelineStatus}
+            runnerCommand={runnerCommand}
+            onClearLogs={onClearLogs}
+            onOpenConsole={onOpenConsole}
+            projectId={projectId}
           />
         )}
 
