@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface MapNode {
   data: {
@@ -50,7 +50,10 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles input changes for mapping function and output type
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     onChange({
       ...properties,
@@ -58,7 +61,10 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes to code generation instructions
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -68,38 +74,26 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Mapping Function / Expression */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mapFunctionInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Mapping Function / Expression</span>
-          <InfoTooltip text="Lambda expression, method reference, or custom map function applied to each element (e.g. element -> element.toUpperCase())." />
-        </label>
-        <input
-          id="mapFunctionInput"
-          type="text"
-          name="mappingFunction"
-          value={mappingFunction}
-          onChange={handleChange}
-          placeholder="e.g. element -> element.toUpperCase()"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="mapFunctionInput"
+        name="mappingFunction"
+        label="Mapping Function / Expression"
+        tooltip="Lambda expression, method reference, or custom map function applied to each element (e.g. element -> element.toUpperCase())."
+        value={mappingFunction}
+        onChange={handleChange}
+        placeholder="e.g. element -> element.toUpperCase()"
+      />
 
       {/* Output Type */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mapOutputTypeInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Output Type Descriptor</span>
-          <InfoTooltip text="Optional output TypeDescriptor or class name (e.g. TypeDescriptors.strings())." />
-        </label>
-        <input
-          id="mapOutputTypeInput"
-          type="text"
-          name="outputType"
-          value={outputType}
-          onChange={handleChange}
-          placeholder="e.g. String, KV<String, Integer>"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="mapOutputTypeInput"
+        name="outputType"
+        label="Output Type Descriptor"
+        tooltip="Optional output TypeDescriptor or class name (e.g. TypeDescriptors.strings())."
+        value={outputType}
+        onChange={handleChange}
+        placeholder="e.g. String, KV<String, Integer>"
+      />
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
         Apply a 1-to-1 transformation mapping function to each input element.
@@ -109,20 +103,18 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="mapSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="mapSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Map transform code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="mapSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter custom instructions for Map transform code generation..."
+        mono={false}
+      />
     </div>
   );
 };

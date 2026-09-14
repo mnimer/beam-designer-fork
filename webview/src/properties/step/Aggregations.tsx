@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface AggregationNode {
   data: {
@@ -72,14 +72,20 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles input changes for batch size
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       [e.target.name]: e.target.value
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes for system instructions textarea
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -89,22 +95,17 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
   return (
     <div className="flex-1 flex flex-col gap-4">
       {isBatchNode && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="aggBatchSize" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Batch Size (.ofSize)</span>
-            <InfoTooltip text="Maximum number of elements in each batch." />
-          </label>
-          <input
-            id="aggBatchSize"
-            type="number"
-            name="batchSize"
-            min="1"
-            value={batchSize}
-            onChange={handleChange}
-            placeholder="e.g. 100"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="aggBatchSize"
+          type="number"
+          name="batchSize"
+          label="Batch Size (.ofSize)"
+          tooltip="Maximum number of elements in each batch."
+          min="1"
+          value={batchSize}
+          onChange={handleChange}
+          placeholder="e.g. 100"
+        />
       )}
 
       <div className="text-sm text-slate-400 bg-slate-800/40 p-3 rounded border border-slate-700/50">
@@ -116,20 +117,18 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="aggSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="aggSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder={`Enter custom instructions for ${label} code generation...`}
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="aggSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder={`Enter custom instructions for ${label} code generation...`}
+        mono={false}
+      />
     </div>
   );
 };

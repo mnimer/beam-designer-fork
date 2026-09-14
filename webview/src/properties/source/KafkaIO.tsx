@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export interface KafkaDeserializerPreset {
   label: string;
@@ -123,7 +124,7 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newInstructions = e.target.value;
     onChange({
       ...properties,
@@ -203,85 +204,48 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Bootstrap Servers Input (Required) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaBootstrapServers" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Bootstrap Servers</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="A comma-separated list of host:port pairs to establish the initial connection to the Kafka cluster (e.g. localhost:9092 or broker1:9092,broker2:9092). Required." />
-        </label>
-        <input
-          id="kafkaBootstrapServers"
-          type="text"
-          name="bootstrapServers"
-          required
-          aria-required="true"
-          aria-invalid={isBootstrapServersInvalid}
-          value={bootstrapServers}
-          onChange={handleChange}
-          placeholder="localhost:9092"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isBootstrapServersInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isBootstrapServersInvalid ? (
-          <span className="text-xs text-red-400">Bootstrap Servers is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">localhost:9092</code>
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="kafkaBootstrapServers"
+        name="bootstrapServers"
+        label="Bootstrap Servers"
+        required={true}
+        tooltip="A comma-separated list of host:port pairs to establish the initial connection to the Kafka cluster (e.g. localhost:9092 or broker1:9092,broker2:9092). Required."
+        value={bootstrapServers}
+        invalid={isBootstrapServersInvalid}
+        error={isBootstrapServersInvalid ? 'Bootstrap Servers is required.' : null}
+        helperText={!isBootstrapServersInvalid ? <span>Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">localhost:9092</code></span> : null}
+        placeholder="localhost:9092"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Topics Input (Required) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaTopics" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Topic(s)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="Comma-separated list of Kafka topic names to consume from (e.g. events or topic1,topic2). Required." />
-        </label>
-        <input
-          id="kafkaTopics"
-          type="text"
-          name="topics"
-          required
-          aria-required="true"
-          aria-invalid={isTopicsInvalid}
-          value={topics}
-          onChange={handleChange}
-          placeholder="input-topic"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isTopicsInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isTopicsInvalid ? (
-          <span className="text-xs text-red-400">Topic(s) is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">input-topic</code>
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="kafkaTopics"
+        name="topics"
+        label="Topic(s)"
+        required={true}
+        tooltip="Comma-separated list of Kafka topic names to consume from (e.g. events or topic1,topic2). Required."
+        value={topics}
+        invalid={isTopicsInvalid}
+        error={isTopicsInvalid ? 'Topic(s) is required.' : null}
+        helperText={!isTopicsInvalid ? <span>Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">input-topic</code></span> : null}
+        placeholder="input-topic"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Consumer Group ID on its own line */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaGroupId" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Consumer Group ID</span>
-          <InfoTooltip text="A unique string identifying the consumer group this stream belongs to. Used by Kafka for offset tracking and partition assignment." />
-        </label>
-        <input
-          id="kafkaGroupId"
-          type="text"
-          name="groupId"
-          value={groupId}
-          onChange={handleChange}
-          placeholder="beam-consumer-group"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="kafkaGroupId"
+        name="groupId"
+        label="Consumer Group ID"
+        tooltip="A unique string identifying the consumer group this stream belongs to. Used by Kafka for offset tracking and partition assignment."
+        value={groupId}
+        onChange={handleChange}
+        placeholder="beam-consumer-group"
+        mono={true}
+      />
 
       {/* Auto Offset Reset on its own line */}
       <div className="flex flex-col gap-2">
@@ -464,39 +428,35 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
       </div>
 
       {/* Additional Consumer Properties */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaConsumerProperties" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Consumer Properties</span>
-          <InfoTooltip text="Additional Kafka consumer configuration options formatted as key=value on each line (e.g. security.protocol=SASL_SSL or fetch.min.bytes=1024)." />
-        </label>
-        <textarea
-          id="kafkaConsumerProperties"
-          name="consumerProperties"
-          value={consumerProperties}
-          onChange={handleChange}
-          placeholder="security.protocol=SASL_SSL&#10;sasl.mechanism=PLAIN"
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <PropertyField
+        id="kafkaConsumerProperties"
+        name="consumerProperties"
+        label="Consumer Properties"
+        tooltip="Additional Kafka consumer configuration options formatted as key=value on each line (e.g. security.protocol=SASL_SSL or fetch.min.bytes=1024)."
+        type="textarea"
+        value={consumerProperties}
+        onChange={handleChange}
+        placeholder={`security.protocol=SASL_SSL\nsasl.mechanism=PLAIN`}
+        rows={3}
+        mono={true}
+      />
 
       {/* Flexible Spacer adhering to grid */}
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions Section at Bottom */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="kafkaSourceSystemInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Custom instructions supplied to the LLM when generating code for this Kafka read node." />
-        </label>
-        <textarea
+        <PropertyField
           id="kafkaSourceSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          tooltip="Custom instructions supplied to the LLM when generating code for this Kafka read node."
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for Kafka read code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

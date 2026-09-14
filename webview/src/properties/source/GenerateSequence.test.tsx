@@ -169,4 +169,33 @@ describe('GenerateSequenceProperties', () => {
       })
     );
   });
+
+  it('handles negative or boundary start and stop indices', () => {
+    const mockNode = {
+      data: {
+        label: 'Generate Sequence',
+        properties: {
+          sequenceMode: 'bounded' as const,
+          start: -10,
+          stop: 100
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<GenerateSequenceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const startInput = screen.getByLabelText(/start index/i, { selector: 'input' });
+    const stopInput = screen.getByLabelText(/stop index/i, { selector: 'input' });
+
+    expect(startInput).toHaveValue(-10);
+    expect(stopInput).toHaveValue(100);
+
+    fireEvent.change(startInput, { target: { name: 'start', value: '0' } });
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        start: '0'
+      })
+    );
+  });
 });

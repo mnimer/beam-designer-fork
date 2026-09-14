@@ -15,6 +15,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface LogMessageNode {
   data: {
@@ -54,19 +55,26 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
     properties.special_instructions ??
     '';
 
-  // Handle input and select changes and propagate up
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /**
+   * Handle input and select changes and propagate up
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handle AI instructions changes
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
     });
   };
 
-  // Helper text based on selected log level
+  /**
+   * Helper text based on selected log level
+   */
   const getHelperText = () => {
     switch (logLevel) {
       case 'Debug':
@@ -103,21 +111,16 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
         </select>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="logPrefixInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Log Message Prefix / Format</span>
-          <InfoTooltip text="Custom message prefix or pattern prepended to each logged element (e.g. Processing record: )." />
-        </label>
-        <input
-          id="logPrefixInput"
-          type="text"
-          name="logPrefix"
-          value={logPrefix}
-          onChange={handleChange}
-          placeholder="e.g. Processing element: "
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-      </div>
+      <PropertyField
+        id="logPrefixInput"
+        name="logPrefix"
+        label="Log Message Prefix / Format"
+        tooltip="Custom message prefix or pattern prepended to each logged element (e.g. Processing record: )."
+        value={logPrefix}
+        onChange={handleChange}
+        placeholder="e.g. Processing element: "
+        mono={false}
+      />
 
       {getHelperText() && (
         <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
@@ -130,17 +133,16 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="logSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="logSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for logging code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

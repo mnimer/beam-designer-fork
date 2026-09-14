@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PubSubProperties } from './PubSubIO';
 
@@ -59,5 +59,44 @@ describe('PubSubProperties', () => {
     fireEvent.change(topicInput, { target: { value: 'projects/p/topics/t' } });
 
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ topic: 'projects/p/topics/t' }));
+  });
+
+  it('surfaces topicsLoaded and subscriptionsLoaded errors inline in picker (M6)', () => {
+    const mockNode = {
+      data: {
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PubSubProperties node={mockNode} onChange={mockOnChange} />);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'topicsLoaded',
+            topics: [],
+            error: 'Failed to list topics: PERMISSION_DENIED'
+          }
+        })
+      );
+    });
+
+    expect(screen.getByText('Failed to list topics: PERMISSION_DENIED')).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'subscriptionsLoaded',
+            subscriptions: [],
+            error: 'Failed to list subscriptions: API not enabled'
+          }
+        })
+      );
+    });
+
+    expect(screen.getByText('Failed to list subscriptions: API not enabled')).toBeInTheDocument();
   });
 });

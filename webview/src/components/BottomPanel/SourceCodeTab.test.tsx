@@ -158,5 +158,85 @@ describe('SourceCodeTab', () => {
       expect(highlighted).not.toContain('___TOKEN_');
       expect(highlighted).not.toContain('\uE000TOKEN_');
     });
+
+    // M11 (c): Correctness regression - special replacement patterns must render literally
+    it('renders replacement patterns ($&, $`, $\', $1) literally without expansion or corruption', () => {
+      const code = 'cost = "$& tax"\nprefix = "$` before"\nsuffix = "$\' after"\ngroup = "$1 match"';
+      const highlighted = highlightCode(code, 'pipeline.py', 'Python');
+      expect(highlighted).toContain('$&amp; tax');
+      expect(highlighted).toContain('$` before');
+      expect(highlighted).toContain("$\' after");
+      expect(highlighted).toContain('$1 match');
+      expect(highlighted).not.toContain('\uE000TOKEN_');
+      expect(highlighted).not.toContain('___TOKEN_');
+    });
+
+    // M11: Security - HTML escaping before tokenisation prevents XSS
+    it('escapes HTML tags to prevent XSS injection from untrusted model code', () => {
+      const maliciousCode = '<script>alert(1)</script>\n<img src=x onerror=1>';
+      const highlighted = highlightCode(maliciousCode, 'pipeline.py', 'Python');
+
+      expect(highlighted).not.toContain('<script>');
+      expect(highlighted).not.toContain('</script>');
+      expect(highlighted).not.toContain('<img');
+      expect(highlighted).toContain('&lt;script&gt;');
+      expect(highlighted).toContain('&lt;/script&gt;');
+      expect(highlighted).toContain('&lt;img src=x onerror=1&gt;');
+    });
+
+    // M11: Behaviour preserved for representative Python snippet
+    it('preserves expected syntax highlighting spans for representative Python snippets', () => {
+      const pythonSnippet = '# Pipeline definition\nimport apache_beam as beam\n\ndef run():\n    msg = "Hello World"\n    print(msg)';
+      const highlighted = highlightCode(pythonSnippet, 'pipeline.py', 'Python');
+
+      // Comments
+      expect(highlighted).toContain('<span class="text-slate-500"># Pipeline definition</span>');
+      // Keywords
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">import</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">as</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">def</span>');
+      // Strings
+      expect(highlighted).toContain('<span class="text-green-400">"Hello World"</span>');
+      // Functions
+      expect(highlighted).toContain('<span class="text-blue-400">run</span>');
+      expect(highlighted).toContain('<span class="text-blue-400">print</span>');
+    });
+
+    // M11: Behaviour preserved for representative Java snippet
+    it('preserves expected syntax highlighting spans for representative Java snippets', () => {
+      const javaSnippet = '// Main pipeline class\npackage com.example;\n\npublic class Pipeline {\n    /* entrypoint */\n    public static void main(String[] args) {\n        System.out.println("Started");\n    }\n}';
+      const highlighted = highlightCode(javaSnippet, 'Pipeline.java', 'Java');
+
+      // Comments
+      expect(highlighted).toContain('<span class="text-slate-500">// Main pipeline class</span>');
+      expect(highlighted).toContain('<span class="text-slate-500">/* entrypoint */</span>');
+      // Keywords
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">package</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">public</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">class</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">static</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">void</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">main</span>');
+      expect(highlighted).toContain('<span class="text-pink-500 font-bold">String</span>');
+      // Strings
+      expect(highlighted).toContain('<span class="text-green-400">"Started"</span>');
+      // Methods
+      expect(highlighted).toContain('<span class="text-blue-400">println</span>');
+    });
+
+    // M11 (b): Memoisation - re-rendering with identical code/language/file does not recompute
+    it('does not recompute highlightCode when re-rendering with identical props', () => {
+      const spy = vi.fn(highlightCode);
+      const { rerender } = render(<SourceCodeTab {...mockProps} highlighter={spy} />);
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      // Re-rendering with an unrelated prop change does NOT re-run the highlighter
+      rerender(<SourceCodeTab {...mockProps} highlighter={spy} outputFolder="new/output/folder" />);
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      // Re-rendering with changed code DOES re-run the highlighter
+      rerender(<SourceCodeTab {...mockProps} highlighter={spy} generatedCode="print('updated')" />);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
   });
 });

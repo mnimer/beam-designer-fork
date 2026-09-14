@@ -318,5 +318,22 @@ describe('AvroIOSourceProperties', () => {
       })
     );
   });
+
+  it('displays required validation error when filePattern is empty', () => {
+    const mockNode: any = {
+      data: {
+        label: 'AvroIO',
+        properties: {
+          filePattern: ''
+        }
+      }
+    };
+
+    const { container, getByRole } = render(<AvroIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const patternInput = container.querySelector('#avroFilePattern') as HTMLInputElement;
+    expect(patternInput).toHaveAttribute('aria-invalid', 'true');
+    expect(getByRole('alert')).toHaveTextContent('File Pattern is required.');
+  });
 });
 

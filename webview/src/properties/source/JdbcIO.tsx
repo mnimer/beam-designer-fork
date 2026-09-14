@@ -14,11 +14,46 @@
  * - Provides preset suggestions for standard JDBC database drivers (PostgreSQL, MySQL, SQL Server, Oracle, SQLite, Derby).
  * - Dynamically computes example JDBC URL placeholders and help text based on the selected database driver.
  * - Integrates InfoTooltip popovers linking field definitions to Apache Beam documentation.
+ * - Supports authentication mode selection: Google Cloud Secret Manager (passwordSecret) or Plaintext password (with cleartext warning).
+ * - Resolves initial authentication mode with backward compatibility for legacy saved pipelines.
  * - Includes a flexible spacer and "Code Generation Instructions" textarea at the bottom for LLM code generation prompt overrides.
  */
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
+import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import type { AuthModeOption, SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+
+export type JdbcAuthMode = 'secretManager' | 'plaintext';
+
+export const JDBC_AUTH_OPTIONS: AuthModeOption[] = [
+  { value: 'secretManager', label: 'Google Cloud Secret Manager' },
+  { value: 'plaintext', label: 'Plaintext password' },
+];
+
+/**
+ * Resolves the authentication mode for the JDBC Source node.
+ * 
+ * Backward compatibility:
+ * - If authMode is explicitly set, use it.
+ * - Else if a non-empty password already exists, start in 'plaintext'.
+ * - Else start in 'secretManager'.
+ * 
+ * @param authMode Current authMode property if set
+ * @param password Current password property if present
+ * @returns Resolved authentication mode ('secretManager' | 'plaintext')
+ */
+export function resolveAuthMode(authMode?: string, password?: string): JdbcAuthMode {
+  if (authMode) {
+    return authMode as JdbcAuthMode;
+  }
+  if (password && password.trim().length > 0) {
+    return 'plaintext';
+  }
+  return 'secretManager';
+}
 
 export interface JdbcDriverPreset {
   label: string;
@@ -76,8 +111,10 @@ interface JdbcIOSourceNode {
     properties?: {
       driverClassName?: string;
       url?: string;
+      authMode?: JdbcAuthMode;
       username?: string;
       password?: string;
+      passwordSecret?: string;
       connectionProperties?: string;
       driverJars?: string;
       query?: string;
@@ -108,10 +145,15 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
 
+  // NOTE: Request Secret Manager secrets via useAssetLoader
+  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
+
   const driverClassName = properties.driverClassName || 'org.postgresql.Driver';
   const url = properties.url || '';
+  const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
   const password = properties.password || '';
+  const passwordSecret = properties.passwordSecret || '';
   const connectionProperties = properties.connectionProperties || '';
   const query = properties.query || '';
   const tableName = properties.tableName || '';
@@ -141,7 +183,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   const exampleUrl = getJdbcUrlExample(driverClassName);
 
   /**
-   * Handles generic text/checkbox input changes
+   * Handles generic text/checkbox input changes and switches authentication mode safely.
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -152,6 +194,25 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       ...properties,
       [name]: isCheckbox ? checked : value
     };
+
+    // Mode switching and credential property synchronization
+    if (name === 'authMode') {
+      if (value === 'secretManager') {
+        delete newProperties.password;
+      } else if (value === 'plaintext') {
+        delete newProperties.passwordSecret;
+      }
+    } else if (name === 'passwordSecret') {
+      delete newProperties.password;
+      if (!newProperties.authMode) {
+        newProperties.authMode = 'secretManager';
+      }
+    } else if (name === 'password') {
+      delete newProperties.passwordSecret;
+      if (!newProperties.authMode) {
+        newProperties.authMode = 'plaintext';
+      }
+    }
 
     if (name === 'selectType') {
       if (value === 'table') {
@@ -240,37 +301,49 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       </div>
 
       {/* Credentials */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcUsername" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Username</span>
-            <InfoTooltip text="Database user for JDBC authentication." />
-          </label>
-          <input
-            id="jdbcUsername"
-            type="text"
-            name="username"
-            value={username}
-            onChange={handleChange}
-            placeholder="dbuser"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label htmlFor="jdbcPassword" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Password</span>
-            <InfoTooltip text="Database password for JDBC authentication." />
-          </label>
-          <input
-            id="jdbcPassword"
-            type="password"
-            name="password"
-            value={password}
-            onChange={handleChange}
-            placeholder="••••••••"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
+      <div className="flex flex-col gap-3">
+        <PropertyField
+          id="jdbcUsername"
+          name="username"
+          label="Username"
+          tooltip="Database user for JDBC authentication."
+          value={username}
+          onChange={handleChange}
+          placeholder="dbuser"
+          mono={false}
+        />
+
+        <SecretManagerAuthFields
+          idPrefix="jdbcSource"
+          datalistId="jdbc-source-secrets-list"
+          authMode={authMode}
+          authOptions={JDBC_AUTH_OPTIONS}
+          secretName={passwordSecret}
+          secretNameName="passwordSecret"
+          secretPlaceholder="e.g. my-database-password"
+          secrets={secrets}
+          serviceName="JDBC"
+          onChange={handleChange}
+        />
+
+        {authMode === 'plaintext' && (
+          <div className="flex flex-col gap-1">
+            <PropertyField
+              id="jdbcPassword"
+              type="password"
+              name="password"
+              label="Password"
+              tooltip="Database password for JDBC authentication."
+              value={password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              mono={false}
+            />
+            <p className="text-xs text-amber-400 mt-1" role="alert">
+              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Connection Properties */}

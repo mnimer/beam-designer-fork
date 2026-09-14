@@ -15,19 +15,30 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface BigQuerySinkPropertiesProps {
   node: any;
   onChange: (properties: any) => void;
 }
 
+/**
+ * BigQuerySinkProperties component.
+ * Configures properties for Apache Beam BigQuery write sink nodes.
+ */
 export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
+  // Keep properties in a mutable ref updated on every render to avoid stale closure in the message listener
+  const propertiesRef = React.useRef(properties);
+  propertiesRef.current = properties;
+
   const dataset = properties.dataset || '';
   const table = properties.table || '';
 
   const [datasets, setDatasets] = React.useState<string[]>([]);
   const [tables, setTables] = React.useState<string[]>([]);
+  const [datasetError, setDatasetError] = React.useState<string | null>(null);
+  const [tableError, setTableError] = React.useState<string | null>(null);
 
   const isTableInvalid = !table.trim();
 
@@ -39,16 +50,20 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     properties.special_instructions ??
     '';
 
+  // NOTE: Listen for datasets and tables loaded messages from extension host.
+  // Uses propertiesRef to guarantee async datasetsLoaded does not overwrite newer user input.
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.command === 'datasetsLoaded') {
-        setDatasets(message.datasets);
+        setDatasets(message.datasets || []);
+        setDatasetError(message.error || null);
         if (message.projectId) {
-          onChange({ ...properties, projectId: message.projectId });
+          onChange({ ...propertiesRef.current, projectId: message.projectId });
         }
       } else if (message.command === 'tablesLoaded') {
-        setTables(message.tables);
+        setTables(message.tables || []);
+        setTableError(message.error || null);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -68,7 +83,7 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     }
   }, [properties.dataset]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'dataset') {
       onChange({ ...properties, [name]: value, table: '' });
@@ -77,7 +92,7 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     }
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -87,60 +102,36 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Dataset Input */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="bigQuerySinkDataset" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Dataset</span>
-          <InfoTooltip text="BigQuery dataset containing or targeted to contain the table." />
-        </label>
-        <input
-          id="bigQuerySinkDataset"
-          type="text"
-          name="dataset"
-          value={dataset}
-          onChange={handleChange}
-          placeholder="my_dataset"
-          list="dataset-options"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-        <datalist id="dataset-options">
-          {datasets.map(ds => (
-            <option key={ds} value={ds} />
-          ))}
-        </datalist>
-      </div>
+      <PropertyField
+        id="bigQuerySinkDataset"
+        name="dataset"
+        label="Dataset"
+        tooltip="BigQuery dataset containing or targeted to contain the table."
+        value={dataset}
+        onChange={handleChange}
+        placeholder="my_dataset"
+        list="dataset-options"
+        datalist={datasets}
+        error={datasetError}
+        mono={false}
+      />
 
       {/* Table Input */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="bigQuerySinkTable" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Table</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="Destination BigQuery table name or full spec (project:dataset.table). Required." />
-        </label>
-        <input 
-          id="bigQuerySinkTable"
-          type="text" 
-          name="table" 
-          aria-required="true"
-          aria-invalid={isTableInvalid}
-          value={table} 
-          onChange={handleChange} 
-          placeholder="my_table"
-          list="table-options"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
-            isTableInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`} 
-        />
-        <datalist id="table-options">
-          {tables.map(t => (
-            <option key={t} value={t} />
-          ))}
-        </datalist>
-        {isTableInvalid && (
-          <span className="text-xs text-red-400">Table is required.</span>
-        )}
-      </div>
+      <PropertyField
+        id="bigQuerySinkTable"
+        name="table"
+        label="Table"
+        required={true}
+        tooltip="Destination BigQuery table name or full spec (project:dataset.table). Required."
+        value={table}
+        invalid={isTableInvalid}
+        error={tableError || (isTableInvalid ? 'Table is required.' : null)}
+        onChange={handleChange}
+        placeholder="my_table"
+        list="table-options"
+        datalist={tables}
+        mono={false}
+      />
 
       {/* Create Disposition */}
       <div className="flex flex-col gap-2">
@@ -218,21 +209,15 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
               <span className="text-sm text-slate-400">minutes</span>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="bigQuerySinkTempLocation" className="flex items-center text-xs font-bold uppercase text-slate-500">
-              <span>Custom GCS Temp Location</span>
-              <InfoTooltip text="GCS bucket directory path used for staging temporary load files before importing into BigQuery." />
-            </label>
-            <input
-              id="bigQuerySinkTempLocation"
-              type="text"
-              name="custom_gcs_temp_location"
-              value={properties.custom_gcs_temp_location || ''}
-              onChange={handleChange}
-              placeholder="gs://my-bucket/bq-temp"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="bigQuerySinkTempLocation"
+            name="custom_gcs_temp_location"
+            label="Custom GCS Temp Location"
+            tooltip="GCS bucket directory path used for staging temporary load files before importing into BigQuery."
+            value={properties.custom_gcs_temp_location || ''}
+            onChange={handleChange}
+            placeholder="gs://my-bucket/bq-temp"
+          />
         </>
       )}
 
@@ -302,17 +287,16 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="bigQuerySinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="bigQuerySinkSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for BigQuery sink code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

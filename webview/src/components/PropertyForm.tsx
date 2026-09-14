@@ -4,12 +4,16 @@
  * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Purpose:
- * Container component dispatching specific node property sheets based on the selected canvas node's type, label, and beam_transform.
+ * Container component dispatching specific node property sheets based on immutable node metadata
+ * (beam_transform and/or componentType, qualified by node type) rather than user-editable labels.
  * 
  * Architectural Decisions:
- * - Delegates specific property forms to modular components in source, sink, and step subdirectories.
- * - Matches node labels and beam_transform metadata.
- * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO), Database, File, Aggregations, and Transform steps.
+ * - Uses a declarative PROPERTY_FORM_REGISTRY map for fast, immutable metadata dispatch.
+ * - Resolves keys using type-qualified keys (`${type}:${transform}`) and direct transform names.
+ * - Fails fast: Displays an explicit "No property form registered for type <type>" message if no registry entry matches.
+ * - Never inspects or falls back to user-editable display labels, preventing property sheet corruption on node renaming.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO),
+ *   Database, File, Aggregations, and Transform steps.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -52,221 +56,213 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
-interface PropertyFormProps {
+
+export interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
   onAddKVMapper?: (windowNodeId: string) => void;
 }
 
-export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
-  const label = node?.data?.label || '';
-  const beamTransform = node?.data?.beam_transform || '';
+/**
+ * Map of immutable metadata keys (`${type}:${beamTransform}` or direct transform name)
+ * to their respective property form components.
+ * 
+ * NOTE: Keys are matched against immutable metadata (beam_transform / componentType),
+ * NEVER against user-editable node labels.
+ */
+export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>> = {
+  // Source IOs (qualified by SOURCE:)
+  'SOURCE:PubSubIO': PubSubProperties,
+  'SOURCE:PubSub': PubSubProperties,
+  'SOURCE:BigQueryIO': BigQuerySourceProperties,
+  'SOURCE:BigQuery': BigQuerySourceProperties,
+  'SOURCE:TextIO': TextIOSourceProperties,
+  'SOURCE:FileIO': FileIOSourceProperties,
+  'SOURCE:FileIO.match': FileIOSourceProperties,
+  'SOURCE:JdbcIO': JdbcIOSourceProperties,
+  'SOURCE:KafkaIO': KafkaIOSourceProperties,
+  'SOURCE:KinesisIO': KinesisIOSourceProperties,
+  'SOURCE:ParquetIO': ParquetIOSourceProperties,
+  'SOURCE:AvroIO': AvroIOSourceProperties,
+  'SOURCE:SnsIO': SnsIOSourceProperties,
+  'SOURCE:JmsIO': JmsIOSourceProperties,
+  'SOURCE:SqsIO': SqsIOSourceProperties,
+  'SOURCE:MqttIO': MqttIOSourceProperties,
+  'SOURCE:GenerateSequence': GenerateSequenceProperties,
+  'SOURCE:PeriodicImpulse': PeriodicImpulseProperties,
+  'SOURCE:Create': CreateProperties,
+
+  // Direct Source transforms (Python Beam transforms / unique names)
+  'ReadFromAvro': AvroIOSourceProperties,
+  'ReadFromKafka': KafkaIOSourceProperties,
+  'ReadFromJms': JmsIOSourceProperties,
+  'ReadDataFromKinesis': KinesisIOSourceProperties,
+  'ReadFromParquet': ParquetIOSourceProperties,
+  'ReadFromSqs': SqsIOSourceProperties,
+  'ReadFromMqtt': MqttIOSourceProperties,
+  'FileIO.match': FileIOSourceProperties,
+  'GenerateSequence': GenerateSequenceProperties,
+  'PeriodicImpulse': PeriodicImpulseProperties,
+  'Create': CreateProperties,
+
+  // Sink IOs (qualified by SINK:)
+  'SINK:PubSubIO': PubSubSinkProperties,
+  'SINK:PubSub': PubSubSinkProperties,
+  'SINK:BigQueryIO': BigQuerySinkProperties,
+  'SINK:BigQuery': BigQuerySinkProperties,
+  'SINK:TextIO': TextIOSinkProperties,
+  'SINK:FileIO': FileIOSinkProperties,
+  'SINK:JdbcIO': JdbcIOSinkProperties,
+  'SINK:KafkaIO': KafkaIOSinkProperties,
+  'SINK:KinesisIO': KinesisIOSinkProperties,
+  'SINK:ParquetIO': ParquetIOSinkProperties,
+  'SINK:AvroIO': AvroIOSinkProperties,
+  'SINK:SnsIO': SnsIOSinkProperties,
+  'SINK:JmsIO': JmsIOSinkProperties,
+  'SINK:SqsIO': SqsIOSinkProperties,
+  'SINK:MqttIO': MqttIOSinkProperties,
+  'SINK:LogMessage': LogMessageProperties,
+
+  // Direct Sink transforms (Python Beam transforms / unique names)
+  'WriteToAvro': AvroIOSinkProperties,
+  'WriteToKafka': KafkaIOSinkProperties,
+  'WriteToJms': JmsIOSinkProperties,
+  'WriteToKinesis': KinesisIOSinkProperties,
+  'WriteToParquet': ParquetIOSinkProperties,
+  'WriteToSqs': SqsIOSinkProperties,
+  'WriteToMqtt': MqttIOSinkProperties,
+  'LogMessage': LogMessageProperties,
+
+  // Steps & Core Transforms (with and without STEP: prefix)
+  'STEP:FileIO.readMatches': FileIOReadMatchesProperties,
+  'FileIO.readMatches': FileIOReadMatchesProperties,
+  'STEP:Window': WindowingProperties,
+  'Window': WindowingProperties,
+  'STEP:Windowing': WindowingProperties,
+  'Windowing': WindowingProperties,
+  'STEP:WindowInto': WindowingProperties,
+  'WindowInto': WindowingProperties,
+  'STEP:ParseMessage': ParseMessageProperties,
+  'ParseMessage': ParseMessageProperties,
+  'STEP:WithTimestamps': WithTimestampsProperties,
+  'WithTimestamps': WithTimestampsProperties,
+  'STEP:LogMessage': LogMessageProperties,
+  'STEP:KVMapper': KVMapperProperties,
+  'KVMapper': KVMapperProperties,
+  'STEP:Filter': FilterProperties,
+  'Filter': FilterProperties,
+  'STEP:FlatMap': FlatMapProperties,
+  'FlatMap': FlatMapProperties,
+  'STEP:Map': MapProperties,
+  'Map': MapProperties,
+  'STEP:ParDo': ParDoProperties,
+  'ParDo': ParDoProperties,
+
+  // Aggregation transforms
+  'STEP:ApproximateQuantiles': AggregationProperties,
+  'ApproximateQuantiles': AggregationProperties,
+  'Approximate Quantiles': AggregationProperties,
+  'Approximate Quantile': AggregationProperties,
+  'STEP:ApproximateUnique': AggregationProperties,
+  'ApproximateUnique': AggregationProperties,
+  'Approximate Unique': AggregationProperties,
+  'STEP:CoGroupByKey': AggregationProperties,
+  'CoGroupByKey': AggregationProperties,
+  'Co Group By Key': AggregationProperties,
+  'STEP:Combine': AggregationProperties,
+  'Combine': AggregationProperties,
+  'STEP:CombineWithContext': AggregationProperties,
+  'CombineWithContext': AggregationProperties,
+  'Combine With Context': AggregationProperties,
+  'STEP:Count': AggregationProperties,
+  'Count': AggregationProperties,
+  'STEP:Distinct': AggregationProperties,
+  'Distinct': AggregationProperties,
+  'STEP:GroupByKey': AggregationProperties,
+  'GroupByKey': AggregationProperties,
+  'Group By Key': AggregationProperties,
+  'STEP:GroupIntoBatches': AggregationProperties,
+  'GroupIntoBatches': AggregationProperties,
+  'Group Into Batches': AggregationProperties,
+  'STEP:BatchElements': AggregationProperties,
+  'BatchElements': AggregationProperties,
+  'Batch Elements': AggregationProperties,
+  'STEP:Latest': AggregationProperties,
+  'Latest': AggregationProperties,
+  'STEP:Max': AggregationProperties,
+  'Max': AggregationProperties,
+  'STEP:Mean': AggregationProperties,
+  'Mean': AggregationProperties,
+  'STEP:Min': AggregationProperties,
+  'Min': AggregationProperties,
+  'STEP:Sample': AggregationProperties,
+  'Sample': AggregationProperties,
+  'STEP:Sum': AggregationProperties,
+  'Sum': AggregationProperties,
+  'STEP:Top': AggregationProperties,
+  'Top': AggregationProperties,
+
+  // Other Transforms
+  'STEP:Flatten': OtherProperties,
+  'Flatten': OtherProperties,
+  'STEP:Reshuffle': OtherProperties,
+  'Reshuffle': OtherProperties,
+  'STEP:ReShuffle': OtherProperties,
+  'ReShuffle': OtherProperties,
+};
+
+/**
+ * Resolves a property form component from the registry using the node's immutable metadata.
+ * 
+ * Precedence:
+ * 1. Type-qualified key: `${nodeType}:${transform}` (e.g. "SOURCE:PubSubIO", "SINK:BigQueryIO")
+ * 2. Direct transform key: `${transform}` (e.g. "ParDo", "WindowInto", "ReadFromKafka")
+ * 
+ * NOTE: Does NOT fall back to label matching under any circumstances.
+ * 
+ * @param node - React Flow node object
+ * @returns Registered React component or undefined if unregistered
+ */
+export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps> | undefined {
+  const transform = node?.data?.beam_transform || node?.data?.componentType || '';
   const nodeType = (node?.data?.type || '').toUpperCase();
-  const labelLower = label.toLowerCase();
-  const transformLower = beamTransform.toLowerCase();
 
-  let formContent = null;
-
-  // Determine which form to show based on the node label and beam_transform
-  if (label.includes('PubSub') || beamTransform.includes('PubSub')) {
-    if (nodeType === 'SOURCE') {
-      formContent = <PubSubProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <PubSubSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (label.includes('Generate Sequence') || beamTransform === 'GenerateSequence') {
-    formContent = <GenerateSequenceProperties node={node} onChange={onChange} />;
-  } else if (label.includes('Periodic Impulse') || beamTransform === 'PeriodicImpulse') {
-    formContent = <PeriodicImpulseProperties node={node} onChange={onChange} />;
-  } else if (label === 'Create' || beamTransform === 'Create') {
-    formContent = <CreateProperties node={node} onChange={onChange} />;
-  } else if (label.includes('BigQuery') || beamTransform.includes('BigQuery')) {
-    if (nodeType === 'SOURCE') {
-      formContent = <BigQuerySourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <BigQuerySinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (label.includes('TextIO') || beamTransform === 'TextIO') {
-    if (nodeType === 'SOURCE') {
-      formContent = <TextIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <TextIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    label.includes('AvroIO') || 
-    beamTransform === 'AvroIO' || 
-    beamTransform === 'ReadFromAvro' || 
-    beamTransform === 'WriteToAvro' ||
-    labelLower.includes('avro') ||
-    transformLower.includes('avro')
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <AvroIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <AvroIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (label.includes('FileIO') || beamTransform.startsWith('FileIO')) {
-    if (label.includes('Read Matches') || beamTransform === 'FileIO.readMatches') {
-      formContent = <FileIOReadMatchesProperties node={node} onChange={onChange} />;
-    } else if (nodeType === 'SOURCE' || beamTransform === 'FileIO.match') {
-      formContent = <FileIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <FileIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (label.includes('Jdbc') || label.includes('JDBC') || beamTransform === 'JdbcIO') {
-    if (nodeType === 'SOURCE') {
-      formContent = <JdbcIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <JdbcIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('kafka') || 
-    transformLower.includes('kafka') || 
-    beamTransform === 'ReadFromKafka' || 
-    beamTransform === 'WriteToKafka'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <KafkaIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <KafkaIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('sns') || 
-    transformLower.includes('sns') || 
-    beamTransform === 'SnsIO'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <SnsIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <SnsIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('jms') || 
-    transformLower.includes('jms') || 
-    beamTransform === 'ReadFromJms' || 
-    beamTransform === 'WriteToJms'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <JmsIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <JmsIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('kinesis') ||
-    transformLower.includes('kinesis') ||
-    beamTransform === 'ReadDataFromKinesis' ||
-    beamTransform === 'WriteToKinesis'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <KinesisIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <KinesisIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('parquet') || 
-    transformLower.includes('parquet') ||
-    beamTransform === 'ParquetIO' ||
-    beamTransform === 'ReadFromParquet' ||
-    beamTransform === 'WriteToParquet'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <ParquetIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <ParquetIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('sqs') || 
-    transformLower.includes('sqs') || 
-    beamTransform === 'ReadFromSqs' || 
-    beamTransform === 'WriteToSqs' ||
-    beamTransform === 'SqsIO'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <SqsIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <SqsIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    labelLower.includes('mqtt') || 
-    transformLower.includes('mqtt') || 
-    beamTransform === 'MqttIO' ||
-    beamTransform === 'ReadFromMqtt' ||
-    beamTransform === 'WriteToMqtt'
-  ) {
-    if (nodeType === 'SOURCE' || (!nodeType && (labelLower.includes('source') || labelLower.includes('read') || transformLower.includes('read')))) {
-      formContent = <MqttIOSourceProperties node={node} onChange={onChange} />;
-    } else {
-      formContent = <MqttIOSinkProperties node={node} onChange={onChange} />;
-    }
-  } else if (
-    label === 'Window' || 
-    label.includes('Windowing') || 
-    label === 'Fixed Window' || 
-    label === 'Fixed Windows' || 
-    label === 'Sliding Windows' || 
-    label === 'User Windows' ||
-    beamTransform === 'Window' ||
-    beamTransform === 'Windowing' ||
-    transformLower.includes('window')
-  ) {
-    formContent = <WindowingProperties node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
-  } else if (label === 'Parse Message' || beamTransform === 'ParseMessage') {
-    formContent = <ParseMessageProperties node={node} onChange={onChange} />;
-  } else if (label.toLowerCase().includes('timestamp') || label === 'WithTimestamps' || label === 'Add Timestamp' || beamTransform === 'WithTimestamps') {
-    formContent = <WithTimestampsProperties node={node} onChange={onChange} />;
-  } else if (label === 'Log Message' || beamTransform === 'LogMessage') {
-    formContent = <LogMessageProperties node={node} onChange={onChange} />;
-  } else if (label === 'KV Mapper' || beamTransform === 'KVMapper') {
-    formContent = <KVMapperProperties node={node} onChange={onChange} />;
-  } else if (label === 'Filter' || beamTransform === 'Filter') {
-    formContent = <FilterProperties node={node} onChange={onChange} />;
-  } else if (label === 'FlatMap' || beamTransform === 'FlatMap') {
-    formContent = <FlatMapProperties node={node} onChange={onChange} />;
-  } else if (label === 'Map' || beamTransform === 'Map') {
-    formContent = <MapProperties node={node} onChange={onChange} />;
-  } else if (label === 'ParDo' || beamTransform === 'ParDo') {
-    formContent = <ParDoProperties node={node} onChange={onChange} />;
-  } else if (
-    [
-      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
-      'Approximate Unique', 'ApproximateUnique',
-      'Co Group By Key', 'CoGroupByKey',
-      'Combine', 'Combine With Context', 'CombineWithContext',
-      'Count', 'Distinct',
-      'Group By Key', 'GroupByKey',
-      'Group Into Batches', 'GroupIntoBatches',
-      'Batch Elements', 'BatchElements',
-      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
-    ].includes(label) ||
-    [
-      'Approximate Quantiles', 'Approximate Quantile', 'ApproximateQuantiles',
-      'Approximate Unique', 'ApproximateUnique',
-      'Co Group By Key', 'CoGroupByKey',
-      'Combine', 'Combine With Context', 'CombineWithContext',
-      'Count', 'Distinct',
-      'Group By Key', 'GroupByKey',
-      'Group Into Batches', 'GroupIntoBatches',
-      'Batch Elements', 'BatchElements',
-      'Latest', 'Max', 'Mean', 'Min', 'Sample', 'Sum', 'Top'
-    ].includes(beamTransform)
-  ) {
-    formContent = <AggregationProperties node={node} onChange={onChange} />;
-  } else if (
-    label === 'Flatten' ||
-    label === 'ReShuffle' ||
-    label === 'Reshuffle' ||
-    beamTransform === 'Flatten' ||
-    beamTransform === 'Reshuffle' ||
-    beamTransform === 'ReShuffle'
-  ) {
-    formContent = <OtherProperties node={node} onChange={onChange} />;
-  } else {
-    formContent = <div className="text-sm text-slate-400">Nothing to customize</div>;
+  if (!transform) {
+    return undefined;
   }
 
-  return (
-    <>
-      {formContent}
-    </>
-  );
+  // 1. Try type-qualified key (e.g. "SOURCE:PubSubIO", "SINK:KafkaIO")
+  if (nodeType) {
+    const qualifiedKey = `${nodeType}:${transform}`;
+    if (PROPERTY_FORM_REGISTRY[qualifiedKey]) {
+      return PROPERTY_FORM_REGISTRY[qualifiedKey];
+    }
+  }
+
+  // 2. Try direct transform key (e.g. "ParDo", "WindowInto", "ReadFromKafka")
+  if (PROPERTY_FORM_REGISTRY[transform]) {
+    return PROPERTY_FORM_REGISTRY[transform];
+  }
+
+  return undefined;
+}
+
+/**
+ * Container component that dispatches specific node property sheets based on immutable node metadata.
+ * Renders an explicit unregistered message when no matching registry entry is found.
+ */
+export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
+  const Component = getPropertyFormComponent(node);
+
+  if (!Component) {
+    // Fail fast with explicit visible message rather than silent generic form or label fallback
+    const rawType = node?.data?.beam_transform || node?.data?.componentType || node?.data?.type || 'unknown';
+    return (
+      <div className="p-4 text-sm text-[var(--vscode-descriptionForeground,#94a3b8)]">
+        No property form registered for type &quot;{rawType}&quot;
+      </div>
+    );
+  }
+
+  return <Component node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
 };

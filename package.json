@@ -40,6 +40,16 @@
         "{**/*.beam}": "dataflow-pipeline-builder.beamEditor"
       }
     },
+    "configuration": {
+      "title": "DataFlow Designer",
+      "properties": {
+        "dataflowDesigner.gcloudPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom absolute path to the gcloud executable. If empty, the extension searches PATH and standard installation locations."
+        }
+      }
+    },
     "customEditors": [
       {
         "viewType": "dataflow-pipeline-builder.beamEditor",
@@ -177,11 +187,16 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "test:integration": "vitest run",
-    "test:integration:watch": "vitest"
+    "pretest": "npm run compile && npm run typecheck:webview && npm run lint",
+    "typecheck:webview": "npm --prefix webview run typecheck",
+    "lint": "eslint src",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:integration:watch": "vitest --config vitest.integration.config.mts",
+    "test:webview": "npm --prefix webview test",
+    "test:all": "npm run test:unit && npm run test:webview"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

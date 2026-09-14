@@ -14,6 +14,8 @@
  * - Integrates extension callbacks to Google Cloud CLI (gcloud) for discovering:
  *   1. Secret Manager secrets (getSecrets / secretsLoaded) for secure password reference.
  *   2. Compute Engine VM instances (getComputeInstances / computeInstancesLoaded) for auto-populating broker endpoints.
+ * - Supports authentication mode selection: Google Cloud Secret Manager (passwordSecret) or Plaintext password (with cleartext warning).
+ * - Resolves initial authentication mode with backward compatibility for legacy saved pipelines.
  * - Supports RetryConfiguration options (maxRetries, initialRetryDelay) for robust production publishing.
  * - Supports custom ValueMapper specification for converting pipeline elements to javax.jms.Message instances.
  * - Includes Code Generation Instructions textarea for Gemini LLM prompt customization.
@@ -22,6 +24,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
+import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { resolveAuthMode, JMS_AUTH_OPTIONS } from '../source/JmsIO';
+import type { JmsAuthMode } from '../source/JmsIO';
 
 export interface JmsProviderPreset {
   label: string;
@@ -83,10 +91,10 @@ interface JmsIOSinkNode {
       destinationType?: 'queue' | 'topic';
       queue?: string;
       topic?: string;
+      authMode?: JmsAuthMode;
       username?: string;
       password?: string;
       passwordSecret?: string;
-      useSecretManager?: boolean;
       maxRetries?: string | number;
       initialRetryDelay?: string | number;
       valueMapper?: string;
@@ -119,25 +127,23 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
   const destinationType = properties.destinationType || (properties.topic ? 'topic' : 'queue');
   const queue = properties.queue || '';
   const topic = properties.topic || '';
+  const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
   const password = properties.password || '';
   const passwordSecret = properties.passwordSecret || '';
-  const useSecretManager = properties.useSecretManager ?? true;
   const maxRetries = properties.maxRetries ?? '';
   const initialRetryDelay = properties.initialRetryDelay ?? '';
   const valueMapper = properties.valueMapper || '';
 
-  // State for gcloud asynchronous query results
-  const [secrets, setSecrets] = useState<string[]>([]);
+  // NOTE: Request Secret Manager secrets via useAssetLoader
+  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
   const [computeInstances, setComputeInstances] = useState<ComputeInstanceInfo[]>([]);
 
   // NOTE: Listen for gcloud responses from the VS Code extension host
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === 'secretsLoaded') {
-        setSecrets(message.secrets || []);
-      } else if (message.command === 'computeInstancesLoaded') {
+      if (message && message.command === 'computeInstancesLoaded') {
         setComputeInstances(message.instances || []);
       }
     };
@@ -147,7 +153,6 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
     // Request available Secret Manager secrets and Compute Engine instances from extension
     const vscode = (window as any).vscode;
     if (vscode) {
-      vscode.postMessage({ command: 'getSecrets' });
       vscode.postMessage({ command: 'getComputeInstances' });
     }
 
@@ -185,6 +190,25 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
       ...properties,
       [name]: isCheckbox ? checked : value
     };
+
+    // Mode switching and credential property synchronization
+    if (name === 'authMode') {
+      if (value === 'secretManager') {
+        delete newProperties.password;
+      } else if (value === 'plaintext') {
+        delete newProperties.passwordSecret;
+      }
+    } else if (name === 'passwordSecret') {
+      delete newProperties.password;
+      if (!newProperties.authMode) {
+        newProperties.authMode = 'secretManager';
+      }
+    } else if (name === 'password') {
+      delete newProperties.passwordSecret;
+      if (!newProperties.authMode) {
+        newProperties.authMode = 'plaintext';
+      }
+    }
 
     onChange(newProperties);
   };
@@ -452,76 +476,47 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
 
       {/* Authentication */}
       <div className="border-t border-[var(--vscode-border)] pt-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]">Authentication (Optional)</span>
-          <label className="flex items-center gap-1.5 cursor-pointer text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]">
-            <input
-              type="checkbox"
-              name="useSecretManager"
-              checked={useSecretManager}
-              onChange={handleChange}
-              className="rounded border-[var(--vscode-border)] bg-[var(--vscode-input-bg)] text-blue-600 focus:ring-0"
-            />
-            <span>Use Secret Manager</span>
-          </label>
-        </div>
+        <PropertyField
+          id="jmsSinkUsername"
+          name="username"
+          label="Username"
+          tooltip="Optional username for authenticating to the JMS broker."
+          value={username}
+          onChange={handleChange}
+          placeholder="admin"
+          mono={true}
+        />
 
-        {/* Username */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="jmsSinkUsername" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>Username</span>
-            <InfoTooltip text="Optional username for authenticating to the JMS broker." />
-          </label>
-          <input
-            id="jmsSinkUsername"
-            type="text"
-            name="username"
-            value={username}
-            onChange={handleChange}
-            placeholder="admin"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
-          />
-        </div>
+        <SecretManagerAuthFields
+          idPrefix="jmsSink"
+          datalistId="jms-sink-secrets-list"
+          authMode={authMode}
+          authOptions={JMS_AUTH_OPTIONS}
+          secretName={passwordSecret}
+          secretNameId="jmsSinkPasswordSecret"
+          secretNameName="passwordSecret"
+          secretPlaceholder="jms-broker-password"
+          secrets={secrets}
+          serviceName="JMS"
+          onChange={handleChange}
+        />
 
-        {/* Password or Secret Manager Dropdown */}
-        {useSecretManager ? (
+        {authMode === 'plaintext' && (
           <div className="flex flex-col gap-1">
-            <label htmlFor="jmsSinkPasswordSecret" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-              <span>Password Secret</span>
-              <InfoTooltip text="Select a secret from Google Cloud Secret Manager to provide the broker password securely." />
-            </label>
-            <input
-              id="jmsSinkPasswordSecret"
-              type="text"
-              name="passwordSecret"
-              value={passwordSecret}
-              onChange={handleChange}
-              placeholder="jms-broker-password"
-              list="sink-secret-options"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
-            />
-            <datalist id="sink-secret-options">
-              {secrets.map((sec: any) => {
-                const name = typeof sec === 'string' ? sec : sec?.name || '';
-                return <option key={name} value={name} />;
-              })}
-            </datalist>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="jmsSinkPassword" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-              <span>Password</span>
-              <InfoTooltip text="Optional password for authenticating to the JMS broker." />
-            </label>
-            <input
+            <PropertyField
               id="jmsSinkPassword"
               type="password"
               name="password"
+              label="Password"
+              tooltip="Optional password for authenticating to the JMS broker."
               value={password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
+              mono={false}
             />
+            <p className="text-xs text-amber-400 mt-1" role="alert">
+              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
+            </p>
           </div>
         )}
       </div>

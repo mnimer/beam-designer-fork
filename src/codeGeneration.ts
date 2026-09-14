@@ -1,0 +1,716 @@
+/**
+ * Code generation module for Apache Beam pipelines using Gemini AI.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Purpose:
+ * Refactor A3: Extracts the monolithic code-generation closure from extension.ts
+ * into a modular, strategy-driven design.
+ *
+ * Encapsulates:
+ * - Language-specific strategies (Python and Java)
+ * - Pure prompt assembly with special-character protection
+ * - End-to-end code generation pipeline with security controls (C1, C2, C3)
+ */
+
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { GoogleGenAI } from '@google/genai';
+import { DEFAULT_GEMINI_MODEL } from './constants';
+import {
+    redactPipelineYaml,
+    buildRedactionPromptNotice,
+} from './credentialRedaction';
+import {
+    resolveSafeOutputPath,
+    isAllowedExecutableScript,
+    executeScopedCleanup,
+    writeGenerationManifest,
+    getDefaultIgnoreFileContent,
+    parseOrRepairJson,
+    readResourceFile,
+    getGcloudProject,
+    resolvePipelineId,
+    gateOutputFolder,
+} from './extension';
+
+/**
+ * Options for prompt template placeholder substitution.
+ */
+export interface PromptAssemblyOptions {
+    /** Raw prompt template content containing {{...}} placeholders */
+    promptTemplate: string;
+    /** Target language name (e.g. 'python' or 'java') */
+    language: string;
+    /** Redacted pipeline YAML content */
+    pipelineYaml: string;
+    /** Dockerfile static template content */
+    dockerfileTemplate: string;
+    /** Direct runner script template content */
+    directRunnerTemplate: string;
+    /** Dataflow runner script template content */
+    dataflowRunnerTemplate: string;
+    /** Spark runner script template content (Java only, empty for Python) */
+    sparkRunnerTemplate: string;
+}
+
+/**
+ * Strategy interface capturing everything that differs between Python and Java
+ * during code generation.
+ */
+export interface LanguageStrategy {
+    /** Target language subfolder name under templates/ ('java' | 'python') */
+    readonly langSubfolder: string;
+    /** Prompt template resource filename */
+    readonly promptFile: string;
+    /** Relative path to the Spark runner template resource, or null if none */
+    readonly sparkRunnerTemplatePath: string | null;
+    /** Source file extension without leading dot ('py' | 'java') */
+    readonly fileExt: string;
+    /**
+     * Checks if a generated candidate file should be skipped because it belongs to another language.
+     *
+     * @param fileNameOnly Basename of the generated file
+     * @param normalizedFilename Full normalized relative path of the generated file
+     * @returns True if the file should be skipped
+     */
+    isMismatchedArtifact(fileNameOnly: string, normalizedFilename: string): boolean;
+    /**
+     * Routes normalized relative filenames into project directory structure conventions.
+     *
+     * @param normalizedFilename Current normalized relative path
+     * @param fileNameOnly Basename of the file
+     * @param dirNameOnly Directory component of the file
+     * @param baseName Pipeline base name
+     * @returns Routed relative path
+     */
+    routeFilename(normalizedFilename: string, fileNameOnly: string, dirNameOnly: string, baseName: string): string;
+    /**
+     * Post-processes generated file content for language-specific module or package references.
+     *
+     * @param content Raw generated file content
+     * @param baseName Pipeline base name
+     * @returns Adjusted content
+     */
+    postProcessContent(content: string, baseName: string): string;
+    /**
+     * Determines whether a generated file qualifies as the primary pipeline source code.
+     *
+     * @param normalizedFilename Routed normalized relative path
+     * @param baseName Pipeline base name
+     * @param currentMain Existing main pipeline code already discovered, if any
+     * @returns True if file content should become mainPipelineCode
+     */
+    isMainPipelineFile(normalizedFilename: string, baseName: string, currentMain: string): boolean;
+    /**
+     * Performs any language-specific post-generation filesystem operations.
+     *
+     * @param targetFolderPath Absolute destination directory path
+     */
+    postGeneration(targetFolderPath: string): Promise<void>;
+}
+
+/**
+ * Python-specific code generation strategy implementation.
+ */
+export const PYTHON_STRATEGY: LanguageStrategy = {
+    langSubfolder: 'python',
+    promptFile: 'code-gen-prompt-python.txt',
+    sparkRunnerTemplatePath: null,
+    fileExt: 'py',
+
+    isMismatchedArtifact(fileNameOnly: string, normalizedFilename: string): boolean {
+        const lower = fileNameOnly.toLowerCase();
+        return lower === 'pom.xml' || lower === 'run_sparkrunner.sh' || normalizedFilename.includes('target/');
+    },
+
+    routeFilename(normalizedFilename: string, fileNameOnly: string, dirNameOnly: string, baseName: string): string {
+        const lowerName = fileNameOnly.toLowerCase();
+        if (lowerName === 'pipeline.py' || lowerName === `${baseName.toLowerCase()}.py`) {
+            return `src/${baseName}.py`;
+        } else if (lowerName === 'pipeline_test.py' || lowerName === `${baseName.toLowerCase()}_test.py`) {
+            return `src/${baseName}_test.py`;
+        } else if (fileNameOnly.endsWith('.py')) {
+            if (dirNameOnly === '.' || dirNameOnly === '') {
+                return `src/${fileNameOnly}`;
+            }
+        }
+        return normalizedFilename;
+    },
+
+    postProcessContent(content: string, baseName: string): string {
+        // If the project language is Python and baseName is not 'pipeline', fix references to src.pipeline / pipeline in generated files
+        if (baseName.toLowerCase() !== 'pipeline' && content) {
+            return content
+                .replace(/\bfrom\s+src\.pipeline\b/g, `from src.${baseName}`)
+                .replace(/\bimport\s+src\.pipeline\b/g, `import src.${baseName}`)
+                .replace(/\bfrom\s+pipeline\b/g, `from src.${baseName}`)
+                .replace(/\bimport\s+pipeline\b/g, `import src.${baseName}`);
+        }
+        return content;
+    },
+
+    isMainPipelineFile(normalizedFilename: string, baseName: string, currentMain: string): boolean {
+        const lowerNorm = normalizedFilename.toLowerCase();
+        const lowerBase = path.basename(normalizedFilename).toLowerCase();
+        if (lowerNorm.endsWith('.py') && !lowerNorm.includes('test') && !lowerBase.endsWith('__init__.py')) {
+            return (
+                lowerBase === `${baseName.toLowerCase()}.py` ||
+                lowerBase === 'pipeline.py' ||
+                normalizedFilename.startsWith('src/') ||
+                !currentMain
+            );
+        }
+        return false;
+    },
+
+    async postGeneration(targetFolderPath: string): Promise<void> {
+        // Ensure src/__init__.py exists for Python projects so unittest recognizes src as a package
+        const initPyPath = path.join(targetFolderPath, 'src', '__init__.py');
+        // NOTE: inherently TOCTOU existence check
+        const initPyExists = await fs.promises.stat(initPyPath).then(() => true).catch(() => false);
+        if (!initPyExists) {
+            const srcDir = path.dirname(initPyPath);
+            await fs.promises.mkdir(srcDir, { recursive: true });
+            await fs.promises.writeFile(initPyPath, '# Package init\n', 'utf-8');
+        }
+    }
+};
+
+/**
+ * Java-specific code generation strategy implementation.
+ */
+export const JAVA_STRATEGY: LanguageStrategy = {
+    langSubfolder: 'java',
+    promptFile: 'code-gen-prompt-java.txt',
+    sparkRunnerTemplatePath: path.join('templates', 'java', 'run_sparkrunner.sh'),
+    fileExt: 'java',
+
+    isMismatchedArtifact(fileNameOnly: string, _normalizedFilename: string): boolean {
+        return fileNameOnly.toLowerCase() === 'requirements.txt';
+    },
+
+    routeFilename(normalizedFilename: string, fileNameOnly: string, _dirNameOnly: string, baseName: string): string {
+        const pascalBaseName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+        const lowerName = fileNameOnly.toLowerCase();
+        if (lowerName === 'pipeline.java' || lowerName === `${baseName.toLowerCase()}.java` || lowerName === `${pascalBaseName.toLowerCase()}.java`) {
+            return `src/main/java/com/example/${pascalBaseName}.java`;
+        } else if (
+            lowerName === 'pipelinetest.java' ||
+            lowerName === 'pipeline_test.java' ||
+            lowerName === `${baseName.toLowerCase()}test.java` ||
+            lowerName === `${pascalBaseName.toLowerCase()}test.java`
+        ) {
+            return `src/test/java/com/example/${pascalBaseName}Test.java`;
+        } else if (fileNameOnly.endsWith('.java')) {
+            if (!normalizedFilename.startsWith('src/main/java/') && !normalizedFilename.startsWith('src/test/java/')) {
+                return `src/main/java/com/example/${fileNameOnly}`;
+            }
+        }
+        return normalizedFilename;
+    },
+
+    postProcessContent(content: string, _baseName: string): string {
+        return content;
+    },
+
+    isMainPipelineFile(normalizedFilename: string, baseName: string, currentMain: string): boolean {
+        const pascalBaseName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+        const lowerNorm = normalizedFilename.toLowerCase();
+        const lowerBase = path.basename(normalizedFilename).toLowerCase();
+        if (lowerNorm.endsWith('.java') && !lowerNorm.includes('test')) {
+            return (
+                lowerBase === `${pascalBaseName.toLowerCase()}.java` ||
+                lowerBase === `${baseName.toLowerCase()}.java` ||
+                lowerBase === 'pipeline.java' ||
+                normalizedFilename.startsWith('src/main/java/') ||
+                !currentMain
+            );
+        }
+        return false;
+    },
+
+    async postGeneration(_targetFolderPath: string): Promise<void> {
+        // No-op for Java projects
+    }
+};
+
+/**
+ * Resolves the LanguageStrategy for the given language value.
+ *
+ * NOTE: Preserves existing selection logic:
+ * `languageVal.toLowerCase() === 'java' ? 'java' : 'python'`
+ * Anything that is not Java becomes Python (default fallback).
+ *
+ * @param languageVal Raw language string from user or webview
+ * @returns LanguageStrategy for the selected language
+ */
+export function resolveLanguageStrategy(languageVal: string): LanguageStrategy {
+    const lang = (languageVal || '').toLowerCase();
+    if (lang === 'java') {
+        return JAVA_STRATEGY;
+    }
+    // Default fallback: anything that is not Java becomes Python.
+    return PYTHON_STRATEGY;
+}
+
+/**
+ * Pure prompt assembly: substitutes {{...}} template placeholders with values.
+ *
+ * NOTE: Uses replacer functions `() => value` for all substitutions.
+ * This guarantees that special replacement patterns like `$&` and `$'` within the
+ * pipeline YAML or script templates are treated as literal strings and not expanded
+ * by String.prototype.replace.
+ *
+ * @param options Assembly options with templates and variable content
+ * @returns Assembled prompt string
+ */
+export function assemblePrompt(options: PromptAssemblyOptions): string {
+    const {
+        promptTemplate,
+        language,
+        pipelineYaml,
+        dockerfileTemplate,
+        directRunnerTemplate,
+        dataflowRunnerTemplate,
+        sparkRunnerTemplate,
+    } = options;
+
+    return promptTemplate
+        .replace(/\{\{language\}\}/g, () => language)
+        .replace('{{pipeline}}', () => pipelineYaml)
+        .replace('{{dockerfile_template}}', () => dockerfileTemplate)
+        .replace('{{run_directrunner_template}}', () => directRunnerTemplate)
+        .replace('{{run_dataflowrunner_template}}', () => dataflowRunnerTemplate)
+        .replace('{{run_sparkrunner_template}}', () => sparkRunnerTemplate);
+}
+
+/**
+ * Parameters for the core code generation execution pipeline.
+ */
+export interface ExecuteCodeGenerationOptions {
+    /** Output directory destination */
+    targetFolderPath: string;
+    /** Pipeline definition YAML */
+    yamlData: string;
+    /** Target language name */
+    languageVal: string;
+    /** Pipeline base name without extension */
+    baseName: string;
+    /** Pipeline stable identifier for manifest */
+    generationPipelineId: string;
+    /** Result of folder gating check */
+    folderGate: { ownership: string; manifest: any; mayClean: boolean };
+    /** Extension context for loading resources */
+    context: vscode.ExtensionContext;
+    /** Safe post-message callback to communicate with webview */
+    postToWebview: (message: any) => boolean | Promise<boolean>;
+    /** Optional output channel for logging overwrites */
+    outputChannel?: vscode.OutputChannel;
+    /** Optional project ID resolution override */
+    getGcloudProjectFn?: () => Promise<string | undefined>;
+}
+
+/**
+ * Executes the full code generation pipeline:
+ * 1. Redacts sensitive credentials from the pipeline (C2)
+ * 2. Assembles prompt with templates and sentinel instructions
+ * 3. Calls Gemini API with structured JSON output schema
+ * 4. Logs request/response to gemini.log
+ * 5. Parses and repairs JSON response
+ * 6. Executes scoped cleanup on managed output folders (C3)
+ * 7. Writes files strictly within safe boundaries
+ * 8. Applies chmod 755 only to allowlisted executable scripts (C1)
+ * 9. Writes generation manifest for lifecycle ownership
+ *
+ * @param options Execution parameters
+ */
+export async function executeCodeGeneration(options: ExecuteCodeGenerationOptions): Promise<void> {
+    const {
+        targetFolderPath,
+        yamlData,
+        languageVal,
+        baseName,
+        generationPipelineId,
+        folderGate,
+        context,
+        postToWebview,
+        outputChannel,
+        getGcloudProjectFn,
+    } = options;
+
+    let promptText = '';
+    try {
+        const resolveProject = getGcloudProjectFn || getGcloudProject;
+        const gcloudProjectId = await resolveProject();
+
+        const aiOptions: any = {};
+        if (gcloudProjectId) {
+            aiOptions.vertexai = true;
+            aiOptions.project = gcloudProjectId;
+            aiOptions.location = 'global';
+        }
+
+        const ai = new GoogleGenAI(aiOptions);
+
+        // Determine target language strategy
+        const strategy = resolveLanguageStrategy(languageVal);
+        const promptFile = strategy.promptFile;
+        const promptTemplate = readResourceFile(context, promptFile);
+
+        // Load static file templates for Dockerfile and runner scripts
+        const dockerfileTemplate = readResourceFile(context, path.join('templates', strategy.langSubfolder, 'Dockerfile'));
+        const directRunnerTemplate = readResourceFile(context, path.join('templates', strategy.langSubfolder, 'run_directrunner.sh'));
+        const dataflowRunnerTemplate = readResourceFile(context, path.join('templates', strategy.langSubfolder, 'run_dataflowrunner.sh'));
+
+        let sparkRunnerTemplate = '';
+        if (strategy.sparkRunnerTemplatePath) {
+            sparkRunnerTemplate = readResourceFile(context, strategy.sparkRunnerTemplatePath);
+        }
+
+        // C2: Strip plaintext credentials out of the pipeline before it leaves the
+        // machine. This is the single chokepoint for both outbound paths -- the
+        // Gemini API call below and the gemini.log written from promptText -- so
+        // redacting here covers both. Throws on unparseable YAML rather than
+        // falling back to the raw text; see src/credentialRedaction.ts.
+        const { value: redactedYaml, redactedPaths } = redactPipelineYaml(yamlData);
+        if (redactedPaths.length > 0) {
+            console.warn(
+                `Redacted ${redactedPaths.length} credential value(s) before code generation: ${redactedPaths.join(', ')}`
+            );
+        }
+
+        // Substitute placeholders, pipeline definitions, and templates into final prompt text.
+        // NOTE: the pipeline is inserted via a replacer function so that any `$&`/`$'`
+        // sequence inside the user's YAML is treated as literal text rather than as a
+        // String.replace substitution pattern.
+        promptText = assemblePrompt({
+            promptTemplate,
+            language: languageVal,
+            pipelineYaml: redactedYaml,
+            dockerfileTemplate,
+            directRunnerTemplate,
+            dataflowRunnerTemplate,
+            sparkRunnerTemplate,
+        });
+
+        // Tell the model the placeholder is inert and must become an env-var read,
+        // otherwise it faithfully embeds the sentinel as a string literal.
+        promptText += buildRedactionPromptNotice(redactedPaths);
+
+        const responseSchema = JSON.parse(readResourceFile(context, 'code-gen-schema.json'));
+
+        const response = await ai.models.generateContent({
+            model: DEFAULT_GEMINI_MODEL,
+            contents: promptText,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: responseSchema,
+            },
+        });
+
+        // Log successful request and usage data to gemini.log
+        try {
+            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+            const logData = {
+                timestamp: new Date().toISOString(),
+                model: DEFAULT_GEMINI_MODEL,
+                prompt: promptText,
+                responseSchema: responseSchema,
+                tokenUsage: response.usageMetadata ? {
+                    inputTokens: response.usageMetadata.promptTokenCount,
+                    outputTokens: response.usageMetadata.candidatesTokenCount,
+                    totalTokens: (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0),
+                } : 'Unavailable',
+                rawResponse: response.text,
+            };
+            await fs.promises.writeFile(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+        } catch (logErr) {
+            console.error('Failed to write request log to gemini.log', logErr);
+        }
+
+        if (!response.text) {
+            throw new Error('Empty response from Gemini model.');
+        }
+        const responseObj = parseOrRepairJson(response.text);
+
+        let mainPipelineCode = '';
+        const fileExt = strategy.fileExt;
+
+        // Records every file written this run so the manifest can describe
+        // exactly what we own, with hashes to detect later hand-edits.
+        // Declared out here because the manifest is stamped after the payload
+        // branch closes.
+        const writtenForManifest: Array<{ path: string; content: string }> = [];
+
+        if (responseObj.files && Array.isArray(responseObj.files)) {
+            // C3 layer 1: only now, with a validated payload in memory, is it
+            // safe to delete. Scoped by the manifest -- never "everything in
+            // the directory" -- so unknown user files survive by default.
+            if (folderGate.mayClean && folderGate.manifest) {
+                const cleanup = executeScopedCleanup(
+                    targetFolderPath,
+                    folderGate.manifest,
+                    languageVal
+                );
+                if (cleanup.modifiedFiles.length > 0) {
+                    // Overwriting hand-edited generated files is documented
+                    // behaviour, but list them so the user can recover from git.
+                    outputChannel?.appendLine(
+                        `[generation] Overwriting ${cleanup.modifiedFiles.length} generated file(s) you had edited: ${cleanup.modifiedFiles.join(', ')}`
+                    );
+                }
+            }
+
+            for (const file of responseObj.files) {
+                if (!file.filename || file.content === undefined) {
+                    continue;
+                }
+
+                // Normalize standard names to match diagrams and directory structure
+                let normalizedFilename = file.filename;
+
+                // Strip redundant top-level folder matching baseName if model included it (e.g. "foobar/Dockerfile" -> "Dockerfile")
+                if (normalizedFilename.startsWith(`${baseName}/`)) {
+                    normalizedFilename = normalizedFilename.substring(baseName.length + 1);
+                }
+                // Validate candidate filename against target directory containment before processing
+                if (!resolveSafeOutputPath(targetFolderPath, normalizedFilename)) {
+                    console.error(`[regenerateCode] Rejected out-of-bounds file: ${file.filename}`);
+                    continue;
+                }
+
+                const fileNameOnly = path.basename(normalizedFilename);
+                const dirNameOnly = path.dirname(normalizedFilename);
+
+                // Filter out files mismatched with target language
+                if (strategy.isMismatchedArtifact(fileNameOnly, normalizedFilename)) {
+                    console.log(`[regenerateCode] Skipping artifact '${normalizedFilename}' for ${strategy.langSubfolder} project.`);
+                    continue;
+                }
+
+                // Route pipeline code and test files to appropriate subfolders
+                normalizedFilename = strategy.routeFilename(normalizedFilename, fileNameOnly, dirNameOnly, baseName);
+
+                let fileContent = file.content;
+                // Language-specific post-processing of file content
+                fileContent = strategy.postProcessContent(fileContent, baseName);
+
+                // Strictly verify path containment before writing to disk
+                const filePath = resolveSafeOutputPath(targetFolderPath, normalizedFilename);
+                if (!filePath) {
+                    console.error(`[regenerateCode] Rejected out-of-bounds file: ${file.filename}`);
+                    continue;
+                }
+
+                const parentDir = path.dirname(filePath);
+                await fs.promises.mkdir(parentDir, { recursive: true });
+                await fs.promises.writeFile(filePath, fileContent, 'utf-8');
+                // Record what we wrote, relative to the output folder and with
+                // POSIX separators, so the manifest is portable and the hash
+                // reflects the exact bytes on disk.
+                writtenForManifest.push({
+                    path: path.relative(targetFolderPath, filePath).split(path.sep).join('/'),
+                    content: fileContent,
+                });
+
+                // Gate chmod 755 to allowlisted scripts rather than trusting model-controlled file.executable
+                if (isAllowedExecutableScript(filePath)) {
+                    try {
+                        await fs.promises.chmod(filePath, '755');
+                    } catch (e) {
+                        console.error(`Failed to set executable permission on ${filePath}`, e);
+                    }
+                } else if (file.executable) {
+                    console.warn(`[regenerateCode] Refusing chmod 755 on unapproved executable: ${file.filename}`);
+                }
+
+                if (strategy.isMainPipelineFile(normalizedFilename, baseName, mainPipelineCode)) {
+                    mainPipelineCode = fileContent;
+                }
+            }
+        } else {
+            throw new Error("Invalid response format from Gemini: 'files' array is missing.");
+        }
+
+        // Default code if the main pipeline file wasn't found in the generated list
+        if (!mainPipelineCode && responseObj.files.length > 0) {
+            const codeFile = responseObj.files.find((f: any) =>
+                f.filename && f.filename.endsWith(`.${fileExt}`) && !f.filename.toLowerCase().includes('test')
+            ) || responseObj.files.find((f: any) => f.filename && f.filename.endsWith(`.${fileExt}`));
+            if (codeFile) {
+                mainPipelineCode = codeFile.content;
+            } else {
+                mainPipelineCode = responseObj.files[0].content;
+            }
+        }
+
+        // Language-specific post-generation setup (e.g. creating __init__.py for Python)
+        await strategy.postGeneration(targetFolderPath);
+
+        // Write default ignore files if not present in generated files
+        const dockerIgnorePath = path.join(targetFolderPath, '.dockerignore');
+        // NOTE: inherently TOCTOU existence check
+        const dockerIgnoreExists = await fs.promises.stat(dockerIgnorePath).then(() => true).catch(() => false);
+        if (!dockerIgnoreExists) {
+            await fs.promises.writeFile(dockerIgnorePath, getDefaultIgnoreFileContent(), 'utf-8');
+        }
+        const gcloudIgnorePath = path.join(targetFolderPath, '.gcloudignore');
+        // NOTE: inherently TOCTOU existence check
+        const gcloudIgnoreExists = await fs.promises.stat(gcloudIgnorePath).then(() => true).catch(() => false);
+        if (!gcloudIgnoreExists) {
+            await fs.promises.writeFile(gcloudIgnorePath, getDefaultIgnoreFileContent(), 'utf-8');
+        }
+
+        // C3 layer 2: stamp the ownership marker. This is what lets the *next*
+        // generation recognise the folder as ours and clean it safely. Without
+        // it the next run classifies the folder as unowned and prompts, which
+        // is the intended fail-safe direction.
+        writeGenerationManifest(
+            targetFolderPath,
+            generationPipelineId,
+            languageVal,
+            writtenForManifest
+        );
+
+        vscode.window.showInformationMessage('Code files generated successfully by Gemini!');
+
+        await postToWebview({
+            command: 'codeRegenerated',
+            success: true,
+            code: mainPipelineCode,
+        });
+
+    } catch (err: any) {
+        // Log failure to gemini.log
+        try {
+            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+            const logData = {
+                timestamp: new Date().toISOString(),
+                model: DEFAULT_GEMINI_MODEL,
+                prompt: promptText,
+                error: err.message,
+                stack: err.stack,
+            };
+            await fs.promises.writeFile(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+        } catch (logErr) {
+            console.error('Failed to write failure details to gemini.log', logErr);
+        }
+
+        vscode.window.showErrorMessage(`Gemini Code Generation Error: ${err.message}`);
+        await postToWebview({ command: 'codeRegenerated', success: false, error: err.message });
+    }
+}
+
+/**
+ * Options passed to the handleRegenerateCode message handler.
+ */
+export interface HandleRegenerateCodeOptions {
+    /** Inbound webview message */
+    message: any;
+    /** Extension context */
+    context: vscode.ExtensionContext;
+    /** Active document, if available */
+    document?: vscode.TextDocument;
+    /** URI of the pipeline file, if available */
+    uri?: vscode.Uri;
+    /** Guarded post-message callback to webview (M5) */
+    postToWebview: (message: any) => boolean | Promise<boolean>;
+    /** Optional extension output channel */
+    outputChannel?: vscode.OutputChannel;
+    /** Optional gcloud project resolution override */
+    getGcloudProjectFn?: () => Promise<string | undefined>;
+}
+
+/**
+ * Top-level handler for the 'regenerateCode' webview message command.
+ *
+ * Resolves destination paths, validates folder ownership, displays progress,
+ * and delegates to executeCodeGeneration.
+ *
+ * @param options Handler parameters
+ */
+export async function handleRegenerateCode(options: HandleRegenerateCodeOptions): Promise<void> {
+    const { message, context, document, uri, postToWebview, outputChannel, getGcloudProjectFn } = options;
+    const yamlData = message.data;
+    const filenameVal = message.filename;
+    const languageVal = message.language;
+    const outputFolderVal = message.outputFolder;
+    const targetActiveUri = document ? document.uri : uri;
+
+    let targetFolderPath = '';
+    if (targetActiveUri) {
+        const pipelineBaseName = path.basename(targetActiveUri.fsPath, '.beam');
+        targetFolderPath = path.join(path.dirname(targetActiveUri.fsPath), pipelineBaseName);
+    }
+    if (outputFolderVal && outputFolderVal.trim()) {
+        if (path.isAbsolute(outputFolderVal)) {
+            targetFolderPath = outputFolderVal;
+        } else {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (workspaceFolder) {
+                targetFolderPath = path.join(workspaceFolder, outputFolderVal);
+            }
+        }
+    }
+
+    if (!targetFolderPath) {
+        vscode.window.showErrorMessage('Could not determine output folder.');
+        await postToWebview({ command: 'codeRegenerated', success: false, error: 'Could not determine output folder.' });
+        return;
+    }
+
+    try {
+        await fs.promises.mkdir(targetFolderPath, { recursive: true });
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`Failed to create directory: ${targetFolderPath}`);
+        await postToWebview({ command: 'codeRegenerated', success: false, error: `Failed to create directory: ${targetFolderPath}. ${e.message}` });
+        return;
+    }
+
+    const baseName = filenameVal.replace('.beam', '');
+
+    // C3: the folder is NOT cleaned here. Deleting before the model call meant a
+    // timeout, rate-limit or unparseable response left the user with nothing.
+    // We only establish *whether* we are allowed to clean, prompting when the
+    // folder is not demonstrably ours; the deletion itself happens after a
+    // validated payload is in memory.
+    const generationPipelineId = resolvePipelineId(
+        message.pipelineConfig,
+        (document ? document.uri : uri)?.fsPath || targetFolderPath
+    );
+    const folderGate = await gateOutputFolder(targetFolderPath, generationPipelineId);
+    if (!folderGate) {
+        await postToWebview({ command: 'codeRegenerated', success: false, error: 'Generation cancelled.' });
+        return;
+    }
+
+    // NOTE: the resolved language is surfaced in the progress title and the output channel.
+    // A wrong-language generation is destructive -- it overwrites the previous project's
+    // build files -- so the language in effect must be visible BEFORE the model is called,
+    // not inferred afterwards from whatever landed on disk.
+    const resolvedLanguage = resolveLanguageStrategy(languageVal).langSubfolder === 'java' ? 'Java' : 'Python';
+    outputChannel?.appendLine(
+        `[codegen] target language: ${resolvedLanguage} (requested: ${JSON.stringify(languageVal)}) -> ${targetFolderPath}`
+    );
+
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Generating ${resolvedLanguage} code using Gemini...`,
+        cancellable: false,
+    }, async (_progress) => {
+        await executeCodeGeneration({
+            targetFolderPath,
+            yamlData,
+            languageVal,
+            baseName,
+            generationPipelineId,
+            folderGate,
+            context,
+            postToWebview,
+            outputChannel,
+            getGcloudProjectFn,
+        });
+    });
+}

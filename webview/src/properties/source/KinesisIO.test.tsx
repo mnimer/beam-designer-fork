@@ -314,4 +314,82 @@ describe('KinesisIOSourceProperties', () => {
 
     expect(() => render(<KinesisIOSourceProperties node={mockNode as any} onChange={mockOnChange} />)).not.toThrow();
   });
+
+  it('normalizes object-shaped secrets payload to short secret IDs and never renders [object Object]', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        properties: {
+          streamName: 'order-stream',
+          authMode: 'secretManager' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<KinesisIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    // Simulate extension response with object-shaped secrets payload (M1 shape)
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            secrets: [
+              {
+                name: 'kinesis-source-key',
+                id: 'kinesis-source-key',
+                fullName: 'projects/123456/secrets/kinesis-source-key',
+                value: 'kinesis-source-key'
+              },
+              {
+                name: 'kinesis-source-secret',
+                id: 'kinesis-source-secret',
+                fullName: 'projects/123456/secrets/kinesis-source-secret',
+                value: 'kinesis-source-secret'
+              }
+            ]
+          }
+        })
+      );
+    });
+
+    const datalist = container.querySelector('#gcloud-secrets-list');
+    expect(datalist).toBeInTheDocument();
+    const options = datalist?.querySelectorAll('option');
+    expect(options).toBeDefined();
+    expect(options?.length).toBe(2);
+
+    const values = Array.from(options || []).map(opt => opt.getAttribute('value'));
+    expect(values).toEqual(['kinesis-source-key', 'kinesis-source-secret']);
+    expect(values).not.toContain('[object Object]');
+    expect(values.some(v => v?.includes('[object'))).toBe(false);
+  });
+
+  it('displays error message when secretsLoaded contains error', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        properties: {
+          authMode: 'secretManager' as const
+        }
+      }
+    };
+    render(<KinesisIOSourceProperties node={mockNode} onChange={vi.fn()} />);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            error: 'Failed to authenticate with AWS credentials in GCP Secret Manager'
+          }
+        })
+      );
+    });
+
+    const errorElements = screen.getAllByText('Failed to authenticate with AWS credentials in GCP Secret Manager');
+    expect(errorElements.length).toBeGreaterThanOrEqual(1);
+  });
 });
+

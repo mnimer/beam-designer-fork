@@ -21,8 +21,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Server, Key, Lock, RefreshCw, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Server, Key, Lock, RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export interface SecretItem {
   name: string;
@@ -99,6 +100,8 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
   const [showPassword, setShowPassword] = useState(false);
   const [secrets, setSecrets] = useState<SecretItem[]>([]);
   const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
+  const [secretError, setSecretError] = useState<string | null>(null);
+  const [instanceError, setInstanceError] = useState<string | null>(null);
   const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
 
   // System instructions text with fallback
@@ -113,11 +116,23 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === 'secretsLoaded') {
-        setSecrets(message.secrets || []);
+      if (message && message.command === 'secretsLoaded') {
+        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
+        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
+        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
+          if (typeof s === 'string') {
+            const shortId = s.split('/').filter(Boolean).pop() || s;
+            return { name: shortId, value: shortId };
+          }
+          const shortId = s.id || s.name || s.value || '';
+          return { name: shortId, value: shortId, fullName: s.fullName };
+        });
+        setSecrets(loaded);
         setIsLoadingSecrets(false);
+        setSecretError(message.error || null);
       } else if (message.command === 'computeInstancesLoaded') {
         setInstances(message.instances || []);
+        setInstanceError(message.error || null);
       }
     };
 
@@ -197,7 +212,7 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newInstructions = e.target.value;
     onChange({
       ...properties,
@@ -242,26 +257,18 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
           </div>
         </div>
 
-        <input
+        <PropertyField
           id="mqtt-server-uri"
-          type="text"
           name="serverUri"
           aria-required="true"
-          aria-invalid={isServerUriMissing}
+          aria-invalid={isServerUriMissing || !!instanceError}
           value={serverUri}
           onChange={handleChange}
           placeholder="tcp://localhost:1883"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isServerUriMissing
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
+          error={isServerUriMissing ? 'Broker Server URI is required.' : instanceError}
+          invalid={isServerUriMissing || !!instanceError}
+          mono={true}
         />
-        {isServerUriMissing && (
-          <span className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle size={12} /> Broker Server URI is required.
-          </span>
-        )}
 
         {/* Compute Engine Instance Suggestions */}
         {instances.length > 0 && (
@@ -292,60 +299,40 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
       </div>
 
       {/* 2. Topic Configuration */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mqtt-topic" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Subscription Topic / Filter</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip
-            text="MQTT topic filter to subscribe to. Supports exact topics (sensors/temp) or standard MQTT wildcards: '+' for single level, '#' for multi-level."
-            position="auto"
-          />
-        </label>
-        <input
-          id="mqtt-topic"
-          type="text"
-          name="topic"
-          aria-required="true"
-          aria-invalid={isTopicMissing}
-          value={topic}
-          onChange={handleChange}
-          placeholder="sensors/+/temperature or iot/#"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isTopicMissing
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isTopicMissing ? (
-          <span className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle size={12} /> Subscription topic is required.
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Tip: Use <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">+</code> for single level or <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">#</code> for multi-level wildcards.
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="mqtt-topic"
+        name="topic"
+        label="Subscription Topic / Filter"
+        required="Subscription topic is required."
+        tooltip="MQTT topic filter to subscribe to. Supports exact topics (sensors/temp) or standard MQTT wildcards: '+' for single level, '#' for multi-level."
+        aria-required="true"
+        aria-invalid={isTopicMissing}
+        value={topic}
+        onChange={handleChange}
+        placeholder="sensors/+/temperature or iot/#"
+        invalid={isTopicMissing}
+        error={isTopicMissing ? 'Subscription topic is required.' : null}
+        mono={true}
+        helperText={
+          !isTopicMissing ? (
+            <span>
+              Tip: Use <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">+</code> for single level or <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">#</code> for multi-level wildcards.
+            </span>
+          ) : null
+        }
+      />
 
       {/* 3. Client ID */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mqtt-client-id" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Client ID</span>
-          <InfoTooltip 
-            text="Explicit identifier for the MQTT connection. If left blank, Apache Beam and the MQTT client will generate a unique connection name automatically."
-            position="auto"
-          />
-        </label>
-        <input
-          id="mqtt-client-id"
-          type="text"
-          name="clientId"
-          value={clientId}
-          onChange={handleChange}
-          placeholder="e.g. beam-mqtt-source-worker (optional, auto-generated)"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="mqtt-client-id"
+        name="clientId"
+        label="Client ID"
+        tooltip="Explicit identifier for the MQTT connection. If left blank, Apache Beam and the MQTT client will generate a unique connection name automatically."
+        value={clientId}
+        onChange={handleChange}
+        placeholder="e.g. beam-mqtt-source-worker (optional, auto-generated)"
+        mono={true}
+      />
 
       {/* 4. Authentication & Secret Manager */}
       <div className="p-3 bg-[#252836]/60 rounded border border-slate-700 flex flex-col gap-3">
@@ -381,20 +368,15 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
         </div>
 
         {/* Username */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="mqtt-username" className="text-xs font-bold uppercase text-slate-500">
-            Username
-          </label>
-          <input
-            id="mqtt-username"
-            type="text"
-            name="username"
-            value={username}
-            onChange={handleChange}
-            placeholder="Broker username (optional)"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="mqtt-username"
+          name="username"
+          label="Username"
+          value={username}
+          onChange={handleChange}
+          placeholder="Broker username (optional)"
+          mono={true}
+        />
 
         {/* Password or Secret Manager Selector */}
         {passwordSource === 'secretManager' ? (
@@ -421,35 +403,39 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
             </div>
 
             {secrets.length > 0 ? (
-              <select
+              <div className="flex flex-col gap-1">
+                <select
+                  id="mqtt-secret-name"
+                  name="secretName"
+                  value={secretName}
+                  onChange={handleChange}
+                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Select a Secret --</option>
+                  {secrets.map((sec) => (
+                    <option key={sec.name} value={sec.name}>
+                      {sec.name}
+                    </option>
+                  ))}
+                </select>
+                {secretError && (
+                  <span className="text-xs text-red-400 mt-1" role="alert">
+                    {secretError}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <PropertyField
                 id="mqtt-secret-name"
                 name="secretName"
                 value={secretName}
                 onChange={handleChange}
-                className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="">-- Select a Secret --</option>
-                {secrets.map((sec) => (
-                  <option key={sec.name} value={sec.name}>
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <input
-                  id="mqtt-secret-name"
-                  type="text"
-                  name="secretName"
-                  value={secretName}
-                  onChange={handleChange}
-                  placeholder="e.g. mqtt-broker-password"
-                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-                />
-                <span className="text-xs text-slate-400">
-                  No secrets automatically loaded. Enter secret resource name directly.
-                </span>
-              </div>
+                placeholder="e.g. mqtt-broker-password"
+                error={secretError}
+                invalid={!!secretError}
+                helperText="No secrets automatically loaded. Enter secret resource name directly."
+                mono={true}
+              />
             )}
           </div>
         ) : (
@@ -504,45 +490,30 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
 
       {/* 6. Connection Tuning (Timeout & Keep Alive) */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="mqtt-timeout" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Timeout (s)</span>
-            <InfoTooltip
-              text="Connection timeout interval in seconds before the client aborts connection attempts (default 30s)."
-              position="top"
-            />
-          </label>
-          <input
-            id="mqtt-timeout"
-            type="number"
-            min="1"
-            name="connectionTimeout"
-            value={connectionTimeout}
-            onChange={handleChange}
-            placeholder="30"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label htmlFor="mqtt-keepalive" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Keep Alive (s)</span>
-            <InfoTooltip
-              text="Maximum time interval in seconds between ping packets sent to the broker to keep the session alive (default 60s)."
-              position="top"
-            />
-          </label>
-          <input
-            id="mqtt-keepalive"
-            type="number"
-            min="1"
-            name="keepAlive"
-            value={keepAlive}
-            onChange={handleChange}
-            placeholder="60"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="mqtt-timeout"
+          type="number"
+          min="1"
+          name="connectionTimeout"
+          label="Timeout (s)"
+          tooltip="Connection timeout interval in seconds before the client aborts connection attempts (default 30s)."
+          value={connectionTimeout}
+          onChange={handleChange}
+          placeholder="30"
+          mono={true}
+        />
+        <PropertyField
+          id="mqtt-keepalive"
+          type="number"
+          min="1"
+          name="keepAlive"
+          label="Keep Alive (s)"
+          tooltip="Maximum time interval in seconds between ping packets sent to the broker to keep the session alive (default 60s)."
+          value={keepAlive}
+          onChange={handleChange}
+          placeholder="60"
+          mono={true}
+        />
       </div>
 
       {/* 7. Payload & Metadata Mode */}
@@ -582,32 +553,28 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
         </span>
 
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/60">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="mqtt-max-records" className="text-xs font-bold uppercase text-slate-500">Max Records</label>
-            <input
-              id="mqtt-max-records"
-              type="number"
-              min="1"
-              name="maxNumRecords"
-              value={maxNumRecords}
-              onChange={handleChange}
-              placeholder="e.g. 1000"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="mqtt-max-time" className="text-xs font-bold uppercase text-slate-500">Max Read Time (s)</label>
-            <input
-              id="mqtt-max-time"
-              type="number"
-              min="1"
-              name="maxReadTime"
-              value={maxReadTime}
-              onChange={handleChange}
-              placeholder="e.g. 60"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="mqtt-max-records"
+            type="number"
+            min="1"
+            name="maxNumRecords"
+            label="Max Records"
+            value={maxNumRecords}
+            onChange={handleChange}
+            placeholder="e.g. 1000"
+            mono={true}
+          />
+          <PropertyField
+            id="mqtt-max-time"
+            type="number"
+            min="1"
+            name="maxReadTime"
+            label="Max Read Time (s)"
+            value={maxReadTime}
+            onChange={handleChange}
+            placeholder="e.g. 60"
+            mono={true}
+          />
         </div>
       </div>
 
@@ -615,22 +582,19 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
       <div className="flex-1 min-h-4" />
 
       {/* 9. Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="mqtt-instructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip
-            text="Custom instructions passed to the AI code generation model for this specific MQTT node (e.g., custom deserialization, payload decoding, or dead-letter topic)."
-            position="auto"
-          />
-        </label>
-        <textarea
+      <div className="pt-2 border-t border-slate-700/60">
+        <PropertyField
           id="mqtt-instructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          tooltip="Custom instructions passed to the AI code generation model for this specific MQTT node (e.g., custom deserialization, payload decoding, or dead-letter topic)."
+          type="textarea"
+          rows={3}
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="e.g. Convert byte[] payload to UTF-8 JSON String and apply dead-letter queue on malformed packets"
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
+          className="resize-y"
         />
       </div>
     </div>

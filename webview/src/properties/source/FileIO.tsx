@@ -16,6 +16,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export const BEAM_COMPRESSION_TYPES = [
   'AUTO',
@@ -71,7 +72,7 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
@@ -82,7 +83,7 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -92,35 +93,20 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="filePattern" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>File Pattern (.filepattern)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="File or glob pattern to match (e.g. gs://my-bucket/path/*.csv or /local/path/*.json). Required." />
-        </label>
-        <input
-          id="filePattern"
-          type="text"
-          name="filePattern"
-          aria-required="true"
-          aria-invalid={isInvalid}
-          value={filePattern}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/path/*.csv or /local/path/*.json"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isInvalid ? (
-          <span className="text-xs text-red-400">File Pattern is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            File glob pattern or exact file path to match.
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="filePattern"
+        name="filePattern"
+        label="File Pattern (.filepattern)"
+        required="Required"
+        tooltip="File or glob pattern to match (e.g. gs://my-bucket/path/*.csv or /local/path/*.json). Required."
+        value={filePattern}
+        invalid={isInvalid}
+        error={isInvalid ? 'File Pattern is required.' : null}
+        helperText={!isInvalid ? 'File glob pattern or exact file path to match.' : null}
+        placeholder="gs://my-bucket/path/*.csv or /local/path/*.json"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Empty Match Treatment */}
       <div className="flex flex-col gap-2">
@@ -195,17 +181,16 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="fileSourceSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="fileSourceSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for FileIO match code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>
@@ -248,7 +233,7 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
@@ -259,7 +244,7 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -331,17 +316,16 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="readMatchesSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="readMatchesSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for FileIO.readMatches() code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

@@ -143,8 +143,8 @@ describe('getSamplePipelines', () => {
         extensionPath: path.resolve(__dirname, '../../')
     };
 
-    it('discovers and parses the generate-mock-data.beam and pubsub-to-bigquery.beam samples from disk', () => {
-        const samples = getSamplePipelines(mockContext);
+    it('discovers and parses the generate-mock-data.beam and pubsub-to-bigquery.beam samples from disk', async () => {
+        const samples = await getSamplePipelines(mockContext);
         expect(Array.isArray(samples)).toBe(true);
         expect(samples.length).toBeGreaterThanOrEqual(2);
 
@@ -169,11 +169,11 @@ describe('getSamplePipelines', () => {
         }
     });
 
-    it('returns empty array if extensionPath directory has no samples folder', () => {
+    it('returns empty array if extensionPath directory has no samples folder', async () => {
         const emptyContext: any = {
             extensionPath: '/non/existent/path'
         };
-        const samples = getSamplePipelines(emptyContext);
+        const samples = await getSamplePipelines(emptyContext);
         expect(samples).toEqual([]);
     });
 });

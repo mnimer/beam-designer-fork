@@ -11,18 +11,23 @@
  * - Uses AWS SDK v2 connector (org.apache.beam.sdk.io.aws2.sqs.SqsIO).
  * - SQS Queue URL is mandatory; flags validation error and red border when empty.
  * - SQS Batch Size: constrained between 1 and 10 per AWS SendMessageBatch API limits (default 10).
+ * - Leverages shared useAssetLoader, PropertyField, and SecretManagerAuthFields primitives
+ *   to eliminate boilerplate while upholding the 8pt grid and exact Tailwind styling.
  * - Dynamic Extension Callbacks:
- *   - Requests GCP Secret Manager secrets via 'getSecrets' for secure credential references.
- *   - Requests local AWS SQS queue URLs via 'getAwsQueues' (if AWS CLI is configured).
+ *   - Requests GCP Secret Manager secrets via useAssetLoader('secrets') for secure credential references.
+ *   - Requests local AWS SQS queue URLs via useAssetLoader('queues') (if AWS CLI is configured).
  * - AWS Region dropdown includes common standard regions with custom input fallback.
  * - Delivery Delay: supports delaySeconds (0 to 900s) for deferred message visibility.
  * - Supports authentication mode selection (Default IAM/AwsOptions chain, Secret Manager, or Custom).
- * - Follows the 8pt grid spacing system and VS Code semantic theme colors.
  * - Includes a flexible spacer and "Code Generation Instructions" textarea for custom Gemini prompt tuning.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
+import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export interface SqsSecretItem {
   name: string;
@@ -81,31 +86,9 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
   // Extract existing properties or fallback to defaults
   const properties = node.data.properties || {};
 
-  const [secrets, setSecrets] = useState<SqsSecretItem[]>([]);
-  const [discoveredQueues, setDiscoveredQueues] = useState<string[]>([]);
-
-  // NOTE: Listen for Secret Manager and AWS SQS queue events from the VS Code extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === 'secretsLoaded') {
-        const loaded = Array.isArray(message.secrets) ? message.secrets : [];
-        setSecrets(loaded);
-      } else if (message.command === 'awsQueuesLoaded') {
-        const queues = Array.isArray(message.queues) ? message.queues : [];
-        setDiscoveredQueues(queues);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getAwsQueues' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  // NOTE: Request AWS queues and GCP secrets via shared useAssetLoader hook
+  const { items: discoveredQueues } = useAssetLoader<string>('queues');
+  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
 
   const queueUrl = properties.queueUrl || '';
   const awsRegion = properties.awsRegion || 'us-east-1';
@@ -130,7 +113,7 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
   /**
    * Handles text and select input changes
    */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     let finalValue: any = value;
     if (type === 'number') {
@@ -155,37 +138,25 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* SQS Queue URL */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="sqsSinkQueueUrl" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Queue URL</span>
-          <span className="text-red-400 ml-1 font-bold" title="Queue URL is required">*</span>
-          <InfoTooltip text="The Amazon SQS queue URL to publish messages to (e.g. https://sqs.us-east-1.amazonaws.com/123456789012/my-queue)." />
-        </label>
-        <input
-          id="sqsSinkQueueUrl"
-          type="text"
-          name="queueUrl"
-          aria-required="true"
-          aria-invalid={isInvalid}
-          value={queueUrl}
-          onChange={handleChange}
-          placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/my-queue"
-          list="sqs-sink-queue-options"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        <datalist id="sqs-sink-queue-options">
-          {discoveredQueues.map((q) => (
-            <option key={q} value={q} />
-          ))}
-        </datalist>
-        <span className="text-xs text-slate-400">
-          Format: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">https://sqs.&lt;region&gt;.amazonaws.com/&lt;account&gt;/&lt;queue&gt;</code>
-        </span>
-      </div>
+      <PropertyField
+        id="sqsSinkQueueUrl"
+        name="queueUrl"
+        label="Queue URL"
+        required="Queue URL is required"
+        tooltip="The Amazon SQS queue URL to publish messages to (e.g. https://sqs.us-east-1.amazonaws.com/123456789012/my-queue)."
+        value={queueUrl}
+        invalid={isInvalid}
+        error={isInvalid ? 'Queue URL is required.' : null}
+        onChange={handleChange}
+        placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/my-queue"
+        list="sqs-sink-queue-options"
+        datalist={discoveredQueues}
+        helperText={
+          <span>
+            Format: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">https://sqs.&lt;region&gt;.amazonaws.com/&lt;account&gt;/&lt;queue&gt;</code>
+          </span>
+        }
+      />
 
       {/* AWS Region */}
       <div className="flex flex-col gap-2">
@@ -255,89 +226,40 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
       </div>
 
       {/* Delivery Delay (0-900 seconds) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="sqsSinkDelaySeconds" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Delivery Delay (Seconds, Optional)</span>
-          <InfoTooltip text="The length of time, in seconds, for which the delivery of messages is delayed (0 to 900 seconds / 15 minutes max)." />
-        </label>
-        <input
-          id="sqsSinkDelaySeconds"
-          type="number"
-          name="delaySeconds"
-          min="0"
-          max="900"
-          value={delaySeconds}
-          onChange={handleChange}
-          placeholder="e.g. 0"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="sqsSinkDelaySeconds"
+        name="delaySeconds"
+        label="Delivery Delay (Seconds, Optional)"
+        tooltip="The length of time, in seconds, for which the delivery of messages is delayed (0 to 900 seconds / 15 minutes max)."
+        type="number"
+        min="0"
+        max="900"
+        value={delaySeconds}
+        onChange={handleChange}
+        placeholder="e.g. 0"
+      />
 
-      {/* Authentication Mode */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="sqsSinkAuthMode" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Authentication / Credentials</span>
-          <InfoTooltip text="How the Apache Beam worker should authenticate to AWS SQS. Using GCP Secret Manager avoids hardcoding AWS keys." />
-        </label>
-        <select
-          id="sqsSinkAuthMode"
-          name="authMode"
-          value={authMode}
-          onChange={handleChange}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        >
-          <option value="default">Default Credentials Chain (IAM Role / AwsOptions)</option>
-          <option value="secretManager">Google Cloud Secret Manager</option>
-          <option value="static">Static Credentials (Env / Local testing)</option>
-        </select>
-      </div>
-
-      {/* Secret Manager Secret Selection */}
-      {authMode === 'secretManager' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="sqsSinkSecretName" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Secret Manager Secret</span>
-            <InfoTooltip text="Name or resource ID of the Google Cloud secret containing AWS credentials." />
-          </label>
-          <input
-            id="sqsSinkSecretName"
-            type="text"
-            name="secretName"
-            value={secretName}
-            onChange={handleChange}
-            placeholder="e.g. aws-sqs-credentials or projects/.../secrets/..."
-            list="sqs-sink-secrets-list"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-          <datalist id="sqs-sink-secrets-list">
-            {secrets.map((s) => (
-              <option key={s.name} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </datalist>
-          <span className="text-xs text-slate-400">
-            Values auto-populated from <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">gcloud secrets list</code>
-          </span>
-        </div>
-      )}
+      {/* Authentication Mode and Secret Manager selection */}
+      <SecretManagerAuthFields
+        idPrefix="sqsSink"
+        datalistId="sqs-sink-secrets-list"
+        authMode={authMode}
+        secretName={secretName}
+        secrets={secrets}
+        serviceName="AWS SQS"
+        onChange={handleChange}
+      />
 
       {/* Custom Endpoint URL (LocalStack / Testing) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="sqsSinkEndpointUrl" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Endpoint Override (Optional)</span>
-          <InfoTooltip text="Custom endpoint URL for LocalStack, mock services, or private VPC endpoints (e.g. http://localhost:4566)." />
-        </label>
-        <input
-          id="sqsSinkEndpointUrl"
-          type="text"
-          name="endpointUrl"
-          value={endpointUrl}
-          onChange={handleChange}
-          placeholder="http://localhost:4566"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="sqsSinkEndpointUrl"
+        name="endpointUrl"
+        label="Endpoint Override (Optional)"
+        tooltip="Custom endpoint URL for LocalStack, mock services, or private VPC endpoints (e.g. http://localhost:4566)."
+        value={endpointUrl}
+        onChange={handleChange}
+        placeholder="http://localhost:4566"
+      />
 
       {/* Spacer to push instructions to the bottom */}
       <div className="flex-1 min-h-[16px]" />

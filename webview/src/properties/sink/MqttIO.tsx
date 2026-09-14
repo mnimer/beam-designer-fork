@@ -20,8 +20,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Server, Key, Lock, RefreshCw, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Server, Key, Lock, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export interface SecretItem {
   name: string;
@@ -91,6 +92,7 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
   // Local UI states
   const [showPassword, setShowPassword] = useState(false);
   const [secrets, setSecrets] = useState<SecretItem[]>([]);
+  const [secretError, setSecretError] = useState<string | null>(null);
   const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
   const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
 
@@ -106,8 +108,19 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === 'secretsLoaded') {
-        setSecrets(message.secrets || []);
+      if (message && message.command === 'secretsLoaded') {
+        setSecretError(message.error || null);
+        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
+        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
+        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
+          if (typeof s === 'string') {
+            const shortId = s.split('/').filter(Boolean).pop() || s;
+            return { name: shortId, value: shortId };
+          }
+          const shortId = s.id || s.name || s.value || '';
+          return { name: shortId, value: shortId, fullName: s.fullName };
+        });
+        setSecrets(loaded);
         setIsLoadingSecrets(false);
       } else if (message.command === 'computeInstancesLoaded') {
         setInstances(message.instances || []);
@@ -190,7 +203,7 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newInstructions = e.target.value;
     onChange({
       ...properties,
@@ -236,26 +249,18 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
           </div>
         </div>
 
-        <input
+        <PropertyField
           id="mqtt-sink-server-uri"
-          type="text"
           name="serverUri"
+          required
           aria-required="true"
           aria-invalid={isServerUriMissing}
           value={serverUri}
           onChange={handleChange}
           placeholder="tcp://localhost:1883"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isServerUriMissing
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
+          error={isServerUriMissing ? 'Broker Server URI is required.' : undefined}
+          containerClassName="flex flex-col"
         />
-        {isServerUriMissing && (
-          <span className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle size={12} /> Broker Server URI is required.
-          </span>
-        )}
 
         {/* Compute Engine Instance Suggestions */}
         {instances.length > 0 && (
@@ -286,35 +291,19 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
       </div>
 
       {/* 2. Destination Publish Topic */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mqtt-sink-topic" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Publish Topic</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip
-            text="Destination MQTT topic where pipeline elements will be published as byte messages. Wildcards (+ or #) are not permitted when publishing."
-            position="auto"
-          />
-        </label>
-        <input
-          id="mqtt-sink-topic"
-          type="text"
-          name="topic"
-          aria-required="true"
-          aria-invalid={isTopicMissing || hasWildcardInTopic}
-          value={topic}
-          onChange={handleChange}
-          placeholder="e.g. telemetry/device/status or alerts/hvac"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isTopicMissing || hasWildcardInTopic
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isTopicMissing && (
-          <span className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle size={12} /> Publish topic is required.
-          </span>
-        )}
+      <PropertyField
+        id="mqtt-sink-topic"
+        name="topic"
+        label="Publish Topic"
+        required
+        tooltip="Destination MQTT topic where pipeline elements will be published as byte messages. Wildcards (+ or #) are not permitted when publishing."
+        aria-required="true"
+        aria-invalid={isTopicMissing || hasWildcardInTopic}
+        value={topic}
+        onChange={handleChange}
+        placeholder="e.g. telemetry/device/status or alerts/hvac"
+        error={isTopicMissing ? 'Publish topic is required.' : undefined}
+      >
         {hasWildcardInTopic && (
           <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 flex items-start gap-2">
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -324,27 +313,18 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
             </div>
           </div>
         )}
-      </div>
+      </PropertyField>
 
       {/* 3. Client ID */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="mqtt-sink-client-id" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Client ID</span>
-          <InfoTooltip
-            text="Explicit identifier for publishing messages. If left blank, Beam and the MQTT client will generate a unique connection name automatically."
-            position="auto"
-          />
-        </label>
-        <input
-          id="mqtt-sink-client-id"
-          type="text"
-          name="clientId"
-          value={clientId}
-          onChange={handleChange}
-          placeholder="e.g. beam-mqtt-sink-publisher (optional, auto-generated)"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="mqtt-sink-client-id"
+        name="clientId"
+        label="Client ID"
+        tooltip="Explicit identifier for publishing messages. If left blank, Beam and the MQTT client will generate a unique connection name automatically."
+        value={clientId}
+        onChange={handleChange}
+        placeholder="e.g. beam-mqtt-sink-publisher (optional, auto-generated)"
+      />
 
       {/* 4. Authentication & Secret Manager */}
       <div className="p-3 bg-[#252836]/60 rounded border border-slate-700 flex flex-col gap-3">
@@ -380,20 +360,15 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
         </div>
 
         {/* Username */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="mqtt-sink-username" className="text-xs font-bold uppercase text-slate-500">
-            Username
-          </label>
-          <input
-            id="mqtt-sink-username"
-            type="text"
-            name="username"
-            value={username}
-            onChange={handleChange}
-            placeholder="Broker username (optional)"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="mqtt-sink-username"
+          name="username"
+          label="Username"
+          value={username}
+          onChange={handleChange}
+          placeholder="Broker username (optional)"
+          containerClassName="flex flex-col gap-1.5"
+        />
 
         {/* Password or Secret Manager Selector */}
         {passwordSource === 'secretManager' ? (
@@ -420,35 +395,38 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
             </div>
 
             {secrets.length > 0 ? (
-              <select
+              <div className="flex flex-col gap-1">
+                <select
+                  id="mqtt-sink-secret-name"
+                  name="secretName"
+                  value={secretName}
+                  onChange={handleChange}
+                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Select a Secret --</option>
+                  {secrets.map((sec) => (
+                    <option key={sec.name} value={sec.name}>
+                      {sec.name}
+                    </option>
+                  ))}
+                </select>
+                {secretError && (
+                  <span className="text-xs text-red-400 mt-1" role="alert">
+                    {secretError}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <PropertyField
                 id="mqtt-sink-secret-name"
                 name="secretName"
                 value={secretName}
                 onChange={handleChange}
-                className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="">-- Select a Secret --</option>
-                {secrets.map((sec) => (
-                  <option key={sec.name} value={sec.name}>
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <input
-                  id="mqtt-sink-secret-name"
-                  type="text"
-                  name="secretName"
-                  value={secretName}
-                  onChange={handleChange}
-                  placeholder="e.g. mqtt-broker-password"
-                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-                />
-                <span className="text-xs text-slate-400">
-                  No secrets automatically loaded. Enter secret resource name directly.
-                </span>
-              </div>
+                placeholder="e.g. mqtt-broker-password"
+                helperText="No secrets automatically loaded. Enter secret resource name directly."
+                error={secretError}
+                containerClassName="flex flex-col gap-1"
+              />
             )}
           </div>
         ) : (
@@ -523,45 +501,29 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
 
         {/* Connection Tuning (Timeout & Keep Alive) */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="mqtt-sink-timeout" className="flex items-center text-xs font-bold uppercase text-slate-500">
-              <span>Timeout (s)</span>
-              <InfoTooltip
-                text="Connection timeout interval in seconds before the client aborts connection attempts (default 30s)."
-                position="top"
-              />
-            </label>
-            <input
-              id="mqtt-sink-timeout"
-              type="number"
-              min="1"
-              name="connectionTimeout"
-              value={connectionTimeout}
-              onChange={handleChange}
-              placeholder="30"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="mqtt-sink-timeout"
+            type="number"
+            min="1"
+            name="connectionTimeout"
+            label="Timeout (s)"
+            tooltip="Connection timeout interval in seconds before the client aborts connection attempts (default 30s)."
+            value={connectionTimeout}
+            onChange={handleChange}
+            placeholder="30"
+          />
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="mqtt-sink-keepalive" className="flex items-center text-xs font-bold uppercase text-slate-500">
-              <span>Keep Alive (s)</span>
-              <InfoTooltip
-                text="Maximum time interval in seconds between ping packets sent to the broker to keep the session alive (default 60s)."
-                position="top"
-              />
-            </label>
-            <input
-              id="mqtt-sink-keepalive"
-              type="number"
-              min="1"
-              name="keepAlive"
-              value={keepAlive}
-              onChange={handleChange}
-              placeholder="60"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="mqtt-sink-keepalive"
+            type="number"
+            min="1"
+            name="keepAlive"
+            label="Keep Alive (s)"
+            tooltip="Maximum time interval in seconds between ping packets sent to the broker to keep the session alive (default 60s)."
+            value={keepAlive}
+            onChange={handleChange}
+            placeholder="60"
+          />
         </div>
       </div>
 
@@ -569,24 +531,19 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
       <div className="flex-1 min-h-4" />
 
       {/* 6. Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="mqtt-sink-instructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip
-            text="Custom instructions passed to the AI code generation model for this specific MQTT sink node (e.g. serialize input POJO/Row to byte[] before publishing)."
-            position="auto"
-          />
-        </label>
-        <textarea
-          id="mqtt-sink-instructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Map elements to byte[] payloads and set retain flag when publishing configuration alerts"
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="mqtt-sink-instructions"
+        type="textarea"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        tooltip="Custom instructions passed to the AI code generation model for this specific MQTT sink node (e.g. serialize input POJO/Row to byte[] before publishing)."
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="e.g. Map elements to byte[] payloads and set retain flag when publishing configuration alerts"
+        rows={3}
+        mono={false}
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+      />
     </div>
   );
 };

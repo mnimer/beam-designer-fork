@@ -23,7 +23,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio, AlertCircle } from 'lucide-react';
+import { PropertyField } from '../../components/common/PropertyField';
+import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio } from 'lucide-react';
 
 export interface AwsRegionPreset {
   label: string;
@@ -117,6 +118,7 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
   // Local UI State
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [secrets, setSecrets] = useState<string[]>([]);
+  const [secretsError, setSecretsError] = useState<string | null>(null);
   const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
 
   // System instructions text with fallbacks
@@ -132,10 +134,15 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = message.secrets || [];
-        const secretNames = rawSecrets.map((s: any) => (typeof s === 'string' ? s : s.name));
-        setSecrets(secretNames);
+        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
+        // NOTE: Normalize secrets payload to short secret IDs so source and sink are consistent
+        // and avoid emitting [object Object] or full resource paths to the pipeline.
+        const secretIds = rawSecrets.map((s: any) =>
+          typeof s === 'string' ? (s.split('/').filter(Boolean).pop() || s) : (s.id || s.name || '')
+        ).filter(Boolean);
+        setSecrets(secretIds);
         setIsLoadingSecrets(false);
+        setSecretsError(message.error || null);
       }
     };
 
@@ -150,6 +157,7 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
     const vscode = (window as any).vscode;
     if (vscode) {
       setIsLoadingSecrets(true);
+      setSecretsError(null);
       vscode.postMessage({ command: 'getSecrets' });
     }
   };
@@ -184,7 +192,7 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -209,33 +217,21 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
 
         {/* Stream Name Input */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="kinesisStreamName" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Stream Name</span>
-            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-            <InfoTooltip text="The name of the Amazon Kinesis stream to read from (e.g. telemetry-events). Required by KinesisIO." />
-          </label>
-          <input
-            id="kinesisStreamName"
-            type="text"
-            name="streamName"
-            aria-required="true"
-            aria-invalid={isStreamNameInvalid}
-            value={streamName}
-            onChange={handleChange}
-            placeholder="e.g. telemetry-stream"
-            className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm focus:outline-none font-mono ${
-              isStreamNameInvalid
-                ? 'border-red-500/80 focus:border-red-500'
-                : 'border-[var(--vscode-border)] focus:border-emerald-500'
-            }`}
-          />
-          {isStreamNameInvalid && (
-            <span className="text-xs text-red-400 flex items-center gap-1">
-              <AlertCircle size={12} /> Stream Name is required to initialize KinesisIO reader.
-            </span>
-          )}
-        </div>
+        <PropertyField
+          id="kinesisStreamName"
+          name="streamName"
+          label="Stream Name"
+          required="Stream Name is required to initialize KinesisIO reader."
+          tooltip="The name of the Amazon Kinesis stream to read from (e.g. telemetry-events). Required by KinesisIO."
+          aria-required="true"
+          aria-invalid={isStreamNameInvalid}
+          value={streamName}
+          onChange={handleChange}
+          placeholder="e.g. telemetry-stream"
+          invalid={isStreamNameInvalid}
+          error={isStreamNameInvalid ? 'Stream Name is required to initialize KinesisIO reader.' : null}
+          mono={true}
+        />
 
         {/* AWS Region Selector */}
         <div className="flex flex-col gap-1.5">
@@ -351,40 +347,34 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
             </div>
 
             {/* Access Key Secret */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="accessKeySecretName" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Access Key Secret Name</span>
-                <InfoTooltip text="GCP Secret Manager secret resource name containing the AWS Access Key ID." />
-              </label>
-              <input
-                id="accessKeySecretName"
-                type="text"
-                name="accessKeySecretName"
-                value={accessKeySecretName}
-                onChange={handleChange}
-                placeholder="e.g. aws-access-key-id"
-                list="gcloud-secrets-list"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="accessKeySecretName"
+              name="accessKeySecretName"
+              label="AWS Access Key Secret Name"
+              tooltip="GCP Secret Manager secret resource name containing the AWS Access Key ID."
+              value={accessKeySecretName}
+              onChange={handleChange}
+              placeholder="e.g. aws-access-key-id"
+              list="gcloud-secrets-list"
+              error={secretsError}
+              invalid={!!secretsError}
+              mono={true}
+            />
 
             {/* Secret Key Secret */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="secretKeySecretName" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Secret Key Secret Name</span>
-                <InfoTooltip text="GCP Secret Manager secret resource name containing the AWS Secret Access Key." />
-              </label>
-              <input
-                id="secretKeySecretName"
-                type="text"
-                name="secretKeySecretName"
-                value={secretKeySecretName}
-                onChange={handleChange}
-                placeholder="e.g. aws-secret-access-key"
-                list="gcloud-secrets-list"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="secretKeySecretName"
+              name="secretKeySecretName"
+              label="AWS Secret Key Secret Name"
+              tooltip="GCP Secret Manager secret resource name containing the AWS Secret Access Key."
+              value={secretKeySecretName}
+              onChange={handleChange}
+              placeholder="e.g. aws-secret-access-key"
+              list="gcloud-secrets-list"
+              error={secretsError}
+              invalid={!!secretsError}
+              mono={true}
+            />
 
             {/* Datalist of Secrets fetched via gcloud */}
             <datalist id="gcloud-secrets-list">
@@ -398,21 +388,16 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         {/* Auth Mode: Direct Keys */}
         {authMode === 'direct' && (
           <div className="flex flex-col gap-2.5 pt-1">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="awsAccessKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Access Key ID</span>
-                <InfoTooltip text="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS." />
-              </label>
-              <input
-                id="awsAccessKey"
-                type="text"
-                name="awsAccessKey"
-                value={awsAccessKey}
-                onChange={handleChange}
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="awsAccessKey"
+              name="awsAccessKey"
+              label="AWS Access Key ID"
+              tooltip="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS."
+              value={awsAccessKey}
+              onChange={handleChange}
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              mono={true}
+            />
 
             <div className="flex flex-col gap-1">
               <label htmlFor="awsSecretKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
@@ -448,21 +433,16 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
             <p>
               Uses AWS Default Credential Provider Chain (environment variables, EC2 instance profile, or EKS/GKE IRSA / Web Identity token).
             </p>
-            <div className="flex flex-col gap-1 mt-1">
-              <label htmlFor="roleArn" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>Assume Role ARN (Optional)</span>
-                <InfoTooltip text="AWS IAM Role ARN to assume via STS for cross-account or fine-grained pipeline access." />
-              </label>
-              <input
-                id="roleArn"
-                type="text"
-                name="roleArn"
-                value={roleArn}
-                onChange={handleChange}
-                placeholder="arn:aws:iam::123456789012:role/BeamKinesisRole"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="roleArn"
+              name="roleArn"
+              label="Assume Role ARN (Optional)"
+              tooltip="AWS IAM Role ARN to assume via STS for cross-account or fine-grained pipeline access."
+              value={roleArn}
+              onChange={handleChange}
+              placeholder="arn:aws:iam::123456789012:role/BeamKinesisRole"
+              mono={true}
+            />
           </div>
         )}
       </div>
@@ -493,21 +473,16 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
 
         {initialPositionInStream === 'AT_TIMESTAMP' && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="initialTimestampInStream" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Initial Timestamp</span>
-              <InfoTooltip text="Point in time from which to start reading (ISO-8601 string or epoch milliseconds). Must be in the past." />
-            </label>
-            <input
-              id="initialTimestampInStream"
-              type="text"
-              name="initialTimestampInStream"
-              value={initialTimestampInStream}
-              onChange={handleChange}
-              placeholder="e.g. 2026-09-01T00:00:00Z or 1788220800000"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="initialTimestampInStream"
+            name="initialTimestampInStream"
+            label="Initial Timestamp"
+            tooltip="Point in time from which to start reading (ISO-8601 string or epoch milliseconds). Must be in the past."
+            value={initialTimestampInStream}
+            onChange={handleChange}
+            placeholder="e.g. 2026-09-01T00:00:00Z or 1788220800000"
+            mono={true}
+          />
         )}
       </div>
 
@@ -539,99 +514,79 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
           </div>
 
           {/* Idle Threshold */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="watermarkIdleDurationThreshold" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Idle Threshold (sec)</span>
-              <InfoTooltip text="Duration in seconds before an idle shard advances its watermark to keep pipeline processing alive." />
-            </label>
-            <input
-              id="watermarkIdleDurationThreshold"
-              type="number"
-              name="watermarkIdleDurationThreshold"
-              value={watermarkIdleDurationThreshold}
-              onChange={handleChange}
-              placeholder="e.g. 60"
-              min="0"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="watermarkIdleDurationThreshold"
+            type="number"
+            name="watermarkIdleDurationThreshold"
+            label="Idle Threshold (sec)"
+            tooltip="Duration in seconds before an idle shard advances its watermark to keep pipeline processing alive."
+            value={watermarkIdleDurationThreshold}
+            onChange={handleChange}
+            placeholder="e.g. 60"
+            min="0"
+            mono={true}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Max Records (bounded) */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="maxNumRecords" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Max Records (Test)</span>
-              <InfoTooltip text="Limits the total records ingested to convert an unbounded streaming source into bounded batch testing execution." />
-            </label>
-            <input
-              id="maxNumRecords"
-              type="number"
-              name="maxNumRecords"
-              value={maxNumRecords}
-              onChange={handleChange}
-              placeholder="Unlimited"
-              min="1"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="maxNumRecords"
+            type="number"
+            name="maxNumRecords"
+            label="Max Records (Test)"
+            tooltip="Limits the total records ingested to convert an unbounded streaming source into bounded batch testing execution."
+            value={maxNumRecords}
+            onChange={handleChange}
+            placeholder="Unlimited"
+            min="1"
+            mono={true}
+          />
 
           {/* Max Read Time (bounded) */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="maxReadTime" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Max Read Time (sec)</span>
-              <InfoTooltip text="Maximum duration in seconds to read records before completing the read transform." />
-            </label>
-            <input
-              id="maxReadTime"
-              type="number"
-              name="maxReadTime"
-              value={maxReadTime}
-              onChange={handleChange}
-              placeholder="Unlimited"
-              min="1"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="maxReadTime"
+            type="number"
+            name="maxReadTime"
+            label="Max Read Time (sec)"
+            tooltip="Maximum duration in seconds to read records before completing the read transform."
+            value={maxReadTime}
+            onChange={handleChange}
+            placeholder="Unlimited"
+            min="1"
+            mono={true}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Request Records Limit */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="requestRecordsLimit" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Per-Request Limit</span>
-              <InfoTooltip text="Maximum number of records requested per GetRecords call to AWS Kinesis API (up to 10,000)." />
-            </label>
-            <input
-              id="requestRecordsLimit"
-              type="number"
-              name="requestRecordsLimit"
-              value={requestRecordsLimit}
-              onChange={handleChange}
-              placeholder="Max 10000"
-              min="1"
-              max="10000"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="requestRecordsLimit"
+            type="number"
+            name="requestRecordsLimit"
+            label="Per-Request Limit"
+            tooltip="Maximum number of records requested per GetRecords call to AWS Kinesis API (up to 10,000)."
+            value={requestRecordsLimit}
+            onChange={handleChange}
+            placeholder="Max 10000"
+            min="1"
+            max="10000"
+            mono={true}
+          />
 
           {/* Rate Limit */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="rateLimit" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Rate Limit (events/sec)</span>
-              <InfoTooltip text="Throttles the read throughput to a fixed maximum number of events per second." />
-            </label>
-            <input
-              id="rateLimit"
-              type="number"
-              name="rateLimit"
-              value={rateLimit}
-              onChange={handleChange}
-              placeholder="Unlimited"
-              min="1"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="rateLimit"
+            type="number"
+            name="rateLimit"
+            label="Rate Limit (events/sec)"
+            tooltip="Throttles the read throughput to a fixed maximum number of events per second."
+            value={rateLimit}
+            onChange={handleChange}
+            placeholder="Unlimited"
+            min="1"
+            mono={true}
+          />
         </div>
       </div>
 
@@ -643,38 +598,28 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
 
         {/* Service Endpoint */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="serviceEndpoint" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Custom Service Endpoint</span>
-            <InfoTooltip text="Custom endpoint URL for LocalStack, moto, or AWS VPC endpoint gateways (e.g. http://localhost:4566)." />
-          </label>
-          <input
-            id="serviceEndpoint"
-            type="text"
-            name="serviceEndpoint"
-            value={serviceEndpoint}
-            onChange={handleChange}
-            placeholder="http://localhost:4566 (for LocalStack)"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="serviceEndpoint"
+          name="serviceEndpoint"
+          label="Custom Service Endpoint"
+          tooltip="Custom endpoint URL for LocalStack, moto, or AWS VPC endpoint gateways (e.g. http://localhost:4566)."
+          value={serviceEndpoint}
+          onChange={handleChange}
+          placeholder="http://localhost:4566 (for LocalStack)"
+          mono={true}
+        />
 
         {/* Expansion Service */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="kinesisSourceExpansionService" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Cross-Language Expansion Service (Optional)</span>
-            <InfoTooltip text="Host and port of the Apache Beam Java expansion service used for cross-language KinesisIO in Python pipelines." />
-          </label>
-          <input
-            id="kinesisSourceExpansionService"
-            type="text"
-            name="expansionService"
-            value={expansionService}
-            onChange={handleChange}
-            placeholder="e.g. localhost:8097"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="kinesisSourceExpansionService"
+          name="expansionService"
+          label="Cross-Language Expansion Service (Optional)"
+          tooltip="Host and port of the Apache Beam Java expansion service used for cross-language KinesisIO in Python pipelines."
+          value={expansionService}
+          onChange={handleChange}
+          placeholder="e.g. localhost:8097"
+          mono={true}
+        />
 
         {/* Verify Certificate */}
         <div className="flex items-center gap-2 pt-1">
@@ -697,18 +642,18 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
       <div className="flex-1 min-h-4" />
 
       {/* SECTION 6: CODE GENERATION INSTRUCTIONS */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]">
-        <label htmlFor="kinesisSourceSystemInstructions" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          Code Generation Instructions
-        </label>
-        <textarea
+      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
+        <PropertyField
           id="kinesisSourceSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
+          rows={3}
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for Kinesis source code generation (e.g. AWS credential loading logic, error handling, dead-letter routing)..."
-          rows={3}
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 resize-y placeholder-[var(--vscode-text-muted)]"
+          mono={false}
+          className="resize-y"
         />
       </div>
     </div>

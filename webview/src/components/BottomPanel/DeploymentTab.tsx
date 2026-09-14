@@ -208,12 +208,12 @@ export const DeploymentTab: React.FC<DeploymentTabProps> = ({
               </label>
               <select 
                 value={jobConfig.runner} 
-                onChange={(e) => setJobConfig({...jobConfig, runner: e.target.value})}
+                onChange={(e) => { const nextValue = e.target.value; setJobConfig((prev: any) => ({ ...prev, runner: nextValue })); }}
                 className="bg-[#0d1017] text-white px-3 py-2 rounded-lg border border-slate-800 focus:outline-none focus:border-blue-500 text-xs shadow-inner transition cursor-pointer"
               >
-                <option value="DirectRunner">💻 Direct Runner (Local Machine)</option>
-                <option value="Dataflow">☁️ Cloud Dataflow (Google Cloud)</option>
-                <option value="Spark">⚡ Serverless Spark (Dataproc)</option>
+                <option value="DirectRunner">DirectRunner</option>
+                <option value="Dataflow">Dataflow</option>
+                <option value="Spark">Serverless Spark</option>
               </select>
             </div>
 

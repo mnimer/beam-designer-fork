@@ -135,6 +135,31 @@ describe('SnsIOSinkProperties', () => {
     expect(option).not.toBeNull();
   });
 
+  it('displays secret loading error alert when secretsLoaded has error', () => {
+    const node = {
+      data: {
+        label: 'SNS Sink',
+        properties: {
+          authMode: 'secret_manager' as const
+        }
+      }
+    };
+
+    render(<SnsIOSinkProperties node={node} onChange={mockOnChange} />);
+
+    // Simulate extension response with an error
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'secretsLoaded',
+        error: 'Failed to fetch secrets from GCP Secret Manager'
+      }
+    }));
+
+    const errorAlerts = screen.getAllByRole('alert');
+    const secretErrorAlert = errorAlerts.find(el => el.textContent?.includes('Failed to fetch secrets from GCP Secret Manager'));
+    expect(secretErrorAlert).toBeInTheDocument();
+  });
+
   it('updates subject and messageStructure options', () => {
     const node = {
       data: {

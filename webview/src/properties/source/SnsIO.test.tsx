@@ -209,4 +209,51 @@ describe('SnsIOSourceProperties', () => {
       system_instructions: 'Updated prompt'
     }));
   });
+
+  it('displays error when secrets loading fails in secret manager mode', () => {
+    const node = {
+      data: {
+        label: 'SNS Source',
+        properties: {
+          ingestionMode: 'sqs' as const,
+          authMode: 'secret_manager' as const
+        }
+      }
+    };
+
+    render(<SnsIOSourceProperties node={node} onChange={mockOnChange} />);
+
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'secretsLoaded',
+        error: 'Failed to authenticate with GCP Secret Manager'
+      }
+    }));
+
+    expect(screen.getByText('Failed to authenticate with GCP Secret Manager')).toBeInTheDocument();
+  });
+
+  it('displays error when pubsub topics loading fails in pubsub mode', () => {
+    const node = {
+      data: {
+        label: 'SNS Source',
+        properties: {
+          ingestionMode: 'pubsub' as const,
+          pubsubTopic: 'projects/my-project/topics/valid-topic'
+        }
+      }
+    };
+
+    render(<SnsIOSourceProperties node={node} onChange={mockOnChange} />);
+
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'topicsLoaded',
+        error: 'Failed to fetch Pub/Sub topics'
+      }
+    }));
+
+    expect(screen.getByText('Failed to fetch Pub/Sub topics')).toBeInTheDocument();
+  });
 });
+

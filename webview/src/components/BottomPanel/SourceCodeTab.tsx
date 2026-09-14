@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Folder, RefreshCw, FileCode, FileText, Play, Sliders, CheckCircle2, Square } from 'lucide-react';
 import { filterSourceFiles } from '../../utils/fileFilters';
 
@@ -32,11 +32,26 @@ interface SourceCodeTabProps {
   onSelectFile: (fileName: string) => void;
   selectedFileContent: string | null;
   isGenerating?: boolean;
+  highlighter?: (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => string;
 }
 
+// Control structures to exclude from method/function highlighting
+const JAVA_CONTROL_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch']);
+const PYTHON_CONTROL_KEYWORDS = new Set(['if', 'for', 'while', 'elif', 'with']);
+
+// Token regular expressions matching comments, strings, keywords, and method/function calls.
+// Order of precedence: comments -> strings -> keywords -> method/function calls.
+const JAVA_TOKEN_REGEX = /(\/\/[^\r\n]*|\/\*[\s\S]*?\*\/)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\b(package|import|public|class|private|static|void|main|new|return|if|else|for|while|extends|implements|final|null|double|int|float|boolean|String)\b|(\b[a-zA-Z_]\w*\b)(?=\s*\()/g;
+const PYTHON_TOKEN_REGEX = /(#[^\r\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\b(import|from|def|with|as|if|__name__|__main__|return|for|while|in|elif|else|try|except|lambda)\b|(\b[a-zA-Z_]\w*\b)(?=\s*\()/g;
+
 /**
- * Applies lightweight syntax highlighting to source code previews.
+ * Applies lightweight syntax highlighting to source code previews using a single-pass
+ * tokenizer to achieve linear O(n) performance and prevent replacement pattern corruption.
  * 
+ * Safety constraint:
+ * HTML entities (&, <, >) are escaped BEFORE tokenisation and span tag generation
+ * to ensure untrusted pipeline code output is never injected as live HTML.
+ *
  * @param code Raw source code text.
  * @param fileName Selected file name (used to infer language syntax).
  * @param defaultLang Fallback language when filename is not specified.
@@ -52,59 +67,55 @@ export const highlightCode = (code: string, fileName: string | null, defaultLang
     isJava = defaultLang === 'Java';
   }
 
-  const tokens: string[] = [];
-  let tokenCounter = 0;
-  
-  const addToken = (str: string, cls: string) => {
-    const id = `\uE000TOKEN_${tokenCounter++}\uE000`;
-    tokens.push(`<span class="${cls}">${str}</span>`);
-    return id;
-  };
-  
-  let tempCode = code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-    
-  if (isJava) {
-    // Comments
-    tempCode = tempCode.replace(/(\/\/.*)/g, (match) => addToken(match, 'text-slate-500'));
-    tempCode = tempCode.replace(/(\/\*[\s\S]*?\*\/)/g, (match) => addToken(match, 'text-slate-500'));
-    // Strings
-    tempCode = tempCode.replace(/(['"])(.*?)\1/g, (match) => addToken(match, 'text-green-400'));
-    // Keywords
-    tempCode = tempCode.replace(/\b(package|import|public|class|private|static|void|main|new|return|if|else|for|while|extends|implements|final|null|double|int|float|boolean|String)\b/g, (match) => addToken(match, 'text-pink-500 font-bold'));
-    // Methods (excluding control structures)
-    tempCode = tempCode.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g, (match, p1) => {
-      if (['if', 'for', 'while', 'switch', 'catch'].includes(p1)) {
-        return match;
+  // NOTE: Escape HTML characters FIRST before any tokenisation or wrapping in span tags
+  // to prevent XSS / HTML injection from untrusted model output.
+  // Replacer functions are passed rather than plain strings to neutralize '$' pattern interpretation.
+  const escapedCode = code
+    .replace(/&/g, () => '&amp;')
+    .replace(/</g, () => '&lt;')
+    .replace(/>/g, () => '&gt;');
+
+  // Single-pass tokenise-and-join:
+  // We scan through the pre-escaped code once, capturing tokens and appending literal segments
+  // into an array, which is joined at the end. This guarantees O(n) linear performance
+  // and prevents String.prototype.replace from expanding '$&', '$`', "$'", or '$1'.
+  const regex = new RegExp(isJava ? JAVA_TOKEN_REGEX.source : PYTHON_TOKEN_REGEX.source, 'g');
+  const parts: string[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(escapedCode)) !== null) {
+    // Append plain code preceding the matched token
+    if (match.index > lastIndex) {
+      parts.push(escapedCode.slice(lastIndex, match.index));
+    }
+
+    const [fullMatch, comment, str, kw, fn] = match;
+    if (comment) {
+      parts.push(`<span class="text-slate-500">${comment}</span>`);
+    } else if (str) {
+      parts.push(`<span class="text-green-400">${str}</span>`);
+    } else if (kw) {
+      parts.push(`<span class="text-pink-500 font-bold">${kw}</span>`);
+    } else if (fn) {
+      const controls = isJava ? JAVA_CONTROL_KEYWORDS : PYTHON_CONTROL_KEYWORDS;
+      if (controls.has(fn)) {
+        parts.push(fn);
+      } else {
+        parts.push(`<span class="text-blue-400">${fn}</span>`);
       }
-      const id = addToken(p1, 'text-blue-400');
-      return `${id}(`;
-    });
-  } else {
-    // Python/Shell script comments
-    tempCode = tempCode.replace(/(#.*)/g, (match) => addToken(match, 'text-slate-500'));
-    // Strings
-    tempCode = tempCode.replace(/(['"])(.*?)\1/g, (match) => addToken(match, 'text-green-400'));
-    // Keywords (excluding print/logging, which are highlighted as functions)
-    tempCode = tempCode.replace(/\b(import|from|def|with|as|if|__name__|__main__|return|for|while|in|elif|else|try|except|lambda)\b/g, (match) => addToken(match, 'text-pink-500 font-bold'));
-    // Functions (excluding control structures)
-    tempCode = tempCode.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g, (match, p1) => {
-      if (['if', 'for', 'while', 'elif', 'with'].includes(p1)) {
-        return match;
-      }
-      const id = addToken(p1, 'text-blue-400');
-      return `${id}(`;
-    });
+    } else {
+      parts.push(fullMatch);
+    }
+    lastIndex = regex.lastIndex;
   }
-  
-  tokens.forEach((token, index) => {
-    const id = `\uE000TOKEN_${index}\uE000`;
-    tempCode = tempCode.replace(id, token);
-  });
-  
-  return tempCode;
+
+  // Append remaining plain code
+  if (lastIndex < escapedCode.length) {
+    parts.push(escapedCode.slice(lastIndex));
+  }
+
+  return parts.join('');
 };
 
 export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
@@ -121,14 +132,23 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   selectedFile,
   onSelectFile,
   selectedFileContent,
-  isGenerating = false
+  isGenerating = false,
+  highlighter = highlightCode
 }) => {
   // Filter files to only show visible .java and .py source files (ignoring venv, caches, dependencies)
-  const sourceFiles = filterSourceFiles(files);
+  const sourceFiles = useMemo(() => filterSourceFiles(files), [files]);
 
   // Determine the active file for preview
   const defaultFile = language === 'Python' ? 'pipeline.py' : 'Pipeline.java';
   const activeFileName = selectedFile || (sourceFiles.length > 0 ? sourceFiles[0] : defaultFile);
+
+  // Determine the raw code content to preview
+  const rawCode = selectedFile ? (selectedFileContent || '') : (selectedFileContent || generatedCode);
+
+  // Memoised syntax highlighting keyed on rawCode, activeFileName, language, and highlighter (M11)
+  const highlightedCode = useMemo(() => {
+    return highlighter(rawCode, activeFileName, language);
+  }, [rawCode, activeFileName, language, highlighter]);
 
   // Helper to pick appropriate file icon
   const getFileIcon = (fileName: string) => {
@@ -345,11 +365,7 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
             <div className="flex-1 p-4 overflow-auto font-mono text-xs bg-[#1E202A]">
               <pre>
                 <code dangerouslySetInnerHTML={{
-                  __html: highlightCode(
-                    selectedFile ? (selectedFileContent || '') : (selectedFileContent || generatedCode),
-                    activeFileName,
-                    language
-                  ) || 'No code preview available.'
+                  __html: highlightedCode || 'No code preview available.'
                 }} />
               </pre>
             </div>

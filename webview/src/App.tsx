@@ -5,134 +5,82 @@
  * 
  * Purpose:
  * Main application component for the visual Apache Beam Pipeline Designer canvas and property inspector.
+ * Decomposed (A6) into custom hooks for persistence (usePipelinePersistence), graph mutations
+ * (usePipelineGraph), and extension host IPC (useVsCodeBridge).
  * 
  * Architectural Decisions:
  * - Uses React Flow for interactive drag-and-drop pipeline graph editing.
  * - Initial state for nodes and edges is empty array to prevent phantom pipeline flash when opening .beam files.
- * - Removed Running Jobs tab/state in favor of the VS Code sidebar DataFlow Explorer tree view.
+ * - Nodes are passed untouched to ReactFlow; node label edits are injected via stable LabelChangeContext.
+ * - Autosave debounced at 2s with dirty-check byte comparison (P6).
  * - Adheres to 8pt grid system and modern React state/effects.
  */
 
-import { useCallback, useState, useEffect, useRef } from 'react';
-import YAML from 'yaml';
+import React, { useCallback, useState, useEffect, useRef, useMemo, useContext, createContext } from 'react';
 import { LayoutTemplate, Map } from 'lucide-react';
 
-import { computeUpdatedOutputFolder } from './utils/outputFolder';
-import { isIgnoredPath } from './utils/fileFilters';
 import type { LogEntry } from './components/BottomPanel/DeploymentTab';
-
 import ReactFlow, {
   MiniMap,
   Controls,
   ControlButton,
   Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  type Connection,
-  type Edge,
   ReactFlowProvider,
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './App.css';
-import { PipelineNode } from './components/PipelineNode';
+import { PipelineNode, type PipelineNodeProps } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
-import { NodesCard, type SamplePipeline, DEFAULT_SAMPLES } from './components/NodesCard';
+import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 import { ThemeProvider } from './context/ThemeContext';
+
+import { usePipelinePersistence } from './hooks/usePipelinePersistence';
+import { usePipelineGraph, type PipelineNodeData } from './hooks/usePipelineGraph';
+import { useVsCodeBridge, findMainPipelineFile, type PipelineConfig } from './hooks/useVsCodeBridge';
+
+export { findMainPipelineFile };
+export type { PipelineNodeData };
 
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
 (window as any).vscode = vscode;
 
+/**
+ * React Context providing the stable onLabelChange callback to canvas nodes.
+ */
+export const LabelChangeContext = createContext<((id: string, newLabel: string) => void) | null>(null);
 
+/**
+ * CanvasPipelineNode
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Stable wrapper around PipelineNode that injects the memoized onLabelChange callback
+ * from React context. This avoids constructing new node/data objects on every App render,
+ * preserving React Flow referential memoization and preventing canvas drag jank.
+ */
+export const CanvasPipelineNode: React.FC<PipelineNodeProps> = React.memo((props) => {
+  const onLabelChange = useContext(LabelChangeContext);
+  const data = useMemo(() => {
+    if (!onLabelChange) return props.data;
+    return {
+      ...props.data,
+      onLabelChange,
+    };
+  }, [props.data, onLabelChange]);
 
-
-
-export const findMainPipelineFile = (files: string[], language: 'Python' | 'Java', filename?: string): string | null => {
-  if (!files || files.length === 0) return null;
-
-  const validFiles = files.filter(f => !isIgnoredPath(f));
-  if (validFiles.length === 0) return null;
-
-  const baseName = filename ? filename.replace(/\.beam$/, '').toLowerCase() : '';
-  const pascalBaseName = baseName ? baseName.charAt(0).toUpperCase() + baseName.slice(1) : '';
-
-  // Filter code files by language preference, but fall back to the other language if preferred language has no files
-  let codeFiles = validFiles.filter(f => {
-    const lower = f.toLowerCase();
-    if (language === 'Java') {
-      return lower.endsWith('.java') && !lower.includes('test');
-    } else {
-      return lower.endsWith('.py') && !lower.includes('test') && !lower.endsWith('__init__.py');
-    }
-  });
-
-  // If preferred language returned no code files, check if the other language has code files in the directory
-  if (codeFiles.length === 0) {
-    codeFiles = validFiles.filter(f => {
-      const lower = f.toLowerCase();
-      return (lower.endsWith('.java') || lower.endsWith('.py')) && !lower.includes('test') && !lower.endsWith('__init__.py');
-    });
-  }
-
-  if (codeFiles.length === 0) {
-    // If still no code files found, try any .java or .py file
-    codeFiles = validFiles.filter(f => f.endsWith('.java') || f.endsWith('.py'));
-  }
-
-  if (codeFiles.length === 0) {
-    // No code files exist in folder at all
-    return validFiles[0];
-  }
-
-  // Find best match among codeFiles matching baseName or pascalBaseName or pipeline
-  const match = codeFiles.find(f => {
-    const lower = f.toLowerCase();
-    return (baseName && lower.includes(baseName)) || 
-           (pascalBaseName && lower.includes(pascalBaseName.toLowerCase())) ||
-           lower.includes('pipeline.java') ||
-           lower.includes('pipeline.py');
-  });
-
-  return match || codeFiles[0];
-};
+  return <PipelineNode {...props} data={data} />;
+});
 
 const nodeTypes = {
-  pipeline: PipelineNode,
+  pipeline: CanvasPipelineNode,
 };
 
-
-
-export interface PipelineNodeData {
-  label: string;
-  type: string;
-  iconName: string;
-  beam_transform?: string;
-  system_instructions?: string;
-  properties?: Record<string, any>;
-}
-
-// NOTE: initialNodes and initialEdges start empty so that opening any .beam file
-// does not flash placeholder/mock nodes before loadPipeline message is handled.
-const initialNodes: Array<{
-  id: string;
-  type: string;
-  position: { x: number; y: number };
-  data: PipelineNodeData;
-}> = [];
-
-const initialEdges: Array<{
-  id: string;
-  source: string;
-  target: string;
-}> = [];
-
-
-
 function App() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const { project, fitView } = useReactFlow();
+
+  // Navigation and active tab state
   const [activeTab, setActiveTab] = useState<string | null>(() => {
     try {
       const vsState = (window as any).vscode?.getState?.()?.activeNodePaletteTab;
@@ -166,16 +114,14 @@ function App() {
       // Ignore persistence write error
     }
   };
-  const hasPubSubSource = nodes.some(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
+
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [runtimeVariables, setRuntimeVariables] = useState<{key: string, value: string}[]>([
+
+  // Job and pipeline configuration state
+  const [runtimeVariables, setRuntimeVariables] = useState<{ key: string; value: string }[]>([
     { key: 'LOG_LEVEL', value: 'INFO' },
-    { key: 'NUM_WORKERS', value: '2' }
+    { key: 'NUM_WORKERS', value: '2' },
   ]);
   const [jobConfig, setJobConfig] = useState<{
     runner: string;
@@ -204,114 +150,124 @@ function App() {
   const [pipelineStatus, setPipelineStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'stopped'>('idle');
   const [runnerCommand, setRunnerCommand] = useState<string>('');
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
-  const [subnetworks, setSubnetworks] = useState<{name: string, region: string, network: string, value: string}[]>([]);
   const [filename, setFilename] = useState('default_job');
-  
-  // Custom pipeline config state
-  const [pipelineConfig, setPipelineConfig] = useState<{ language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean }>({
+  const [pipelineConfig, setPipelineConfig] = useState<PipelineConfig>({
     language: 'Python',
     outputFolder: '',
-    needsRebuild: false
+    needsRebuild: false,
   });
-  const [folderFiles, setFolderFiles] = useState<string[]>([]);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
-  const [samples, setSamples] = useState<SamplePipeline[]>(DEFAULT_SAMPLES);
 
-  const handleOpenSample = useCallback((sample: SamplePipeline) => {
-    if (vscode) {
-      vscode.postMessage({
-        command: 'openSample',
-        filename: sample.filename,
-        content: sample.content
-      });
-    }
-  }, []);
-
-  const pipelineConfigRef = useRef(pipelineConfig);
-  const filenameRef = useRef(filename);
-  const projectIdRef = useRef(projectId);
-  useEffect(() => {
-    projectIdRef.current = projectId;
-  }, [projectId]);
-  useEffect(() => {
-    pipelineConfigRef.current = pipelineConfig;
-  }, [pipelineConfig]);
-  useEffect(() => {
-    filenameRef.current = filename;
-  }, [filename]);
-
-  // Resize state for Bottom Panel
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
-  const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const isGeneratingRef = useRef<boolean>(false);
-  const mainContentRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const container = mainContentRef.current;
-      if (!container) return;
-      const containerRect = container.getBoundingClientRect();
-      let newHeight = containerRect.bottom - e.clientY;
-      
-      const minHeight = 100;
-      const maxHeight = containerRect.height - 150;
-      if (newHeight < minHeight) newHeight = minHeight;
-      if (newHeight > maxHeight) newHeight = maxHeight;
-
-      setBottomPanelHeight(newHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
-  console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
-  const { project, fitView } = useReactFlow();
-
-  const [history, setHistory] = useState<{ 
-    nodes: any[], 
-    edges: any[], 
-    runtimeVariables: {key: string, value: string}[], 
-    jobConfig: any,
-    pipelineConfig: any
+  // Undo / Redo history state
+  const [history, setHistory] = useState<{
+    nodes: any[];
+    edges: any[];
+    runtimeVariables: { key: string; value: string }[];
+    jobConfig: any;
+    pipelineConfig: any;
   }[]>([]);
-  const [future, setFuture] = useState<{ 
-    nodes: any[], 
-    edges: any[], 
-    runtimeVariables: {key: string, value: string}[], 
-    jobConfig: any,
-    pipelineConfig: any
+  const [future, setFuture] = useState<{
+    nodes: any[];
+    edges: any[];
+    runtimeVariables: { key: string; value: string }[];
+    jobConfig: any;
+    pipelineConfig: any;
   }[]>([]);
 
-  const stateRef = useRef({ nodes, edges, runtimeVariables, jobConfig, pipelineConfig });
-  useEffect(() => {
-    stateRef.current = { nodes, edges, runtimeVariables, jobConfig, pipelineConfig };
-  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig]);
+  // Snapshot taking function for history
+  const stateRef = useRef<{
+    nodes: any[];
+    edges: any[];
+    runtimeVariables: { key: string; value: string }[];
+    jobConfig: any;
+    pipelineConfig: any;
+  }>({ nodes: [], edges: [], runtimeVariables, jobConfig, pipelineConfig });
 
   const takeSnapshot = useCallback(() => {
     setHistory((prev) => [...prev, stateRef.current]);
     setFuture([]);
   }, []);
 
+  // Hook 1: Graph state and mutation helpers (A6)
+  const {
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    selectedNodeId,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+    hasPubSubSource,
+    handleNodesChange,
+    handleEdgesChange,
+    isValidConnection,
+    onConnect,
+    handleApplyProperties,
+    handleNodeLabelChange,
+    handleAddKVMapper,
+    onLayout,
+    onDrop,
+    handleAddNode,
+    onDragStart,
+    onDragOver,
+    deleteSelected,
+  } = usePipelineGraph({
+    takeSnapshot,
+    setPipelineConfig,
+    project,
+    fitView,
+  });
+
+  // Keep stateRef synchronised with latest graph and config state
+  useEffect(() => {
+    stateRef.current = { nodes, edges, runtimeVariables, jobConfig, pipelineConfig };
+  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig]);
+
+  // Hook 2: VS Code IPC bridge and message handler (A6)
+  const {
+    isLoaded,
+    samples,
+    generatedCode,
+    subnetworks,
+    folderFiles,
+    selectedFileName,
+    selectedFileContent,
+    isGenerating,
+    refreshFolderFiles,
+    handleOpenSample,
+    handlePickFolder,
+    handleSelectFile,
+    handleRunNow: ipcRunNow,
+    handleRegenerate: ipcRegenerate,
+  } = useVsCodeBridge({
+    setNodes,
+    setEdges,
+    setRuntimeVariables,
+    setJobConfig,
+    pipelineConfig,
+    setPipelineConfig,
+    filename,
+    setFilename,
+    projectId,
+    setProjectId,
+    fitView,
+    vscode,
+  });
+
+  // Hook 3: Pipeline Persistence with 2-second debounce and dirty-check (P6, A6)
+  usePipelinePersistence({
+    nodes,
+    edges,
+    runtimeVariables,
+    jobConfig,
+    pipelineConfig,
+    isLoaded,
+    vscode,
+    debounceMs: 2000,
+  });
+
+  console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
+
+  // Undo / Redo handlers
   const undo = useCallback(() => {
     if (history.length === 0) return;
     const previousState = history[history.length - 1];
@@ -336,41 +292,6 @@ function App() {
     setFuture((prev) => prev.slice(1));
   }, [future, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, setNodes, setEdges]);
 
-  // Refresh files in the selected output folder
-  const refreshFolderFiles = useCallback((folderPath: string = pipelineConfig.outputFolder) => {
-    if (vscode) {
-      vscode.postMessage({ command: 'readFolderFiles', folderPath });
-    }
-  }, [pipelineConfig.outputFolder]);
-
-  useEffect(() => {
-    console.log('[@App.tsx] Save effect checked, isLoaded=', isLoaded);
-    if (!isLoaded) return;
-    console.log('[@App.tsx] Save effect scheduled');
-    const timer = setTimeout(() => {
-      if (vscode) {
-        const state = { 
-          nodes, 
-          edges, 
-          runtimeVariables, 
-          jobConfig,
-          pipelineConfig
-        };
-        const yamlStr = YAML.stringify(state);
-        console.log('[@App.tsx] YAML generated & saved');
-        
-        // Only save YAML configuration
-        vscode.postMessage({ 
-          command: 'savePipeline', 
-          data: yamlStr
-        });
-        console.log('[@App.tsx] Sent savePipeline message (YAML config only)');
-      }
-    }, 1000); // 1-second debounce
-
-    return () => clearTimeout(timer);
-  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isLoaded, filename, projectId]);
-
   // Read files whenever bottom tab switches to SOURCE_CODE
   useEffect(() => {
     if (bottomTab === 'SOURCE_CODE' && isLoaded && !pipelineConfig.needsRebuild) {
@@ -378,186 +299,51 @@ function App() {
     }
   }, [bottomTab, isLoaded, pipelineConfig.needsRebuild, refreshFolderFiles]);
 
+  // Listen for live pipeline execution events from the extension host
   useEffect(() => {
-    if (vscode) {
-      vscode.postMessage({ command: 'ready' });
-      vscode.postMessage({ command: 'getSubnetworks' });
-      vscode.postMessage({ command: 'getSamples' });
+    const handleExecutionMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (!message) return;
 
-      const handleMessage = (event: MessageEvent) => {
-        const message = event.data;
-        if (message.command === 'samplesLoaded') {
-          if (message.samples && Array.isArray(message.samples) && message.samples.length > 0) {
-            setSamples(message.samples);
-          }
-        } else if (message.command === 'loadPipeline') {
-          console.log('Received loadPipeline message:', message);
-          setFilename(message.filename || 'default_job');
-          if (message.projectId) {
-            setProjectId(message.projectId);
-          }
-          if (message.data) {
-            try {
-              const data = YAML.parse(message.data);
-              console.log('Parsed YAML data:', data);
-              setNodes(data.nodes || []);
-              setEdges(data.edges || []);
-              const variables = data.runtimeVariables || [];
-              const hasJobId = variables.some((v: any) => v.key === 'JOB_ID');
-              if (!hasJobId) {
-                const defaultJobId = message.filename 
-                  ? message.filename.replace('.beam', '').replace(/ /g, '_') 
-                  : 'default_job';
-                variables.unshift({ key: 'JOB_ID', value: defaultJobId });
-              }
-              setRuntimeVariables(variables);
-              setJobConfig(data.jobConfig || { runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
-              
-              const config = data.pipelineConfig || { language: 'Python', outputFolder: '', needsRebuild: false };
-              const nameWithoutExt = message.filename 
-                ? message.filename.replace('.beam', '') 
-                : '';
-              const relativeFolder = message.relativeFolder || '';
-              const defaultOutputFolder = message.defaultOutputFolder || (relativeFolder ? `${relativeFolder}/${nameWithoutExt}` : nameWithoutExt);
-              
-              const prevOutputFolder = config.outputFolder;
-              const updatedOutputFolder = computeUpdatedOutputFolder(
-                config.outputFolder,
-                relativeFolder,
-                nameWithoutExt,
-                defaultOutputFolder
-              );
-
-              config.outputFolder = updatedOutputFolder;
-              if (prevOutputFolder && prevOutputFolder !== updatedOutputFolder) {
-                config.needsRebuild = true;
-              }
-              if (config.needsRebuild === undefined) {
-                config.needsRebuild = false;
-              }
-              setPipelineConfig(config);
-            } catch (e) {
-              console.error('Failed to parse YAML', e);
-            }
-          } else {
-            console.log('No data received, setting empty pipeline');
-            setNodes([]);
-            setEdges([]);
-            const defaultJobId = message.filename 
-              ? message.filename.replace('.beam', '').replace(/ /g, '_') 
-              : 'default_job';
-            setRuntimeVariables([{ key: 'JOB_ID', value: defaultJobId }]);
-            setJobConfig({ runner: 'DirectRunner', machineType: 'n1-standard-1', minInstances: 1, maxInstances: 10, gcsStagingPath: '', network: '', subnetwork: '' });
-            setPipelineConfig({ language: 'Python', outputFolder: message.defaultOutputFolder || '', needsRebuild: false });
-          }
-          setIsLoaded(true);
-          
-          setTimeout(() => {
-            fitView({ duration: 0, padding: 1 });
-          }, 100);
-        } else if (message.command === 'updateSource') {
-          setGeneratedCode(message.data);
-        } else if (message.command === 'codeGenerationStopped') {
-          isGeneratingRef.current = false;
-          setIsGenerating(false);
-        } else if (message.command === 'codeRegenerated') {
-          if (!isGeneratingRef.current) {
-            console.log('[@App.tsx] Discarding codeRegenerated message because generation is inactive or stopped.');
-            return;
-          }
-          isGeneratingRef.current = false;
-          setIsGenerating(false);
-          if (message.success) {
-            setPipelineConfig(prev => ({ ...prev, needsRebuild: false }));
-            setGeneratedCode(message.code || '');
-            setSelectedFileName(null);
-            setSelectedFileContent(null);
-            refreshFolderFiles();
-          }
-        } else if (message.command === 'subnetworksLoaded') {
-          setSubnetworks(message.subnetworks);
-        } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
-          const loadedFiles: string[] = (message.files || []).filter((f: string) => !isIgnoredPath(f));
-          setFolderFiles(loadedFiles);
-          if (loadedFiles.length > 0) {
-            const currentLang = pipelineConfigRef.current.language;
-            const currentName = filenameRef.current;
-            const currentFolder = pipelineConfigRef.current.outputFolder;
-            const mainFile = findMainPipelineFile(loadedFiles, currentLang, currentName);
-            if (mainFile) {
-              setSelectedFileName(mainFile);
-              if (vscode) {
-                vscode.postMessage({ 
-                  command: 'readFileContent', 
-                  filePath: mainFile,
-                  folderPath: currentFolder
-                });
-              }
-            }
-          }
-        } else if (message.command === 'fileContentLoaded') {
-          setSelectedFileContent(message.content);
-        } else if (message.command === 'folderSelected') {
-          setPipelineConfig(prev => ({
-            ...prev,
-            outputFolder: message.path,
-            needsRebuild: true
-          }));
-        } else if (message.command === 'updateOutputFolder') {
-          setPipelineConfig(prev => {
-            const prevFolder = prev.outputFolder;
-            const newFolder = message.outputFolder;
-            if (prevFolder !== newFolder) {
-              const needsRebuild = (prevFolder !== '' && prevFolder !== newFolder) ? true : prev.needsRebuild;
-              return {
-                ...prev,
-                outputFolder: newFolder,
-                needsRebuild
-              };
-            }
-            return prev;
-          });
-        } else if (message.command === 'pipelineStarted') {
-          setPipelineStatus('running');
-          if (message.commandLine) {
-            setRunnerCommand(message.commandLine);
-          }
-          const startEntry: LogEntry = {
-            id: `start-${Date.now()}`,
-            text: `[${new Date().toLocaleTimeString()}] Pipeline execution initiated (${message.runner || 'DirectRunner'})...\n`,
-            stream: 'stdout',
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setPipelineLogs(prev => [...prev, startEntry]);
-        } else if (message.command === 'pipelineLog') {
-          const logEntry: LogEntry = {
-            id: `log-${Date.now()}-${Math.random()}`,
-            text: message.text || '',
-            stream: (message.stream === 'stderr' ? 'stderr' : 'stdout'),
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setPipelineLogs(prev => [...prev, logEntry]);
-        } else if (message.command === 'pipelineJobIdDetected') {
-          setJobConfig(prev => ({
-            ...prev,
-            jobId: message.jobId,
-            region: message.region || prev.region || 'us-central1',
-            projectId: message.projectId || prev.projectId || projectIdRef.current
-          }));
-        } else if (message.command === 'pipelineFinished') {
-          setPipelineStatus(message.status || (message.exitCode === 0 ? 'completed' : 'failed'));
-        } else if (message.command === 'pipelineStopped') {
-          setPipelineStatus('stopped');
+      if (message.command === 'pipelineStarted') {
+        setPipelineStatus('running');
+        if (message.commandLine) {
+          setRunnerCommand(message.commandLine);
         }
-      };
-      window.addEventListener('message', handleMessage);
-      return () => window.removeEventListener('message', handleMessage);
-    } else {
-      // NOTE: When running outside of VS Code (e.g. standalone dev server), mark as loaded
-      setIsLoaded(true);
-    }
-  }, [setNodes, setEdges, setRuntimeVariables]);
+        const startEntry: LogEntry = {
+          id: `start-${Date.now()}`,
+          text: `[${new Date().toLocaleTimeString()}] Pipeline execution initiated (${message.runner || 'DirectRunner'})...\n`,
+          stream: 'stdout',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setPipelineLogs((prev) => [...prev, startEntry]);
+      } else if (message.command === 'pipelineLog') {
+        const logEntry: LogEntry = {
+          id: `log-${Date.now()}-${Math.random()}`,
+          text: message.text || '',
+          stream: message.stream === 'stderr' ? 'stderr' : 'stdout',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setPipelineLogs((prev) => [...prev, logEntry]);
+      } else if (message.command === 'pipelineJobIdDetected') {
+        setJobConfig((prev: any) => ({
+          ...prev,
+          jobId: message.jobId,
+          region: message.region || prev.region || 'us-central1',
+          projectId: message.projectId || prev.projectId || projectId
+        }));
+      } else if (message.command === 'pipelineFinished') {
+        setPipelineStatus(message.status || (message.exitCode === 0 ? 'completed' : 'failed'));
+      } else if (message.command === 'pipelineStopped') {
+        setPipelineStatus('stopped');
+      }
+    };
 
+    window.addEventListener('message', handleExecutionMessage);
+    return () => window.removeEventListener('message', handleExecutionMessage);
+  }, [projectId]);
+
+  // Keyboard navigation and shortcuts (Undo, Redo, Delete)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const modifier = event.ctrlKey || event.metaKey;
@@ -575,72 +361,61 @@ function App() {
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
         const activeElement = document.activeElement;
-        const isInputFocused = activeElement && (
-          activeElement.tagName === 'INPUT' ||
-          activeElement.tagName === 'TEXTAREA' ||
-          (activeElement instanceof HTMLElement && activeElement.isContentEditable)
-        );
+        const isInputFocused =
+          activeElement &&
+          (activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            (activeElement instanceof HTMLElement && activeElement.isContentEditable));
 
         if (!isInputFocused) {
-          if (selectedNodeId) {
-            takeSnapshot();
-            setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
-            setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
-            setSelectedNodeId(null);
-            setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-          } else if (selectedEdgeId) {
-            takeSnapshot();
-            setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdgeId));
-            setSelectedEdgeId(null);
-            setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-          }
+          deleteSelected();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, undo, redo]);
+  }, [undo, redo, deleteSelected]);
 
-  // Wrap state changes to set needsRebuild: true
-  const handleNodesChange = useCallback((changes: any) => {
-    onNodesChange(changes);
-    const requiresRebuild = changes.some((c: any) => c.type === 'add' || c.type === 'remove');
-    if (requiresRebuild) {
-      setPipelineConfig(prev => prev.needsRebuild ? prev : { ...prev, needsRebuild: true });
-    }
-  }, [onNodesChange]);
+  /**
+   * Job config update wrapper that records an undo snapshot and flags needsRebuild on a
+   * meaningful change.
+   *
+   * Accepts either a complete config object or an updater function. Children MUST pass an
+   * updater: building `{...jobConfig, field}` from a props snapshot and returning it
+   * wholesale means any other field changed since that render is silently reverted, because
+   * the object replaces state entirely rather than merging into `prev`. That is how
+   * `runner` reverted from Dataflow to DirectRunner while the rest of the config survived.
+   */
+  const handleSetJobConfig = useCallback(
+    (update: React.SetStateAction<any>) => {
+      takeSnapshot();
+      setJobConfig((prev: any) => {
+        // Resolve the updater against the freshest state, so a stale snapshot captured in a
+        // child's render cannot clobber sibling fields.
+        const config = typeof update === 'function' ? (update as (p: any) => any)(prev) : update;
+        const configChanged =
+          prev.machineType !== config.machineType ||
+          prev.minInstances !== config.minInstances ||
+          prev.maxInstances !== config.maxInstances ||
+          prev.gcsStagingPath !== config.gcsStagingPath ||
+          prev.network !== config.network ||
+          prev.subnetwork !== config.subnetwork;
 
-  const handleEdgesChange = useCallback((changes: any) => {
-    onEdgesChange(changes);
-    const requiresRebuild = changes.some((c: any) => c.type === 'remove');
-    if (requiresRebuild) {
-      setPipelineConfig(prev => prev.needsRebuild ? prev : { ...prev, needsRebuild: true });
-    }
-  }, [onEdgesChange]);
+        if (configChanged) {
+          setPipelineConfig((p) => (p.needsRebuild ? p : { ...p, needsRebuild: true }));
+        }
+        return config;
+      });
+    },
+    [takeSnapshot]
+  );
 
-  const handleSetJobConfig = useCallback((config: any) => {
-    takeSnapshot();
-    setJobConfig(prev => {
-      const configChanged = 
-        prev.machineType !== config.machineType ||
-        prev.minInstances !== config.minInstances ||
-        prev.maxInstances !== config.maxInstances ||
-        prev.gcsStagingPath !== config.gcsStagingPath ||
-        prev.network !== config.network ||
-        prev.subnetwork !== config.subnetwork;
-
-      if (configChanged) {
-        setPipelineConfig(p => p.needsRebuild ? p : { ...p, needsRebuild: true });
-      }
-      return config;
-    });
-  }, [takeSnapshot]);
-
+  // Runtime variable mutation helpers
   const addVariable = () => {
     takeSnapshot();
     setRuntimeVariables([...runtimeVariables, { key: 'NEW_VAR', value: 'value' }]);
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
   };
 
   const updateVariable = (index: number, field: 'key' | 'value', value: string) => {
@@ -648,7 +423,7 @@ function App() {
     setRuntimeVariables(
       runtimeVariables.map((v, i) => (i === index ? { ...v, [field]: value } : v))
     );
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
   };
 
   const isJobIdValid = (value: string) => {
@@ -659,29 +434,22 @@ function App() {
   const deleteVariable = (index: number) => {
     takeSnapshot();
     setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
+    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
   };
 
+  // Execution and generation action delegates
   const handleRunNow = useCallback(() => {
     console.log('[@App.tsx] handleRunNow called');
-    if (vscode) {
-      setPipelineLogs([]);
-      setPipelineStatus('running');
-      vscode.postMessage({ 
-        command: 'runPipeline',
-        jobConfig,
-        runtimeVariables,
-        pipelineConfig
-      });
-    } else {
-      alert('VS Code API is not available. This feature only works when running inside the VS Code extension.');
-    }
-  }, [jobConfig, runtimeVariables, pipelineConfig]);
+    setPipelineLogs([]);
+    setPipelineStatus('running');
+    ipcRunNow(jobConfig, runtimeVariables);
+  }, [ipcRunNow, jobConfig, runtimeVariables]);
 
   const handleStopPipeline = useCallback(() => {
     console.log('[@App.tsx] handleStopPipeline called');
-    if (vscode) {
-      vscode.postMessage({
+    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
+    if (vs) {
+      vs.postMessage({
         command: 'stopPipeline'
       });
     }
@@ -692,8 +460,9 @@ function App() {
   }, []);
 
   const handleOpenConsole = useCallback((url: string) => {
-    if (vscode) {
-      vscode.postMessage({
+    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
+    if (vs) {
+      vs.postMessage({
         command: 'openExternal',
         url
       });
@@ -702,491 +471,59 @@ function App() {
     }
   }, []);
 
-  const onLayout = useCallback(() => {
-    // 1. Build adjacency lists
-    const adj: Record<string, string[]> = {};
-    const inDegree: Record<string, number> = {};
-    
-    nodes.forEach(n => {
-      adj[n.id] = [];
-      inDegree[n.id] = 0;
-    });
-    
-    edges.forEach(e => {
-      if (adj[e.source] && adj[e.target] !== undefined) {
-        adj[e.source].push(e.target);
-        inDegree[e.target]++;
-      }
-    });
-
-    // 2. Queue for Kahn's topological sort to compute columns (ranks)
-    const ranks: Record<string, number> = {};
-    const queue: string[] = [];
-    
-    // Find all root nodes (in-degree = 0)
-    nodes.forEach(n => {
-      if (inDegree[n.id] === 0) {
-        queue.push(n.id);
-        ranks[n.id] = 0;
-      }
-    });
-    
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      const currRank = ranks[curr];
-      
-      adj[curr].forEach(neighbor => {
-        ranks[neighbor] = Math.max(ranks[neighbor] || 0, currRank + 1);
-        inDegree[neighbor]--;
-        if (inDegree[neighbor] === 0) {
-          queue.push(neighbor);
-        }
-      });
-    }
-
-    // If there are leftover nodes due to cycles, assign fallback ranks
-    nodes.forEach(n => {
-      if (ranks[n.id] === undefined) {
-        if (n.data.type === 'SOURCE') ranks[n.id] = 0;
-        else if (n.data.type === 'SINK') ranks[n.id] = 2;
-        else ranks[n.id] = 1;
-      }
-    });
-
-    // 3. Group nodes by their calculated column rank
-    const columns: Record<number, string[]> = {};
-    nodes.forEach(n => {
-      const r = ranks[n.id];
-      if (!columns[r]) columns[r] = [];
-      columns[r].push(n.id);
-    });
-
-    // 4. Calculate new positions
-    const newNodes = nodes.map(node => {
-      const rank = ranks[node.id];
-      const colNodes = columns[rank];
-      const index = colNodes.indexOf(node.id);
-      
-      // Spacing constants
-      const colWidth = 300;
-      const rowHeight = 120;
-      const startX = 80;
-      const startY = 150;
-      
-      const x = startX + rank * colWidth;
-      // Center the column vertically
-      const totalHeight = (colNodes.length - 1) * rowHeight;
-      const y = startY + index * rowHeight - totalHeight / 2;
-      
-      return {
-        ...node,
-        position: { x, y }
-      };
-    });
-
-    takeSnapshot();
-    setNodes(newNodes);
-    
-    // Auto fit view after positioning
-    setTimeout(() => {
-      fitView({ duration: 300, padding: 1 });
-    }, 100);
-  }, [nodes, edges, setNodes, fitView, takeSnapshot]);
-
-  const isValidConnection = useCallback(
-    (connection: Connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      const targetNode = nodes.find((n) => n.id === connection.target);
-
-      if (sourceNode?.data.type === 'SOURCE' && targetNode?.data.type === 'SINK') {
-        return false;
-      }
-
-      return true;
-    },
-    [nodes]
-  );
-
-  const onConnect = useCallback(
-    (params: Connection | Edge) => {
-      takeSnapshot();
-      setEdges((eds) => addEdge(params, eds));
-      setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-    },
-    [setEdges, takeSnapshot]
-  );
-
-  const handleApplyProperties = useCallback((nodeId: string, properties: any) => {
-    console.log('[@App.tsx] handleApplyProperties called', nodeId, properties);
-    takeSnapshot();
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          const { system_instructions, special_instructions, ...restProperties } = properties;
-          const updatedData: any = {
-            ...node.data,
-            properties: restProperties,
-          };
-          const instructionsValue = system_instructions !== undefined ? system_instructions : special_instructions;
-          if (instructionsValue !== undefined) {
-            updatedData.system_instructions = instructionsValue;
-          }
-          return {
-            ...node,
-            data: updatedData,
-          };
-        }
-        return node;
-      })
-    );
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-  }, [setNodes, takeSnapshot]);
-
-  /**
-   * Updates the label/name of a specific node and records undo/redo snapshot.
-   */
-  const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
-    takeSnapshot();
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              label: newLabel,
-            },
-          };
-        }
-        return node;
-      })
-    );
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-  }, [setNodes, takeSnapshot]);
-
-  const handleAddKVMapper = useCallback((windowNodeId: string) => {
-    const windowNode = nodes.find(n => n.id === windowNodeId);
-    if (!windowNode) return;
-
-    const kvMapperId = `kv_mapper_${Date.now()}`;
-    const newKVMapperNode = {
-      id: kvMapperId,
-      type: 'pipeline',
-      position: {
-        x: windowNode.position.x - 250,
-        y: windowNode.position.y
-      },
-      data: {
-        label: 'KV Mapper',
-        type: 'STEP',
-        iconName: 'Hash',
-        beam_transform: 'KVMapper',
-        properties: {
-          keyPropertyName: 'id'
-        }
-      }
-    };
-
-    takeSnapshot();
-
-    // Find if there's an incoming edge to the window node
-    const incomingEdgeIndex = edges.findIndex(e => e.target === windowNodeId);
-    
-    let updatedEdges = [...edges];
-    if (incomingEdgeIndex !== -1) {
-      // Redirect the incoming edge to target the new KV Mapper instead
-      const oldEdge = edges[incomingEdgeIndex];
-      const redirectedEdge = {
-        ...oldEdge,
-        target: kvMapperId,
-        targetHandle: undefined
-      };
-      updatedEdges[incomingEdgeIndex] = redirectedEdge;
-    }
-
-    // Add the new edge connecting KV Mapper valid output to Window input
-    const connectorEdge = {
-      id: `e-${kvMapperId}-${windowNodeId}`,
-      source: kvMapperId,
-      sourceHandle: 'valid',
-      target: windowNodeId
-    };
-    updatedEdges.push(connectorEdge);
-
-    // Update both nodes and edges states
-    setNodes(nds => nds.concat(newKVMapperNode));
-    setEdges(updatedEdges);
-    setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-  }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
-
-  const handleRegenerate = useCallback(() => {
-    if (vscode) {
-      isGeneratingRef.current = true;
-      setIsGenerating(true);
-      const state = { 
-        nodes, 
-        edges, 
-        runtimeVariables, 
-        jobConfig,
-        pipelineConfig: { ...pipelineConfig, needsRebuild: false }
-      };
-      const yamlStr = YAML.stringify(state);
-      vscode.postMessage({
-        command: 'regenerateCode',
-        data: yamlStr,
-        filename: filename,
-        language: pipelineConfig.language,
-        outputFolder: pipelineConfig.outputFolder
-      });
-    }
-  }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig, filename]);
-
   const handleStopGeneration = useCallback(() => {
-    isGeneratingRef.current = false;
-    setIsGenerating(false);
-    if (vscode) {
-      vscode.postMessage({
+    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
+    if (vs) {
+      vs.postMessage({
         command: 'stopCodeGeneration'
       });
     }
   }, []);
 
-  const handlePickFolder = useCallback(() => {
-    if (vscode) {
-      vscode.postMessage({ command: 'pickFolder' });
-    }
+  const handleRegenerate = useCallback(() => {
+    ipcRegenerate({ nodes, edges, runtimeVariables, jobConfig });
+  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig]);
+
+  // Resize state for Bottom Panel
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
+  const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
   }, []);
 
-  const handleSelectFile = useCallback((fileName: string) => {
-    setSelectedFileName(fileName);
-    if (vscode) {
-      vscode.postMessage({ 
-        command: 'readFileContent', 
-        filePath: fileName,
-        folderPath: pipelineConfig.outputFolder
-      });
-    }
-  }, [pipelineConfig.outputFolder]);
+  useEffect(() => {
+    if (!isResizing) return;
 
-  const onDragStart = useCallback((event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
-    event.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType, label, type, iconName, beamTransform }));
-    event.dataTransfer.effectAllowed = 'move';
-  }, []);
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = mainContentRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      let newHeight = containerRect.bottom - e.clientY;
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
+      const minHeight = 100;
+      const maxHeight = containerRect.height - 150;
+      if (newHeight < minHeight) newHeight = minHeight;
+      if (newHeight > maxHeight) newHeight = maxHeight;
 
-  /**
-   * Handles the drop event when a node is dragged from the sidebar onto the canvas.
-   * It creates a new node at the drop position and automatically connects it to a source
-   * if it's the first step or if it's a PubSub specific step.
-   */  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
+      setBottomPanelHeight(newHeight);
+    };
 
-      const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-      const dataStr = event.dataTransfer.getData('application/reactflow');
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
 
-      if (!dataStr || !reactFlowBounds) {
-        return;
-      }
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
 
-      const data = JSON.parse(dataStr);
-
-      const position = project({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
-      });
-
-      // Special handling for FileIO Source: Spawns both FileIO.match() and FileIO.readMatches() connected by an edge
-      if (data.type === 'SOURCE' && (data.label === 'FileIO' || data.beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode = {
-          id: `${now}`,
-          type: data.nodeType,
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match'
-          },
-        };
-
-        const readMatchesNode = {
-          id: `${now + 1}`,
-          type: data.nodeType,
-          position: {
-            x: position.x + 240,
-            y: position.y
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches'
-          },
-        };
-
-        const edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
-        setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-        return;
-      }
-
-      const newNode = {
-        id: `${Date.now()}`,
-        type: data.nodeType,
-        position,
-        data: {
-          label: data.label,
-          type: data.type,
-          iconName: data.iconName,
-          ...(data.beamTransform ? { beam_transform: data.beamTransform } : {})
-        },
-      };
-
-      takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig(prev => ({ ...prev, needsRebuild: true }));
-
-      if (data.type === 'STEP') {
-        if (data.label === 'Parse Message') {
-          const pubSubSource = nodes.find(n => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
-          if (pubSubSource) {
-            const newEdge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-            setEdges((eds) => eds.concat(newEdge));
-          }
-        } else {
-          const hasStep = nodes.some(n => n.data.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find(n => n.data.type === 'SOURCE');
-            if (sourceNode) {
-              const newEdge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-              setEdges((eds) => eds.concat(newEdge));
-            }
-          }
-        }
-      }
-    },
-    [project, setNodes, setEdges, nodes, takeSnapshot]
-  );
-
-  /**
-   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem.
-   */
-  const handleAddNode = useCallback(
-    (label: string, type: string, iconName: string, beamTransform?: string) => {
-      const nodeCount = nodes.length;
-      const position = {
-        x: 100 + (nodeCount % 6) * 60,
-        y: 100 + (nodeCount % 6) * 60,
-      };
-
-      if (type === 'SOURCE' && (label === 'FileIO' || beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode = {
-          id: `${now}`,
-          type: 'pipeline',
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match',
-          },
-        };
-
-        const readMatchesNode = {
-          id: `${now + 1}`,
-          type: 'pipeline',
-          position: {
-            x: position.x + 240,
-            y: position.y,
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches',
-          },
-        };
-
-        const edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
-        setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
-        return;
-      }
-
-      const newNode = {
-        id: `${Date.now()}`,
-        type: 'pipeline',
-        position,
-        data: {
-          label,
-          type,
-          iconName,
-          ...(beamTransform ? { beam_transform: beamTransform } : {}),
-        },
-      };
-
-      takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
-
-      if (type === 'STEP') {
-        if (label === 'Parse Message') {
-          const pubSubSource = nodes.find((n) => n.data.type === 'SOURCE' && n.data.label.includes('PubSub'));
-          if (pubSubSource) {
-            const newEdge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-            setEdges((eds) => eds.concat(newEdge));
-          }
-        } else {
-          const hasStep = nodes.some((n) => n.data.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find((n) => n.data.type === 'SOURCE');
-            if (sourceNode) {
-              const newEdge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-              setEdges((eds) => eds.concat(newEdge));
-            }
-          }
-        }
-      }
-    },
-    [nodes, setNodes, setEdges, takeSnapshot]
-  );
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   return (
     <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
@@ -1197,84 +534,89 @@ function App() {
           {/* Canvas */}
           <div className="flex-1 relative h-full min-w-0">
             {/* Floating Card on Left */}
-            <NodesCard 
-              activeTab={activeTab} 
-              setActiveTab={handleSetActiveTab} 
-              nodesCount={nodes.length} 
+            <NodesCard
+              activeTab={activeTab}
+              setActiveTab={handleSetActiveTab}
+              nodesCount={nodes.length}
               hasPubSubSource={hasPubSubSource}
-              onDragStart={onDragStart} 
+              onDragStart={onDragStart}
               onAddNode={handleAddNode}
               samples={samples}
               onOpenSample={handleOpenSample}
             />
 
-            <ReactFlow
-              nodes={nodes.map(n => ({
-                ...n,
-                data: {
-                  ...n.data,
-                  onLabelChange: handleNodeLabelChange
-                }
-              }))}
-              edges={edges}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={nodeTypes}
-              isValidConnection={isValidConnection}
-              fitView
-              onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
-              onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
-              onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onNodeDragStop={() => takeSnapshot()}
-            >
-              <Controls 
-                position="top-right"
-                style={{
-                  top: '12px',
-                  right: '12px',
-                  margin: 0,
+            <LabelChangeContext.Provider value={handleNodeLabelChange}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                isValidConnection={isValidConnection}
+                fitView
+                onNodeClick={(_, node) => {
+                  setSelectedNodeId(node.id);
+                  setSelectedEdgeId(null);
                 }}
+                onEdgeClick={(_, edge) => {
+                  setSelectedEdgeId(edge.id);
+                  setSelectedNodeId(null);
+                }}
+                onPaneClick={() => {
+                  setSelectedNodeId(null);
+                  setSelectedEdgeId(null);
+                }}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                onNodeDragStop={() => takeSnapshot()}
               >
-                <ControlButton onClick={onLayout} title="Auto Layout Diagram">
-                  <LayoutTemplate className="w-3.5 h-3.5" />
-                </ControlButton>
-                <ControlButton 
-                  onClick={() => setShowMiniMap(prev => !prev)} 
-                  title={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
-                  aria-label={showMiniMap ? "Collapse Navigation Map" : "Expand Navigation Map"}
-                >
-                  <Map style={{ width: '14px', height: '14px' }} />
-                </ControlButton>
-              </Controls>
-              {showMiniMap && (
-                <MiniMap
+                <Controls
                   position="top-right"
                   style={{
-                    top: '58px',
+                    top: '12px',
                     right: '12px',
                     margin: 0,
                   }}
-                  nodeColor={(node: any) => {
-                    if (node.data?.type === 'SOURCE') return '#10b981';
-                    if (node.data?.type === 'SINK') return '#ef4444';
-                    return '#3b82f6';
-                  }}
-                />
-              )}
-              <Background gap={12} size={1} />
-            </ReactFlow>
+                >
+                  <ControlButton onClick={onLayout} title="Auto Layout Diagram">
+                    <LayoutTemplate className="w-3.5 h-3.5" />
+                  </ControlButton>
+                  <ControlButton
+                    onClick={() => setShowMiniMap((prev) => !prev)}
+                    title={showMiniMap ? 'Collapse Navigation Map' : 'Expand Navigation Map'}
+                    aria-label={showMiniMap ? 'Collapse Navigation Map' : 'Expand Navigation Map'}
+                  >
+                    <Map style={{ width: '14px', height: '14px' }} />
+                  </ControlButton>
+                </Controls>
+                {showMiniMap && (
+                  <MiniMap
+                    position="top-right"
+                    style={{
+                      top: '58px',
+                      right: '12px',
+                      margin: 0,
+                    }}
+                    nodeColor={(node: any) => {
+                      if (node.data?.type === 'SOURCE') return '#10b981';
+                      if (node.data?.type === 'SINK') return '#ef4444';
+                      return '#3b82f6';
+                    }}
+                  />
+                )}
+                <Background gap={12} size={1} />
+              </ReactFlow>
+            </LabelChangeContext.Provider>
           </div>
 
           {/* Property Pane on Right of Diagram */}
-          {selectedNodeId && nodes.find(n => n.id === selectedNodeId) && (
-            <PropertyPane 
-              node={nodes.find(n => n.id === selectedNodeId)!} 
-              onChange={(props) => handleApplyProperties(selectedNodeId, props)} 
+          {selectedNodeId && nodes.find((n) => n.id === selectedNodeId) && (
+            <PropertyPane
+              node={nodes.find((n) => n.id === selectedNodeId)!}
+              onChange={(props) => handleApplyProperties(selectedNodeId, props)}
               onLabelChange={(newLabel) => handleNodeLabelChange(selectedNodeId, newLabel)}
-              runtimeVariables={runtimeVariables} 
+              runtimeVariables={runtimeVariables}
               onAddKVMapper={handleAddKVMapper}
             />
           )}
@@ -1282,14 +624,14 @@ function App() {
 
         {/* Resizable Divider */}
         {!isBottomPanelExpanded && (
-          <div 
+          <div
             className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-50 relative"
             onMouseDown={handleMouseDown}
           />
         )}
 
         {/* Bottom Panel */}
-        <BottomPanel 
+        <BottomPanel
           bottomTab={bottomTab}
           setBottomTab={setBottomTab}
           jobConfig={jobConfig}
@@ -1315,7 +657,7 @@ function App() {
           height={bottomPanelHeight}
           isGenerating={isGenerating}
           isExpanded={isBottomPanelExpanded}
-          onToggleExpand={() => setIsBottomPanelExpanded(prev => !prev)}
+          onToggleExpand={() => setIsBottomPanelExpanded((prev) => !prev)}
           pipelineLogs={pipelineLogs}
           pipelineStatus={pipelineStatus}
           runnerCommand={runnerCommand}

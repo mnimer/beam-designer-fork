@@ -25,6 +25,7 @@
 
 import React, { useMemo } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 /**
  * Standard sample Avro record schema for quick prefilling.
@@ -151,7 +152,7 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   /**
    * Updates custom instructions for code generation.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -161,35 +162,20 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Section 1: File Pattern & Target */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="avroFilePattern" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>File Pattern / Path (.from / file_pattern)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="File path or glob pattern to read from (e.g. gs://bucket/data/*.avro or /local/path/*.avro). Required." />
-        </label>
-        <input
-          id="avroFilePattern"
-          type="text"
-          name="filePattern"
-          aria-required="true"
-          aria-invalid={isPatternInvalid}
-          value={filePattern}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/data/*.avro or /path/to/files/*.avro"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isPatternInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isPatternInvalid ? (
-          <span className="text-xs text-red-400">File Pattern is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Path or glob matching Avro files (e.g. gs://bucket/*.avro)
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="avroFilePattern"
+        name="filePattern"
+        label="File Pattern / Path (.from / file_pattern)"
+        required="Required"
+        tooltip="File path or glob pattern to read from (e.g. gs://bucket/data/*.avro or /local/path/*.avro). Required."
+        value={filePattern}
+        invalid={isPatternInvalid}
+        error={isPatternInvalid ? 'File Pattern is required.' : null}
+        helperText={!isPatternInvalid ? 'Path or glob matching Avro files (e.g. gs://bucket/*.avro)' : null}
+        placeholder="gs://my-bucket/data/*.avro or /path/to/files/*.avro"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Section 2: Record Type & Schema Configuration */}
       <div className="flex flex-col gap-3 p-4 bg-slate-800/40 rounded border border-slate-700/50">
@@ -470,17 +456,16 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
 
       {/* Section 5: Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="avroSourceSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="avroSourceSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for AvroIO source code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

@@ -26,7 +26,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio, SplitSquareVertical, AlertCircle } from 'lucide-react';
+import { PropertyField } from '../../components/common/PropertyField';
+import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio, SplitSquareVertical } from 'lucide-react';
 import { AWS_REGION_PRESETS } from '../source/KinesisIO';
 
 export interface KinesisIOSinkNode {
@@ -103,6 +104,7 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
 
   // Local state for secret fetching and visibility toggling
   const [secrets, setSecrets] = useState<string[]>([]);
+  const [secretError, setSecretError] = useState<string | null>(null);
   const [isLoadingSecrets, setIsLoadingSecrets] = useState<boolean>(false);
   const [showSecretKey, setShowSecretKey] = useState<boolean>(false);
 
@@ -127,8 +129,15 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === 'secretsLoaded') {
-        setSecrets(message.secrets || []);
+      if (message && message.command === 'secretsLoaded') {
+        setSecretError(message.error || null);
+        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
+        // NOTE: Normalize secrets payload so both legacy string arrays and SecretItem objects ({name, id, fullName, value})
+        // resolve to the short secret ID, preventing "[object Object]" rendering in dropdown options.
+        const secretIds = rawSecrets.map((s: any) =>
+          typeof s === 'string' ? (s.split('/').filter(Boolean).pop() || s) : (s.id || s.name || '')
+        ).filter(Boolean);
+        setSecrets(secretIds);
         setIsLoadingSecrets(false);
       }
     };
@@ -164,7 +173,7 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -189,33 +198,17 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
 
         {/* Stream Name Input */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="kinesisSinkStreamName" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Stream Name</span>
-            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-            <InfoTooltip text="The name of the target Amazon Kinesis stream to publish records to (e.g. processed-events). Required." />
-          </label>
-          <input
-            id="kinesisSinkStreamName"
-            type="text"
-            name="streamName"
-            aria-required="true"
-            aria-invalid={isStreamNameInvalid}
-            value={streamName}
-            onChange={handleChange}
-            placeholder="e.g. processed-stream"
-            className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm focus:outline-none font-mono ${
-              isStreamNameInvalid
-                ? 'border-red-500/80 focus:border-red-500'
-                : 'border-[var(--vscode-border)] focus:border-rose-500'
-            }`}
-          />
-          {isStreamNameInvalid && (
-            <span className="text-xs text-red-400 flex items-center gap-1">
-              <AlertCircle size={12} /> Stream Name is required to initialize KinesisIO writer.
-            </span>
-          )}
-        </div>
+        <PropertyField
+          id="kinesisSinkStreamName"
+          name="streamName"
+          label="Stream Name"
+          required
+          tooltip="The name of the target Amazon Kinesis stream to publish records to (e.g. processed-events). Required."
+          value={streamName}
+          onChange={handleChange}
+          placeholder="e.g. processed-stream"
+          error={isStreamNameInvalid ? 'Stream Name is required to initialize KinesisIO writer.' : undefined}
+        />
 
         {/* AWS Region Selector */}
         <div className="flex flex-col gap-1.5">
@@ -245,8 +238,8 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
           </select>
 
           {selectedRegionPreset === 'custom' && (
-            <input
-              type="text"
+            <PropertyField
+              id="kinesisSinkCustomRegion"
               name="customRegion"
               aria-label="Custom AWS Region"
               value={customRegionValue}
@@ -258,7 +251,7 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
                 });
               }}
               placeholder="e.g. us-gov-west-1 or me-central-1"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono mt-1"
+              className="mt-1 font-mono"
             />
           )}
         </div>
@@ -331,40 +324,30 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
             </div>
 
             {/* Access Key Secret */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="kinesisSinkAccessKeySecret" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Access Key Secret Name</span>
-                <InfoTooltip text="GCP Secret Manager secret resource name containing the AWS Access Key ID." />
-              </label>
-              <input
-                id="kinesisSinkAccessKeySecret"
-                type="text"
-                name="accessKeySecretName"
-                value={accessKeySecretName}
-                onChange={handleChange}
-                placeholder="e.g. aws-access-key-id"
-                list="kinesis-sink-secrets-list"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="kinesisSinkAccessKeySecret"
+              name="accessKeySecretName"
+              label="AWS Access Key Secret Name"
+              tooltip="GCP Secret Manager secret resource name containing the AWS Access Key ID."
+              value={accessKeySecretName}
+              onChange={handleChange}
+              placeholder="e.g. aws-access-key-id"
+              list="kinesis-sink-secrets-list"
+              error={secretError}
+            />
 
             {/* Secret Key Secret */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="kinesisSinkSecretKeySecret" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Secret Key Secret Name</span>
-                <InfoTooltip text="GCP Secret Manager secret resource name containing the AWS Secret Access Key." />
-              </label>
-              <input
-                id="kinesisSinkSecretKeySecret"
-                type="text"
-                name="secretKeySecretName"
-                value={secretKeySecretName}
-                onChange={handleChange}
-                placeholder="e.g. aws-secret-access-key"
-                list="kinesis-sink-secrets-list"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="kinesisSinkSecretKeySecret"
+              name="secretKeySecretName"
+              label="AWS Secret Key Secret Name"
+              tooltip="GCP Secret Manager secret resource name containing the AWS Secret Access Key."
+              value={secretKeySecretName}
+              onChange={handleChange}
+              placeholder="e.g. aws-secret-access-key"
+              list="kinesis-sink-secrets-list"
+              error={secretError}
+            />
 
             {/* Datalist of Secrets fetched via gcloud */}
             <datalist id="kinesis-sink-secrets-list">
@@ -378,21 +361,15 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         {/* Auth Mode: Direct Keys */}
         {authMode === 'direct' && (
           <div className="flex flex-col gap-2.5 pt-1">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="kinesisSinkAwsAccessKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Access Key ID</span>
-                <InfoTooltip text="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS." />
-              </label>
-              <input
-                id="kinesisSinkAwsAccessKey"
-                type="text"
-                name="awsAccessKey"
-                value={awsAccessKey}
-                onChange={handleChange}
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="kinesisSinkAwsAccessKey"
+              name="awsAccessKey"
+              label="AWS Access Key ID"
+              tooltip="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS."
+              value={awsAccessKey}
+              onChange={handleChange}
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+            />
 
             <div className="flex flex-col gap-1">
               <label htmlFor="kinesisSinkAwsSecretKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
@@ -428,21 +405,16 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
             <p>
               Uses AWS Default Credential Provider Chain (environment variables, EC2 instance profile, or EKS/GKE IRSA / Web Identity token).
             </p>
-            <div className="flex flex-col gap-1 mt-1">
-              <label htmlFor="kinesisSinkRoleArn" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>Assume Role ARN (Optional)</span>
-                <InfoTooltip text="AWS IAM Role ARN to assume via STS for cross-account or fine-grained pipeline access." />
-              </label>
-              <input
-                id="kinesisSinkRoleArn"
-                type="text"
-                name="roleArn"
-                value={roleArn}
-                onChange={handleChange}
-                placeholder="arn:aws:iam::123456789012:role/BeamKinesisRole"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-              />
-            </div>
+            <PropertyField
+              id="kinesisSinkRoleArn"
+              name="roleArn"
+              label="Assume Role ARN (Optional)"
+              tooltip="AWS IAM Role ARN to assume via STS for cross-account or fine-grained pipeline access."
+              value={roleArn}
+              onChange={handleChange}
+              placeholder="arn:aws:iam::123456789012:role/BeamKinesisRole"
+              containerClassName="flex flex-col gap-1 mt-1"
+            />
           </div>
         )}
       </div>
@@ -475,39 +447,27 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
 
         {partitionKeyMode === 'static' && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="partitionKeyStatic" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Static Partition Key Value</span>
-              <InfoTooltip text="Constant string used as the partition key for all emitted records." />
-            </label>
-            <input
-              id="partitionKeyStatic"
-              type="text"
-              name="partitionKey"
-              value={partitionKey}
-              onChange={handleChange}
-              placeholder="e.g. default-partition"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="partitionKeyStatic"
+            name="partitionKey"
+            label="Static Partition Key Value"
+            tooltip="Constant string used as the partition key for all emitted records."
+            value={partitionKey}
+            onChange={handleChange}
+            placeholder="e.g. default-partition"
+          />
         )}
 
         {partitionKeyMode === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="partitionKeyCustom" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Partition Key Expression / Extractor</span>
-              <InfoTooltip text="Code snippet or function reference to extract partition key from element." />
-            </label>
-            <input
-              id="partitionKeyCustom"
-              type="text"
-              name="partitionKey"
-              value={partitionKey}
-              onChange={handleChange}
-              placeholder="e.g. record.getDeviceId() or lambda x: x['user_id']"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="partitionKeyCustom"
+            name="partitionKey"
+            label="Partition Key Expression / Extractor"
+            tooltip="Code snippet or function reference to extract partition key from element."
+            value={partitionKey}
+            onChange={handleChange}
+            placeholder="e.g. record.getDeviceId() or lambda x: x['user_id']"
+          />
         )}
       </div>
 
@@ -538,21 +498,15 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
 
         {dataSerialization === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="customDataSerializer" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Custom Serializer Function / Class</span>
-              <InfoTooltip text="Fully-qualified class name or lambda for custom serialization." />
-            </label>
-            <input
-              id="customDataSerializer"
-              type="text"
-              name="customDataSerializer"
-              value={customDataSerializer}
-              onChange={handleChange}
-              placeholder="e.g. com.example.AvroToBytesFunction"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="customDataSerializer"
+            name="customDataSerializer"
+            label="Custom Serializer Function / Class"
+            tooltip="Fully-qualified class name or lambda for custom serialization."
+            value={customDataSerializer}
+            onChange={handleChange}
+            placeholder="e.g. com.example.AvroToBytesFunction"
+          />
         )}
       </div>
 
@@ -565,96 +519,73 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
 
         <div className="grid grid-cols-2 gap-3">
           {/* Collection Max Count */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="collectionMaxCount" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Max Batch Items</span>
-              <InfoTooltip text="Maximum number of items collected into a single PutRecords call." />
-            </label>
-            <input
-              id="collectionMaxCount"
-              type="number"
-              name="collectionMaxCount"
-              value={collectionMaxCount}
-              onChange={handleChange}
-              placeholder="e.g. 500"
-              min="1"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="collectionMaxCount"
+            type="number"
+            name="collectionMaxCount"
+            label="Max Batch Items"
+            tooltip="Maximum number of items collected into a single PutRecords call."
+            value={collectionMaxCount}
+            onChange={handleChange}
+            placeholder="e.g. 500"
+            min="1"
+          />
 
           {/* Record Max Buffered Time */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="recordMaxBufferedTime" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Max Buffer Time (ms)</span>
-              <InfoTooltip text="Maximum duration to hold records before flushing batch to Kinesis." />
-            </label>
-            <input
-              id="recordMaxBufferedTime"
-              type="number"
-              name="recordMaxBufferedTime"
-              value={recordMaxBufferedTime}
-              onChange={handleChange}
-              placeholder="e.g. 100"
-              min="0"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="recordMaxBufferedTime"
+            type="number"
+            name="recordMaxBufferedTime"
+            label="Max Buffer Time (ms)"
+            tooltip="Maximum duration to hold records before flushing batch to Kinesis."
+            value={recordMaxBufferedTime}
+            onChange={handleChange}
+            placeholder="e.g. 100"
+            min="0"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Connect Timeout */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="connectTimeout" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Connect Timeout (ms)</span>
-              <InfoTooltip text="TCP connection timeout in milliseconds." />
-            </label>
-            <input
-              id="connectTimeout"
-              type="number"
-              name="connectTimeout"
-              value={connectTimeout}
-              onChange={handleChange}
-              placeholder="e.g. 6000"
-              min="0"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="connectTimeout"
+            type="number"
+            name="connectTimeout"
+            label="Connect Timeout (ms)"
+            tooltip="TCP connection timeout in milliseconds."
+            value={connectTimeout}
+            onChange={handleChange}
+            placeholder="e.g. 6000"
+            min="0"
+          />
 
           {/* Request Timeout */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="requestTimeout" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Request Timeout (ms)</span>
-              <InfoTooltip text="HTTP request timeout in milliseconds for Kinesis API calls." />
-            </label>
-            <input
-              id="requestTimeout"
-              type="number"
-              name="requestTimeout"
-              value={requestTimeout}
-              onChange={handleChange}
-              placeholder="e.g. 6000"
-              min="0"
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-            />
-          </div>
+          <PropertyField
+            id="requestTimeout"
+            type="number"
+            name="requestTimeout"
+            label="Request Timeout (ms)"
+            tooltip="HTTP request timeout in milliseconds for Kinesis API calls."
+            value={requestTimeout}
+            onChange={handleChange}
+            placeholder="e.g. 6000"
+            min="0"
+          />
         </div>
 
         {/* Custom Producer Properties Key/Value */}
-        <div className="flex flex-col gap-1 pt-1">
-          <label htmlFor="producerProperties" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Additional Producer Properties (key=value)</span>
-            <InfoTooltip text="Optional extra properties for the Kinesis Producer Library in key=value format." />
-          </label>
-          <textarea
-            id="producerProperties"
-            name="producerProperties"
-            value={producerProperties}
-            onChange={handleChange}
-            placeholder="RateLimit=150&#10;AggregationEnabled=true"
-            rows={2}
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono resize-y placeholder-[var(--vscode-text-muted)]"
-          />
-        </div>
+        <PropertyField
+          id="producerProperties"
+          type="textarea"
+          name="producerProperties"
+          label="Additional Producer Properties (key=value)"
+          tooltip="Optional extra properties for the Kinesis Producer Library in key=value format."
+          value={producerProperties}
+          onChange={handleChange}
+          placeholder="RateLimit=150&#10;AggregationEnabled=true"
+          rows={2}
+          containerClassName="flex flex-col gap-1 pt-1"
+        />
       </div>
 
       {/* SECTION 6: ADVANCED & LOCAL ENDPOINTS */}
@@ -665,38 +596,26 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
 
         {/* Service Endpoint */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="kinesisSinkServiceEndpoint" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Custom Service Endpoint</span>
-            <InfoTooltip text="Custom endpoint URL for LocalStack, moto, or AWS VPC endpoint gateways (e.g. http://localhost:4566)." />
-          </label>
-          <input
-            id="kinesisSinkServiceEndpoint"
-            type="text"
-            name="serviceEndpoint"
-            value={serviceEndpoint}
-            onChange={handleChange}
-            placeholder="http://localhost:4566 (for LocalStack)"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="kinesisSinkServiceEndpoint"
+          name="serviceEndpoint"
+          label="Custom Service Endpoint"
+          tooltip="Custom endpoint URL for LocalStack, moto, or AWS VPC endpoint gateways (e.g. http://localhost:4566)."
+          value={serviceEndpoint}
+          onChange={handleChange}
+          placeholder="http://localhost:4566 (for LocalStack)"
+        />
 
         {/* Expansion Service */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="kinesisSinkExpansionService" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-            <span>Cross-Language Expansion Service (Optional)</span>
-            <InfoTooltip text="Host and port of the Apache Beam Java expansion service used for cross-language KinesisIO in Python pipelines." />
-          </label>
-          <input
-            id="kinesisSinkExpansionService"
-            type="text"
-            name="expansionService"
-            value={expansionService}
-            onChange={handleChange}
-            placeholder="e.g. localhost:8097"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-          />
-        </div>
+        <PropertyField
+          id="kinesisSinkExpansionService"
+          name="expansionService"
+          label="Cross-Language Expansion Service (Optional)"
+          tooltip="Host and port of the Apache Beam Java expansion service used for cross-language KinesisIO in Python pipelines."
+          value={expansionService}
+          onChange={handleChange}
+          placeholder="e.g. localhost:8097"
+        />
 
         {/* Verify Certificate */}
         <div className="flex items-center gap-2 pt-1">
@@ -719,20 +638,18 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
       <div className="flex-1 min-h-4" />
 
       {/* SECTION 7: CODE GENERATION INSTRUCTIONS */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]">
-        <label htmlFor="kinesisSinkSystemInstructions" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="kinesisSinkSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kinesis sink code generation (e.g. partition key hashing, retry policies, dead-letter routing)..."
-          rows={3}
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 resize-y placeholder-[var(--vscode-text-muted)]"
-        />
-      </div>
+      <PropertyField
+        id="kinesisSinkSystemInstructions"
+        type="textarea"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter custom instructions for Kinesis sink code generation (e.g. partition key hashing, retry policies, dead-letter routing)..."
+        rows={3}
+        mono={false}
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]"
+      />
     </div>
   );
 };

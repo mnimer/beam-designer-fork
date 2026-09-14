@@ -4,7 +4,14 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    /*
+     * "node" is required in addition to "vite/client" because the Vitest suites live
+     * under src/ and are therefore part of this project. Several of them read the
+     * shipped sample .beam fixtures off disk via fs/path/__dirname, which is
+     * deliberate -- those tests assert against the REAL sample files rather than a
+     * copy, so that a change to a sample cannot silently invalidate them.
+     */
+    "types": ["vite/client", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */

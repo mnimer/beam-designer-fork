@@ -16,6 +16,7 @@
 import React from 'react';
 import { BEAM_COMPRESSION_TYPES } from './FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface TextIOSourceNode {
   data: {
@@ -63,7 +64,7 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
@@ -74,7 +75,7 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -84,35 +85,20 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="textFilePattern" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>File Pattern / Path (.from)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="File or glob pattern to read from (e.g. gs://bucket/data/*.csv or /path/to/files/*.txt). Required." />
-        </label>
-        <input
-          id="textFilePattern"
-          type="text"
-          name="filePattern"
-          aria-required="true"
-          aria-invalid={isInvalid}
-          value={filePattern}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/data/*.txt or /path/to/files/*.csv"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isInvalid ? (
-          <span className="text-xs text-red-400">File Pattern is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Target file or glob pattern (e.g. gs://bucket/*.txt)
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="textFilePattern"
+        name="filePattern"
+        label="File Pattern / Path (.from)"
+        required="Required"
+        tooltip="File or glob pattern to read from (e.g. gs://bucket/data/*.csv or /path/to/files/*.txt). Required."
+        value={filePattern}
+        invalid={isInvalid}
+        error={isInvalid ? 'File Pattern is required.' : null}
+        helperText={!isInvalid ? 'Target file or glob pattern (e.g. gs://bucket/*.txt)' : null}
+        placeholder="gs://my-bucket/data/*.txt or /path/to/files/*.csv"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Compression Row */}
       <div className="flex flex-col gap-2 p-3 bg-slate-800/40 rounded border border-slate-700/50">
@@ -170,42 +156,31 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
       </div>
 
       {/* Skip Header Lines */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="skipHeaderLines" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Skip Header Lines</span>
-          <InfoTooltip text="Number of lines to skip at the beginning of each file before reading records (useful for header rows in CSV/TSV)." />
-        </label>
-        <input
-          id="skipHeaderLines"
-          type="number"
-          name="skipHeaderLines"
-          min="0"
-          value={skipHeaderLines}
-          onChange={handleChange}
-          placeholder="0 (Do not skip)"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-        <span className="text-xs text-slate-400">
-          Number of lines to skip at the top of each file (useful for CSV headers).
-        </span>
-      </div>
+      <PropertyField
+        id="skipHeaderLines"
+        name="skipHeaderLines"
+        label="Skip Header Lines"
+        type="number"
+        min="0"
+        value={skipHeaderLines}
+        onChange={handleChange}
+        placeholder="0 (Do not skip)"
+        tooltip="Number of lines to skip at the beginning of each file before reading records (useful for header rows in CSV/TSV)."
+        helperText="Number of lines to skip at the top of each file (useful for CSV headers)."
+        mono={false}
+      />
 
       {/* Custom Delimiter */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="textDelimiter" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Custom Delimiter (Optional)</span>
-          <InfoTooltip text="Custom byte delimiter separating records (default is newline '\n')." />
-        </label>
-        <input
-          id="textDelimiter"
-          type="text"
-          name="delimiter"
-          value={delimiter}
-          onChange={handleChange}
-          placeholder="\n (Default newline)"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="textDelimiter"
+        name="delimiter"
+        label="Custom Delimiter (Optional)"
+        tooltip="Custom byte delimiter separating records (default is newline '\n')."
+        value={delimiter}
+        onChange={handleChange}
+        placeholder="\n (Default newline)"
+        mono={true}
+      />
 
       {/* Hint Matches Many Files */}
       <div className="p-3 bg-slate-800/40 rounded border border-slate-700/50">
@@ -228,17 +203,16 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="textSourceSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="textSourceSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for TextIO source code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

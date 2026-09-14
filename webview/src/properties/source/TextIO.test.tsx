@@ -66,4 +66,48 @@ describe('TextIOSourceProperties', () => {
       compression: 'ZSTD'
     }));
   });
+
+  it('shows required validation when filePattern is empty', () => {
+    const mockNode: any = {
+      data: {
+        label: 'TextIO',
+        beam_transform: 'TextIO',
+        properties: {
+          filePattern: ''
+        }
+      }
+    };
+
+    const { container, getByRole } = render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const filePatternInput = container.querySelector('#textFilePattern') as HTMLInputElement;
+    expect(filePatternInput).toHaveAttribute('aria-invalid', 'true');
+    expect(getByRole('alert')).toHaveTextContent('File Pattern is required.');
+  });
+
+  it('handles code generation instructions change', () => {
+    const mockNode: any = {
+      data: {
+        label: 'TextIO',
+        beam_transform: 'TextIO',
+        properties: {
+          filePattern: 'gs://bucket/*.txt',
+          system_instructions: 'Initial prompt'
+        }
+      }
+    };
+
+    const { container } = render(<TextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const instructionsTextarea = container.querySelector('#textSourceSystemInstructions') as HTMLTextAreaElement;
+    expect(instructionsTextarea).toHaveValue('Initial prompt');
+
+    fireEvent.change(instructionsTextarea, {
+      target: { value: 'Updated prompt' }
+    });
+
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      system_instructions: 'Updated prompt'
+    }));
+  });
 });

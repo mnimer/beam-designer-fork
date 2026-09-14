@@ -24,6 +24,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export interface SecretItem {
   id: string;
@@ -103,6 +104,8 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
   // Local state for dynamically loaded GCP resources
   const [secrets, setSecrets] = useState<SecretItem[]>([]);
   const [pubsubTopics, setPubsubTopics] = useState<string[]>([]);
+  const [secretError, setSecretError] = useState<string | null>(null);
+  const [pubsubError, setPubsubError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Field validation
@@ -123,11 +126,26 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === 'secretsLoaded' && Array.isArray(message.secrets)) {
-        setSecrets(message.secrets);
+      if (message && message.command === 'secretsLoaded') {
+        if (Array.isArray(message.secrets)) {
+          // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
+          const loaded: SecretItem[] = message.secrets.map((s: any) => {
+            if (typeof s === 'string') {
+              const shortId = s.split('/').filter(Boolean).pop() || s;
+              return { id: shortId, name: shortId };
+            }
+            const shortId = s.id || s.name || '';
+            return { id: shortId, name: s.name || shortId, fullName: s.fullName };
+          });
+          setSecrets(loaded);
+        }
+        setSecretError(message.error || null);
       }
-      if (message.command === 'topicsLoaded' && Array.isArray(message.topics)) {
-        setPubsubTopics(message.topics);
+      if (message.command === 'topicsLoaded') {
+        if (Array.isArray(message.topics)) {
+          setPubsubTopics(message.topics);
+        }
+        setPubsubError(message.error || null);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -158,7 +176,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
    * 
    * @param e Standard React change event
    */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
@@ -173,7 +191,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
    * 
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -183,40 +201,26 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Upstream SNS Topic ARN Input */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="snsSourceTopicArn" className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          <span>Source Topic ARN</span>
-          <span className="text-red-400 font-bold" title="Required">*</span>
-          <InfoTooltip text="Amazon SNS Topic ARN producing the streaming events (e.g., arn:aws:sns:us-east-1:123456789012:MyTopic). Required." />
-        </label>
-        <input
-          id="snsSourceTopicArn"
-          type="text"
-          name="topicArn"
-          aria-required="true"
-          aria-invalid={isArnEmpty}
-          value={topicArn}
-          onChange={handleChange}
-          placeholder="arn:aws:sns:us-east-1:123456789012:my-topic"
-          className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm font-mono focus:outline-none transition-colors ${
-            isArnEmpty
-              ? 'border-red-500/80 focus:border-red-500'
-              : isArnInvalid
-              ? 'border-amber-500/80 focus:border-amber-500'
-              : 'border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)]'
-          }`}
-        />
-        {isArnEmpty && (
-          <p className="text-red-400 text-xs mt-1" role="alert">
-            Source Topic ARN is required
-          </p>
-        )}
-        {!isArnEmpty && isArnInvalid && (
-          <p className="text-amber-400 text-xs mt-1" role="alert">
-            Warning: Standard SNS topic ARNs start with &quot;arn:aws&quot;
-          </p>
-        )}
-      </div>
+      <PropertyField
+        id="snsSourceTopicArn"
+        name="topicArn"
+        label="Source Topic ARN"
+        required="Source Topic ARN is required"
+        tooltip="Amazon SNS Topic ARN producing the streaming events (e.g., arn:aws:sns:us-east-1:123456789012:MyTopic). Required."
+        value={topicArn}
+        invalid={isArnEmpty}
+        error={isArnEmpty ? 'Source Topic ARN is required' : null}
+        helperText={
+          !isArnEmpty && isArnInvalid ? (
+            <span className="text-amber-400" role="alert">
+              Warning: Standard SNS topic ARNs start with &quot;arn:aws&quot;
+            </span>
+          ) : null
+        }
+        placeholder="arn:aws:sns:us-east-1:123456789012:my-topic"
+        onChange={handleChange}
+        mono={true}
+      />
 
       {/* Streaming Ingestion Architecture Selector */}
       <div className="flex flex-col gap-2 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
@@ -252,33 +256,19 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
         {/* SQS Fan-Out Configuration */}
         {ingestionMode === 'sqs' && (
           <div className="flex flex-col gap-3 mt-2 pl-2 border-l-2 border-[var(--vscode-highlight)]/50">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="snsSourceQueueUrl" className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>SQS Queue URL or ARN</span>
-                <span className="text-red-400 font-bold" title="Required">*</span>
-                <InfoTooltip text="The Amazon SQS queue subscribed to the SNS topic that Beam reads from (e.g., https://sqs.us-east-1.amazonaws.com/123456789012/my-queue). Required." />
-              </label>
-              <input
-                id="snsSourceQueueUrl"
-                type="text"
-                name="queueUrl"
-                aria-required="true"
-                aria-invalid={isQueueEmpty}
-                value={queueUrl}
-                onChange={handleChange}
-                placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/my-queue"
-                className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-xs font-mono focus:outline-none transition-colors ${
-                  isQueueEmpty
-                    ? 'border-red-500/80 focus:border-red-500'
-                    : 'border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)]'
-                }`}
-              />
-              {isQueueEmpty && (
-                <p className="text-red-400 text-xs mt-1" role="alert">
-                  Queue URL is required for SQS Fan-Out mode
-                </p>
-              )}
-            </div>
+            <PropertyField
+              id="snsSourceQueueUrl"
+              name="queueUrl"
+              label="SQS Queue URL or ARN"
+              required="Queue URL is required for SQS Fan-Out mode"
+              tooltip="The Amazon SQS queue subscribed to the SNS topic that Beam reads from (e.g., https://sqs.us-east-1.amazonaws.com/123456789012/my-queue). Required."
+              value={queueUrl}
+              invalid={isQueueEmpty}
+              error={isQueueEmpty ? 'Queue URL is required for SQS Fan-Out mode' : null}
+              placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/my-queue"
+              onChange={handleChange}
+              mono={true}
+            />
 
             {/* AWS Region */}
             <div className="flex flex-col gap-1">
@@ -346,25 +336,25 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
 
               {authMode === 'secret_manager' && (
                 <div className="flex flex-col gap-2 mt-1">
-                  <input
+                  <PropertyField
                     id="snsSourceAccessKeySecret"
-                    type="text"
                     name="accessKeySecret"
                     value={accessKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
                     placeholder="Access Key Secret (e.g. aws-access-key-id)"
-                    className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
+                    error={secretError}
+                    invalid={!!secretError}
+                    mono={true}
                   />
-                  <input
+                  <PropertyField
                     id="snsSourceSecretKeySecret"
-                    type="text"
                     name="secretKeySecret"
                     value={secretKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
                     placeholder="Secret Key Secret (e.g. aws-secret-access-key)"
-                    className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
+                    mono={true}
                   />
                   <datalist id="source-secret-options">
                     {secrets.map(s => (
@@ -380,37 +370,25 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
         {/* GCP Pub/Sub Bridge Configuration */}
         {ingestionMode === 'pubsub' && (
           <div className="flex flex-col gap-2 mt-2 pl-2 border-l-2 border-[var(--vscode-highlight)]/50">
-            <label htmlFor="snsSourcePubsubTopic" className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-              <span>Bridge Pub/Sub Topic</span>
-              <span className="text-red-400 font-bold" title="Required">*</span>
-              <InfoTooltip text="The GCP Pub/Sub topic receiving forwarded SNS events (populated from gcloud pubsub topics list)." />
-            </label>
-            <input
+            <PropertyField
               id="snsSourcePubsubTopic"
-              type="text"
               name="pubsubTopic"
-              aria-required="true"
-              aria-invalid={isPubsubEmpty}
+              label="Bridge Pub/Sub Topic"
+              required="Pub/Sub topic is required for Pub/Sub Bridge mode"
+              tooltip="The GCP Pub/Sub topic receiving forwarded SNS events (populated from gcloud pubsub topics list)."
               value={pubsubTopic}
+              invalid={isPubsubEmpty || !!pubsubError}
+              error={isPubsubEmpty ? 'Pub/Sub topic is required for Pub/Sub Bridge mode' : pubsubError}
+              placeholder="projects/my-project/topics/my-topic"
               onChange={handleChange}
               list="source-pubsub-topics"
-              placeholder="projects/my-project/topics/my-topic"
-              className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-xs font-mono focus:outline-none transition-colors ${
-                isPubsubEmpty
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-[var(--vscode-border)] focus:border-[var(--vscode-highlight)]'
-              }`}
+              mono={true}
             />
             <datalist id="source-pubsub-topics">
               {pubsubTopics.map(t => (
                 <option key={t} value={t} />
               ))}
             </datalist>
-            {isPubsubEmpty && (
-              <p className="text-red-400 text-xs mt-1" role="alert">
-                Pub/Sub topic is required for Pub/Sub Bridge mode
-              </p>
-            )}
           </div>
         )}
       </div>
@@ -445,85 +423,64 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
         {showAdvanced && (
           <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
             {/* Custom Endpoint Override */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="snsSourceEndpointOverride" className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>Service Endpoint Override</span>
-                <InfoTooltip text="Custom endpoint URL (e.g. http://localhost:4566 for LocalStack integration testing)." />
-              </label>
-              <input
-                id="snsSourceEndpointOverride"
-                type="text"
-                name="endpointOverride"
-                value={endpointOverride}
-                onChange={handleChange}
-                placeholder="http://localhost:4566"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
-              />
-            </div>
+            <PropertyField
+              id="snsSourceEndpointOverride"
+              name="endpointOverride"
+              label="Service Endpoint Override"
+              tooltip="Custom endpoint URL (e.g. http://localhost:4566 for LocalStack integration testing)."
+              value={endpointOverride}
+              onChange={handleChange}
+              placeholder="http://localhost:4566"
+              mono={true}
+            />
 
             {/* Bounded Read Limits */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="snsSourceMaxNumRecords" className="flex items-center gap-1 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                  <span>Max Records</span>
-                </label>
-                <input
-                  id="snsSourceMaxNumRecords"
-                  type="number"
-                  name="maxNumRecords"
-                  value={maxNumRecords}
-                  onChange={handleChange}
-                  placeholder="Unlimited"
-                  className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="snsSourceMaxReadTime" className="flex items-center gap-1 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                  <span>Max Read Time (s)</span>
-                </label>
-                <input
-                  id="snsSourceMaxReadTime"
-                  type="number"
-                  name="maxReadTime"
-                  value={maxReadTime}
-                  onChange={handleChange}
-                  placeholder="Unlimited"
-                  className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
-                />
-              </div>
+              <PropertyField
+                id="snsSourceMaxNumRecords"
+                name="maxNumRecords"
+                label="Max Records"
+                type="number"
+                value={maxNumRecords}
+                onChange={handleChange}
+                placeholder="Unlimited"
+                mono={true}
+              />
+              <PropertyField
+                id="snsSourceMaxReadTime"
+                name="maxReadTime"
+                label="Max Read Time (s)"
+                type="number"
+                value={maxReadTime}
+                onChange={handleChange}
+                placeholder="Unlimited"
+                mono={true}
+              />
             </div>
 
             {/* SQS Visibility Timeout & Long Polling */}
             {ingestionMode === 'sqs' && (
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="snsSourceVisibilityTimeout" className="flex items-center gap-1 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                    <span>Visibility Timeout (s)</span>
-                  </label>
-                  <input
-                    id="snsSourceVisibilityTimeout"
-                    type="number"
-                    name="visibilityTimeout"
-                    value={visibilityTimeout}
-                    onChange={handleChange}
-                    placeholder="30"
-                    className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="snsSourceWaitTimeSeconds" className="flex items-center gap-1 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                    <span>Wait Time (s)</span>
-                  </label>
-                  <input
-                    id="snsSourceWaitTimeSeconds"
-                    type="number"
-                    name="waitTimeSeconds"
-                    value={waitTimeSeconds}
-                    onChange={handleChange}
-                    placeholder="20"
-                    className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs font-mono focus:outline-none focus:border-[var(--vscode-highlight)]"
-                  />
-                </div>
+                <PropertyField
+                  id="snsSourceVisibilityTimeout"
+                  name="visibilityTimeout"
+                  label="Visibility Timeout (s)"
+                  type="number"
+                  value={visibilityTimeout}
+                  onChange={handleChange}
+                  placeholder="30"
+                  mono={true}
+                />
+                <PropertyField
+                  id="snsSourceWaitTimeSeconds"
+                  name="waitTimeSeconds"
+                  label="Wait Time (s)"
+                  type="number"
+                  value={waitTimeSeconds}
+                  onChange={handleChange}
+                  placeholder="20"
+                  mono={true}
+                />
               </div>
             )}
           </div>
@@ -534,20 +491,18 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
       <div className="flex-1 min-h-[16px]" />
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="snsSourceInstructions" className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional instructions passed to LLM code generator when synthesizing streaming ingestion pipelines." />
-        </label>
-        <textarea
-          id="snsSourceInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse JSON message body into custom schema PCollection"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] resize-none font-mono"
-        />
-      </div>
+      <PropertyField
+        id="snsSourceInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        tooltip="Optional instructions passed to LLM code generator when synthesizing streaming ingestion pipelines."
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="e.g. Parse JSON message body into custom schema PCollection"
+        mono={true}
+      />
     </div>
   );
 };

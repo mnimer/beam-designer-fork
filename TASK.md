@@ -27,45 +27,45 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 
 | # | Sev | Label | Description | Status |
 |---|-----|-------|-------------|--------|
-| [C1](#c1) | 🔴 Critical | Path traversal in codegen writes | `../` sanitiser strips only *leading* segments; Gemini-supplied filenames can write executables anywhere on disk. **PoC verified.** | ⬜ Not Started |
-| [C2](#c2) | 🔴 Critical | Plaintext credentials persisted | JDBC/JMS passwords saved into the git-tracked `.beam` file, sent to Gemini, and written to `gemini.log`. | ⬜ Not Started |
-| [C3](#c3) | 🔴 Critical | Unsafe cleanup strategy | Wipes the target folder *before* the model call, over-deletes user files, and never removes `.venv`/`.gradle`. Needs ownership marker + allowlist. | ⬜ Not Started |
-| [M1](#m1) | 🟠 Major | Duplicate `getSecrets` case | Second handler is unreachable dead code; the live one emits full resource paths instead of short secret IDs. | ⬜ Not Started |
-| [M2](#m2) | 🟠 Major | No webview CSP | `enableScripts` with no CSP/nonce, plus `dangerouslySetInnerHTML` behind a hand-rolled escaper. | ⬜ Not Started |
-| [M3](#m3) | 🟠 Major | Terminal command injection | `outputFolder` interpolated unquoted into ``terminal.sendText(`cd "…"`)``. | ⬜ Not Started |
-| [M4](#m4) | 🟠 Major | Bypasses VS Code document model | `fs.writeFileSync` on an open `TextDocument`; the documented two-way sync is not implemented. | ⬜ Not Started |
-| [M5](#m5) | 🟠 Major | Undisposed webview listeners | `onDidReceiveMessage` disposable discarded and no `onDidDispose`; leaks on every editor open. | ⬜ Not Started |
-| [M6](#m6) | 🟠 Major | Silent CLI failures | ~12 handlers swallow errors and post empty arrays, so auth failures look like zero resources. | ⬜ Not Started |
-| [M7](#m7) | 🟠 Major | Hardcoded developer path | The author's local `google-cloud-sdk` path is the first candidate in `findGcloudPath()`. | ⬜ Not Started |
-| [M8](#m8) | 🟠 Major | Inconsistent CLI resolution | Only 3 of ~13 call sites use `findGcloudPath()`; the rest break when VS Code lacks the shell `PATH`. | ⬜ Not Started |
-| [M9](#m9) | 🟠 Major | Lint and test scripts broken | No root ESLint config, missing `runTest.js`, and a 0-byte test file breaks vitest. **Verified.** | ⬜ Not Started |
-| [M10](#m10) | 🟠 Major | O(n²) JSON repair | Backward `}` scan re-parses the entire string per candidate, blocking the extension host. | ⬜ Not Started |
-| [M11](#m11) | 🟠 Major | O(tokens × length) highlighter | Per-token full-string `replace`, unmemoised in JSX, plus `$`-pattern preview corruption. | ⬜ Not Started |
-| [M12](#m12) | 🟠 Major | React Flow identity churn | `nodes.map()` inline in the prop builds new objects each render, defeating memoisation. | ⬜ Not Started |
-| [M13](#m13) | 🟠 Major | Stale closure on folder refresh | Static dep array captures the initial `outputFolder`, so files are read from the wrong path. | ⬜ Not Started |
-| [M14](#m14) | 🟠 Major | Label-based form dispatch | ~200-line if/else keyed on the user-editable node label; renaming loads the wrong form. | ⬜ Not Started |
-| [M15](#m15) | 🟠 Major | `gemini.log` shipped to Cloud Build | Generated `.gcloudignore` omits `*.log`, so the full prompt travels in the build context. | ⬜ Not Started |
-| [M16](#m16) | 🟠 Major | Partial edge rewiring | `findIndex` redirects only the first inbound edge when inserting a KV Mapper. | ⬜ Not Started |
-| [M17](#m17) | 🟠 Major | Eager activation | `activationEvents: ["*"]` plus a workspace-wide `findFiles` on every window. | ⬜ Not Started |
-| [M18](#m18) | 🟠 Major | Blocking synchronous I/O | `fs.*Sync` on the autosave, codegen, and folder-walk hot paths in the extension host. | ⬜ Not Started |
-| [M19](#m19) | 🟠 Major | `BigQueryIO` stale closure | Async `datasetsLoaded` spreads first-render props, erasing anything typed in the meantime. | ⬜ Not Started |
-| [M20](#m20) | 🟠 Major | Unnormalised secrets in Kinesis sink | Missing `.map(s => s.name)`; renders `[object Object]` the moment M1 is fixed. **Ship with M1.** | ⬜ Not Started |
-| [M21](#m21) | 🟠 Major | Test gaps + orphaned test | No tests for Aggregations/Map/ParseMessage; `ElementTransforms.test.tsx` has no component. | ⬜ Not Started |
-| [A1](#a1) | 🔵 Architecture | 1,000-line message switch | `handleMessages` mixes GCP, AWS, file I/O, samples, terminal, and codegen. Untestable as written. | ⬜ Not Started |
-| [A2](#a2) | 🔵 Architecture | 10 copy-pasted asset handlers | ~210 lines of identical exec→parse→post logic; collapse into a single `listAssets()`. | ⬜ Not Started |
-| [A3](#a3) | 🔵 Architecture | Monolithic codegen closure | 260-line block doing prompt, API, repair, routing, and writing; needs a `LanguageStrategy`. | ⬜ Not Started |
-| [A4](#a4) | 🔵 Architecture | DRY violation across 41 forms | 13,641 LOC with 163/171 duplicated class strings and 34 hand-rolled `handleChange` copies. | ⬜ Not Started |
-| [A5](#a5) | 🔵 Architecture | Committed build artifacts | Stale `App.js` / `main.js` and their maps tracked beside their `.tsx` sources. | ⬜ Not Started |
-| [A6](#a6) | 🔵 Architecture | `App.tsx` is 1,232 lines | Owns canvas state, IPC, autosave, samples, and layout; extract into hooks. | ⬜ Not Started |
-| [A7](#a7) | 🔵 Architecture | Model constant mismatch | `constants.ts` pins `gemini-3.5-flash`; project `GEMINI.md` mandates `gemini-3.7-flash`. | ⬜ Not Started |
-| [A8](#a8) | 🔵 Architecture | JSON created, YAML saved | New pipelines are written as JSON but silently rewritten as YAML on first edit. | ⬜ Not Started |
-| [P1](#p1) | 🟡 Perf | O(n²) JSON repair | Cross-reference — fixed by **M10**. | ⬜ Not Started |
-| [P2](#p2) | 🟡 Perf | Unmemoised highlighter | Cross-reference — fixed by **M11**. | ⬜ Not Started |
-| [P3](#p3) | 🟡 Perf | React Flow re-render storm | Cross-reference — fixed by **M12**. | ⬜ Not Started |
-| [P4](#p4) | 🟡 Perf | Synchronous `fs.*` hot paths | Cross-reference — fixed by **M18**. | ⬜ Not Started |
-| [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ⬜ Not Started |
-| [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ⬜ Not Started |
-| [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ⬜ Not Started |
+| [C1](#c1) | 🔴 Critical | Path traversal in codegen writes | `../` sanitiser strips only *leading* segments; Gemini-supplied filenames can write executables anywhere on disk. **PoC verified.** | ✅ Done (`bc3feb1`) |
+| [C2](#c2) | 🔴 Critical | Plaintext credentials persisted | JDBC/JMS passwords saved into the git-tracked `.beam` file, sent to Gemini, and written to `gemini.log`. | ✅ Done (`ef7df29`, `1b31779`) |
+| [C3](#c3) | 🔴 Critical | Unsafe cleanup strategy | Wipes the target folder *before* the model call, over-deletes user files, and never removes `.venv`/`.gradle`. Needs ownership marker + allowlist. | ✅ Done (`6bce56a`) |
+| [M1](#m1) | 🟠 Major | Duplicate `getSecrets` case | Second handler is unreachable dead code; the live one emits full resource paths instead of short secret IDs. | ✅ Done (`9aefa40`) |
+| [M2](#m2) | 🟠 Major | No webview CSP | `enableScripts` with no CSP/nonce, plus `dangerouslySetInnerHTML` behind a hand-rolled escaper. | ✅ Done (`6e73cb9`) |
+| [M3](#m3) | 🟠 Major | Terminal command injection | `outputFolder` interpolated unquoted into ``terminal.sendText(`cd "…"`)``. | ✅ Done (`bfaaa40`) |
+| [M4](#m4) | 🟠 Major | Bypasses VS Code document model | `fs.writeFileSync` on an open `TextDocument`; the documented two-way sync is not implemented. | ✅ Done (`c33f43b`) |
+| [M5](#m5) | 🟠 Major | Undisposed webview listeners | `onDidReceiveMessage` disposable discarded and no `onDidDispose`; leaks on every editor open. | ✅ Done (`c33f43b`) |
+| [M6](#m6) | 🟠 Major | Silent CLI failures | ~12 handlers swallow errors and post empty arrays, so auth failures look like zero resources. | ✅ Done (`f9f1a97`, `618259d`) |
+| [M7](#m7) | 🟠 Major | Hardcoded developer path | The author's local `google-cloud-sdk` path is the first candidate in `findGcloudPath()`. | ✅ Done (`bfaaa40`) |
+| [M8](#m8) | 🟠 Major | Inconsistent CLI resolution | Only 3 of ~13 call sites use `findGcloudPath()`; the rest break when VS Code lacks the shell `PATH`. | ✅ Done (`f9f1a97`) |
+| [M9](#m9) | 🟠 Major | Lint and test scripts broken | No root ESLint config, missing `runTest.js`, and a 0-byte test file breaks vitest. **Verified.** | ✅ Done (`90c2294`) |
+| [M10](#m10) | 🟠 Major | O(n²) JSON repair | Backward `}` scan re-parses the entire string per candidate, blocking the extension host. | ✅ Done (`139fa18`) |
+| [M11](#m11) | 🟠 Major | O(tokens × length) highlighter | Per-token full-string `replace`, unmemoised in JSX, plus `$`-pattern preview corruption. | ✅ Done (`a77c51d`) |
+| [M12](#m12) | 🟠 Major | React Flow identity churn | `nodes.map()` inline in the prop builds new objects each render, defeating memoisation. | ✅ Done (`2e4c4f9`) |
+| [M13](#m13) | 🟠 Major | Stale closure on folder refresh | Static dep array captures the initial `outputFolder`, so files are read from the wrong path. | ✅ Done (`2e4c4f9`) |
+| [M14](#m14) | 🟠 Major | Label-based form dispatch | ~200-line if/else keyed on the user-editable node label; renaming loads the wrong form. | ✅ Done (`2e0cf40`) |
+| [M15](#m15) | 🟠 Major | `gemini.log` shipped to Cloud Build | Generated `.gcloudignore` omits `*.log`, so the full prompt travels in the build context. | ✅ Done (`bfaaa40`) |
+| [M16](#m16) | 🟠 Major | Partial edge rewiring | `findIndex` redirects only the first inbound edge when inserting a KV Mapper. | ✅ Done (`2e4c4f9`) |
+| [M17](#m17) | 🟠 Major | Eager activation | `activationEvents: ["*"]` plus a workspace-wide `findFiles` on every window. | ✅ Done (`139fa18`) |
+| [M18](#m18) | 🟠 Major | Blocking synchronous I/O | `fs.*Sync` on the autosave, codegen, and folder-walk hot paths in the extension host. | ✅ Done (`7cb0cd3`) |
+| [M19](#m19) | 🟠 Major | `BigQueryIO` stale closure | Async `datasetsLoaded` spreads first-render props, erasing anything typed in the meantime. | ✅ Done (`64207c5`) |
+| [M20](#m20) | 🟠 Major | Unnormalised secrets in Kinesis sink | Missing `.map(s => s.name)`; renders `[object Object]` the moment M1 is fixed. **Ship with M1.** | ✅ Done (`9aefa40`) |
+| [M21](#m21) | 🟠 Major | Test gaps + orphaned test | No tests for Aggregations/Map/ParseMessage; `ElementTransforms.test.tsx` has no component. | ✅ Done (`0b03734`) |
+| [A1](#a1) | 🔵 Architecture | 1,000-line message switch | `handleMessages` mixes GCP, AWS, file I/O, samples, terminal, and codegen. Untestable as written. | ✅ Done (`c4a5931`) |
+| [A2](#a2) | 🔵 Architecture | 10 copy-pasted asset handlers | ~210 lines of identical exec→parse→post logic; collapse into a single `listAssets()`. | ✅ Done (`f9f1a97`) |
+| [A3](#a3) | 🔵 Architecture | Monolithic codegen closure | 260-line block doing prompt, API, repair, routing, and writing; needs a `LanguageStrategy`. | ✅ Done (`a58c8c5`) |
+| [A4](#a4) | 🔵 Architecture | DRY violation across 41 forms | 13,641 LOC with 163/171 duplicated class strings and 34 hand-rolled `handleChange` copies. | ✅ Done (`1564619`, `618259d`) |
+| [A5](#a5) | 🔵 Architecture | Committed build artifacts | Stale `App.js` / `main.js` and their maps tracked beside their `.tsx` sources. | ✅ Done (`11567d8`) |
+| [A6](#a6) | 🔵 Architecture | `App.tsx` is 1,232 lines | Owns canvas state, IPC, autosave, samples, and layout; extract into hooks. | ✅ Done (`f748242`) |
+| [A7](#a7) | 🔵 Architecture | Model constant mismatch | `constants.ts` pins `gemini-3.5-flash`; project `GEMINI.md` mandates `gemini-3.7-flash`. | ✅ Done (`11567d8`) |
+| [A8](#a8) | 🔵 Architecture | JSON created, YAML saved | New pipelines are written as JSON but silently rewritten as YAML on first edit. | ✅ Done (`139fa18`) |
+| [P1](#p1) | 🟡 Perf | O(n²) JSON repair | Cross-reference — fixed by **M10**. | ✅ Done (`139fa18`) |
+| [P2](#p2) | 🟡 Perf | Unmemoised highlighter | Cross-reference — fixed by **M11**. | ✅ Done (`a77c51d`) |
+| [P3](#p3) | 🟡 Perf | React Flow re-render storm | Cross-reference — fixed by **M12**. | ✅ Done (`2e4c4f9`) |
+| [P4](#p4) | 🟡 Perf | Synchronous `fs.*` hot paths | Cross-reference — fixed by **M18**. | ✅ Done (`7cb0cd3`) |
+| [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ✅ Done (`139fa18`) |
+| [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ✅ Done (`f748242`) |
+| [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ✅ Done (`a77c51d`) |
 
 ---
 
