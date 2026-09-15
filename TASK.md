@@ -23,7 +23,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 > [!NOTE]
 > **P1-P5 are cross-references**, not additional work — they restate M10/M11/M12/M18/M17
 > from a performance viewpoint. Distinct remediation tasks: **34** (3 Critical, 21 Major, 8 Architecture, 2 Perf).
-> Model evaluation task: **1** (E1). Integration pipeline test tasks: **20** (I1–I20). Section 4 sequences these into execution phases.
+> Model evaluation task: **1** (E1). Integration pipeline test tasks: **20** (I1–I20). IO Connector expansion tasks: **79** (67 Built-in IO1–IO67, 12 Community IO68–IO79). Section 4 sequences these into execution phases.
 
 | # | Sev | Label | Description | Status |
 |---|-----|-------|-------------|--------|
@@ -87,6 +87,85 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [I18](#i18) | 🧪 Integration | `distinct-statistical-sampling` | Deduplication & sampling: TextIO source ➔ Distinct ➔ Sample ➔ ApproximateUnique ➔ LogMessage sink. | ⬜ Not Started |
 | [I19](#i19) | 🧪 Integration | `sns-to-sqs-fanout` | AWS notification fanout: SnsIO topic source ➔ ParDo unpacker ➔ SqsIO queue sink. | ⬜ Not Started |
 | [I20](#i20) | 🧪 Integration | `mqtt-to-mqtt-retained` | IoT broker routing & DLQ: MqttIO source ➔ ParDo alert detection with error branch ➔ MqttIO sink (QoS 1/retained) + LogMessage error sink. | ⬜ Not Started |
+| [IO1](#io1) | 🔌 Connector | FileIO | `FileIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO2](#io2) | 🔌 Connector | AvroIO | `AvroIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO3](#io3) | 🔌 Connector | TextIO (metrics) | `TextIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO4](#io4) | 🔌 Connector | TFRecordIO | `TFRecordIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO5](#io5) | 🔌 Connector | XmlIO | `XmlIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO6](#io6) | 🔌 Connector | TikaIO | `TikaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO7](#io7) | 🔌 Connector | ParquetIO (guide) | `ParquetIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO8](#io8) | 🔌 Connector | ThriftIO | `ThriftIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO9](#io9) | 🔌 Connector | HadoopFileSystem | `HadoopFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO10](#io10) | 🔌 Connector | GcsFileSystem (metrics) | `GcsFileSystem (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO11](#io11) | 🔌 Connector | LocalFileSystem | `LocalFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO13](#io13) | 🔌 Connector | In-memory | `In-memory`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO14](#io14) | 🔌 Connector | KinesisIO | `KinesisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO16](#io16) | 🔌 Connector | KafkaIO | `KafkaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO17](#io17) | 🔌 Connector | PubSubIO | `PubSubIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO18](#io18) | 🔌 Connector | JmsIO | `JmsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO19](#io19) | 🔌 Connector | MqttIO | `MqttIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO21](#io21) | 🔌 Connector | SqsIO | `SqsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO22](#io22) | 🔌 Connector | SnsIO | `SnsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO24](#io24) | 🔌 Connector | HadoopFormatIO (guide) | `HadoopFormatIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO25](#io25) | 🔌 Connector | HBaseIO | `HBaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO26](#io26) | 🔌 Connector | HCatalogIO (guide) | `HCatalogIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO27](#io27) | 🔌 Connector | KuduIO | `KuduIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO28](#io28) | 🔌 Connector | SolrIO | `SolrIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO29](#io29) | 🔌 Connector | ElasticsearchIO | `ElasticsearchIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO30](#io30) | 🔌 Connector | BigQueryIO (guide) (metrics) | `BigQueryIO (guide) (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO31](#io31) | 🔌 Connector | BigTableIO (metrics) | `BigTableIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO32](#io32) | 🔌 Connector | DatastoreIO | `DatastoreIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO33](#io33) | 🔌 Connector | SnowflakeIO (guide) | `SnowflakeIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO34](#io34) | 🔌 Connector | SpannerIO | `SpannerIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO35](#io35) | 🔌 Connector | JdbcIO | `JdbcIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO36](#io36) | 🔌 Connector | DebeziumIO | `DebeziumIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO37](#io37) | 🔌 Connector | MongoDbIO | `MongoDbIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO38](#io38) | 🔌 Connector | MongoDbGridFSIO | `MongoDbGridFSIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO39](#io39) | 🔌 Connector | RedisIO | `RedisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO40](#io40) | 🔌 Connector | DynamoDBIO | `DynamoDBIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO41](#io41) | 🔌 Connector | ClickHouseIO | `ClickHouseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO42](#io42) | 🔌 Connector | ArrowFlightIO | `ArrowFlightIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO43](#io43) | 🔌 Connector | DatabaseIO | `DatabaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO44](#io44) | 🔌 Connector | GenerateSequence | `GenerateSequence`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
+| [IO45](#io45) | 🔌 Connector | SplunkIO | `SplunkIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO46](#io46) | 🔌 Connector | FhirIO | `FhirIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO47](#io47) | 🔌 Connector | HL7v2IO | `HL7v2IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO48](#io48) | 🔌 Connector | DicomIO | `DicomIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO53](#io53) | 🔌 Connector | SparkReceiverIO (guide) | `SparkReceiverIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO54](#io54) | 🔌 Connector | CdapIO (guide) | `CdapIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO56](#io56) | 🔌 Connector | GoogleAdsIO | `GoogleAdsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO57](#io57) | 🔌 Connector | Web APIs (guide) | `Web APIs (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO71](#io71) | 🔌 Connector | SAP Hana to Google BigQuery | `SAP Hana to Google BigQuery` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO72](#io72) | 🔌 Connector | TrepWsIO | `TrepWsIO` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO73](#io73) | 🔌 Connector | Beam PyIO (Collection of Python IO connectors) | `Beam PyIO (Collection of Python IO connectors)` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO74](#io74) | 🔌 Connector | Cloud SQL | `Cloud SQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO75](#io75) | 🔌 Connector | MySQL | `MySQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO76](#io76) | 🔌 Connector | Pyodbc | `Pyodbc` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
+| [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels. | ⬜ Not Started |
 
 ---
 
@@ -819,6 +898,1560 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** MQTT connection URI, clientId, QoS levels, retain flag on published messages, error branching with side outputs.
   - **Evaluation Focus:** IoT protocol options support, clean MQTT client connection management, proper error handling and dead-letter queueing.
   - **Target Languages:** Java, Python.
+  - **Status:** ⬜ Not Started.
+
+---
+
+## 7. Apache Beam IO Connector Expansion Tasks
+
+This section defines individual engineering tasks for every supported Apache Beam I/O connector listed in the [official Apache Beam documentation](https://beam.apache.org/documentation/io/connectors/).
+
+### Architecture & Implementation Standards for Each Connector Task:
+
+1. **Pre-Implementation Form Plan & Docs Review:**
+   - Before implementing, read the official Java and Python documentation links.
+   - Formulate a clean property schema plan for both the Source (reader) panel and the Sink (writer) panel, mapping out required vs. optional connection parameters, serialization, batch/streaming configurations, and windowing/sharding rules.
+
+2. **Strict Scope Isolation (Do Not Modify Other Nodes):**
+   - **CRITICAL:** Do NOT modify existing nodes, step transforms, or property panels in the project. Each task is strictly scoped to adding **only 2 new nodes** (1 Source reader and 1 Sink writer) and their accompanying property panels, tests, and registration.
+
+3. **Form Usability & Dynamic Cloud Value Discovery (`gcloud` / CLI Callbacks):**
+   - Focus heavily on the **usability of the property form**: avoid forcing users to manually type complex cloud resource names, ARNs, bucket paths, or plaintext passwords.
+   - For any value that can be retrieved via `gcloud` (or `aws` CLI), add a callback from the webview to the extension host (`vscode.postMessage({ command: '<commandName>' })`).
+   - Wire the returned assets to HTML `<datalist>` or `<select>` autocomplete elements with graceful manual text entry fallback.
+   - If the extension host does not yet handle the message in `src/extension.ts`, implement the command in `MESSAGE_HANDLERS` using the centralized, unit-tested `listAssets()` runner.
+
+4. **Python Cross-Language (`x-lang`) Strategy:**
+   - For connectors where Python does not have a native Beam SDK implementation, explicitly configure the transform as **Cross-Language (`x-lang`)** calling the Java expansion service (`apache_beam.transforms.xlang` or Beam SchemaTransforms).
+   - In the property panel, include expansion service configuration options (e.g., auto-start Java expansion service or connect to an existing expansion service endpoint).
+
+5. **1 Source (Reader) Node:**
+   - **Palette Registration:** Add node to `SOURCE_NODES` in [`NodesCard.tsx`](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/NodesCard.tsx) under the specified category (`Streaming Sources`, `Database Sources`, `File Sources`, `Healthcare Sources`, or `Data Services Sources`).
+   - **Property Panel Component:** Create `webview/src/properties/source/<Connector>.tsx` with dedicated form controls for all connector-specific parameters.
+   - **Dispatcher Mapping:** Register `'SOURCE:<Transform>'` in `PROPERTY_FORM_REGISTRY` in [`PropertyForm.tsx`](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/PropertyForm.tsx).
+   - **Unit Test Coverage:** Create comprehensive unit tests in `webview/src/properties/source/<Connector>.test.tsx` achieving 100% branch and rendering coverage.
+
+6. **1 Sink (Writer) Node:**
+   - **Palette Registration:** Add node to `SINK_NODES` in [`NodesCard.tsx`](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/NodesCard.tsx) under the specified category (`Streaming Sinks`, `Database Sinks`, `File Sinks`, `Logging Sinks`, or `Data Services Sinks`).
+   - **Property Panel Component:** Create `webview/src/properties/sink/<Connector>.tsx` with dedicated form controls for writing/publishing parameters.
+   - **Dispatcher Mapping:** Register `'SINK:<Transform>'` in `PROPERTY_FORM_REGISTRY` in [`PropertyForm.tsx`](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/PropertyForm.tsx).
+   - **Unit Test Coverage:** Create comprehensive unit tests in `webview/src/properties/sink/<Connector>.test.tsx` achieving 100% branch and rendering coverage.
+
+7. **UI/UX Layout & Styling Standards:**
+   - **8pt Grid System:** All paddings, margins, element dimensions, and gutters strictly conform to multiples of 8px (`p-2`, `p-4`, `space-y-4`, `gap-2`).
+   - **VS Code Theme Tokens:** Rely exclusively on VS Code theme variables (`var(--vscode-editor-background)`, `var(--vscode-input-background)`, `var(--vscode-focusBorder)`, etc.) with Tailwind CSS classes.
+   - **Header & Documentation Links:** Every panel features a top header with transform icon, badges (`Source`/`Sink`, category, format/protocol), and direct clickable links to the official Java SDK and Python SDK documentation.
+   - **Field Grouping:** Organize fields logically: Connection & Authentication, Target / Topic / Path / Table, Data Format & Serialization, Performance / Sharding / Windowing, and Code Generation Prompt Overrides (`system_instructions`).
+   - **State Flow:** Pure event-driven component pattern: accept `node` data as props and emit changes upward via `onChange(newProperties)`.
+
+---
+
+### 7.1 Built-in I/O Connectors (IO1 – IO67)
+
+- <a id="io1"></a>**IO1 — `FileIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [FileIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/FileIO.html)
+    - **Python SDK:** [FileIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.fileio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FileIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `FileIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'FileIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/FileIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FileIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FileIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `FileIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'FileIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/FileIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FileIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/FileIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io2"></a>**IO2 — `AvroIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [AvroIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/extensions/avro/io/AvroIO.html)
+    - **Python SDK:** [AvroIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.avroio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `AvroIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `AvroIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'AvroIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/AvroIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:AvroIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/AvroIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `AvroIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'AvroIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/AvroIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:AvroIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/AvroIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io3"></a>**IO3 — `TextIO (metrics)`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [TextIO (metrics) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/TextIO.html)
+    - **Python SDK:** [TextIO (metrics) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.textio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TextIO (metrics)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `TextIO (metrics)` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'TextIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/TextIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:TextIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/TextIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `TextIO (metrics)` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'TextIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/TextIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:TextIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/TextIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io4"></a>**IO4 — `TFRecordIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [TFRecordIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/TFRecordIO.html)
+    - **Python SDK:** [TFRecordIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.tfrecordio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TFRecordIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `TFRecordIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'TFRecordIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/TFRecordIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:TFRecordIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/TFRecordIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `TFRecordIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'TFRecordIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/TFRecordIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:TFRecordIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/TFRecordIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io5"></a>**IO5 — `XmlIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [XmlIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/xml/XmlIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `XmlIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `XmlIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'XmlIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/XmlIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:XmlIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/XmlIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `XmlIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'XmlIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/XmlIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:XmlIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/XmlIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io6"></a>**IO6 — `TikaIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [TikaIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/tika/TikaIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TikaIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `TikaIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'TikaIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/TikaIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:TikaIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/TikaIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `TikaIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'TikaIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/TikaIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:TikaIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/TikaIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io7"></a>**IO7 — `ParquetIO (guide)`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ParquetIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/parquet/ParquetIO.html)
+    - **Python SDK:** [ParquetIO (guide) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.parquetio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ParquetIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ParquetIO (guide)` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'ParquetIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ParquetIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ParquetIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ParquetIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ParquetIO (guide)` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'ParquetIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ParquetIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ParquetIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ParquetIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io8"></a>**IO8 — `ThriftIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ThriftIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/thrift/ThriftIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ThriftIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ThriftIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'ThriftIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ThriftIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ThriftIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ThriftIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ThriftIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'ThriftIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ThriftIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ThriftIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ThriftIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io9"></a>**IO9 — `HadoopFileSystem`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [HadoopFileSystem JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/hdfs/HadoopFileSystemRegistrar.html)
+    - **Python SDK:** [HadoopFileSystem PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.hadoopfilesystem.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HadoopFileSystem`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `HadoopFileSystem` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'HadoopFileSystem', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/HadoopFileSystem.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HadoopFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/HadoopFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `HadoopFileSystem` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'HadoopFileSystem', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/HadoopFileSystem.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HadoopFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/HadoopFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io10"></a>**IO10 — `GcsFileSystem (metrics)`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [GcsFileSystem (metrics) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/extensions/gcp/storage/GcsFileSystemRegistrar.html)
+    - **Python SDK:** [GcsFileSystem (metrics) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.gcsfilesystem.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `GcsFileSystem (metrics)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `GcsFileSystem (metrics)` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'GcsFileSystem', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/GcsFileSystem.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:GcsFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/GcsFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `GcsFileSystem (metrics)` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'GcsFileSystem', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/GcsFileSystem.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:GcsFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/GcsFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io11"></a>**IO11 — `LocalFileSystem`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [LocalFileSystem JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/LocalFileSystemRegistrar.html)
+    - **Python SDK:** [LocalFileSystem PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.localfilesystem.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `LocalFileSystem`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `LocalFileSystem` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'LocalFileSystem', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/LocalFileSystem.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:LocalFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/LocalFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `LocalFileSystem` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'LocalFileSystem', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/LocalFileSystem.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:LocalFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/LocalFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io12"></a>**IO12 — `S3FileSystem`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [S3FileSystem JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/aws2/s3/S3FileSystemRegistrar.html)
+    - **Python SDK:** [S3FileSystem PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.aws.s3filesystem.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `S3FileSystem`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `S3FileSystem` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'S3FileSystem', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/S3FileSystem.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:S3FileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/S3FileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `S3FileSystem` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'S3FileSystem', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/S3FileSystem.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:S3FileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/S3FileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io13"></a>**IO13 — `In-memory`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** Not available natively in Java SDK (✘)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `In-memory`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `In-memory` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CreateIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CreateIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CreateIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CreateIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `In-memory` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CreateIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CreateIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:CreateIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CreateIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io14"></a>**IO14 — `KinesisIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [KinesisIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/aws2/kinesis/KinesisIO.html)
+    - **Python SDK:** [KinesisIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.kinesis.html#apache_beam.io.kinesis.ReadDataFromKinesis)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getAwsQueues` / `getAwsTopics` / `getAwsStreams` (`aws sqs/sns/kinesis list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `KinesisIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `KinesisIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'KinesisIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/KinesisIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:KinesisIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/KinesisIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `KinesisIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'KinesisIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/KinesisIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:KinesisIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/KinesisIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io15"></a>**IO15 — `AmqpIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [AmqpIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/amqp/AmqpIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `AmqpIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `AmqpIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'AmqpIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/AmqpIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:AmqpIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/AmqpIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `AmqpIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'AmqpIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/AmqpIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:AmqpIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/AmqpIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io16"></a>**IO16 — `KafkaIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [KafkaIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/kafka/KafkaIO.html)
+    - **Python SDK:** [KafkaIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.kafka.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getComputeInstances` (`gcloud compute instances list` for broker host VMs); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `KafkaIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `KafkaIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'KafkaIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/KafkaIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:KafkaIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/KafkaIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `KafkaIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'KafkaIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/KafkaIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:KafkaIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/KafkaIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io17"></a>**IO17 — `PubSubIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [PubSubIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/pubsub/PubsubIO.html)
+    - **Python SDK:** [PubSubIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.pubsub.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getTopics` / `getSubscriptions` (`gcloud pubsub topics/subscriptions list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `PubSubIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `PubSubIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'PubSubIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/PubSubIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:PubSubIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/PubSubIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `PubSubIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'PubSubIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/PubSubIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:PubSubIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/PubSubIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io18"></a>**IO18 — `JmsIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [JmsIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/jms/JmsIO.html)
+    - **Python SDK:** [JmsIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.xlang.io.html#apache_beam.transforms.xlang.io.ReadFromJms)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getComputeInstances` (`gcloud compute instances list` for broker host VMs); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `JmsIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `JmsIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'JmsIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/JmsIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:JmsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/JmsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `JmsIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'JmsIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/JmsIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:JmsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/JmsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io19"></a>**IO19 — `MqttIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [MqttIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/mqtt/MqttIO.html)
+    - **Python SDK:** [MqttIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.xlang.io.html#apache_beam.transforms.xlang.io.ReadFromMqtt)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getComputeInstances` (`gcloud compute instances list` for broker host VMs); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MqttIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `MqttIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'MqttIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/MqttIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:MqttIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/MqttIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `MqttIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'MqttIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/MqttIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:MqttIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/MqttIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io20"></a>**IO20 — `RabbitMqIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [RabbitMqIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/rabbitmq/RabbitMqIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getComputeInstances` (`gcloud compute instances list` for broker host VMs); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `RabbitMqIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `RabbitMqIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'RabbitMqIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/RabbitMqIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:RabbitMqIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/RabbitMqIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `RabbitMqIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'RabbitMqIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/RabbitMqIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RabbitMqIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/RabbitMqIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io21"></a>**IO21 — `SqsIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SqsIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/aws2/sqs/SqsIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getAwsQueues` / `getAwsTopics` / `getAwsStreams` (`aws sqs/sns/kinesis list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SqsIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SqsIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'SqsIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SqsIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SqsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SqsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SqsIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'SqsIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SqsIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SqsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SqsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io22"></a>**IO22 — `SnsIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SnsIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/aws2/sns/SnsIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getAwsQueues` / `getAwsTopics` / `getAwsStreams` (`aws sqs/sns/kinesis list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SnsIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SnsIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'SnsIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SnsIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SnsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SnsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SnsIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'SnsIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SnsIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SnsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SnsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io23"></a>**IO23 — `CassandraIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [CassandraIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/cassandra/CassandraIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `CassandraIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `CassandraIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'CassandraIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CassandraIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CassandraIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CassandraIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `CassandraIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'CassandraIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CassandraIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:CassandraIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CassandraIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io24"></a>**IO24 — `HadoopFormatIO (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [HadoopFormatIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/hadoop/format/HadoopFormatIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HadoopFormatIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `HadoopFormatIO (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'HadoopFormatIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/HadoopFormatIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HadoopFormatIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/HadoopFormatIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `HadoopFormatIO (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'HadoopFormatIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/HadoopFormatIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HadoopFormatIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/HadoopFormatIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io25"></a>**IO25 — `HBaseIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [HBaseIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/hbase/HBaseIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HBaseIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `HBaseIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'HBaseIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/HBaseIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HBaseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/HBaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `HBaseIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'HBaseIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/HBaseIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HBaseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/HBaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io26"></a>**IO26 — `HCatalogIO (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [HCatalogIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/hcatalog/HCatalogIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HCatalogIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `HCatalogIO (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'HCatalogIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/HCatalogIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HCatalogIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/HCatalogIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `HCatalogIO (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'HCatalogIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/HCatalogIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HCatalogIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/HCatalogIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io27"></a>**IO27 — `KuduIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [KuduIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/kudu/KuduIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `KuduIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `KuduIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'KuduIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/KuduIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:KuduIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/KuduIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `KuduIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'KuduIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/KuduIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:KuduIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/KuduIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io28"></a>**IO28 — `SolrIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SolrIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/solr/SolrIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SolrIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SolrIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'SolrIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SolrIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SolrIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SolrIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SolrIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'SolrIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SolrIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SolrIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SolrIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io29"></a>**IO29 — `ElasticsearchIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ElasticsearchIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/elasticsearch/ElasticsearchIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ElasticsearchIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ElasticsearchIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'ElasticsearchIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ElasticsearchIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ElasticsearchIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ElasticsearchIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ElasticsearchIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'ElasticsearchIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ElasticsearchIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ElasticsearchIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ElasticsearchIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io30"></a>**IO30 — `BigQueryIO (guide) (metrics)`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [BigQueryIO (guide) (metrics) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/bigquery/BigQueryIO.html)
+    - **Python SDK:** [BigQueryIO (guide) (metrics) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.bigquery.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getDatasets` / `getTables` (`bq ls / gcloud bigquery`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `BigQueryIO (guide) (metrics)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `BigQueryIO (guide) (metrics)` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'BigQueryIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/BigQueryIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:BigQueryIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/BigQueryIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `BigQueryIO (guide) (metrics)` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'BigQueryIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/BigQueryIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:BigQueryIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/BigQueryIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io31"></a>**IO31 — `BigTableIO (metrics)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [BigTableIO (metrics) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/bigtable/BigtableIO.html)
+    - **Python SDK:** [BigTableIO (metrics) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.bigtableio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getBigtableInstances` (`gcloud bigtable instances list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `BigTableIO (metrics)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `BigTableIO (metrics)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BigTableIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/BigTableIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:BigTableIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/BigTableIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `BigTableIO (metrics)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BigTableIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/BigTableIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:BigTableIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/BigTableIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io32"></a>**IO32 — `DatastoreIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [DatastoreIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/datastore/DatastoreIO.html)
+    - **Python SDK:** [DatastoreIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.datastore.v1new.datastoreio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getFirestoreDatabases` (`gcloud firestore databases list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DatastoreIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DatastoreIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'DatastoreIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DatastoreIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DatastoreIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DatastoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DatastoreIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'DatastoreIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DatastoreIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DatastoreIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DatastoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io33"></a>**IO33 — `SnowflakeIO (guide)`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SnowflakeIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/snowflake/SnowflakeIO.html)
+    - **Python SDK:** [SnowflakeIO (guide) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.snowflake.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SnowflakeIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SnowflakeIO (guide)` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'SnowflakeIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SnowflakeIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SnowflakeIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SnowflakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SnowflakeIO (guide)` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'SnowflakeIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SnowflakeIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SnowflakeIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SnowflakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io34"></a>**IO34 — `SpannerIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SpannerIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/spanner/SpannerIO.html)
+    - **Python SDK:** [SpannerIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.spanner.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSpannerInstances` / `getSpannerDatabases` (`gcloud spanner instances/databases list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SpannerIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SpannerIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'SpannerIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SpannerIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SpannerIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SpannerIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SpannerIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'SpannerIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SpannerIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SpannerIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SpannerIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io35"></a>**IO35 — `JdbcIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [JdbcIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/jdbc/JdbcIO.html)
+    - **Python SDK:** [JdbcIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.jdbc.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `JdbcIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `JdbcIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'JdbcIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/JdbcIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:JdbcIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/JdbcIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `JdbcIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'JdbcIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/JdbcIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:JdbcIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/JdbcIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io36"></a>**IO36 — `DebeziumIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [DebeziumIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/io/debezium/DebeziumIO.html)
+    - **Python SDK:** [DebeziumIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.debezium.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DebeziumIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DebeziumIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'DebeziumIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DebeziumIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DebeziumIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DebeziumIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DebeziumIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'DebeziumIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DebeziumIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DebeziumIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DebeziumIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io37"></a>**IO37 — `MongoDbIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [MongoDbIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/mongodb/MongoDbIO.html)
+    - **Python SDK:** [MongoDbIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.mongodbio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MongoDbIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `MongoDbIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'MongoDbIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/MongoDbIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:MongoDbIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/MongoDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `MongoDbIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'MongoDbIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/MongoDbIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:MongoDbIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/MongoDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io38"></a>**IO38 — `MongoDbGridFSIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [MongoDbGridFSIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/mongodb/MongoDbGridFSIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MongoDbGridFSIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `MongoDbGridFSIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'MongoDbGridFSIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/MongoDbGridFSIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:MongoDbGridFSIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/MongoDbGridFSIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `MongoDbGridFSIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'MongoDbGridFSIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/MongoDbGridFSIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:MongoDbGridFSIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/MongoDbGridFSIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io39"></a>**IO39 — `RedisIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [RedisIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/redis/RedisIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `RedisIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `RedisIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'RedisIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/RedisIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:RedisIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/RedisIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `RedisIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'RedisIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/RedisIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RedisIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/RedisIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io40"></a>**IO40 — `DynamoDBIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [DynamoDBIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/aws2/dynamodb/DynamoDBIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getAwsQueues` / `getAwsTopics` / `getAwsStreams` (`aws sqs/sns/kinesis list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DynamoDBIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DynamoDBIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'DynamoDBIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DynamoDBIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DynamoDBIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DynamoDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DynamoDBIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'DynamoDBIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DynamoDBIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DynamoDBIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DynamoDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io41"></a>**IO41 — `ClickHouseIO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ClickHouseIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/clickhouse/ClickHouseIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ClickHouseIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ClickHouseIO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'ClickHouseIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ClickHouseIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ClickHouseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ClickHouseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ClickHouseIO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'ClickHouseIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ClickHouseIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ClickHouseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ClickHouseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io42"></a>**IO42 — `ArrowFlightIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ArrowFlightIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/arrowflight/ArrowFlightIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ArrowFlightIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ArrowFlightIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'ArrowFlightIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ArrowFlightIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ArrowFlightIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ArrowFlightIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ArrowFlightIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'ArrowFlightIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ArrowFlightIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ArrowFlightIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ArrowFlightIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io43"></a>**IO43 — `DatabaseIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** Not available natively in Java SDK (✘)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DatabaseIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DatabaseIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'DatabaseIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DatabaseIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DatabaseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DatabaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DatabaseIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'DatabaseIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DatabaseIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DatabaseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DatabaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io44"></a>**IO44 — `GenerateSequence`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [GenerateSequence JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/GenerateSequence.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `GenerateSequence`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `GenerateSequence` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GenerateSequence', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/GenerateSequence.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:GenerateSequence'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/GenerateSequence.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `GenerateSequence` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'GenerateSequence', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/GenerateSequence.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:GenerateSequence'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/GenerateSequence.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ✅ Done (Already implemented).
+
+- <a id="io45"></a>**IO45 — `SplunkIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Logging Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SplunkIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/splunk/SplunkIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SplunkIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SplunkIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'SplunkIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SplunkIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SplunkIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SplunkIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SplunkIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'SplunkIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SplunkIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SplunkIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SplunkIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io46"></a>**IO46 — `FhirIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [FhirIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/FhirIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FhirIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `FhirIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'FhirIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/FhirIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FhirIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FhirIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `FhirIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'FhirIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/FhirIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FhirIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/FhirIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io47"></a>**IO47 — `HL7v2IO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [HL7v2IO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/HL7v2IO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HL7v2IO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `HL7v2IO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'HL7v2IO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/HL7v2IO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HL7v2IO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/HL7v2IO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `HL7v2IO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'HL7v2IO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/HL7v2IO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HL7v2IO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/HL7v2IO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io48"></a>**IO48 — `DicomIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [DicomIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/DicomIO.html)
+    - **Python SDK:** [DicomIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.healthcare.dicomio.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DicomIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DicomIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'DicomIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DicomIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DicomIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DicomIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'DicomIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DicomIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DicomIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io49"></a>**IO49 — `FlinkStreamingImpulseSource`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** Not available natively in Java SDK (Not available)
+    - **Python SDK:** [FlinkStreamingImpulseSource PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.flink.flink_streaming_impulse_source.html)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FlinkStreamingImpulseSource`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `FlinkStreamingImpulseSource` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/FlinkStreamingImpulseSource.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `FlinkStreamingImpulseSource` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/FlinkStreamingImpulseSource.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io50"></a>**IO50 — `Firestore IO`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [Firestore IO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/firestore/FirestoreIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getFirestoreDatabases` (`gcloud firestore databases list`).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Firestore IO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Firestore IO` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'FirestoreIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/FirestoreIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FirestoreIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FirestoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Firestore IO` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'FirestoreIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/FirestoreIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FirestoreIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/FirestoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io51"></a>**IO51 — `Neo4j`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [Neo4j JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/neo4j/Neo4jIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Neo4j`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Neo4j` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'Neo4jIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/Neo4jIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:Neo4jIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/Neo4jIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Neo4j` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'Neo4jIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/Neo4jIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:Neo4jIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/Neo4jIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io52"></a>**IO52 — `InfluxDB`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [InfluxDB JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/influxdb/InfluxDbIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `InfluxDB`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `InfluxDB` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'InfluxDbIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/InfluxDbIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:InfluxDbIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/InfluxDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `InfluxDB` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'InfluxDbIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/InfluxDbIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:InfluxDbIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/InfluxDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io53"></a>**IO53 — `SparkReceiverIO (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SparkReceiverIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/sparkreceiver/SparkReceiverIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SparkReceiverIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SparkReceiverIO (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'SparkReceiverIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SparkReceiverIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SparkReceiverIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SparkReceiverIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SparkReceiverIO (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'SparkReceiverIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SparkReceiverIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SparkReceiverIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SparkReceiverIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io54"></a>**IO54 — `CdapIO (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [CdapIO (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/cdap/CdapIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `CdapIO (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `CdapIO (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CdapIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CdapIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CdapIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CdapIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `CdapIO (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CdapIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CdapIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:CdapIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CdapIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io55"></a>**IO55 — `SingleStoreDB (guide)`**
+  - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SingleStoreDB (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/singlestore/SingleStoreIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SingleStoreDB (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SingleStoreDB (guide)` Source to `NodesCard.tsx` under `Database Sources` (`beamTransform: 'SingleStoreDBIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SingleStoreDBIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SingleStoreDBIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SingleStoreDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SingleStoreDB (guide)` Sink to `NodesCard.tsx` under `Database Sinks` (`beamTransform: 'SingleStoreDBIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SingleStoreDBIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SingleStoreDBIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SingleStoreDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io56"></a>**IO56 — `GoogleAdsIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [GoogleAdsIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/googleads/GoogleAdsIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `GoogleAdsIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `GoogleAdsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GoogleAdsIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/GoogleAdsIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:GoogleAdsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/GoogleAdsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `GoogleAdsIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'GoogleAdsIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/GoogleAdsIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:GoogleAdsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/GoogleAdsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io57"></a>**IO57 — `Web APIs (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [Web APIs (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/io/requestresponse/RequestResponseIO.html)
+    - **Python SDK:** [Web APIs (guide) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.requestresponse.html?highlight=requestresponse#apache_beam.io.requestresponse.RequestResponseIO)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Web APIs (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Web APIs (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'RequestResponseIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/RequestResponseIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:RequestResponseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/RequestResponseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Web APIs (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'RequestResponseIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/RequestResponseIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RequestResponseIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/RequestResponseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io58"></a>**IO58 — `Iceberg (guide)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [Iceberg (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/managed/Managed.html)
+    - **Python SDK:** [Iceberg (guide) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.managed.html#module-apache_beam.transforms.managed)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Iceberg (guide)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Iceberg (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'IcebergIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/IcebergIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:IcebergIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/IcebergIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Iceberg (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'IcebergIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/IcebergIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:IcebergIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/IcebergIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io59"></a>**IO59 — `CsvIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [CsvIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/csv/CsvIO.html)
+    - **Python SDK:** [CsvIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.textio.html#apache_beam.io.textio.ReadFromCsv)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `CsvIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `CsvIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'CsvIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CsvIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CsvIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CsvIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `CsvIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'CsvIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CsvIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:CsvIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CsvIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io60"></a>**IO60 — `JsonIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [JsonIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/json/JsonIO.html)
+    - **Python SDK:** [JsonIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.textio.html#apache_beam.io.textio.ReadFromJson)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `JsonIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `JsonIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'JsonIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/JsonIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:JsonIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/JsonIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `JsonIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'JsonIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/JsonIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:JsonIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/JsonIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io61"></a>**IO61 — `ContextualTextIO`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [ContextualTextIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/contextualtextio/ContextualTextIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `ContextualTextIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `ContextualTextIO` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'ContextualTextIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/ContextualTextIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:ContextualTextIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/ContextualTextIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `ContextualTextIO` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'ContextualTextIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/ContextualTextIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:ContextualTextIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/ContextualTextIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io62"></a>**IO62 — `PulsarIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [PulsarIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/pulsar/PulsarIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `PulsarIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `PulsarIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'PulsarIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/PulsarIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:PulsarIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/PulsarIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `PulsarIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'PulsarIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/PulsarIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:PulsarIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/PulsarIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io63"></a>**IO63 — `SolaceIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [SolaceIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/solace/SolaceIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SolaceIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SolaceIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'SolaceIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SolaceIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SolaceIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SolaceIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SolaceIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'SolaceIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SolaceIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SolaceIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SolaceIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io64"></a>**IO64 — `DatadogIO`**
+  - **Category Alignment:** `Streaming Sources` (Source) and `Logging Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [DatadogIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/datadog/DatadogIO.html)
+    - **Python SDK:** [DatadogIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.xlang.io.html#apache_beam.transforms.xlang.io.DatadogWrite)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DatadogIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `DatadogIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'DatadogIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DatadogIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DatadogIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DatadogIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `DatadogIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'DatadogIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DatadogIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DatadogIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DatadogIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io65"></a>**IO65 — `CosmosIO (Azure Cosmos DB)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [CosmosIO (Azure Cosmos DB) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/azure/cosmos/CosmosIO.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `CosmosIO (Azure Cosmos DB)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `CosmosIO (Azure Cosmos DB)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CosmosIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CosmosIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CosmosIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CosmosIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `CosmosIO (Azure Cosmos DB)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CosmosIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CosmosIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:CosmosIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CosmosIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io66"></a>**IO66 — `AzureBlobStoreFileSystem`**
+  - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [AzureBlobStoreFileSystem JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/azure/blobstore/AzureBlobStoreFileSystemRegistrar.html)
+    - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getStorageBuckets` (`gcloud storage buckets list` for GCS bucket selection in datalist).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `AzureBlobStoreFileSystem`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `AzureBlobStoreFileSystem` Source to `NodesCard.tsx` under `File Sources` (`beamTransform: 'AzureBlobStoreFileSystem', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/AzureBlobStoreFileSystem.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:AzureBlobStoreFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/AzureBlobStoreFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `AzureBlobStoreFileSystem` Sink to `NodesCard.tsx` under `File Sinks` (`beamTransform: 'AzureBlobStoreFileSystem', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/AzureBlobStoreFileSystem.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:AzureBlobStoreFileSystem'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/AzureBlobStoreFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io67"></a>**IO67 — `Delta Lake`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Documentation Links:**
+    - **Java SDK:** [Delta Lake JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/managed/Managed.html)
+    - **Python SDK:** [Delta Lake PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.managed.html#module-apache_beam.transforms.managed)
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Delta Lake`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Delta Lake` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'DeltaLakeIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/DeltaLakeIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DeltaLakeIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/DeltaLakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Delta Lake` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'DeltaLakeIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/DeltaLakeIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DeltaLakeIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/DeltaLakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+
+---
+
+### 7.2 Other & Community I/O Connectors (IO68 – IO79)
+
+- <a id="io68"></a>**IO68 — `Cloud Bigtable (HBase based)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Cloud Bigtable (HBase based) Repository / Documentation](https://cloud.google.com/bigtable/docs/hbase-dataflow-java)
+    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getBigtableInstances` (`gcloud bigtable instances list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud Bigtable (HBase based)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Cloud Bigtable (HBase based)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudBigtable', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CloudBigtable.tsx` registered as `'SOURCE:CloudBigtable'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CloudBigtable.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Cloud Bigtable (HBase based)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CloudBigtable', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CloudBigtable.tsx` registered as `'SINK:CloudBigtable'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CloudBigtable.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io69"></a>**IO69 — `Cognite Data Fusion`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Cognite Data Fusion Repository / Documentation](https://github.com/cognitedata/cdf-beam-connector-java)
+    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cognite Data Fusion`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Cognite Data Fusion` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CogniteDataFusion', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CogniteDataFusion.tsx` registered as `'SOURCE:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CogniteDataFusion.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Cognite Data Fusion` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CogniteDataFusion', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CogniteDataFusion.tsx` registered as `'SINK:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CogniteDataFusion.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io70"></a>**IO70 — `KineticaDB`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [KineticaDB Repository / Documentation](https://github.com/kineticadb/kinetica-connector-beam)
+    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `KineticaDB`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `KineticaDB` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'KineticaDB', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/KineticaDB.tsx` registered as `'SOURCE:KineticaDB'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/KineticaDB.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `KineticaDB` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'KineticaDB', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/KineticaDB.tsx` registered as `'SINK:KineticaDB'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/KineticaDB.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io71"></a>**IO71 — `SAP Hana to Google BigQuery`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [SAP Hana to Google BigQuery Repository / Documentation](https://github.com/google/hana-bq-beam-connector)
+    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getDatasets` / `getTables` (`bq ls / gcloud bigquery`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SAP Hana to Google BigQuery`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `SAP Hana to Google BigQuery` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'SAPHanatoGoogleBigQuery', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/SAPHanatoGoogleBigQuery.tsx` registered as `'SOURCE:SAPHanatoGoogleBigQuery'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/SAPHanatoGoogleBigQuery.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `SAP Hana to Google BigQuery` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'SAPHanatoGoogleBigQuery', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/SAPHanatoGoogleBigQuery.tsx` registered as `'SINK:SAPHanatoGoogleBigQuery'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/SAPHanatoGoogleBigQuery.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io72"></a>**IO72 — `TrepWsIO`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [TrepWsIO Repository / Documentation](https://github.com/Refinitiv/trep-websockets-beam-io)
+    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TrepWsIO`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `TrepWsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'TrepWsIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/TrepWsIO.tsx` registered as `'SOURCE:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/TrepWsIO.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `TrepWsIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'TrepWsIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/TrepWsIO.tsx` registered as `'SINK:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/TrepWsIO.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io73"></a>**IO73 — `Beam PyIO (Collection of Python IO connectors)`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Beam PyIO (Collection of Python IO connectors) Repository / Documentation](https://github.com/beam-pyio)
+    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Beam PyIO (Collection of Python IO connectors)`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BeamPyIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/BeamPyIO.tsx` registered as `'SOURCE:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/BeamPyIO.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BeamPyIO', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/BeamPyIO.tsx` registered as `'SINK:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/BeamPyIO.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io74"></a>**IO74 — `Cloud SQL`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Cloud SQL Repository / Documentation](https://github.com/jccatrinck/dataflow-cloud-sql-python)
+    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud SQL`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Cloud SQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudSQL', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/CloudSQL.tsx` registered as `'SOURCE:CloudSQL'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/CloudSQL.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Cloud SQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CloudSQL', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/CloudSQL.tsx` registered as `'SINK:CloudSQL'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/CloudSQL.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io75"></a>**IO75 — `MySQL`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [MySQL Repository / Documentation](https://github.com/esakik/beam-mysql-connector)
+    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MySQL`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `MySQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'MySQL', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/MySQL.tsx` registered as `'SOURCE:MySQL'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/MySQL.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `MySQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'MySQL', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/MySQL.tsx` registered as `'SINK:MySQL'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/MySQL.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io76"></a>**IO76 — `Pyodbc`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Pyodbc Repository / Documentation](https://github.com/314e/beam-pyodbc-connector)
+    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Pyodbc`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Pyodbc` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Pyodbc', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/Pyodbc.tsx` registered as `'SOURCE:Pyodbc'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/Pyodbc.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Pyodbc` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Pyodbc', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/Pyodbc.tsx` registered as `'SINK:Pyodbc'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/Pyodbc.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io77"></a>**IO77 — `Tinybird`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Tinybird Repository / Documentation](https://github.com/tinybirdco/tinybird-beam)
+    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Tinybird`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Tinybird` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Tinybird', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/Tinybird.tsx` registered as `'SOURCE:Tinybird'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/Tinybird.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Tinybird` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Tinybird', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/Tinybird.tsx` registered as `'SINK:Tinybird'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/Tinybird.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io78"></a>**IO78 — `Go Connect`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Go`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [Go Connect Repository / Documentation](https://github.com/amient/goconnect)
+    - **Target Language:** `Go` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Go Connect`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `Go Connect` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GoConnect', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/GoConnect.tsx` registered as `'SOURCE:GoConnect'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/GoConnect.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `Go Connect` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'GoConnect', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/GoConnect.tsx` registered as `'SINK:GoConnect'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/GoConnect.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
+  - **Status:** ⬜ Not Started.
+
+- <a id="io79"></a>**IO79 — `MySQL, PostgreSQL, Oracle, SQL Server`**
+  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Yaml`).
+  - **Documentation Links:**
+    - **Primary Documentation / Repository:** [MySQL, PostgreSQL, Oracle, SQL Server Repository / Documentation](https://beam.apache.org/releases/yamldoc/current/#readfrommysql)
+    - **Target Language:** `Yaml` (When used in Python/Java, utilize native connector or cross-language bridge).
+  - **Usability & Dynamic Discovery (`gcloud` / CLI):**
+    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MySQL, PostgreSQL, Oracle, SQL Server`.
+  - **Source (Reader) Node:**
+    - **Palette Definition:** Add `MySQL, PostgreSQL, Oracle, SQL Server` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'MySQLPostgreSQLOracleSQLServer', type: 'SOURCE'`).
+    - **Property Panel Plan:** Create `webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.tsx` registered as `'SOURCE:MySQLPostgreSQLOracleSQLServer'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.test.tsx` (100% test coverage).
+  - **Sink (Writer) Node:**
+    - **Palette Definition:** Add `MySQL, PostgreSQL, Oracle, SQL Server` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'MySQLPostgreSQLOracleSQLServer', type: 'SINK'`).
+    - **Property Panel Plan:** Create `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx` registered as `'SINK:MySQLPostgreSQLOracleSQLServer'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx` (100% test coverage).
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
   - **Status:** ⬜ Not Started.
 
 ---
