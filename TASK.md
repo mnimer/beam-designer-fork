@@ -66,6 +66,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ✅ Done (`139fa18`) |
 | [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ✅ Done (`f748242`) |
 | [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ✅ Done (`a77c51d`) |
+| [E1](#e1) | 🟣 Feature | Multi-Agent E2E Evaluation & Prompt Feedback | Multi-agent evaluation harness (Beam, Security, Packaging, Arbiter) with deterministic syntax gate and prompt remediation generation for Python/Java. | ✅ Done |
 
 ---
 
@@ -591,6 +592,33 @@ Ordered by risk-reduction per unit of effort.
 - **23.** Decompose `App.tsx` into hooks. **(A6)**
 - **24.** Untrack the 4 stale `.js`/`.map` files; reconcile the model constant; emit YAML at creation. **(A5, A7, A8)**
 - **25.** Resolve the orphaned `ElementTransforms.test.tsx` and add the 3 missing test suites. **(M21)**
+
+**Phase 6 — Live Model Evaluation & Prompt Engineering**
+- **26.** Multi-agent evaluation harness (Beam Architecture, Security, Packaging, Lead Arbiter) with deterministic gates and automated prompt improvement suggestions for Python and Java. **(E1)**
+
+---
+
+## 5. Model Evaluation & Prompt Quality Engineering
+
+- <a id="e1"></a>**E1 — Multi-Agent End-to-End Live Model Evaluation Harness with Automated Prompt Improvement Feedback.**
+  Replaces the single-prompt monolithic `evaluateGeneratedCode` with a multi-agent evaluation pipeline and deterministic pre-flight verification:
+  1. **Deterministic Pre-flight Verification:**
+     - Runs local syntax verification (e.g. `python3 -m py_compile` or AST parse) and basic structural syntax checks.
+     - Deterministic credential & plaintext secret regex scanning across all generated files (`.beam`, `pom.xml`, `run_*.sh`, `Dockerfile`, code).
+  2. **Three Specialized Parallel Evaluator Agents (`gemini-3.7-flash`):**
+     - **`BeamArchitectureAgent`:** Evaluates pipeline DAG conformity against input YAML, streaming vs. batch semantics, windowing before aggregations on unbounded streams, main vs. tagged output handling (preventing silent element drops), timer selection (`PeriodicImpulse`), and dead-letter queue (DLQ) branch routing.
+     - **`SecurityAndHardeningAgent`:** Evaluates Secret Manager integration (absence of plaintext passwords/tokens), container security (non-root execution, clean build context, no leak of logs or sensitive env vars), and path containment.
+     - **`PackagingAndDeployabilityAgent`:** Evaluates build descriptor sanity (`pom.xml`, `requirements.txt`), dependency version compatibility (e.g. pinned Datafaker 2.7.0, Beam 2.50+), runner script flags (`run_directrunner.sh`, `run_dataflowrunner.sh`), and entrypoint alignment.
+  3. **Lead Arbiter & Synthesizer Agent:**
+     - Consolidates reports from all three sub-agents and deterministic gates.
+     - Computes multi-dimensional rubric scores (Architecture, Security, Packaging, Maintainability) with hard vetoes on critical defects (syntax error, plaintext secrets, silent drops).
+     - Outputs a structured scorecard with verdict (`passed: boolean`).
+  4. **Automated Prompt Remediation Feedback:**
+     - Because integration tests validate the **LLM Code Generator itself**, the evaluator does *not* patch generated code.
+     - Instead, upon finding any defect, the Arbiter generates actionable **Prompt Remediation Directives** targeting `resources/code-gen-prompt-python.txt` and/or `resources/code-gen-prompt-java.txt`, specifying the exact prompt rule additions or corrections required so the generator will not repeat the mistake.
+  5. **TypeScript Implementation & Testing:**
+     - Implemented directly in TypeScript under `src/test/integration/evaluators/` and wired into `src/test/integration/codegen-runner.ts`.
+     - Accompanied by unit tests for deterministic gates, sub-agent schema parsers, scoring calculations, and prompt recommendation synthesis.
 
 ---
 

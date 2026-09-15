@@ -1,8 +1,27 @@
+/**
+ * Integration Test Runner and Multi-Agent Evaluation Harness for Apache Beam Codegen.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Purpose:
+ * Coordinates live end-to-end integration tests by generating complete Apache Beam
+ * pipelines using Gemini 3.7 Flash and evaluating the output using a multi-agent
+ * evaluation harness (Deterministic Gate, BeamArchitectureAgent, SecurityAndHardeningAgent,
+ * PackagingAndDeployabilityAgent, and Lead Arbiter).
+ *
+ * Architectural decisions:
+ * - Replaces monolithic evaluation prompt with multi-agent specialist hierarchy.
+ * - Emits actionable Prompt Remediation Directives targeting code-gen-prompt-python.txt
+ *   and code-gen-prompt-java.txt when tests fail, rather than patching generated test code.
+ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
+import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
+import { MultiAgentEvaluationResult } from './evaluators/types';
 
 export interface GeneratedFile {
     filename: string;
@@ -14,6 +33,7 @@ export interface EvaluationResult {
     isGood: boolean;
     issues: string[];
     explanation: string;
+    multiAgentResult?: MultiAgentEvaluationResult;
 }
 
 export interface PipelineTestConfig {
@@ -82,64 +102,45 @@ export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string
 }
 
 /**
- * Evaluates generated code against the EXACT prompt template used to generate it, with NO extra custom hints.
+ * Evaluates generated code using the Multi-Agent Evaluation Harness.
+ * Runs deterministic pre-flight checks, 3 specialized evaluator sub-agents
+ * (BeamArchitectureAgent, SecurityAndHardeningAgent, PackagingAndDeployabilityAgent),
+ * and the Lead Arbiter agent to generate multi-dimensional scores and actionable
+ * prompt remediation directives.
+ *
+ * @param ai - Initialized GoogleGenAI client.
+ * @param codeGenPrompt - Full prompt template string.
+ * @param files - Array of generated files.
+ * @param language - Target language ('Java' | 'Python').
+ * @param yamlContent - Original pipeline YAML.
+ * @returns EvaluationResult with detailed scorecard and prompt directives.
  */
 export async function evaluateGeneratedCode(
     ai: GoogleGenAI,
     codeGenPrompt: string,
-    files: GeneratedFile[]
+    files: GeneratedFile[],
+    language: 'Java' | 'Python' = 'Python',
+    yamlContent = ''
 ): Promise<EvaluationResult> {
-    const evaluationPrompt = `You are an expert Apache Beam automated code evaluator and QA validator.
-Evaluate whether the generated files strictly adhere to all guidelines, rules, syntax specifications, and constraints defined in the following Code Generation Prompt and input pipeline YAML:
+    const multiAgentResult = await runMultiAgentEvaluation(
+        ai,
+        language,
+        yamlContent,
+        codeGenPrompt,
+        files
+    );
 
-=== CODE GENERATION SYSTEM PROMPT & SPECIFICATION ===
-${codeGenPrompt}
-=====================================================
+    const report = formatEvaluationReport(multiAgentResult, language);
+    console.log(report);
 
-=== ALL GENERATED FILES ===
-${files.map(f => `--- FILE: ${f.filename} ---\n${f.content}\n`).join('\n')}
-===========================
-
-TASK:
-1. Thoroughly verify that the generated files satisfy all requirements and instructions contained in the system prompt above.
-2. Verify that the code is valid, compilable, and free of syntax errors, type mismatches, or missing dependencies.
-3. If the generated output is correct and complies with all prompt requirements, return \`isGood: true\` with an empty or minor \`issues\` list.
-4. If there are any bugs, rule violations, missing dependencies, or defects, return \`isGood: false\` with the exact \`issues\` enumerated.`;
-
-    const evaluationSchema = {
-        type: "object",
-        properties: {
-            isGood: {
-                type: "boolean",
-                description: "Whether the generated code satisfies all prompt instructions and Beam standards without defects"
-            },
-            issues: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of issues, bugs, or prompt rule violations found in the generated output"
-            },
-            explanation: {
-                type: "string",
-                description: "Detailed explanation summarizing the evaluation results"
-            }
-        },
-        required: ["isGood", "issues", "explanation"]
+    return {
+        isGood: multiAgentResult.isGood,
+        issues: multiAgentResult.allFindings.map(
+            f => `[${f.category}] ${f.severity}: ${f.description} (${f.file})`
+        ),
+        explanation: multiAgentResult.explanation,
+        multiAgentResult
     };
-
-    const evalResponse = await ai.models.generateContent({
-        model: DEFAULT_GEMINI_MODEL,
-        contents: evaluationPrompt,
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: evaluationSchema
-        }
-    });
-
-    if (!evalResponse.text) {
-        throw new Error('Empty evaluation response received from Gemini');
-    }
-
-    return JSON.parse(evalResponse.text) as EvaluationResult;
 }
 
 /**
@@ -206,8 +207,8 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
                 console.log(mainFile.content);
             }
 
-            console.log(`\n2. Evaluating generated ${language} code against prompt instructions via Gemini...`);
-            const evalResult = await evaluateGeneratedCode(ai, prompt, files);
+            console.log(`\n2. Evaluating generated ${language} code via Multi-Agent Evaluation Harness...`);
+            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, config.yamlContent);
 
             console.log(`\n📋 Review Results for ${language}:`);
             console.log(`   Status: ${evalResult.isGood ? '✅ PASS' : '❌ FAIL'}`);
