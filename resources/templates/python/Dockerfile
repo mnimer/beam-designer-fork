@@ -1,7 +1,7 @@
 ARG IMAGE_PYTHON_VERSION=3.11
 
 # --- Stage 1: Get Python Flex Template Launcher Binary ---
-FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
+FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:1.1 AS launcher
 
 # --- Stage 2: Build Application Image ---
 FROM apache/beam_python${IMAGE_PYTHON_VERSION}_sdk:2.55.0

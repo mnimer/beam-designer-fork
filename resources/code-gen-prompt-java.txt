@@ -85,8 +85,19 @@ them apart:
      `.withPassword(accessSecret(projectId, "prod-db-pw"))`.
    - Derive `projectId` from the pipeline options (`options.getProject()`). Do NOT hardcode it.
 
-2. **Plaintext (discouraged, legacy).** The node has `authMode: plaintext` or simply a
-   `password` property with no corresponding `passwordSecret`. Use the value as given.
+2. **Pipeline Options / Parameterized Credentials (when credentials exist in YAML properties)**:
+   - **CRITICAL ZERO-PLAINTEXT MANDATE**: NEVER embed plaintext database passwords, connection secrets, auth tokens, or private keys as string literals in Java source code or `DataSourceConfiguration` calls (e.g. NEVER write `.withPassword("dbpswrd123")` or `.withUsername("dbuser123")`).
+   - **NO DEFAULT VALUE ANNOTATIONS ON PASSWORDS**: NEVER use `@Default.String(...)` or any default value annotation for sensitive password options in the `PipelineOptions` interface. Secrets must NOT have hardcoded defaults in the code.
+   - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
+     - **Parameterize via `PipelineOptions`**: Expose these credential properties as configurable options in the custom `PipelineOptions` interface without default annotations (e.g., `String getSourceDbUsername(); void setSourceDbUsername(String value);`, `String getSourceDbPassword(); void setSourceDbPassword(String value);`, and similarly for sink nodes, e.g. `String getSinkDbUsername(); void setSinkDbUsername(String value);`, `String getSinkDbPassword(); void setSinkDbPassword(String value);`, or `getDbUsername()` / `getDbPassword()` if a single DB).
+     - Pass the values from `options` into the transform (e.g. `.withUsername(options.getSourceDbUsername()).withPassword(options.getSourceDbPassword())`).
+     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`).
+     - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
+       ```bash
+       : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
+       ```
+       Then pass `--sourceDbPassword="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
+     - This rule is an explicit exception to the "only runtimeVariables in PipelineOptions" rule: sensitive credentials MUST be parameterized via `PipelineOptions` to ensure zero plaintext secrets in code and scripts.
 
 **MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
 plaintext property of the same name and use the Secret Manager path.
@@ -105,9 +116,11 @@ and add a brief comment noting that the operator must supply it.
 ## 3. Core Architecture & Coding Rules
 
 ### A. Runtime Variables vs. Hardcoded Node Configuration
-- **STRICT RUNTIME VARIABLES ONLY**:
-  - ONLY variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared in the `PipelineOptions` interface, in `metadata.json`, and as CLI arguments in runner scripts.
-  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values (JDBC URLs, usernames, passwords, driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Java. NEVER expose node properties as `PipelineOptions`.
+- **RUNTIME VARIABLES & SENSITIVE CREDENTIAL PARAMETERIZATION**:
+  - `PipelineOptions`, `metadata.json`, and runner scripts MUST include:
+    1. All variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`).
+    2. Any sensitive credentials (such as JDBC database passwords and usernames) present in node properties, parameterized as described in the Credential Handling Rules above.
+  - **HARDCODE NON-SENSITIVE NODE PROPERTIES**: Non-sensitive node configuration values (JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Java. NEVER expose non-sensitive properties as `PipelineOptions`. NEVER hardcode passwords or sensitive credentials directly in code.
 - **Reserved Option Name Safety & Remapping**:
   - **NEVER use reserved Beam option names**: `jobId`, `jobName`, `project`, `tempLocation`, `gcpTempLocation`, `runner`, `appName` are reserved by Apache Beam / Dataflow. Declaring `getJobId()` in a custom `PipelineOptions` interface causes fatal `IllegalArgumentException: Expected getter for property [jobId] to be marked with @Default on all ... DataflowWorkerHarnessOptions`.
   - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipelineJobId` consistently across ALL artifacts:
@@ -221,11 +234,11 @@ and add a brief comment noting that the operator must supply it.
     - Apache Derby: `org.apache.derby:derbyclient:10.16.1.1`
   - Source (Read):
     - When `selectType` is `table` or `tableName` is provided:
-      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withTable(tableName)`
+      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withTable(tableName)` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
     - When `selectType` is `query` or `query` is provided:
       `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withQuery(query)`
   - Sink (Write):
-    - `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement(statement).withPreparedStatementSetter((element, preparedStatement) -> { ... })`
+    - `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement(statement).withPreparedStatementSetter((element, preparedStatement) -> { ... })` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
     - **CRITICAL SQL & PREPARED STATEMENT SETTER ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as columns. The `PreparedStatementSetter` lambda MUST set every positional parameter 1 through N matching each `?` placeholder in the SQL statement.
 - **`KafkaIO`**:
   - Required Imports: `org.apache.beam.sdk.io.kafka.KafkaIO`, `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.beam.sdk.values.KV`
@@ -532,6 +545,8 @@ Before outputting the final JSON `files` array, verify:
 6. Every `?` in a JDBC SQL statement has a matching index in `PreparedStatementSetter`.
 7. Every transform step name in `.apply("<step_name>", ...)` is globally unique.
 8. Java class name, filename, Dockerfile main class, and `-Dexec.mainClass` all match in PascalCase.
+9. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Java source code or as `@Default.String(...)` annotations on password getters. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
+10. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`.
 
 ---
 

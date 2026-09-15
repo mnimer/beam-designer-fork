@@ -22,6 +22,7 @@ import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
 import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
 import { MultiAgentEvaluationResult } from './evaluators/types';
+import { recordAndSaveTestReport } from './test-reporter';
 
 export interface GeneratedFile {
     filename: string;
@@ -218,9 +219,41 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
                 evalResult.issues.forEach((issue, idx) => console.log(`     ${idx + 1}. ${issue}`));
             }
 
+            // Persist evaluation findings, scorecards, and prompt directives to test-report.md
+            const reportPath = recordAndSaveTestReport({
+                testName: config.testName,
+                language: language,
+                timestamp: new Date().toISOString(),
+                passed: evalResult.isGood,
+                durationMs: Date.now() - startTime,
+                scorecard: evalResult.multiAgentResult?.scorecard,
+                hardVetoTriggered: evalResult.multiAgentResult?.hardVetoTriggered,
+                hardVetoReasons: evalResult.multiAgentResult?.hardVetoReasons,
+                explanation: evalResult.explanation,
+                findings: evalResult.multiAgentResult?.allFindings || [],
+                promptRemediationDirectives: evalResult.multiAgentResult?.promptRemediationDirectives || [],
+                generatedFiles: files.map(f => ({
+                    filename: f.filename,
+                    lines: f.content.split('\n').length
+                }))
+            });
+            console.log(`\n📄 Test report updated: ${reportPath}`);
+
             results[language] = evalResult.isGood;
         } catch (err: any) {
             console.error(`❌ Error during ${language} test:`, err.message || err);
+            const reportPath = recordAndSaveTestReport({
+                testName: config.testName,
+                language: language,
+                timestamp: new Date().toISOString(),
+                passed: false,
+                explanation: `Execution error: ${err.message || err}`,
+                findings: [],
+                promptRemediationDirectives: [],
+                generatedFiles: [],
+                error: err.message || String(err)
+            });
+            console.log(`\n📄 Test report updated: ${reportPath}`);
             results[language] = false;
         }
     }

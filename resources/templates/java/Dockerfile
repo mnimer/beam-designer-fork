@@ -6,7 +6,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # --- Stage 2: Flex Template Runtime Image ---
-FROM gcr.io/dataflow-templates-base/java17-template-launcher-base:latest
+FROM gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1
 WORKDIR /template
 COPY --from=builder /app/target/main.jar /template/main.jar
 ENV FLEX_TEMPLATE_JAVA_CLASSPATH=/template/main.jar

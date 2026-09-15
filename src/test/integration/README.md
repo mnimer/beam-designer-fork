@@ -74,6 +74,16 @@ To keep Vitest open and re-run on changes:
 npx vitest --config vitest.integration.config.mts src/test/integration/jdbcio-to-jdbcio.test.ts
 ```
 
+### 5. Automated Test Report (`test-report.md`)
+After every test execution, the harness updates [`test-report.md`](./test-report.md) in this directory.
+
+This report provides:
+- **Executive Summary Table**: Pass/fail status, overall score, hard veto indicators, and defect counts.
+- **Failed Jobs & Defect Analysis**: Detailed explanations and severity-coded findings (🔴 CRITICAL, 🟠 MAJOR, 🟡 MINOR) for any failed pipeline.
+- **Prompt Remediation Directives**: Ready-to-use rule additions for `resources/code-gen-prompt-python.txt` and `resources/code-gen-prompt-java.txt` to continuously improve prompt quality.
+- **Detailed Scorecards & Generated File Lists**: Category rubric scores (Architecture, Security, Packaging, Maintainability).
+
+
 ---
 
 ## How the Multi-Agent Evaluation Harness Works

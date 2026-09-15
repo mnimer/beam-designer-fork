@@ -68,8 +68,19 @@ them apart:
      becomes `password=_access_secret(project_id, "prod-db-pw")`.
    - Derive `project_id` from the pipeline options / `--project` argument. Do NOT hardcode it.
 
-2. **Plaintext (discouraged, legacy).** The node has `authMode: plaintext` or simply a
-   `password` property with no corresponding `passwordSecret`. Use the value as given.
+2. **CLI Arguments / Parameterized Credentials (when credentials exist in YAML properties)**:
+   - **CRITICAL ZERO-PLAINTEXT MANDATE**: NEVER embed plaintext database passwords, connection secrets, auth tokens, or private keys as string literals in Python source code or `ReadFromJdbc` / `WriteToJdbc` calls (e.g. NEVER write `password="dbpswrd123"` or `username="dbuser123"`).
+   - **NO DEFAULT VALUES ON PASSWORDS**: NEVER specify default values for passwords in `parser.add_argument(...)` (e.g. do NOT use `default='dbpswrd123'`). Use `required=True` instead so passwords must be explicitly provided at runtime.
+   - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
+     - **Parameterize via `argparse` / `PipelineOptions`**: Expose these credential properties as CLI arguments in the argument parser (e.g. `parser.add_argument('--source_db_username', required=True, ...)`, `parser.add_argument('--source_db_password', required=True, ...)`, and similarly for sink nodes, e.g. `parser.add_argument('--sink_db_username', required=True, ...)`, `parser.add_argument('--sink_db_password', required=True, ...)`, or `--db_username` / `--db_password` if a single DB).
+     - Pass the values from `known_args` into the transform (e.g. `username=known_args.source_db_username, password=known_args.source_db_password`).
+     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`).
+     - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
+       ```bash
+       : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
+       ```
+       Then pass `--source_db_password="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
+     - This rule is an explicit exception to the "only runtimeVariables in CLI arguments" rule: sensitive credentials MUST be parameterized via CLI arguments to ensure zero plaintext secrets in code and scripts.
 
 **MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
 plaintext property of the same name and use the Secret Manager path.
@@ -90,9 +101,11 @@ noting that the operator must supply it.
 ## 3. Core Architecture & Coding Rules
 
 ### A. Runtime Variables vs. Hardcoded Node Configuration
-- **STRICT RUNTIME VARIABLES ONLY**:
-  - ONLY variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared in `argparse` / `PipelineOptions`, in `metadata.json`, and as CLI arguments in runner scripts.
-  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values (JDBC URLs, usernames, passwords, driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Python. NEVER expose node properties as command-line arguments.
+- **RUNTIME VARIABLES & SENSITIVE CREDENTIAL PARAMETERIZATION**:
+  - Command-line arguments, `metadata.json`, and runner scripts MUST include:
+    1. All variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`).
+    2. Any sensitive credentials (such as JDBC database passwords and usernames) present in node properties, parameterized as described in the Credential Handling Rules above.
+  - **HARDCODE NON-SENSITIVE NODE PROPERTIES**: Non-sensitive node configuration values (JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Python. NEVER expose non-sensitive properties as CLI arguments. NEVER hardcode passwords or sensitive credentials directly in code.
 - **Reserved Option Name Safety & Remapping**:
   - **NEVER use reserved Beam/Dataflow option names**: `job_name`, `job_id`, `project`, `region`, `runner`, `temp_location`, `staging_location`, `template_location`, `streaming`, `subnetwork` are reserved by Apache Beam / Dataflow.
   - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipeline_job_id` consistently across ALL artifacts:
@@ -250,10 +263,10 @@ noting that the operator must supply it.
       - SQLite (`org.sqlite.JDBC`): `classpath=["org.xerial:sqlite-jdbc:3.45.2.0"]`
       - Apache Derby (`org.apache.derby.jdbc.ClientDriver`): `classpath=["org.apache.derby:derbyclient:10.16.1.1"]`
   - Source (Read):
-    - When `selectType` is `table`: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)`
+    - When `selectType` is `table`: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)` (where `username` and `password` are resolved from `known_args` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
     - When `selectType` is `query`: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., query=..., classpath=...)`
   - Sink (Write):
-    - `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)`
+    - `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)` (where `username` and `password` are resolved from `known_args` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
     - **CRITICAL SQL & TUPLE ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as columns. The upstream transform preceding `WriteToJdbc` MUST emit a `tuple` whose element count and order match the `?` placeholders 1-to-1.
 - **`KafkaIO`**:
   - Required Imports: `from apache_beam.io.kafka import ReadFromKafka, WriteToKafka`
@@ -413,6 +426,8 @@ Before outputting the final JSON `files` array, verify:
 10. Sinks receive their required type (e.g. `bytes` for Pub/Sub and MQTT, `dict` for BigQuery, `(k, v)` tuples for Kafka), with bridging steps where needed.
 11. No logging lambda returns `None` where elements must flow downstream.
 12. For streaming pipelines, `--streaming` is passed in `run_directrunner.sh`.
+13. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Python source code or as `default=` values in `parser.add_argument(...)`. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
+14. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`.
 
 ### Python Projects
 - **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.
