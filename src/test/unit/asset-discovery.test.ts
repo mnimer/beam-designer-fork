@@ -73,7 +73,7 @@ import {
     listAssets,
     resolveCli,
     findGcloudPath
-} from '../extension';
+} from '../../extension';
 
 describe('A2, M6, M8 — Asset Discovery, CLI Resolution, and Error Surfacing', () => {
     const originalEnvPath = process.env.PATH;

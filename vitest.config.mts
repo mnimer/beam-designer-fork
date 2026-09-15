@@ -13,7 +13,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        include: ['src/test/**/*.test.ts'],
+        include: ['src/test/unit/**/*.test.ts'],
         exclude: ['src/test/integration/**', '**/node_modules/**', '**/dist/**'],
         testTimeout: 10000,
         hookTimeout: 10000,

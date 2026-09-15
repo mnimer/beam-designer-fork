@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import * as path from 'path';
-import { formatSampleTitle, getSamplePipelines, computePipelineFlow } from '../extension';
+import { formatSampleTitle, getSamplePipelines, computePipelineFlow } from '../../extension';
 
 // Mock vscode module
 vi.mock('vscode', () => {
@@ -140,7 +140,7 @@ describe('formatSampleTitle', () => {
 
 describe('getSamplePipelines', () => {
     const mockContext: any = {
-        extensionPath: path.resolve(__dirname, '../../')
+        extensionPath: path.resolve(__dirname, '../../../')
     };
 
     it('discovers and parses the generate-mock-data.beam and pubsub-to-bigquery.beam samples from disk', async () => {

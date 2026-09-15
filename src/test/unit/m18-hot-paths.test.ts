@@ -69,7 +69,7 @@ vi.mock('vscode', () => {
     };
 });
 
-import { getSamplePipelines, savePipelineFiles } from '../extension';
+import { getSamplePipelines, savePipelineFiles } from '../../extension';
 
 describe('M18 — getSamplePipelines non-blocking asynchronous loading', () => {
     let tempDir: string;

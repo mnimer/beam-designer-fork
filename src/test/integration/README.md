@@ -11,7 +11,7 @@ This directory contains **live end-to-end integration tests** that validate the 
 
 | Test Suite | Location | Runner Command | Characteristics |
 | :--- | :--- | :--- | :--- |
-| **Extension Unit Tests** | `src/test/*.test.ts` | `npm run test:unit` | Fast (< 1s), fully offline, mocks VS Code APIs and LLM calls. |
+| **Extension Unit Tests** | `src/test/unit/*.test.ts` | `npm run test:unit` | Fast (< 1s), fully offline, mocks VS Code APIs and LLM calls. |
 | **Webview Unit Tests** | `webview/src/**/*.test.tsx` | `npm run test:webview` | Fast (~6s), offline React Flow & DOM tests. |
 | **Live Integration Tests** | `src/test/integration/*.test.ts` | `npm run test:integration` | Live network calls to Vertex AI, generates complete Beam repositories, and evaluates them with specialist sub-agents. |
 

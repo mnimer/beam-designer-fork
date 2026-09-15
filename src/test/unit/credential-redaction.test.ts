@@ -29,7 +29,7 @@ import {
   redactCredentialValues,
   redactPipelineYaml,
   buildRedactionPromptNotice,
-} from '../credentialRedaction';
+} from '../../credentialRedaction';
 
 describe('normalizeKey', () => {
   it('lowercases and strips every separator convention in use', () => {
@@ -398,7 +398,7 @@ describe('code generation prompt templates', () => {
   // passwordSecret) for 22 property forms, but neither prompt template mentioned Secret
   // Manager at all, so the generator silently ignored the reference and produced code
   // that never fetched the secret. These tests pin the guidance in place.
-  const templateDir = path.join(__dirname, '..', '..', 'resources');
+  const templateDir = path.join(__dirname, '..', '..', '..', 'resources');
   const templates = [
     ['python', 'code-gen-prompt-python.txt'],
     ['java', 'code-gen-prompt-java.txt'],

@@ -16,7 +16,7 @@ import {
     categorizeJobStatus,
     getJobStartTime,
     type DataflowJob
-} from '../extension';
+} from '../../extension';
 
 // Mock vscode module
 vi.mock('vscode', () => {

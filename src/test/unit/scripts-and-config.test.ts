@@ -24,7 +24,7 @@ interface FlatConfigEntry {
 }
 
 describe('ESLint Flat Configuration', () => {
-    const rootDir = path.resolve(__dirname, '../../');
+    const rootDir = path.resolve(__dirname, '../../../');
     const eslintConfigPath = path.join(rootDir, 'eslint.config.js');
 
     it('exists and exports a flat config array (simple case)', () => {
@@ -71,7 +71,7 @@ describe('ESLint Flat Configuration', () => {
 });
 
 describe('Vitest and Test Suite Configuration', () => {
-    const rootDir = path.resolve(__dirname, '../../');
+    const rootDir = path.resolve(__dirname, '../../../');
 
     it('unit test config excludes integration suites and uses reasonable timeouts (simple & extreme case)', () => {
         const unitConfigContent = fs.readFileSync(path.join(rootDir, 'vitest.config.mts'), 'utf-8');
@@ -95,7 +95,7 @@ describe('Vitest and Test Suite Configuration', () => {
 });
 
 describe('Package.json Scripts', () => {
-    const rootDir = path.resolve(__dirname, '../../');
+    const rootDir = path.resolve(__dirname, '../../../');
     const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8'));
 
     it('defines vitest unit, integration, webview, and combined test runners', () => {

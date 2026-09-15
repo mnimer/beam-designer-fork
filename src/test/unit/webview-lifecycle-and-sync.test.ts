@@ -123,7 +123,7 @@ import {
     savePipelineFiles,
     BeamEditorProvider,
     DocumentSyncState
-} from '../extension';
+} from '../../extension';
 
 describe('M5 — Webview Lifecycle and Safe Message Dispatching', () => {
     it('sends message to webview when panel is not disposed (simple case)', () => {

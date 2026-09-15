@@ -50,7 +50,7 @@ vi.mock('vscode', () => {
     };
 });
 
-import { buildWebviewHtml, getNonce, WebviewHtmlOptions, BeamEditorProvider } from '../extension';
+import { buildWebviewHtml, getNonce, WebviewHtmlOptions, BeamEditorProvider } from '../../extension';
 
 describe('M2 — Cryptographic Nonce Generator (getNonce)', () => {
     it('returns a hex string of 32 or more characters containing only valid characters', () => {
@@ -345,7 +345,7 @@ describe('M2 — BeamEditorProvider Integration', () => {
  * documented skip rather than a silent pass: run `npm --prefix webview run build` first
  * to exercise them.
  */
-const DIST_INDEX = path.resolve(__dirname, '..', '..', 'webview', 'dist', 'index.html');
+const DIST_INDEX = path.resolve(__dirname, '..', '..', '..', 'webview', 'dist', 'index.html');
 const distExists = fs.existsSync(DIST_INDEX);
 
 describe.skipIf(!distExists)('M2 — real Vite build output', () => {

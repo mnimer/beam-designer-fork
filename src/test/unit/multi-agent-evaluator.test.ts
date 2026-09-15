@@ -15,21 +15,21 @@ import {
     checkJavaStructure,
     scanForPlaintextSecrets,
     runDeterministicGate
-} from './integration/evaluators/deterministic-gate';
+} from '../integration/evaluators/deterministic-gate';
 import {
     calculateBaselineScorecard,
     synthesizeEvaluation
-} from './integration/evaluators/arbiter-evaluator';
+} from '../integration/evaluators/arbiter-evaluator';
 import {
     formatEvaluationReport,
     runMultiAgentEvaluation
-} from './integration/evaluators/multi-agent-evaluator';
+} from '../integration/evaluators/multi-agent-evaluator';
 import {
     DeterministicGateResult,
     EvaluatorFinding,
     MultiAgentEvaluationResult,
     SpecialistAgentResult
-} from './integration/evaluators/types';
+} from '../integration/evaluators/types';
 
 describe('Deterministic Pre-Flight Gate', () => {
     describe('checkPythonSyntax', () => {

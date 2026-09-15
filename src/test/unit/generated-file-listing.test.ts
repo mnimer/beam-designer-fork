@@ -73,7 +73,7 @@ import {
     handleReadFolderFiles,
     DEFAULT_IGNORE_PATTERNS,
     GENERATED_FILE_LIST_EXCLUDE_DIRS,
-} from '../extension';
+} from '../../extension';
 
 describe('Source Code tab file listing — dependency directories are excluded', () => {
     let tempDir: string;

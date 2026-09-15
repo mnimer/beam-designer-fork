@@ -43,7 +43,7 @@ vi.mock('vscode', () => {
     };
 });
 
-import { parseOrRepairJson, findLastCompleteFileEndOffset } from '../extension';
+import { parseOrRepairJson, findLastCompleteFileEndOffset } from '../../extension';
 
 describe('M10 — JSON Repair Forward Scanner (findLastCompleteFileEndOffset)', () => {
     it('returns offset of the closing brace for single complete file (simple case)', () => {

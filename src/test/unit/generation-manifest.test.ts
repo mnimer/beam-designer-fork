@@ -33,7 +33,7 @@ import {
     BUILD_ARTIFACT_ALLOWLIST,
     LANGUAGE_DESCRIPTORS,
     GenerationManifest
-} from '../generationManifest';
+} from '../../generationManifest';
 
 describe('sha256', () => {
     // Standard / simple case: deterministic sha256 output matching known digest

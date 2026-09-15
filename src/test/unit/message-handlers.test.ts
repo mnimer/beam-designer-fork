@@ -71,7 +71,7 @@ import {
     handleGetTables,
     handleStopPipeline,
     handleStopCodeGeneration
-} from '../extension';
+} from '../../extension';
 
 describe('A1 — Message Handler Registry & Dispatcher', () => {
     const EXPECTED_COMMANDS = [

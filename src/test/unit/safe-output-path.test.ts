@@ -15,7 +15,7 @@ import {
     resolveSafeOutputPath,
     isAllowedExecutableScript,
     ALLOWED_EXECUTABLE_SCRIPTS
-} from '../extension';
+} from '../../extension';
 
 // Mock vscode module because extension.ts imports vscode at the top level
 vi.mock('vscode', () => {

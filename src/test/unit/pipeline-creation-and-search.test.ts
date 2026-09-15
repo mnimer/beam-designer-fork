@@ -57,7 +57,7 @@ import {
     PIPELINE_SEARCH_EXCLUDE_PATTERN,
     DataFlowTreeProvider,
     BEAM_EDITOR_VIEW_TYPE
-} from '../extension';
+} from '../../extension';
 
 describe('Finding A8 — Starter Pipeline YAML Serialization', () => {
     it('serializes new pipeline as YAML instead of JSON (simple case)', () => {
@@ -125,7 +125,7 @@ describe('Finding M17 — Activation Events and Workspace Search Exclusions', ()
     });
 
     it('package.json activationEvents does not contain wildcard * (M17a)', () => {
-        const packageJsonPath = path.resolve(__dirname, '../../package.json');
+        const packageJsonPath = path.resolve(__dirname, '../../../package.json');
         const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
         expect(packageJson.activationEvents).not.toContain('*');
@@ -174,9 +174,9 @@ describe('command wiring integrity', () => {
     // failed with "command not found". These tests assert that every command the source
     // dispatches to, and every command package.json declares, actually exists.
     const rawSource = fs.readFileSync(
-        path.join(__dirname, '..', 'extension.ts'), 'utf-8');
+        path.join(__dirname, '../..', 'extension.ts'), 'utf-8');
     const pkg = JSON.parse(fs.readFileSync(
-        path.join(__dirname, '..', '..', 'package.json'), 'utf-8'));
+        path.join(__dirname, '..', '..', '..', 'package.json'), 'utf-8'));
 
     /**
      * Strips whole-line comments and line-start block comments so that only executable

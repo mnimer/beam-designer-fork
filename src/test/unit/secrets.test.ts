@@ -51,7 +51,7 @@ vi.mock('vscode', () => {
     };
 });
 
-import { toShortSecretId, parseSecretManagerOutput } from '../extension';
+import { toShortSecretId, parseSecretManagerOutput } from '../../extension';
 
 describe('Secret Manager ID Parsing (M1)', () => {
     describe('toShortSecretId', () => {

@@ -72,7 +72,7 @@ import {
     SHELL_METASYMBOLS_REGEX,
     getDefaultIgnoreFileContent,
     DEFAULT_IGNORE_PATTERNS
-} from '../extension';
+} from '../../extension';
 
 describe('M7 — gcloud Path Resolution and Configuration Contribution', () => {
     const originalEnvPath = process.env.PATH;
@@ -86,7 +86,7 @@ describe('M7 — gcloud Path Resolution and Configuration Contribution', () => {
     });
 
     it('package.json contributes dataflowDesigner.gcloudPath configuration (simple case)', () => {
-        const pkgPath = path.resolve(__dirname, '../../package.json');
+        const pkgPath = path.resolve(__dirname, '../../../package.json');
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
         expect(pkg.contributes).toBeDefined();
         expect(pkg.contributes.configuration).toBeDefined();

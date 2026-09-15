@@ -27,7 +27,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SRC_DIR = path.resolve(__dirname, '..');
+const SRC_DIR = path.resolve(__dirname, '../..');
 
 /** Reads every non-test TypeScript file directly under src/ as { file, text }. */
 const productionSources = (): Array<{ file: string; text: string }> =>

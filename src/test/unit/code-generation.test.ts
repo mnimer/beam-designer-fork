@@ -58,7 +58,7 @@ import {
     PYTHON_STRATEGY,
     JAVA_STRATEGY,
     PromptAssemblyOptions,
-} from '../codeGeneration';
+} from '../../codeGeneration';
 
 describe('A3 — resolveLanguageStrategy', () => {
     it('returns JAVA_STRATEGY for "java" (simple case)', () => {
@@ -409,7 +409,7 @@ describe('A3 — language strategy internal coherence (regression)', () => {
  *   - datafaker 2.7.0: exposes BOTH `date()` -> DateAndTime and `timeAndDate()` -> TimeAndDate.
  */
 describe('Java codegen prompt — Datafaker version/API coherence (regression)', () => {
-    const PROMPT_PATH = path.join(__dirname, '..', '..', 'resources', 'code-gen-prompt-java.txt');
+    const PROMPT_PATH = path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-java.txt');
     const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
 
     // The lowest Datafaker release verified to expose `timeAndDate()`. 2.1.0 is verified NOT to.
@@ -508,7 +508,7 @@ describe('Java codegen prompt — Datafaker version/API coherence (regression)',
  *     `PeriodicImpulse` is the native Python equivalent and needs neither.
  */
 describe('Python codegen prompt — output routing and trigger selection (regression)', () => {
-    const PROMPT_PATH = path.join(__dirname, '..', '..', 'resources', 'code-gen-prompt-python.txt');
+    const PROMPT_PATH = path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-python.txt');
     const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
 
     // Non-vacuity guard: every assertion below searches this string, so prove it loaded.

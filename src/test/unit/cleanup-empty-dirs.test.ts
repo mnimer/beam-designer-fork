@@ -74,8 +74,8 @@ vi.mock('vscode', () => {
     };
 });
 
-import { executeScopedCleanup } from '../extension';
-import { GenerationManifest, sha256 } from '../generationManifest';
+import { executeScopedCleanup } from '../../extension';
+import { GenerationManifest, sha256 } from '../../generationManifest';
 
 describe('executeScopedCleanup — empty directory pruning', () => {
     let tempDir: string;
