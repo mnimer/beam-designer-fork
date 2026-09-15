@@ -1,7 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import { runPipelineIntegrationTest } from './codegen-runner';
-
-const JDBC_TO_JDBC_YAML = `nodes:
+nodes:
   - id: "1787155309978"
     type: pipeline
     position:
@@ -94,35 +91,3 @@ pipelineConfig:
   language: Java
   outputFolder: test/jdbcio-examples/jdbc-reader
   needsRebuild: false
-`;
-
-describe('JDBC to JDBC Pipeline Code Generation', () => {
-    it('generates valid Java pipeline and passes Gemini evaluation', async () => {
-        const results = await runPipelineIntegrationTest({
-            testName: 'JDBC-to-JDBC (Java)',
-            yamlContent: JDBC_TO_JDBC_YAML,
-            languages: ['Java']
-        });
-        expect(results.Java).toBe(true);
-    }, 180000);
-
-    it('generates valid Python pipeline and passes Gemini evaluation', async () => {
-        const results = await runPipelineIntegrationTest({
-            testName: 'JDBC-to-JDBC (Python)',
-            yamlContent: JDBC_TO_JDBC_YAML,
-            languages: ['Python']
-        });
-        expect(results.Python).toBe(true);
-    }, 180000);
-});
-
-export async function runJdbcToJdbcTest(): Promise<void> {
-    const results = await runPipelineIntegrationTest({
-        testName: 'JDBC-to-JDBC Pipeline',
-        yamlContent: JDBC_TO_JDBC_YAML,
-        languages: ['Java', 'Python']
-    });
-    if (!results.Java || !results.Python) {
-        throw new Error('JDBC to JDBC pipeline test failed');
-    }
-}

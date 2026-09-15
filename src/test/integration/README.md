@@ -52,7 +52,7 @@ npm run test:integration
 ### 2. Run a Specific Test Suite
 ```bash
 # Run JDBC-to-JDBC pipeline test
-npx vitest run --config vitest.integration.config.mts src/test/integration/jdbc-to-jdbc.test.ts
+npx vitest run --config vitest.integration.config.mts src/test/integration/jdbcio-to-jdbcio.test.ts
 
 # Run Kafka-to-Kafka pipeline test
 npx vitest run --config vitest.integration.config.mts src/test/integration/kafkaio-to-kafkaio.test.ts
@@ -62,16 +62,16 @@ npx vitest run --config vitest.integration.config.mts src/test/integration/kafka
 Run only the Java or Python test within a suite using `-t`:
 ```bash
 # Run only Java tests
-npx vitest run --config vitest.integration.config.mts src/test/integration/jdbc-to-jdbc.test.ts -t "Java"
+npx vitest run --config vitest.integration.config.mts src/test/integration/jdbcio-to-jdbcio.test.ts -t "Java"
 
 # Run only Python tests
-npx vitest run --config vitest.integration.config.mts src/test/integration/jdbc-to-jdbc.test.ts -t "Python"
+npx vitest run --config vitest.integration.config.mts src/test/integration/jdbcio-to-jdbcio.test.ts -t "Python"
 ```
 
 ### 4. Interactive Watch Mode
 To keep Vitest open and re-run on changes:
 ```bash
-npx vitest --config vitest.integration.config.mts src/test/integration/jdbc-to-jdbc.test.ts
+npx vitest --config vitest.integration.config.mts src/test/integration/jdbcio-to-jdbcio.test.ts
 ```
 
 ---
