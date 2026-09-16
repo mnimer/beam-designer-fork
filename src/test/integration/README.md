@@ -105,6 +105,7 @@ When an integration test runs, it executes a two-phase workflow:
    │
    ├── Step B: Parallel Specialist Sub-Agents (Promise.all)
    │   ├── BeamArchitectureAgent: DAG fidelity, streaming windowing, DoFn tagged outputs, DLQ
+   │   ├── PipelineSpecificationAgent: YAML property completeness, custom node instructions, runtimeVariables, jobConfig
    │   ├── SecurityAndHardeningAgent: Secret Manager usage, non-root Dockerfile, shell quoting
    │   └── PackagingAndDeployabilityAgent: Maven/PyPI deps, Datafaker 2.7.0, runner scripts
    │

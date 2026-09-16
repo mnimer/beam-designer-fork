@@ -155,7 +155,8 @@ export function generateReportMarkdown(entries: TestReportEntry[]): string {
                 lines.push(`- **Duration:** ${(failed.durationMs / 1000).toFixed(1)}s`);
             }
             if (failed.scorecard) {
-                lines.push(`- **Score Breakdown:** Overall: ${failed.scorecard.overallScore} | Arch: ${failed.scorecard.architectureScore} | Sec: ${failed.scorecard.securityScore} | Pack: ${failed.scorecard.packagingScore} | Maint: ${failed.scorecard.maintainabilityScore}`);
+                const specPart = failed.scorecard.specificationScore !== undefined ? ` | Spec: ${failed.scorecard.specificationScore}` : '';
+                lines.push(`- **Score Breakdown:** Overall: ${failed.scorecard.overallScore} | Arch: ${failed.scorecard.architectureScore}${specPart} | Sec: ${failed.scorecard.securityScore} | Pack: ${failed.scorecard.packagingScore} | Maint: ${failed.scorecard.maintainabilityScore}`);
             }
             if (failed.hardVetoTriggered && failed.hardVetoReasons && failed.hardVetoReasons.length > 0) {
                 lines.push(`- **Hard Veto Triggered:**`);

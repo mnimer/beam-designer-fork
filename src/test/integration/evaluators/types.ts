@@ -21,7 +21,7 @@ export type FindingSeverity = 'CRITICAL' | 'MAJOR' | 'MINOR';
 
 export interface EvaluatorFinding {
     id: string;
-    category: 'ARCHITECTURE' | 'SECURITY' | 'PACKAGING' | 'SYNTAX' | 'IDIOMATIC_BEAM';
+    category: 'ARCHITECTURE' | 'SECURITY' | 'PACKAGING' | 'SYNTAX' | 'IDIOMATIC_BEAM' | 'SPECIFICATION';
     severity: FindingSeverity;
     file: string;
     description: string;
@@ -50,11 +50,12 @@ export interface PromptRemediationDirective {
 }
 
 export interface EvaluationScorecard {
-    architectureScore: number; // 0-100
-    securityScore: number;     // 0-100
-    packagingScore: number;    // 0-100
+    architectureScore: number;    // 0-100
+    specificationScore?: number;  // 0-100 (YAML specification & property conformance)
+    securityScore: number;        // 0-100
+    packagingScore: number;       // 0-100
     maintainabilityScore: number; // 0-100
-    overallScore: number;      // 0-100
+    overallScore: number;         // 0-100
 }
 
 export interface MultiAgentEvaluationResult {

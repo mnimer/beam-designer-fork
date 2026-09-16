@@ -21,6 +21,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { GeneratedFileCandidate, runDeterministicGate } from './deterministic-gate';
 import { evaluateBeamArchitecture } from './beam-architecture-evaluator';
+import { evaluatePipelineSpecification } from './pipeline-spec-evaluator';
 import { evaluateSecurityAndHardening } from './security-evaluator';
 import { evaluatePackagingAndDeployability } from './packaging-evaluator';
 import { synthesizeEvaluation } from './arbiter-evaluator';
@@ -53,7 +54,7 @@ export async function runMultiAgentEvaluation(
     }
 
     console.log(`   [MultiAgentEvaluator] 2. Spawning Specialist Sub-Agents concurrently...`);
-    const [beamArch, security, packaging] = await Promise.all([
+    const [beamArch, pipelineSpec, security, packaging] = await Promise.all([
         evaluateBeamArchitecture(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => ({
             agentName: 'BeamArchitectureAgent',
             passed: false,
@@ -64,6 +65,19 @@ export async function runMultiAgentEvaluation(
                 severity: 'MAJOR',
                 file: 'system',
                 description: `BeamArchitectureAgent invocation failed: ${err.message}`,
+                rationale: 'Subagent runtime error'
+            }]
+        })),
+        evaluatePipelineSpecification(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => ({
+            agentName: 'PipelineSpecificationAgent',
+            passed: false,
+            summary: `Error invoking PipelineSpecificationAgent: ${err.message}`,
+            findings: [{
+                id: 'ERR-SPEC-SUBAGENT',
+                category: 'SPECIFICATION',
+                severity: 'MAJOR',
+                file: 'system',
+                description: `PipelineSpecificationAgent invocation failed: ${err.message}`,
                 rationale: 'Subagent runtime error'
             }]
         })),
@@ -97,6 +111,7 @@ export async function runMultiAgentEvaluation(
 
     const specialistResults: Record<string, SpecialistAgentResult> = {
         BeamArchitectureAgent: beamArch,
+        PipelineSpecificationAgent: pipelineSpec,
         SecurityAndHardeningAgent: security,
         PackagingAndDeployabilityAgent: packaging
     };
@@ -130,6 +145,9 @@ export function formatEvaluationReport(result: MultiAgentEvaluationResult, langu
     lines.push(`   Status:       ${result.isGood ? '✅ PASSED' : '❌ FAILED'}`);
     lines.push(`   Overall:      ${result.scorecard.overallScore} / 100`);
     lines.push(`   Architecture: ${result.scorecard.architectureScore} / 100`);
+    if (result.scorecard.specificationScore !== undefined) {
+        lines.push(`   Specification:${result.scorecard.specificationScore} / 100`);
+    }
     lines.push(`   Security:     ${result.scorecard.securityScore} / 100`);
     lines.push(`   Packaging:    ${result.scorecard.packagingScore} / 100`);
     lines.push(`   Maintainability: ${result.scorecard.maintainabilityScore} / 100`);

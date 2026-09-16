@@ -206,6 +206,7 @@ describe('Lead Arbiter Baseline Scoring & Hard Veto Rules', () => {
         expect(baseline.hardVetoReasons.length).toBe(0);
         expect(baseline.scorecard.overallScore).toBe(100);
         expect(baseline.scorecard.architectureScore).toBe(100);
+        expect(baseline.scorecard.specificationScore).toBe(100);
         expect(baseline.scorecard.securityScore).toBe(100);
         expect(baseline.scorecard.packagingScore).toBe(100);
         expect(baseline.scorecard.maintainabilityScore).toBe(100);
@@ -265,6 +266,48 @@ describe('Lead Arbiter Baseline Scoring & Hard Veto Rules', () => {
         expect(baseline.hardVetoTriggered).toBe(true);
         expect(baseline.scorecard.architectureScore).toBe(65);
         expect(baseline.hardVetoReasons[0]).toContain('Critical Architecture Defect');
+    });
+
+    it('triggers hard veto on CRITICAL specification defects (e.g. missing configured property)', () => {
+        const cleanGate: DeterministicGateResult = {
+            syntaxValid: true,
+            syntaxErrors: [],
+            secretScanPassed: true,
+            secretFindings: []
+        };
+        const criticalSpecFinding: EvaluatorFinding = {
+            id: 'SPEC-1',
+            category: 'SPECIFICATION',
+            severity: 'CRITICAL',
+            file: 'Pipeline.java',
+            description: 'Configured tableName "users" completely omitted from JdbcIO read transform',
+            rationale: 'Pipeline will fail execution due to missing table name'
+        };
+        const baseline = calculateBaselineScorecard(cleanGate, [criticalSpecFinding]);
+        expect(baseline.hardVetoTriggered).toBe(true);
+        expect(baseline.scorecard.specificationScore).toBe(65);
+        expect(baseline.hardVetoReasons[0]).toContain('Critical Specification Defect');
+    });
+
+    it('deducts points from specificationScore for MAJOR specification findings', () => {
+        const cleanGate: DeterministicGateResult = {
+            syntaxValid: true,
+            syntaxErrors: [],
+            secretScanPassed: true,
+            secretFindings: []
+        };
+        const majorSpecFinding: EvaluatorFinding = {
+            id: 'SPEC-2',
+            category: 'SPECIFICATION',
+            severity: 'MAJOR',
+            file: 'pipeline.py',
+            description: 'System instructions for DLQ error handling were partially ignored',
+            rationale: 'Transform does not match requested specification'
+        };
+        const baseline = calculateBaselineScorecard(cleanGate, [majorSpecFinding]);
+        expect(baseline.hardVetoTriggered).toBe(false);
+        expect(baseline.scorecard.specificationScore).toBe(85);
+        expect(baseline.scorecard.overallScore).toBeGreaterThanOrEqual(80);
     });
 
     it('deducts proportional points for MAJOR and MINOR findings without hard veto if score >= 80', () => {
@@ -416,6 +459,15 @@ describe('End-to-End Orchestration with Mocked Model Calls', () => {
                             })
                         });
                     }
+                    if (promptText.includes('Pipeline Specification & Property Conformance')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Specification and properties clean',
+                                findings: []
+                            })
+                        });
+                    }
                     if (promptText.includes('Security & Container Hardening')) {
                         return Promise.resolve({
                             text: JSON.stringify({
@@ -466,6 +518,10 @@ describe('End-to-End Orchestration with Mocked Model Calls', () => {
         expect(result.isGood).toBe(true);
         expect(result.hardVetoTriggered).toBe(false);
         expect(result.scorecard.overallScore).toBe(100);
-        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(4); // 3 specialist subagents + 1 arbiter
+        expect(result.specialistResults.BeamArchitectureAgent).toBeDefined();
+        expect(result.specialistResults.PipelineSpecificationAgent).toBeDefined();
+        expect(result.specialistResults.SecurityAndHardeningAgent).toBeDefined();
+        expect(result.specialistResults.PackagingAndDeployabilityAgent).toBeDefined();
+        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(5); // 4 specialist subagents + 1 arbiter
     });
 });

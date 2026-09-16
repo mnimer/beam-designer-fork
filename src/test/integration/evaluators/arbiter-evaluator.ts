@@ -40,6 +40,7 @@ export function calculateBaselineScorecard(
     subAgentFindings: EvaluatorFinding[]
 ): { scorecard: EvaluationScorecard; hardVetoTriggered: boolean; hardVetoReasons: string[] } {
     let architectureScore = 100;
+    let specificationScore = 100;
     let securityScore = 100;
     let packagingScore = 100;
     let maintainabilityScore = 100;
@@ -71,6 +72,12 @@ export function calculateBaselineScorecard(
                     hardVetoReasons.push(`Critical Architecture Defect: ${f.description} (${f.file})`);
                 }
                 break;
+            case 'SPECIFICATION':
+                specificationScore = Math.max(0, specificationScore - deduction);
+                if (f.severity === 'CRITICAL') {
+                    hardVetoReasons.push(`Critical Specification Defect: ${f.description} (${f.file})`);
+                }
+                break;
             case 'SECURITY':
                 securityScore = Math.max(0, securityScore - deduction);
                 if (f.severity === 'CRITICAL') {
@@ -90,7 +97,11 @@ export function calculateBaselineScorecard(
     }
 
     const overallScore = Math.round(
-        architectureScore * 0.4 + securityScore * 0.3 + packagingScore * 0.2 + maintainabilityScore * 0.1
+        architectureScore * 0.35 +
+        specificationScore * 0.25 +
+        securityScore * 0.20 +
+        packagingScore * 0.15 +
+        maintainabilityScore * 0.05
     );
 
     const hardVetoTriggered = hardVetoReasons.length > 0 || overallScore < 80;
@@ -98,6 +109,7 @@ export function calculateBaselineScorecard(
     return {
         scorecard: {
             architectureScore,
+            specificationScore,
             securityScore,
             packagingScore,
             maintainabilityScore,
@@ -130,7 +142,11 @@ export async function synthesizeEvaluation(
     const prompt = `You are the Lead Arbiter & Quality Assurance Synthesizer Agent for the Apache Beam Code Generator Integration Test Suite.
 
 Your tasks:
-1. Synthesize the reports from the Deterministic Gate and the Specialist Sub-Agents.
+1. Synthesize the reports from the Deterministic Gate and the Specialist Sub-Agents:
+   - BeamArchitectureAgent (DAG semantics, windowing, DoFn tagged output routing, DLQ)
+   - PipelineSpecificationAgent (YAML property completeness, custom instructions, runtime variables, jobConfig)
+   - SecurityAndHardeningAgent (Secret Manager, container hardening, shell quoting)
+   - PackagingAndDeployabilityAgent (dependencies, manifest syntax, runner scripts)
 2. Validate findings, filter false positives, and confirm the final evaluation verdict.
 3. CRITICAL: When the test fails or exhibits defects, DO NOT patch or rewrite the generated code.
    This integration test tests the LLM Code Generator itself. You must formulate actionable
