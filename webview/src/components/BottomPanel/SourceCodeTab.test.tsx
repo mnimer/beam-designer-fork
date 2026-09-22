@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SourceCodeTab, highlightCode } from './SourceCodeTab';
@@ -18,6 +18,10 @@ describe('SourceCodeTab', () => {
     onSelectFile: vi.fn(),
     selectedFileContent: null
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders correctly with default props when needsRebuild is false', () => {
     render(<SourceCodeTab {...mockProps} />);
@@ -237,6 +241,74 @@ describe('SourceCodeTab', () => {
       // Re-rendering with changed code DOES re-run the highlighter
       rerender(<SourceCodeTab {...mockProps} highlighter={spy} generatedCode="print('updated')" />);
       expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it('disables Generate Code button and displays validation error callout when isGraphValid is false', () => {
+      render(
+        <SourceCodeTab
+          {...mockProps}
+          isGraphValid={false}
+          validationErrors={['Cyclic dependency detected: Step 1 -> Step 2 -> Step 1']}
+        />
+      );
+
+      const generateBtn = screen.getByText('Generate Code').closest('button');
+      expect(generateBtn).toBeDisabled();
+
+      const errorCallout = screen.getByTestId('codegen-validation-error');
+      expect(errorCallout).toBeInTheDocument();
+      expect(errorCallout).toHaveTextContent('Cannot Generate Code');
+      expect(errorCallout).toHaveTextContent('Cyclic dependency detected: Step 1 -> Step 2 -> Step 1');
+
+      // Clicking disabled button does not trigger onRegenerate
+      fireEvent.click(generateBtn!);
+      expect(mockProps.onRegenerate).not.toHaveBeenCalled();
+      expect(generateBtn).toHaveAttribute(
+        'title',
+        'Cannot Generate Code:\nCyclic dependency detected: Step 1 -> Step 2 -> Step 1'
+      );
+      expect(screen.getByText('Generation disabled: resolve diagram errors to continue')).toBeInTheDocument();
+    });
+
+    it('displays multiple validation errors and formats them as a list with tooltip on button', () => {
+      render(
+        <SourceCodeTab
+          {...mockProps}
+          isGraphValid={false}
+          validationErrors={[
+            'Cyclic dependency detected: Step 1 -> Step 2 -> Step 1',
+            'Orphan node(s) detected: "Unconnected" (orphan). All steps must be connected into the pipeline.',
+          ]}
+        />
+      );
+
+      const generateBtn = screen.getByText('Generate Code').closest('button');
+      expect(generateBtn).toBeDisabled();
+      expect(generateBtn).toHaveAttribute(
+        'title',
+        'Cannot Generate Code:\nCyclic dependency detected: Step 1 -> Step 2 -> Step 1\nOrphan node(s) detected: "Unconnected" (orphan). All steps must be connected into the pipeline.'
+      );
+
+      const errorCallout = screen.getByTestId('codegen-validation-error');
+      expect(errorCallout).toHaveTextContent('Cyclic dependency detected: Step 1 -> Step 2 -> Step 1');
+      expect(errorCallout).toHaveTextContent('Orphan node(s) detected: "Unconnected" (orphan)');
+      expect(screen.getByText('Generation disabled: resolve diagram errors to continue')).toBeInTheDocument();
+    });
+
+    it('enables Generate Code button and hides error callout when isGraphValid is true', () => {
+      render(
+        <SourceCodeTab
+          {...mockProps}
+          isGraphValid={true}
+          validationErrors={[]}
+        />
+      );
+
+      const generateBtn = screen.getByText('Generate Code').closest('button');
+      expect(generateBtn).not.toBeDisabled();
+      expect(generateBtn).not.toHaveAttribute('title');
+      expect(screen.queryByTestId('codegen-validation-error')).not.toBeInTheDocument();
+      expect(screen.queryByText('Generation disabled: resolve diagram errors to continue')).not.toBeInTheDocument();
     });
 
     it('renders token usage message when tokenUsage prop is provided', () => {

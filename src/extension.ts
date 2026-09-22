@@ -1599,14 +1599,14 @@ export async function gateOutputFolder(
     }
 
     // 'unowned-nonempty' or 'foreign': never delete silently. Ask.
+    // NOTE: VS Code's { modal: true } automatically provides a built-in "Cancel" dismiss button.
     const detail = ownership === 'foreign'
         ? `This folder was generated for a different pipeline. Continuing may overwrite its files.`
         : `This folder was not created by the designer and contains ${meaningful.length} item(s).`;
     const choice = await vscode.window.showWarningMessage(
         `${detail}\n\n${targetFolderPath}`,
         { modal: true },
-        'Generate without cleaning',
-        'Cancel'
+        'Generate without cleaning'
     );
     if (choice !== 'Generate without cleaning') {
         return null;

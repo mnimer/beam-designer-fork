@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Folder, RefreshCw, FileCode, FileText, Play, Sliders, CheckCircle2, Square } from 'lucide-react';
+import { Folder, RefreshCw, FileCode, FileText, Play, Sliders, CheckCircle2, Square, AlertCircle } from 'lucide-react';
 import { filterSourceFiles } from '../../utils/fileFilters';
 
 /**
@@ -14,6 +14,7 @@ import { filterSourceFiles } from '../../utils/fileFilters';
  * Architectural Decisions:
  * - Displays generated files as horizontal scrollable tabs directly above the code preview block.
  * - Left column contains Generator Settings (Target Language, Output Folder, Generate Code, and Stop action).
+ * - Gates the Generate Code button when DAG topology validation fails (e.g. cyclic dependencies).
  * - Styled to match modern dark theme design with 8pt grid spacing system and tailwindcss styling.
  * - Code syntax highlighting supports Python, Java, XML, shell scripts, and configuration files.
 /**
@@ -40,6 +41,8 @@ interface SourceCodeTabProps {
   onSelectFile: (fileName: string) => void;
   selectedFileContent: string | null;
   isGenerating?: boolean;
+  isGraphValid?: boolean;
+  validationErrors?: string[];
   highlighter?: (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => string;
   tokenUsage?: TokenUsage | null;
 }
@@ -142,6 +145,8 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   onSelectFile,
   selectedFileContent,
   isGenerating = false,
+  isGraphValid = true,
+  validationErrors = [],
   highlighter = highlightCode,
   tokenUsage = null
 }) => {
@@ -286,17 +291,50 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
             </div>
           </div>
 
+          {/* Topological DAG Validation Error Callout */}
+          {isGraphValid === false && validationErrors && validationErrors.length > 0 && (
+            <div
+              className="mt-3 p-2.5 bg-rose-950/60 border border-rose-800/80 rounded-lg flex items-start gap-2 text-xs text-rose-200"
+              data-testid="codegen-validation-error"
+            >
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold block text-rose-300">Cannot Generate Code</span>
+                {validationErrors.length === 1 ? (
+                  <span className="text-[11px] text-rose-200/90 leading-relaxed block break-words mt-0.5">
+                    {validationErrors[0]}
+                  </span>
+                ) : (
+                  <ul className="text-[11px] text-rose-200/90 leading-relaxed mt-1 list-disc list-inside space-y-0.5">
+                    {validationErrors.map((err, idx) => (
+                      <li key={idx} className="break-words">{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons: Generate Code & Stop */}
-          <div className="mt-auto pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+          <div className="mt-auto pt-3 border-t border-slate-800/80 flex flex-col gap-1.5">
             <div className="flex gap-2.5">
               <button
                 type="button"
-                onClick={onRegenerate}
-                disabled={isGenerating}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 cursor-pointer transition shadow-lg shadow-emerald-950/40 ${
-                  isGenerating
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98]'
+                onClick={() => {
+                  if (!isGenerating && isGraphValid !== false) {
+                    onRegenerate();
+                  }
+                }}
+                disabled={isGenerating || isGraphValid === false}
+                title={
+                  isGraphValid === false && validationErrors && validationErrors.length > 0
+                    ? `Cannot Generate Code:\n${validationErrors.join('\n')}`
+                    : undefined
+                }
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 transition shadow-lg shadow-emerald-950/40 ${
+                  isGenerating || isGraphValid === false
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none opacity-80'
+                    : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98] cursor-pointer'
                 }`}
               >
                 {isGenerating ? (
@@ -322,6 +360,13 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
                 <span>Stop</span>
               </button>
             </div>
+
+            {isGraphValid === false && (
+              <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                <span>Generation disabled: resolve diagram errors to continue</span>
+              </p>
+            )}
 
             {/* Token Usage Stats */}
             {tokenUsage && (

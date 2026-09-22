@@ -193,6 +193,9 @@ function App() {
     setNodes,
     edges,
     setEdges,
+    displayNodes,
+    displayEdges,
+    dagValidation,
     selectedNodeId,
     setSelectedNodeId,
     selectedEdgeId,
@@ -483,8 +486,12 @@ function App() {
   }, []);
 
   const handleRegenerate = useCallback(() => {
+    if (!dagValidation.isValid) {
+      console.warn('Blocked regenerateCode: DAG topology validation failed', dagValidation.errors);
+      return;
+    }
     ipcRegenerate({ nodes, edges, runtimeVariables, jobConfig });
-  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig]);
+  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, dagValidation]);
 
   // Resize state for Bottom Panel
   const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
@@ -563,8 +570,8 @@ function App() {
 
             <LabelChangeContext.Provider value={handleNodeLabelChange}>
               <ReactFlow
-                nodes={nodes}
-                edges={edges}
+                nodes={displayNodes}
+                edges={displayEdges}
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={onConnect}
@@ -680,6 +687,8 @@ function App() {
           onClearLogs={handleClearLogs}
           onOpenConsole={handleOpenConsole}
           projectId={projectId}
+          isGraphValid={dagValidation.isValid}
+          validationErrors={dagValidation.errors}
           tokenUsage={tokenUsage}
           onInteract={handleBottomPanelInteract}
         />

@@ -52,6 +52,8 @@ interface BottomPanelProps {
   onClearLogs?: () => void;
   onOpenConsole?: (url: string) => void;
   projectId?: string;
+  isGraphValid?: boolean;
+  validationErrors?: string[];
   tokenUsage?: TokenUsage | null;
   onInteract?: () => void;
 }
@@ -89,6 +91,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onClearLogs,
   onOpenConsole,
   projectId = 'YOUR_PROJECT_ID',
+  isGraphValid = true,
+  validationErrors = [],
   tokenUsage = null,
   onInteract
 }) => {
@@ -182,6 +186,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onSelectFile={onSelectFile}
             selectedFileContent={selectedFileContent}
             isGenerating={isGenerating}
+            isGraphValid={isGraphValid}
+            validationErrors={validationErrors}
             tokenUsage={tokenUsage}
           />
         )}
