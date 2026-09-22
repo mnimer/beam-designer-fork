@@ -13,6 +13,7 @@ All files MUST be output directly in the designated root or Maven package layout
 | `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
 | `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
 | `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
+| `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
 | `run_directrunner.sh` | Bash script to execute the pipeline locally with DirectRunner | true |
 | `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
 | `run_sparkrunner.sh` | Bash script to package and submit to GCP Serverless Spark (Dataproc) | true |

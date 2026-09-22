@@ -22,6 +22,7 @@ out
 *.sln
 *.sw?
 .DS_Store
+.gitignore
 
 # Build artifacts emitted beside their .tsx sources (finding A5).
 # These were tracked historically and shadowed the real sources in search.
