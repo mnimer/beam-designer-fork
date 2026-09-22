@@ -195,6 +195,7 @@ function App() {
     setEdges,
     selectedNodeId,
     setSelectedNodeId,
+    selectedEdgeId,
     setSelectedEdgeId,
     hasPubSubSource,
     handleNodesChange,
@@ -232,6 +233,7 @@ function App() {
     selectedFileName,
     selectedFileContent,
     isGenerating,
+    tokenUsage,
     refreshFolderFiles,
     handleOpenSample,
     handlePickFolder,
@@ -525,6 +527,20 @@ function App() {
     };
   }, [isResizing]);
 
+  /**
+   * Closes any open property pane when the user interacts with any field or button in the bottom panel tabs.
+   *
+   * Author: Mike Nimer <mikenimer@google.com>
+   */
+  const handleBottomPanelInteract = useCallback(() => {
+    if (selectedNodeId) {
+      setSelectedNodeId(null);
+    }
+    if (selectedEdgeId) {
+      setSelectedEdgeId(null);
+    }
+  }, [selectedNodeId, selectedEdgeId, setSelectedNodeId, setSelectedEdgeId]);
+
   return (
     <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
@@ -664,6 +680,8 @@ function App() {
           onClearLogs={handleClearLogs}
           onOpenConsole={handleOpenConsole}
           projectId={projectId}
+          tokenUsage={tokenUsage}
+          onInteract={handleBottomPanelInteract}
         />
       </div>
     </div>

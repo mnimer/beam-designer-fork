@@ -313,4 +313,102 @@ pipelineConfig:
       folderPath: 'updated/folder',
     });
   });
+
+  it('updates tokenUsage when receiving codeRegenerated message with tokenUsage', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    expect(result.current.tokenUsage).toBeNull();
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'codeRegenerated',
+            success: true,
+            code: '# new code',
+            tokenUsage: {
+              inputTokens: 1200,
+              outputTokens: 650,
+              totalTokens: 1850,
+            },
+          },
+        })
+      );
+    });
+
+    expect(result.current.tokenUsage).toEqual({
+      inputTokens: 1200,
+      outputTokens: 650,
+      totalTokens: 1850,
+    });
+  });
+
+  it('updates tokenUsage when receiving folderFilesRead message with tokenUsage', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'folderFilesRead',
+            files: ['pipeline.py'],
+            tokenUsage: {
+              inputTokens: 3000,
+              outputTokens: 1500,
+              totalTokens: 4500,
+            },
+          },
+        })
+      );
+    });
+
+    expect(result.current.tokenUsage).toEqual({
+      inputTokens: 3000,
+      outputTokens: 1500,
+      totalTokens: 4500,
+    });
+  });
 });
+

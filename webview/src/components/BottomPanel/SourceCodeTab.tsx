@@ -16,7 +16,15 @@ import { filterSourceFiles } from '../../utils/fileFilters';
  * - Left column contains Generator Settings (Target Language, Output Folder, Generate Code, and Stop action).
  * - Styled to match modern dark theme design with 8pt grid spacing system and tailwindcss styling.
  * - Code syntax highlighting supports Python, Java, XML, shell scripts, and configuration files.
+/**
+ * Token usage metrics for model code generation.
  */
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens?: number;
+}
+
 interface SourceCodeTabProps {
   generatedCode: string;
   language: 'Python' | 'Java';
@@ -33,6 +41,7 @@ interface SourceCodeTabProps {
   selectedFileContent: string | null;
   isGenerating?: boolean;
   highlighter?: (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => string;
+  tokenUsage?: TokenUsage | null;
 }
 
 // Control structures to exclude from method/function highlighting
@@ -133,7 +142,8 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   onSelectFile,
   selectedFileContent,
   isGenerating = false,
-  highlighter = highlightCode
+  highlighter = highlightCode,
+  tokenUsage = null
 }) => {
   // Filter files to only show visible .java and .py source files (ignoring venv, caches, dependencies)
   const sourceFiles = useMemo(() => filterSourceFiles(files), [files]);
@@ -277,39 +287,56 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
           </div>
 
           {/* Action Buttons: Generate Code & Stop */}
-          <div className="mt-auto pt-3 border-t border-slate-800/80 flex gap-2.5">
-            <button
-              type="button"
-              onClick={onRegenerate}
-              disabled={isGenerating}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 cursor-pointer transition shadow-lg shadow-emerald-950/40 ${
-                isGenerating
-                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98]'
-              }`}
-            >
-              {isGenerating ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Play className="w-3.5 h-3.5 fill-current" />
-              )}
-              <span>{isGenerating ? 'Generating...' : 'Generate Code'}</span>
-            </button>
+          <div className="mt-auto pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={isGenerating}
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 cursor-pointer transition shadow-lg shadow-emerald-950/40 ${
+                  isGenerating
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98]'
+                }`}
+              >
+                {isGenerating ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                )}
+                <span>{isGenerating ? 'Generating...' : 'Generate Code'}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={onStopGeneration}
-              disabled={!isGenerating && !onStopGeneration}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-lg text-xs font-bold transition shadow-sm ${
-                isGenerating
-                  ? 'bg-[#881337] hover:bg-[#9f1239] active:bg-[#4c0519] border border-rose-800/80 text-rose-200 hover:text-white cursor-pointer active:scale-[0.98]'
-                  : 'bg-[#881337]/70 text-rose-300/80 border border-rose-900/40 cursor-pointer hover:bg-[#881337] hover:text-rose-100'
-              }`}
-              title="Stop Code Generation"
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Stop</span>
-            </button>
+              <button
+                type="button"
+                onClick={onStopGeneration}
+                disabled={!isGenerating && !onStopGeneration}
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-lg text-xs font-bold transition shadow-sm ${
+                  isGenerating
+                    ? 'bg-[#881337] hover:bg-[#9f1239] active:bg-[#4c0519] border border-rose-800/80 text-rose-200 hover:text-white cursor-pointer active:scale-[0.98]'
+                    : 'bg-[#881337]/70 text-rose-300/80 border border-rose-900/40 cursor-pointer hover:bg-[#881337] hover:text-rose-100'
+                }`}
+                title="Stop Code Generation"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Stop</span>
+              </button>
+            </div>
+
+            {/* Token Usage Stats */}
+            {tokenUsage && (
+              <div 
+                data-testid="token-usage"
+                className="flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800/70 rounded-md px-2.5 py-1.5 font-mono"
+              >
+                <span className="text-slate-400 font-sans font-medium">Tokens:</span>
+                <div className="flex items-center gap-2">
+                  <span>Input: <strong className="text-emerald-400 font-semibold">{tokenUsage.inputTokens.toLocaleString()}</strong></span>
+                  <span className="text-slate-600">•</span>
+                  <span>Output: <strong className="text-blue-400 font-semibold">{tokenUsage.outputTokens.toLocaleString()}</strong></span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

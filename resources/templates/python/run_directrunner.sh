@@ -24,7 +24,7 @@ fi
 if [ ! -f "$VENV_DIR/bin/activate" ] || [ ! -f "$VENV_DIR/bin/python" ]; then
     echo "Creating virtual environment ($VENV_DIR)..."
     rm -rf "$VENV_DIR"
-    $PYTHON_CMD -m venv "$VENV_DIR" || $PYTHON_CMD -m venv --without-pip "$VENV_DIR"
+    "$PYTHON_CMD" -m venv "$VENV_DIR" || "$PYTHON_CMD" -m venv --without-pip "$VENV_DIR"
 fi
 
 echo "Activating virtual environment..."

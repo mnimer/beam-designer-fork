@@ -1,0 +1,143 @@
+nodes:
+  - id: "source-sequence-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: GenerateSequence
+      type: SOURCE
+      iconName: Play
+      beam_transform: GenerateSequence
+      properties:
+        sequenceMode: unbounded
+        start: 0
+        withRateLimit: true
+        elementsPerPeriod: 10
+        periodSeconds: 1
+      system_instructions: Generate an unbounded synthetic stream of sequence numbers starting at 0 with a rate limit of 10 elements per second.
+    width: 180
+    height: 62
+  - id: "step-timestamps-2"
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: WithTimestamps
+      type: STEP
+      iconName: Clock
+      beam_transform: WithTimestamps
+      properties:
+        timestampType: Current Time
+      system_instructions: Assign current system timestamp to each element in the stream to establish explicit event time.
+    width: 180
+    height: 62
+  - id: "step-window-3"
+    type: pipeline
+    position:
+      x: 560
+      y: 150
+    data:
+      label: WindowInto
+      type: STEP
+      iconName: Layers
+      beam_transform: WindowInto
+      properties:
+        windowType: Fixed Window
+        fixedDuration: 60
+        fixedDurationUnit: Seconds
+      system_instructions: Apply a 60-second fixed tumbling window to elements. Ensure windowing is explicitly applied before any grouping or combination operation on unbounded streams.
+    width: 180
+    height: 62
+  - id: "step-kvmapper-4"
+    type: pipeline
+    position:
+      x: 800
+      y: 150
+    data:
+      label: KVMapper
+      type: STEP
+      iconName: KeyRound
+      beam_transform: KVMapper
+      properties:
+        keyPropertyName: key
+        valuePropertyName: value
+      system_instructions: Map sequence number into a Key-Value pair KV('metrics_key', sequence_val % 10) for keyed aggregation.
+    width: 180
+    height: 62
+  - id: "step-groupbykey-5"
+    type: pipeline
+    position:
+      x: 1040
+      y: 150
+    data:
+      label: GroupByKey
+      type: STEP
+      iconName: Boxes
+      beam_transform: GroupByKey
+      system_instructions: Group windowed elements by key across the 60-second window interval.
+    width: 180
+    height: 62
+  - id: "step-sum-6"
+    type: pipeline
+    position:
+      x: 1280
+      y: 150
+    data:
+      label: Sum
+      type: STEP
+      iconName: Sigma
+      beam_transform: Sum
+      system_instructions: Compute the sum of grouped sequence values per key within each tumbling window.
+    width: 180
+    height: 62
+  - id: "sink-pubsub-7"
+    type: pipeline
+    position:
+      x: 1520
+      y: 150
+    data:
+      label: PubSub
+      type: SINK
+      iconName: Cable
+      beam_transform: PubSubIO
+      properties:
+        topic: projects/my-project/topics/sequence-aggregated-out
+      system_instructions: Publish the windowed aggregated metrics formatted as JSON strings to the target Pub/Sub topic.
+    width: 180
+    height: 62
+edges:
+  - id: edge-seq-to-ts
+    source: "source-sequence-1"
+    target: "step-timestamps-2"
+  - id: edge-ts-to-win
+    source: "step-timestamps-2"
+    target: "step-window-3"
+  - id: edge-win-to-kv
+    source: "step-window-3"
+    target: "step-kvmapper-4"
+  - id: edge-kv-to-gbk
+    source: "step-kvmapper-4"
+    target: "step-groupbykey-5"
+  - id: edge-gbk-to-sum
+    source: "step-groupbykey-5"
+    target: "step-sum-6"
+  - id: edge-sum-to-pubsub
+    source: "step-sum-6"
+    target: "sink-pubsub-7"
+runtimeVariables:
+  - key: JOB_ID
+    value: generatesequence-pubsub-fixed-windowing
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 2
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/sequence-pubsub
+  needsRebuild: false

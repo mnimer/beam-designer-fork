@@ -16,6 +16,7 @@ import { computeUpdatedOutputFolder } from '../utils/outputFolder';
 import { migrateLegacyNodes } from '../utils/legacyNodeMigration';
 import { DEFAULT_SAMPLES, type SamplePipeline } from '../components/NodesCard';
 import { serializePipeline } from './usePipelinePersistence';
+import { type TokenUsage } from '../components/BottomPanel/SourceCodeTab';
 
 export interface PipelineConfig {
   language: 'Python' | 'Java';
@@ -120,6 +121,7 @@ export function useVsCodeBridge({
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
 
   // Keep config and active pipeline attributes in mutable refs updated on every render
   // to avoid stale closures in static event listeners and IPC message handlers.
@@ -320,6 +322,9 @@ export function useVsCodeBridge({
         } else if (message.command === 'codeRegenerated') {
           setIsGenerating(false);
           if (message.success) {
+            if (message.tokenUsage) {
+              setTokenUsage(message.tokenUsage);
+            }
             setPipelineConfig((prev) => ({ ...prev, needsRebuild: false }));
             setGeneratedCode(message.code || '');
             setSelectedFileName(null);
@@ -333,6 +338,9 @@ export function useVsCodeBridge({
         } else if (message.command === 'subnetworksLoaded') {
           setSubnetworks(message.subnetworks);
         } else if (message.command === 'folderFilesRead' || message.command === 'folderFilesLoaded') {
+          if (message.tokenUsage) {
+            setTokenUsage(message.tokenUsage);
+          }
           const loadedFiles: string[] = message.files || [];
           setFolderFiles(loadedFiles);
           if (loadedFiles.length > 0) {
@@ -401,6 +409,8 @@ export function useVsCodeBridge({
     setSelectedFileContent,
     isGenerating,
     setIsGenerating,
+    tokenUsage,
+    setTokenUsage,
     refreshFolderFiles,
     handleOpenSample,
     handlePickFolder,

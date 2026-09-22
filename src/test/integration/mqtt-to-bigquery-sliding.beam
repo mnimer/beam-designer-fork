@@ -1,0 +1,129 @@
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: I9 - MqttIO to BigQueryIO Sliding Window Pipeline
+# DAG: MqttIO Source ➔ ParseMessage (JSON) ➔ WindowInto (Sliding: duration 300s, period 60s) ➔ Mean (per sensor) ➔ BigQueryIO Sink
+
+nodes:
+  - id: "source-mqtt-1"
+    type: pipeline
+    position:
+      x: 60
+      y: 150
+    data:
+      label: MQTT
+      type: SOURCE
+      iconName: Radio
+      beam_transform: MqttIO
+      properties:
+        connectionUri: "ssl://iot.broker.io:8883"
+        serverUri: "ssl://iot.broker.io:8883"
+        topic: "sensors/#"
+        qos: 1
+      system_instructions: "Subscribe to IoT telemetry topics 'sensors/#' from MQTT broker 'ssl://iot.broker.io:8883' with QoS level 1."
+    width: 180
+    height: 62
+  - id: "step-parse-2"
+    type: pipeline
+    position:
+      x: 300
+      y: 150
+    data:
+      label: "Parse Message"
+      type: STEP
+      iconName: Code
+      beam_transform: ParseMessage
+      properties:
+        messageType: JSON
+      system_instructions: "Parse incoming MQTT JSON payloads into key-value pairs of sensor_id (String) and reading_value (Double) with event timestamps."
+    width: 180
+    height: 62
+  - id: "step-window-3"
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: WindowInto
+      type: STEP
+      iconName: Layers
+      beam_transform: WindowInto
+      properties:
+        windowType: "Sliding Window"
+        durationSeconds: 300
+        periodSeconds: 60
+        slidingDuration: 300
+        slidingDurationUnit: Seconds
+        slidingPeriod: 60
+        slidingPeriodUnit: Seconds
+      system_instructions: "Apply sliding event-time windows with duration 300 seconds and sliding period 60 seconds."
+    width: 180
+    height: 62
+  - id: "step-mean-4"
+    type: pipeline
+    position:
+      x: 780
+      y: 150
+    data:
+      label: Mean
+      type: STEP
+      iconName: Sigma
+      beam_transform: Mean
+      properties:
+        keyPropertyName: sensor_id
+        valuePropertyName: reading_value
+      system_instructions: "Calculate arithmetic mean of sensor readings grouped per sensor ID within each 300s sliding window."
+    width: 180
+    height: 62
+  - id: "sink-bigquery-5"
+    type: pipeline
+    position:
+      x: 1020
+      y: 150
+    data:
+      label: BigQuery
+      type: SINK
+      iconName: Database
+      beam_transform: BigQueryIO
+      properties:
+        dataset: "iot_analytics"
+        table: "my-project:iot_analytics.sensor_sliding_means"
+        createDisposition: CREATE_IF_NEEDED
+        writeDisposition: WRITE_APPEND
+      system_instructions: "Stream sliding-window computed sensor means into BigQuery table 'my-project:iot_analytics.sensor_sliding_means' with CREATE_IF_NEEDED and WRITE_APPEND."
+    width: 180
+    height: 62
+edges:
+  - id: edge-mqtt-to-parse
+    source: "source-mqtt-1"
+    target: "step-parse-2"
+  - id: edge-parse-to-window
+    source: "step-parse-2"
+    sourceHandle: valid
+    target: "step-window-3"
+  - id: edge-window-to-mean
+    source: "step-window-3"
+    sourceHandle: valid
+    target: "step-mean-4"
+  - id: edge-mean-to-bq
+    source: "step-mean-4"
+    sourceHandle: valid
+    target: "sink-bigquery-5"
+runtimeVariables:
+  - key: JOB_ID
+    value: mqtt-to-bigquery-sliding
+  - key: MQTT_URI
+    value: "ssl://iot.broker.io:8883"
+  - key: BQ_TABLE
+    value: "my-project:iot_analytics.sensor_sliding_means"
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: "gs://my-bucket/staging"
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/mqtt-to-bigquery-sliding
+  needsRebuild: false

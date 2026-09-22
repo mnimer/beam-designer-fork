@@ -1,0 +1,171 @@
+# Author: Mike Nimer <mikenimer@google.com>
+# Purpose: Pipeline specification for I16 Multi-Stream Ingestion, Merge, and Reshuffle (PubSubIO + KafkaIO to BigQueryIO)
+nodes:
+  - id: "source-pubsub-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 80
+    data:
+      label: "PubSub"
+      type: SOURCE
+      iconName: Cable
+      beam_transform: PubSubIO
+      properties:
+        topic: "projects/my-project/topics/events"
+        pubsubTopic: "projects/my-project/topics/events"
+      system_instructions: "Read streaming event messages from Cloud Pub/Sub topic 'projects/my-project/topics/events' (pubsubTopic: 'projects/my-project/topics/events')."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "source-kafka-2"
+    type: pipeline
+    position:
+      x: 80
+      y: 240
+    data:
+      label: "Kafka"
+      type: SOURCE
+      iconName: Cable
+      beam_transform: KafkaIO
+      properties:
+        bootstrapServers: "localhost:9092"
+        kafkaBootstrapServers: "localhost:9092"
+        topics: "stream-events"
+        kafkaTopic: "stream-events"
+        groupId: "beam-lake-consumer"
+        keyDeserializer: "org.apache.kafka.common.serialization.StringDeserializer"
+        valueDeserializer: "org.apache.kafka.common.serialization.StringDeserializer"
+      system_instructions: "Read streaming events from Kafka topic 'stream-events' (kafkaTopic: 'stream-events') hosted at bootstrap servers 'localhost:9092' (kafkaBootstrapServers: 'localhost:9092')."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-parse-pubsub-3"
+    type: pipeline
+    position:
+      x: 340
+      y: 80
+    data:
+      label: "Parse PubSub Message"
+      type: STEP
+      iconName: Code
+      beam_transform: ParseMessage
+      properties:
+        messageType: "JSON"
+      system_instructions: "Parse incoming Pub/Sub JSON message into a normalized common event schema Map/Row (fields: event_id, event_type, timestamp, payload) to ensure type consistency across merged PCollections."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-parse-kafka-4"
+    type: pipeline
+    position:
+      x: 340
+      y: 240
+    data:
+      label: "Parse Kafka Message"
+      type: STEP
+      iconName: Code
+      beam_transform: ParseMessage
+      properties:
+        messageType: "JSON"
+      system_instructions: "Parse incoming Kafka record JSON payload into the identical normalized common event schema Map/Row (fields: event_id, event_type, timestamp, payload) to ensure type consistency across merged PCollections."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-flatten-5"
+    type: pipeline
+    position:
+      x: 600
+      y: 160
+    data:
+      label: "Flatten"
+      type: STEP
+      iconName: GitMerge
+      beam_transform: Flatten
+      properties: {}
+      system_instructions: "Merge the parsed Pub/Sub and Kafka PCollections into a single unified PCollection using Flatten.pCollections() (Java) or beam.Flatten() (Python)."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-reshuffle-6"
+    type: pipeline
+    position:
+      x: 860
+      y: 160
+    data:
+      label: "Reshuffle"
+      type: STEP
+      iconName: RefreshCw
+      beam_transform: Reshuffle
+      properties: {}
+      system_instructions: "Reshuffle unified PCollection elements across workers to balance partitions and break fusion before writing to BigQuery."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-bigquery-7"
+    type: pipeline
+    position:
+      x: 1120
+      y: 160
+    data:
+      label: "BigQuery"
+      type: SINK
+      iconName: Database
+      beam_transform: BigQueryIO
+      properties:
+        dataset: "unified_lake"
+        table: "my-project:unified_lake.all_events"
+        createDisposition: "beam.io.BigQueryDisposition.CREATE_IF_NEEDED"
+        writeDisposition: "beam.io.BigQueryDisposition.WRITE_APPEND"
+        method: "STORAGE_WRITE_API"
+      system_instructions: "Write unified normalized events into BigQuery dataset 'unified_lake', table 'my-project:unified_lake.all_events' using Storage Write API with CREATE_IF_NEEDED and WRITE_APPEND."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+edges:
+  - id: "e-pubsub-to-parse"
+    source: "source-pubsub-1"
+    target: "step-parse-pubsub-3"
+  - id: "e-kafka-to-parse"
+    source: "source-kafka-2"
+    target: "step-parse-kafka-4"
+  - id: "e-parse-pubsub-to-flatten"
+    source: "step-parse-pubsub-3"
+    sourceHandle: valid
+    target: "step-flatten-5"
+  - id: "e-parse-kafka-to-flatten"
+    source: "step-parse-kafka-4"
+    sourceHandle: valid
+    target: "step-flatten-5"
+  - id: "e-flatten-to-reshuffle"
+    source: "step-flatten-5"
+    sourceHandle: valid
+    target: "step-reshuffle-6"
+  - id: "e-reshuffle-to-bq"
+    source: "step-reshuffle-6"
+    sourceHandle: valid
+    target: "sink-bigquery-7"
+runtimeVariables:
+  - key: JOB_ID
+    value: "multi-source-flatten-bigquery"
+  - key: PROJECT_ID
+    value: "my-project"
+jobConfig:
+  runner: "DataflowRunner"
+  machineType: "n1-standard-2"
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: "gs://my-bucket/staging"
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: "Java"
+  outputFolder: "test/multi-source-flatten-bigquery"
+  needsRebuild: false

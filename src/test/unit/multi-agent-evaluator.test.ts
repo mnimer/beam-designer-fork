@@ -157,6 +157,20 @@ public class MyTrickyPipeline {
             const error = checkJavaStructure('MyTrickyPipeline.java', trickyJava);
             expect(error).toBeNull();
         });
+
+        it('correctly handles regex with escaped backslashes without corrupting string state (regression test)', () => {
+            const regexJava = `
+public class WordCountPipelineTest {
+    public void testRegex() {
+        String regex = "[^\\\\p{L}]+";
+        String s = "\\\\";
+        int a = 1;
+    }
+}
+`;
+            const error = checkJavaStructure('WordCountPipelineTest.java', regexJava);
+            expect(error).toBeNull();
+        });
     });
 
     describe('checkBashSyntax', () => {

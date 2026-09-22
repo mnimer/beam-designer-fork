@@ -2883,10 +2883,27 @@ export async function handleReadFolderFiles(ctx: MessageContext, message: any): 
                 return results;
             };
             const files = await getFilesRecursively(folderPath);
+            let tokenUsage: { inputTokens: number; outputTokens: number; totalTokens?: number } | undefined;
+            try {
+                const logFilePath = path.join(folderPath, 'gemini.log');
+                if (fs.existsSync(logFilePath)) {
+                    const logContent = JSON.parse(await fs.promises.readFile(logFilePath, 'utf-8'));
+                    if (logContent && logContent.tokenUsage && typeof logContent.tokenUsage === 'object' && logContent.tokenUsage !== 'Unavailable') {
+                        tokenUsage = {
+                            inputTokens: Number(logContent.tokenUsage.inputTokens) || 0,
+                            outputTokens: Number(logContent.tokenUsage.outputTokens) || 0,
+                            totalTokens: Number(logContent.tokenUsage.totalTokens) || 0,
+                        };
+                    }
+                }
+            } catch {
+                // Ignore missing or corrupt gemini.log
+            }
             ctx.postToWebview({
                 command: 'folderFilesRead',
                 files: files,
-                folderPath: folderPath
+                folderPath: folderPath,
+                tokenUsage: tokenUsage
             });
         } catch (e) {
             console.error('Failed to read folder files', e);

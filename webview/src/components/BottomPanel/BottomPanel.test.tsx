@@ -8,7 +8,12 @@ vi.mock('./DeploymentTab', () => ({
   DeploymentTab: () => <div data-testid="deployment-tab">Deployment Content</div>
 }));
 vi.mock('./SourceCodeTab', () => ({
-  SourceCodeTab: ({ generatedCode }: any) => <div data-testid="source-code-tab">{generatedCode}</div>
+  SourceCodeTab: ({ generatedCode, tokenUsage }: any) => (
+    <div data-testid="source-code-tab">
+      {generatedCode}
+      {tokenUsage && <span data-testid="mock-token-usage">{tokenUsage.inputTokens}/{tokenUsage.outputTokens}</span>}
+    </div>
+  )
 }));
 
 describe('BottomPanel', () => {
@@ -121,6 +126,30 @@ describe('BottomPanel', () => {
     );
     expect(newFilterSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('calls onInteract when a user clicks on any tab or child control in BottomPanel', () => {
+    const onInteract = vi.fn();
+    render(<BottomPanel {...mockProps} onInteract={onInteract} />);
+
+    fireEvent.click(screen.getByText('Generate Code'));
+    expect(onInteract).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('DEPLOYMENT'));
+    expect(onInteract).toHaveBeenCalled();
+  });
+
+  it('passes tokenUsage down to SourceCodeTab', () => {
+    render(
+      <BottomPanel
+        {...mockProps}
+        bottomTab="SOURCE_CODE"
+        tokenUsage={{ inputTokens: 500, outputTokens: 250, totalTokens: 750 }}
+      />
+    );
+
+    expect(screen.getByTestId('mock-token-usage')).toHaveTextContent('500/250');
+  });
 });
+
 
 
