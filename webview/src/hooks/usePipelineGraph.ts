@@ -8,7 +8,7 @@
  * property application, and node deletion.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   useNodesState,
   useEdgesState,
@@ -17,6 +17,7 @@ import {
   type Edge,
   type Connection,
 } from 'reactflow';
+import { validateDagTopology, type DagValidationResult } from '../utils/dagValidator';
 
 export interface PipelineNodeData {
   label: string;
@@ -25,6 +26,10 @@ export interface PipelineNodeData {
   beam_transform?: string;
   system_instructions?: string;
   properties?: Record<string, any>;
+  hasCycle?: boolean;
+  isOrphan?: boolean;
+  validationError?: string;
+  validationWarning?: string;
 }
 
 export type PipelineNode = Node<PipelineNodeData>;
@@ -564,11 +569,71 @@ export function usePipelineGraph({
     }
   }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, setPipelineConfig]);
 
+  // Dynamically compute DAG topology validation using Kahn's algorithm
+  const dagValidation = useMemo<DagValidationResult>(
+    () => validateDagTopology(nodes as any, edges as any),
+    [nodes, edges]
+  );
+
+  // Decorate nodes with topological error/warning flags for React Flow canvas rendering
+  const displayNodes = useMemo(() => {
+    const cycleSet = new Set(dagValidation.cycleNodeIds);
+    const orphanSet = new Set(dagValidation.orphanNodeIds);
+
+    return nodes.map((node) => {
+      const hasCycle = cycleSet.has(node.id);
+      const isOrphan = orphanSet.has(node.id);
+
+      if (node.data.hasCycle === hasCycle && node.data.isOrphan === isOrphan) {
+        return node;
+      }
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          hasCycle,
+          isOrphan,
+          validationError: hasCycle ? dagValidation.errors[0] : undefined,
+          validationWarning: isOrphan ? 'Orphan node: disconnected from pipeline' : undefined,
+        },
+      };
+    });
+  }, [nodes, dagValidation]);
+
+  // Decorate edges participating in cycles with animated red styling
+  const displayEdges = useMemo(() => {
+    const cycleEdgeSet = new Set(dagValidation.cycleEdgeIds);
+    const cycleNodeSet = new Set(dagValidation.cycleNodeIds);
+
+    return edges.map((edge) => {
+      const isCycleEdge =
+        cycleEdgeSet.has(edge.id) ||
+        (cycleNodeSet.has(edge.source) && cycleNodeSet.has(edge.target));
+
+      if (isCycleEdge) {
+        return {
+          ...edge,
+          animated: true,
+          style: {
+            ...edge.style,
+            stroke: '#f43f5e',
+            strokeWidth: 2.5,
+          },
+        };
+      }
+      return edge;
+    });
+  }, [edges, dagValidation]);
+
   return {
     nodes,
     setNodes,
     edges,
     setEdges,
+    displayNodes,
+    displayEdges,
+    dagValidation,
     onNodesChange,
     onEdgesChange,
     selectedNodeId,

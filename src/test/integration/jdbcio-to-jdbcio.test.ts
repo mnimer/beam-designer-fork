@@ -8,18 +8,19 @@
  * a PostgreSQL JdbcIO source, a ParDo transform step, and a MySQL JdbcIO sink.
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
  *
- * Loads pipeline definition from sidecar file: jdbcio-to-jdbcio.yaml
+ * Loads pipeline definition from sidecar file: jdbcio-to-jdbcio.beam
  */
 
 import { describe, it, expect } from 'vitest';
-import { runPipelineIntegrationTest } from './codegen-runner';
-import JDBCIO_TO_JDBCIO_YAML from './jdbcio-to-jdbcio.yaml';
+import { runPipelineIntegrationTest, loadBeamPipeline } from './codegen-runner';
+
+const JDBCIO_TO_JDBCIO_BEAM = loadBeamPipeline('jdbcio-to-jdbcio.beam');
 
 describe('JdbcIO to JdbcIO Pipeline Code Generation', () => {
     it('generates valid Java pipeline and passes Gemini evaluation', async () => {
         const results = await runPipelineIntegrationTest({
             testName: 'JdbcIO-to-JdbcIO (Java)',
-            yamlContent: JDBCIO_TO_JDBCIO_YAML,
+            beamContent: JDBCIO_TO_JDBCIO_BEAM,
             languages: ['Java']
         });
         expect(results.Java).toBe(true);
@@ -28,7 +29,7 @@ describe('JdbcIO to JdbcIO Pipeline Code Generation', () => {
     it('generates valid Python pipeline and passes Gemini evaluation', async () => {
         const results = await runPipelineIntegrationTest({
             testName: 'JdbcIO-to-JdbcIO (Python)',
-            yamlContent: JDBCIO_TO_JDBCIO_YAML,
+            beamContent: JDBCIO_TO_JDBCIO_BEAM,
             languages: ['Python']
         });
         expect(results.Python).toBe(true);
@@ -41,7 +42,7 @@ describe('JdbcIO to JdbcIO Pipeline Code Generation', () => {
 export async function runJdbcIoToJdbcIoTest(): Promise<void> {
     const results = await runPipelineIntegrationTest({
         testName: 'JdbcIO-to-JdbcIO Pipeline',
-        yamlContent: JDBCIO_TO_JDBCIO_YAML,
+        beamContent: JDBCIO_TO_JDBCIO_BEAM,
         languages: ['Java', 'Python']
     });
     if (!results.Java || !results.Python) {

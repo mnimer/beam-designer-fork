@@ -22,5 +22,13 @@ RUN pip install --no-cache-dir -r requirements.txt --index-url https://pypi.org/
 # 5. Specify Pipeline Entrypoint
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/src/{{pipeline_name}}.py
 
+# Security Hardening (Least Privilege):
+# By default, containers run as the root user. To mitigate container escape and privilege escalation
+# vulnerabilities in hardened production environments, uncomment the following lines to enforce non-root execution:
+# RUN groupadd -r -g 1000 beam && \
+#     useradd -r -u 1000 -g beam -d /home/beam -m -s /bin/bash beam && \
+#     chown -R beam:beam /template
+# USER beam:beam
+
 # 6. Container Hardening: Ensure template permissions for runner execution
 RUN chmod -R a+rx /template

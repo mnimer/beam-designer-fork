@@ -55,6 +55,7 @@ vi.mock('vscode', () => {
 import {
     resolveLanguageStrategy,
     assemblePrompt,
+    handleRegenerateCode,
     PYTHON_STRATEGY,
     JAVA_STRATEGY,
     PromptAssemblyOptions,
@@ -573,5 +574,48 @@ describe('Python codegen prompt — output routing and trigger selection (regres
             expect(prompt).toMatch(/silently drops any key whose value is `None`/);
         });
     });
+
+    describe('handleRegenerateCode — DAG pre-flight topology validation', () => {
+        it('aborts code generation early and posts failure when YAML DAG contains a cycle', async () => {
+            const cyclicYaml = `
+nodes:
+  - id: n1
+    data: { label: 'Node 1', type: 'STEP' }
+  - id: n2
+    data: { label: 'Node 2', type: 'STEP' }
+edges:
+  - id: e1
+    source: n1
+    target: n2
+  - id: e2
+    source: n2
+    target: n1
+`;
+            const postToWebview = vi.fn().mockResolvedValue(true);
+            const options: any = {
+                message: {
+                    data: cyclicYaml,
+                    filename: 'test_pipeline.beam',
+                    language: 'Python',
+                    outputFolder: 'out',
+                },
+                context: {} as any,
+                uri: { fsPath: '/path/test_pipeline.beam' } as any,
+                postToWebview,
+                outputChannel: { appendLine: vi.fn() } as any,
+            };
+
+            await handleRegenerateCode(options);
+
+            expect(postToWebview).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    command: 'codeRegenerated',
+                    success: false,
+                    error: expect.stringContaining('Cyclic dependency detected'),
+                })
+            );
+        });
+    });
 });
+
 

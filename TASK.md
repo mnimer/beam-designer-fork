@@ -69,24 +69,24 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [E1](#e1) | 🟣 Feature | Multi-Agent E2E Evaluation & Prompt Feedback | Multi-agent evaluation harness (Beam, Security, Packaging, Arbiter) with deterministic syntax gate and prompt remediation generation for Python/Java. | ✅ Done (`525c262`) |
 | [I1](#i1) | 🧪 Integration | `jdbcio-to-jdbcio` | Relational database ETL: PostgreSQL source ➔ ParDo ➔ MySQL sink. | ✅ Done (`7474752`) |
 | [I2](#i2) | 🧪 Integration | `kafkaio-to-kafkaio` | Streaming message broker: KafkaIO source ➔ ParDo (try/catch DLQ) ➔ KafkaIO EOS sink + LogMessage sink. | ✅ Done (`7474752`) |
-| [I3](#i3) | 🧪 Integration | `pubsub-to-bigquery` | GCP Cloud Analytics: PubSubIO subscription ➔ ParseMessage (JSON) ➔ BigQueryIO Storage Write API + DLQ error branch. | ⬜ Not Started |
-| [I4](#i4) | 🧪 Integration | `bigquery-to-parquet` | Data warehouse export: BigQueryIO SQL query source ➔ Map record projection ➔ ParquetIO Snappy columnar sink. | ⬜ Not Started |
-| [I5](#i5) | 🧪 Integration | `textio-wordcount` | Classic batch tokenization: TextIO source ➔ FlatMap tokenizer ➔ Filter ➔ KVMapper ➔ Count.perKey ➔ ToString ➔ TextIO sink. | ⬜ Not Started |
-| [I6](#i6) | 🧪 Integration | `generatesequence-pubsub-fixed` | Synthetic streaming & fixed windowing: GenerateSequence ➔ WithTimestamps ➔ WindowInto (Fixed 60s) ➔ KVMapper ➔ GroupByKey ➔ Sum ➔ PubSubIO sink. | ⬜ Not Started |
-| [I7](#i7) | 🧪 Integration | `kinesis-to-avro` | AWS streaming to object storage: KinesisIO (TRIM_HORIZON) ➔ ParseMessage ➔ AvroIO sink with schema & file sharding. | ⬜ Not Started |
-| [I8](#i8) | 🧪 Integration | `sqs-to-sns-filtered` | AWS queue-to-topic pub/sub: SqsIO source ➔ Filter predicate ➔ ParDo enrichment ➔ SnsIO topic sink. | ⬜ Not Started |
-| [I9](#i9) | 🧪 Integration | `mqtt-to-bigquery-sliding` | IoT telemetry & sliding windowing: MqttIO source ➔ ParseMessage (JSON) ➔ WindowInto (Sliding 5m/1m) ➔ Mean aggregation ➔ BigQueryIO sink. | ⬜ Not Started |
-| [I10](#i10) | 🧪 Integration | `jms-to-jms-batching` | Enterprise message broker batching: JmsIO queue source ➔ GroupIntoBatches (batch size 100) ➔ ParDo batch processor ➔ JmsIO queue sink. | ⬜ Not Started |
-| [I11](#i11) | 🧪 Integration | `fileio-dynamic-destinations` | Dynamic file partitioning: FileIO file-pattern reader ➔ ParDo dynamic partition categorization ➔ FileIO dynamic destinations. | ⬜ Not Started |
-| [I12](#i12) | 🧪 Integration | `avro-to-parquet-lakehouse` | Binary format migration: AvroIO source ➔ Map schema transformer ➔ ParquetIO sink with snappy compression. | ⬜ Not Started |
-| [I13](#i13) | 🧪 Integration | `periodic-impulse-to-jdbc` | Periodic trigger ETL: PeriodicImpulse interval source ➔ ParDo external API caller ➔ JdbcIO parameterized SQL insert statement sink. | ⬜ Not Started |
-| [I14](#i14) | 🧪 Integration | `create-aggregations-kv` | In-memory statistical transformations: Create source ➔ KVMapper ➔ Min/Max/Top/ApproximateQuantiles ➔ Keys/Values/KvSwap ➔ LogMessage sink. | ⬜ Not Started |
-| [I15](#i15) | 🧪 Integration | `pubsub-session-windows` | User session analytics: PubSubIO source ➔ WithTimestamps ➔ KVMapper (user_id) ➔ WindowInto (Session 10m gap) ➔ Count per session ➔ BigQueryIO sink. | ⬜ Not Started |
-| [I16](#i16) | 🧪 Integration | `multi-source-flatten-bigquery` | Multi-stream unification: PubSubIO source + KafkaIO source ➔ ParseMessage ➔ Flatten merge ➔ Reshuffle ➔ BigQueryIO sink. | ⬜ Not Started |
-| [I17](#i17) | 🧪 Integration | `cogroupbykey-relational-join` | Relational stream join: Create Orders + Create Customers ➔ KVMapper (customerId) ➔ CoGroupByKey join ➔ ParDo merger ➔ TextIO sink. | ⬜ Not Started |
-| [I18](#i18) | 🧪 Integration | `distinct-statistical-sampling` | Deduplication & sampling: TextIO source ➔ Distinct ➔ Sample ➔ ApproximateUnique ➔ LogMessage sink. | ⬜ Not Started |
-| [I19](#i19) | 🧪 Integration | `sns-to-sqs-fanout` | AWS notification fanout: SnsIO topic source ➔ ParDo unpacker ➔ SqsIO queue sink. | ⬜ Not Started |
-| [I20](#i20) | 🧪 Integration | `mqtt-to-mqtt-retained` | IoT broker routing & DLQ: MqttIO source ➔ ParDo alert detection with error branch ➔ MqttIO sink (QoS 1/retained) + LogMessage error sink. | ⬜ Not Started |
+| [I3](#i3) | 🧪 Integration | `pubsub-to-bigquery` | GCP Cloud Analytics: PubSubIO subscription ➔ ParseMessage (JSON) ➔ BigQueryIO Storage Write API + DLQ error branch. | ✅ Done |
+| [I4](#i4) | 🧪 Integration | `bigquery-to-parquet` | Data warehouse export: BigQueryIO SQL query source ➔ Map record projection ➔ ParquetIO Snappy columnar sink. | ✅ Done |
+| [I5](#i5) | 🧪 Integration | `textio-wordcount` | Classic batch tokenization: TextIO source ➔ FlatMap tokenizer ➔ Filter ➔ KVMapper ➔ Count.perKey ➔ ToString ➔ TextIO sink. | ✅ Done |
+| [I6](#i6) | 🧪 Integration | `generatesequence-pubsub-fixed` | Synthetic streaming & fixed windowing: GenerateSequence ➔ WithTimestamps ➔ WindowInto (Fixed 60s) ➔ KVMapper ➔ GroupByKey ➔ Sum ➔ PubSubIO sink. | ✅ Done |
+| [I7](#i7) | 🧪 Integration | `kinesis-to-avro` | AWS streaming to object storage: KinesisIO (TRIM_HORIZON) ➔ ParseMessage ➔ AvroIO sink with schema & file sharding. | ✅ Done |
+| [I8](#i8) | 🧪 Integration | `sqs-to-sns-filtered` | AWS queue-to-topic pub/sub: SqsIO source ➔ Filter predicate ➔ ParDo enrichment ➔ SnsIO topic sink. | ✅ Done |
+| [I9](#i9) | 🧪 Integration | `mqtt-to-bigquery-sliding` | IoT telemetry & sliding windowing: MqttIO source ➔ ParseMessage (JSON) ➔ WindowInto (Sliding 5m/1m) ➔ Mean aggregation ➔ BigQueryIO sink. | ✅ Done |
+| [I10](#i10) | 🧪 Integration | `jms-to-jms-batching` | Enterprise message broker batching: JmsIO queue source ➔ GroupIntoBatches (batch size 100) ➔ ParDo batch processor ➔ JmsIO queue sink. | ✅ Done |
+| [I11](#i11) | 🧪 Integration | `fileio-dynamic-destinations` | Dynamic file partitioning: FileIO file-pattern reader ➔ ParDo dynamic partition categorization ➔ FileIO dynamic destinations. | ✅ Done |
+| [I12](#i12) | 🧪 Integration | `avro-to-parquet-lakehouse` | Binary format migration: AvroIO source ➔ Map schema transformer ➔ ParquetIO sink with snappy compression. | ✅ Done |
+| [I13](#i13) | 🧪 Integration | `periodic-impulse-to-jdbc` | Periodic trigger ETL: PeriodicImpulse interval source ➔ ParDo external API caller ➔ JdbcIO parameterized SQL insert statement sink. | ✅ Done |
+| [I14](#i14) | 🧪 Integration | `create-aggregations-kv` | In-memory statistical transformations: Create source ➔ KVMapper ➔ Min/Max/Top/ApproximateQuantiles ➔ Keys/Values/KvSwap ➔ LogMessage sink. | ✅ Done |
+| [I15](#i15) | 🧪 Integration | `pubsub-session-windows` | User session analytics: PubSubIO source ➔ WithTimestamps ➔ KVMapper (user_id) ➔ WindowInto (Session 10m gap) ➔ Count per session ➔ BigQueryIO sink. | ✅ Done |
+| [I16](#i16) | 🧪 Integration | `multi-source-flatten-bigquery` | Multi-stream unification: PubSubIO source + KafkaIO source ➔ ParseMessage ➔ Flatten merge ➔ Reshuffle ➔ BigQueryIO sink. | ✅ Done |
+| [I17](#i17) | 🧪 Integration | `cogroupbykey-relational-join` | Relational stream join: Create Orders + Create Customers ➔ KVMapper (customerId) ➔ CoGroupByKey join ➔ ParDo merger ➔ TextIO sink. | ✅ Done |
+| [I18](#i18) | 🧪 Integration | `distinct-statistical-sampling` | Deduplication & sampling: TextIO source ➔ Distinct ➔ Sample ➔ ApproximateUnique ➔ LogMessage sink. | ✅ Done |
+| [I19](#i19) | 🧪 Integration | `sns-to-sqs-fanout` | AWS notification fanout: SnsIO topic source ➔ ParDo unpacker ➔ SqsIO queue sink. | ✅ Done |
+| [I20](#i20) | 🧪 Integration | `mqtt-to-mqtt-retained` | IoT broker routing & DLQ: MqttIO source ➔ ParDo alert detection with error branch ➔ MqttIO sink (QoS 1/retained) + LogMessage error sink. | ✅ Done |
 | [IO1](#io1) | 🔌 Connector | FileIO | `FileIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
 | [IO2](#io2) | 🔌 Connector | AvroIO | `AvroIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
 | [IO3](#io3) | 🔌 Connector | TextIO (metrics) | `TextIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels. | ✅ Done |
@@ -762,7 +762,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Pub/Sub subscription reading, timestamp attributes, BigQuery `STORAGE_WRITE_API`, `CREATE_IF_NEEDED`, `WRITE_APPEND`, dead-letter error routing.
   - **Evaluation Focus:** Correct BigQuery `TableSchema` generation, non-deprecated Storage Write API usage, proper Google Cloud IAM / ADC authentication, and tagged output DLQ.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="i4"></a>**I4 — `bigquery-to-parquet` (Data Warehouse Export to Columnar Lakehouse)**
   - **DAG:** `BigQueryIO` Source ➔ `Map` Step (schema projection) ➔ `ParquetIO` Sink.
@@ -770,15 +770,15 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Standard SQL queries with export priority, columnar schema definition, Snappy compression codec, file sharding.
   - **Evaluation Focus:** High-throughput batch query execution, Parquet Avro-derived schema mapping, valid GCS / local file output directory configuration.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="i5"></a>**I5 — `textio-wordcount` (Canonical Batch Tokenization & Aggregation)**
-  - **DAG:** `TextIO` Source ➔ `FlatMap` (tokenizer) ➔ `Filter` (stop word filter) ➔ `KVMapper` (word ➔ 1) ➔ `Count` per key ➔ `ToString` ➔ `TextIO` Sink.
+  - **DAG:** `TextIO` Source (ReadLines) ➔ `FlatMap` (ExtractWords) ➔ `Count` (CountWords) ➔ `Map` (FormatAsText) ➔ `TextIO` Sink (WriteCounts).
   - **Type:** Bounded Batch.
-  - **Properties Tested:** Delimited text reading, 1-to-N element splitting, boolean predicate filtering, key-value extraction, per-key combiners, output sharding and file naming patterns.
-  - **Evaluation Focus:** Canonical Beam pipeline idiom verification, correct PCollection type safety across element transforms, avoidance of unnecessary `GroupByKey` before `Count`.
+  - **Properties Tested:** Delimited text reading (`filePattern`), 1-to-N element splitting (`Regex` pattern `[^\p{L}]+`), per-element combiners (`Count.perElement`), key-value text formatting (`Map`), output sharding and file naming patterns (`to`, `suffix`).
+  - **Evaluation Focus:** Canonical Beam Quickstart pipeline idiom verification, correct PCollection type safety across element transforms, avoidance of unnecessary `GroupByKey` before `Count`.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="i6"></a>**I6 — `generatesequence-pubsub-fixed` (Synthetic Streaming & Fixed Windowing)**
   - **DAG:** `GenerateSequence` Source ➔ `WithTimestamps` ➔ `WindowInto` (Fixed Windows 60s) ➔ `KVMapper` ➔ `GroupByKey` ➔ `Sum` ➔ `PubSubIO` Sink.
@@ -786,7 +786,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** `from`, `to`, `rate` (elements/sec), explicit timestamp assignment, tumbling 60-second fixed event-time windows, unbounded `GroupByKey` with windowing, Pub/Sub topic publishing.
   - **Evaluation Focus:** Architectural verification that unbounded streams MUST have explicit windowing applied before any `GroupByKey`/`Combine` operation to prevent runtime grouping exceptions.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="i7"></a>**I7 — `kinesis-to-avro` (AWS Kinesis Streaming to Avro Storage)**
   - **DAG:** `KinesisIO` Source ➔ `ParseMessage` (JSON) ➔ `AvroIO` Sink.
@@ -794,7 +794,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** `streamName`, `TRIM_HORIZON`, AWS region, AWS credentials via Secret Manager, Avro schema serialization, windowed file writing (`withWindowedWrites`).
   - **Evaluation Focus:** Streaming file sink windowing compatibility in Beam, AWS SDK dependency configuration, Secret Manager credential resolution without hardcoded AWS secrets.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i8"></a>**I8 — `sqs-to-sns-filtered` (AWS SQS Queue to SNS Topic Pub/Sub)**
   - **DAG:** `SqsIO` Source ➔ `Filter` (priority messages) ➔ `ParDo` (enrichment) ➔ `SnsIO` Sink.
@@ -802,7 +802,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** SQS queue URL, `maxNumRecords`, AWS region, boolean predicate expression, SNS topic ARN, message attributes.
   - **Evaluation Focus:** Correct AWS SQS/SNS connector usage, graceful handling of poison messages, avoidance of credential leakage in logs or prompt.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i9"></a>**I9 — `mqtt-to-bigquery-sliding` (IoT Telemetry with Sliding Windows)**
   - **DAG:** `MqttIO` Source ➔ `ParseMessage` (JSON) ➔ `WindowInto` (Sliding Windows: duration 5m, period 1m) ➔ `Mean` per sensor ➔ `BigQueryIO` Sink.
@@ -810,7 +810,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** MQTT connection URI, topics, QoS, TLS options, hopping/sliding event-time windows, sliding window aggregations, BigQuery streaming inserts.
   - **Evaluation Focus:** Multi-window membership semantics, watermark progression on IoT streams, correct double arithmetic combiner for Mean.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i10"></a>**I10 — `jms-to-jms-batching` (Enterprise Message Broker with Batch Bundling)**
   - **DAG:** `JmsIO` Source ➔ `GroupIntoBatches` (batchSize: 100) ➔ `ParDo` (bulk payload processor) ➔ `JmsIO` Sink.
@@ -818,7 +818,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** ActiveMQ / Artemis connection factory, queue vs topic destination, batch bundling by count and duration, transactional acknowledgment.
   - **Evaluation Focus:** Proper stateful DoFn or Beam `GroupIntoBatches` transform usage, JMS resource connection lifecycle management in setup/teardown.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i11"></a>**I11 — `fileio-dynamic-destinations` (Dynamic File Partitioning & Custom Naming)**
   - **DAG:** `FileIO` Source (match & read) ➔ `ParDo` (extract partition key like date/region) ➔ `FileIO` Sink (dynamic destinations).
@@ -826,7 +826,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** File pattern wildcard matching (`*.csv`), file streams, `DynamicDestinations` partition strategy, custom naming format, Cloud Storage / local destinations.
   - **Evaluation Focus:** Correct `FileIO.writeDynamic()` implementation in Java and dynamic sink partitioning in Python, prevent filesystem path traversal.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i12"></a>**I12 — `avro-to-parquet-lakehouse` (Binary Format Migration & Compression)**
   - **DAG:** `AvroIO` Source ➔ `Map` Step (type & column mapping) ➔ `ParquetIO` Sink.
@@ -834,7 +834,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Avro schema parsing, Record-to-GenericRecord projection, Parquet schema generation, Snappy and Gzip compression codecs.
   - **Evaluation Focus:** High-performance columnar serialization, correct Hadoop / Parquet dependency coordination in `pom.xml`, zero data loss across binary formats.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i13"></a>**I13 — `periodic-impulse-to-jdbc` (Periodic Trigger ETL with Parameterized SQL)**
   - **DAG:** `PeriodicImpulse` Source ➔ `ParDo` (fetch external API/metrics) ➔ `JdbcIO` Sink.
@@ -842,7 +842,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** `startTimestamp`, `stopTimestamp`, `fireInterval` (e.g. 5 minutes), DoFn HTTP request execution, JDBC batch insert statement with MySQL, autosharding.
   - **Evaluation Focus:** Proper continuous execution using `PeriodicImpulse`, idempotent database writes, robust error handling around external network calls.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i14"></a>**I14 — `create-aggregations-kv` (In-Memory Dataset with Statistical Analytics)**
   - **DAG:** `Create` Source ➔ `KVMapper` ➔ `Top` (Top-N) + `ApproximateQuantiles` + `Min` + `Max` ➔ `Keys` + `Values` + `KvSwap` ➔ `LogMessage` Sink.
@@ -850,7 +850,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Static in-memory collection creation, composite key-value mappings, multi-branch statistical transforms, comparator functions, KV component extraction and inversion.
   - **Evaluation Focus:** Pure Beam SDK functional transforms, fan-out branching from a single PCollection to multiple aggregations, correct comparator serialization.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i15"></a>**I15 — `pubsub-session-windows` (User Activity Session Windowing & Early Triggers)**
   - **DAG:** `PubSubIO` Source ➔ `WithTimestamps` ➔ `KVMapper` (keyed by `userId`) ➔ `WindowInto` (Session Windows: 10m gap duration, early trigger every 1m, allowed lateness 5m) ➔ `Count` per session ➔ `BigQueryIO` Sink.
@@ -858,7 +858,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Keyed session windows, gap duration specification, complex triggers (`AfterWatermark.withEarlyFirings()`), `AccumulationMode.ACCUMULATING_FIRED_PANES`, allowed lateness.
   - **Evaluation Focus:** Complex windowing semantics, verifying that session windows are correctly keyed (sessions are calculated per key, not globally), correct trigger firing handling.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i16"></a>**I16 — `multi-source-flatten-bigquery` (Multi-Stream Ingestion, Merge, and Reshuffle)**
   - **DAG:** `PubSubIO` Source + `KafkaIO` Source ➔ `ParseMessage` (standardize to common schema) ➔ `Flatten` ➔ `Reshuffle` ➔ `BigQueryIO` Sink.
@@ -866,7 +866,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Multi-source ingestion, schema normalization, `Flatten.pCollections()` merging multiple input streams into a single PCollection, `Reshuffle` to balance worker partitions and break fusion.
   - **Evaluation Focus:** Type consistency across merged PCollections, proper fusion-breaking semantics, streaming BigQuery write disposition.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i17"></a>**I17 — `cogroupbykey-relational-join` (Multi-Collection Relational Join)**
   - **DAG:** `Create` Source A (Orders) + `Create` Source B (Customers) ➔ `KVMapper` (keyed by `customerId`) ➔ `CoGroupByKey` ➔ `ParDo` (relational inner/left join) ➔ `TextIO` Sink.
@@ -874,7 +874,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Multi-collection joining, common join key extraction, `CoGbkResult` iteration, handling missing / null customer records.
   - **Evaluation Focus:** Proper `CoGroupByKey` idiom usage in Beam, handling multi-collection type tags, memory-safe iteration over joined iterables.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i18"></a>**I18 — `distinct-statistical-sampling` (Deduplication, Sampling, and HyperLogLog Estimation)**
   - **DAG:** `TextIO` Source ➔ `Distinct` ➔ `Sample` (uniform random sample) ➔ `ApproximateUnique` ➔ `LogMessage` Sink.
@@ -882,7 +882,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** Full-record deduplication, random subset sampling (`Sample.any(N)`), HyperLogLog cardinality estimation, structured logging.
   - **Evaluation Focus:** Proper statistical transform usage, memory efficiency on large input collections, verify no unnecessary sorting or grouping.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i19"></a>**I19 — `sns-to-sqs-fanout` (AWS Notification Fanout to Distributed Queues)**
   - **DAG:** `SnsIO` Source ➔ `ParDo` (message unpacker & attribute filter) ➔ `SqsIO` Sink.
@@ -890,7 +890,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** AWS SNS subscription, message payload extraction, message deduplication IDs, SQS batch publishing.
   - **Evaluation Focus:** AWS SDK v2 integration, non-blocking queue publishing, clean container packaging with AWS credentials.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 - <a id="i20"></a>**I20 — `mqtt-to-mqtt-retained` (IoT Broker Routing with QoS 1, Retain, and DLQ)**
   - **DAG:** `MqttIO` Source ➔ `ParDo` (sensor threshold alert detection with error branch) ➔ `MqttIO` Sink (alert topic, QoS 1, retain: true) + `LogMessage` Sink (dead letter).
@@ -898,7 +898,7 @@ Each test pipeline is maintained as a pair of artifacts:
   - **Properties Tested:** MQTT connection URI, clientId, QoS levels, retain flag on published messages, error branching with side outputs.
   - **Evaluation Focus:** IoT protocol options support, clean MQTT client connection management, proper error handling and dead-letter queueing.
   - **Target Languages:** Java, Python.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Completed (Definition & Multi-Agent Test Suite Wired).
 
 ---
 

@@ -1,0 +1,114 @@
+# ==============================================================================
+# I10: JMS to JMS Batching (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Consumes incoming enterprise JMS messages from ActiveMQ queue using JmsIO, bundles records into batches of 100 using GroupIntoBatches, processes batched payloads in a bulk ParDo, and safely outputs bundles to a destination JMS queue.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Connects to JMS message broker, leverages GroupIntoBatches or batch bundling transform to group elements into 100-count bundles, processes batch payloads in DoFn, and publishes batched messages to target JMS queue sink.
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: I10 - JmsIO to JmsIO Batching Pipeline
+# DAG: JmsIO Source ➔ GroupIntoBatches (batchSize: 100) ➔ ParDo (bulk processor) ➔ JmsIO Sink
+
+nodes:
+  - id: "source-jms-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: JMS
+      type: SOURCE
+      iconName: Cable
+      beam_transform: JmsIO
+      properties:
+        connectionFactory: "org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory"
+        sourceQueue: "orders.incoming"
+        queue: "orders.incoming"
+        destinationType: queue
+        brokerUrl: "tcp://localhost:61616"
+      system_instructions: "Read incoming JMS messages from source queue 'orders.incoming' using ActiveMQ Artemis ConnectionFactory."
+    width: 180
+    height: 62
+  - id: "step-batching-2"
+    type: pipeline
+    position:
+      x: 340
+      y: 150
+    data:
+      label: "Group Into Batches"
+      type: STEP
+      iconName: Boxes
+      beam_transform: GroupIntoBatches
+      properties:
+        batchSize: 100
+      system_instructions: "Group incoming order messages into batches of size 100 using GroupIntoBatches transform."
+    width: 180
+    height: 62
+  - id: "step-pardo-processor-3"
+    type: pipeline
+    position:
+      x: 600
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: "Process bundled batches of orders, validate records, compute batch summary statistics, and prepare serialized payload for destination JMS queue."
+      system_instructions: "Bulk processor DoFn executing batch validation and summary metrics on bundled 100-element orders."
+    width: 180
+    height: 62
+  - id: "sink-jms-4"
+    type: pipeline
+    position:
+      x: 860
+      y: 150
+    data:
+      label: JMS
+      type: SINK
+      iconName: Cable
+      beam_transform: JmsIO
+      properties:
+        connectionFactory: "org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory"
+        destinationQueue: "orders.batched"
+        queue: "orders.batched"
+        destinationType: queue
+        brokerUrl: "tcp://localhost:61616"
+      system_instructions: "Publish batched order messages to destination JMS queue 'orders.batched' using ActiveMQ Artemis ConnectionFactory."
+    width: 180
+    height: 62
+edges:
+  - id: edge-jms-to-batch
+    source: "source-jms-1"
+    target: "step-batching-2"
+  - id: edge-batch-to-pardo
+    source: "step-batching-2"
+    sourceHandle: valid
+    target: "step-pardo-processor-3"
+  - id: edge-pardo-to-jms
+    source: "step-pardo-processor-3"
+    sourceHandle: valid
+    target: "sink-jms-4"
+runtimeVariables:
+  - key: JOB_ID
+    value: jms-to-jms-batching
+  - key: BROKER_URL
+    value: "tcp://localhost:61616"
+  - key: SOURCE_QUEUE
+    value: "orders.incoming"
+  - key: DESTINATION_QUEUE
+    value: "orders.batched"
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/jms-to-jms-batching
+  needsRebuild: false

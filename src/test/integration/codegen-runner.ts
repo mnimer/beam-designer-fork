@@ -24,7 +24,7 @@ import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
 import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
-import { MultiAgentEvaluationResult } from './evaluators/types';
+import { MultiAgentEvaluationResult, generateContentWithRetry } from './evaluators/types';
 import { recordAndSaveTestReport } from './test-reporter';
 
 export interface GeneratedFile {
@@ -42,8 +42,29 @@ export interface EvaluationResult {
 
 export interface PipelineTestConfig {
     testName: string;
-    yamlContent: string;
+    beamContent?: string;
+    yamlContent?: string;
     languages?: ('Java' | 'Python')[];
+}
+
+/**
+ * Loads a .beam pipeline definition file from disk given a relative or absolute path.
+ */
+export function loadBeamPipeline(filePath: string): string {
+    const candidatePaths = [
+        filePath,
+        path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath),
+        path.join(__dirname, filePath.endsWith('.beam') ? filePath : `${filePath}.beam`),
+        path.join(process.cwd(), 'src', 'test', 'integration', filePath),
+        path.join(process.cwd(), 'src', 'test', 'integration', filePath.endsWith('.beam') ? filePath : `${filePath}.beam`)
+    ];
+
+    for (const p of candidatePaths) {
+        if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+            return fs.readFileSync(p, 'utf-8');
+        }
+    }
+    throw new Error(`Could not locate .beam pipeline file: ${filePath}`);
 }
 
 export function getGcloudProject(): Promise<string | undefined> {
@@ -201,14 +222,19 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
         console.log(`------------------------------------------------------`);
 
         try {
-            // Synchronize YAML pipelineConfig.language with current target language
-            const targetYaml = synchronizePipelineLanguage(config.yamlContent, language);
-            const prompt = buildCodeGenPrompt(language, targetYaml);
+            const rawContent = config.beamContent || config.yamlContent;
+            if (!rawContent) {
+                throw new Error(`Pipeline content is required (provide beamContent or yamlContent) for ${config.testName}`);
+            }
+
+            // Synchronize pipeline language with current target language
+            const pipelineContent = synchronizePipelineLanguage(rawContent, language);
+            const prompt = buildCodeGenPrompt(language, pipelineContent);
             const responseSchema = JSON.parse(readResource('code-gen-schema.json'));
 
             console.log(`1. Generating ${language} code via Gemini (${DEFAULT_GEMINI_MODEL})...`);
             const startTime = Date.now();
-            const response = await ai.models.generateContent({
+            const response = await generateContentWithRetry(ai, {
                 model: DEFAULT_GEMINI_MODEL,
                 contents: prompt,
                 config: {
@@ -231,11 +257,10 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
 
             if (mainFile) {
                 console.log(`\n📄 Generated Main File (${mainFile.filename}):\n`);
-                console.log(mainFile.content);
             }
 
             console.log(`\n2. Evaluating generated ${language} code via Multi-Agent Evaluation Harness...`);
-            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, targetYaml);
+            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, pipelineContent);
 
             console.log(`\n📋 Review Results for ${language}:`);
             console.log(`   Status: ${evalResult.isGood ? '✅ PASS' : '❌ FAIL'}`);

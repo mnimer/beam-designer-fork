@@ -116,6 +116,17 @@ export function checkJsonSyntax(filename: string, content: string): string | nul
 /**
  * Checks Java file for structural syntax: balanced braces, matching class name.
  *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Logic flow:
+ * - Scans source code character-by-character while tracking parsing state.
+ * - Filters out line comments (`//...`) and block comments (`/* ... * /`).
+ * - Accurately tracks string literals (`"..."`) and character literals (`'...'`) using
+ *   odd/even preceding backslash counting (`isEscaped`) to prevent escaped backslashes
+ *   (e.g., regex character classes like `"[^\\\\p{L}]+"` or `\\"`) from corrupting string boundaries.
+ * - Tracks balanced opening/closing curly braces and parentheses outside string/comment contexts.
+ * - Validates that the declared public class, interface, enum, or record matches the filename.
+ *
  * @param filename - Java filename.
  * @param content - Java source code.
  * @returns Error string if validation fails, or null if valid.
@@ -159,17 +170,37 @@ export function checkJavaStructure(filename: string, content: string): string | 
             continue;
         }
 
+        // Helper to check if a quote/character is escaped by an odd number of preceding backslashes
+        const isEscaped = (idx: number): boolean => {
+            let backslashCount = 0;
+            for (let j = idx - 1; j >= 0 && content[j] === '\\'; j--) {
+                backslashCount++;
+            }
+            return backslashCount % 2 === 1;
+        };
+
         // Strings & characters
-        if (c === '"' && content[i - 1] !== '\\') {
-            inString = !inString;
-            continue;
-        }
-        if (c === "'" && content[i - 1] !== '\\') {
-            inChar = !inChar;
+        if (inString) {
+            if (c === '"' && !isEscaped(i)) {
+                inString = false;
+            }
             continue;
         }
 
-        if (inString || inChar) {
+        if (inChar) {
+            if (c === "'" && !isEscaped(i)) {
+                inChar = false;
+            }
+            continue;
+        }
+
+        if (c === '"' && !isEscaped(i)) {
+            inString = true;
+            continue;
+        }
+
+        if (c === "'" && !isEscaped(i)) {
+            inChar = true;
             continue;
         }
 

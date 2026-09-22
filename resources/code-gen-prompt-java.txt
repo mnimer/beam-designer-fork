@@ -13,6 +13,7 @@ All files MUST be output directly in the designated root or Maven package layout
 | `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
 | `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
 | `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
+| `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
 | `run_directrunner.sh` | Bash script to execute the pipeline locally with DirectRunner | true |
 | `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
 | `run_sparkrunner.sh` | Bash script to package and submit to GCP Serverless Spark (Dataproc) | true |
@@ -213,6 +214,7 @@ and add a brief comment noting that the operator must supply it.
   - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-parquet` and `org.apache.parquet:parquet-avro:1.13.1`.
   - Source: `ParquetIO.read(schema).from(filePattern)` (produces `PCollection<GenericRecord>`)
   - Sink: `FileIO.<GenericRecord>write().via(ParquetIO.sink(schema).withCompressionCodec(CompressionCodecName.SNAPPY)).to(destinationDir).withSuffix(".parquet")`
+  - **Avro Schema Parsing (Directive J1)**: When transforming elements into Avro `GenericRecord` instances within a `DoFn` or mapper, parse the Avro Schema string once during initialization (e.g., in `@Setup` or constructor storing a `transient Schema` field), rather than calling `new Schema.Parser().parse(...)` repeatedly inside the per-element `apply`/`processElement` method.
 - **`Create`**:
   - Required Imports: `org.apache.beam.sdk.transforms.Create`
   - Source: `Create.of(Arrays.asList(...))`
@@ -238,14 +240,16 @@ and add a brief comment noting that the operator must supply it.
       `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withTable(tableName)` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
     - When `selectType` is `query` or `query` is provided:
       `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withQuery(query)`
+    - **Execution Controls (Directive J2)**: If `outputParallelization: true` (or `false`) is configured on a `JdbcIO` source node, append `.withOutputParallelization(true)` (or `false`) to the read transform builder.
   - Sink (Write):
     - `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement(statement).withPreparedStatementSetter((element, preparedStatement) -> { ... })` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
+    - **Execution Controls (Directive J2)**: If `autosharding: true` is configured on a `JdbcIO` sink node, append `.withAutoSharding()` to the write transform builder.
     - **CRITICAL SQL & PREPARED STATEMENT SETTER ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as columns. The `PreparedStatementSetter` lambda MUST set every positional parameter 1 through N matching each `?` placeholder in the SQL statement.
 - **`KafkaIO`**:
   - Required Imports: `org.apache.beam.sdk.io.kafka.KafkaIO`, `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.beam.sdk.values.KV`
   - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-kafka` and `org.apache.kafka:kafka-clients:3.6.1`.
-  - Source (Read): `KafkaIO.<String, String>read().withBootstrapServers(bootstrapServers).withTopic(topic).withKeyDeserializer(StringDeserializer.class).withValueDeserializer(StringDeserializer.class).withoutMetadata()` (produces `PCollection<KV<String, String>>`)
-  - Sink (Write): `KafkaIO.<String, String>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(StringSerializer.class).withValueSerializer(StringSerializer.class)`
+  - Source (Read): `KafkaIO.<String, String>read().withBootstrapServers(bootstrapServers).withTopic(topic).withKeyDeserializer(StringDeserializer.class).withValueDeserializer(StringDeserializer.class).withoutMetadata()` (produces `PCollection<KV<String, String>>`). If `groupId` or `kafkaGroupId` is specified in node properties, configure it with `.withConsumerConfigUpdates(ImmutableMap.of(ConsumerConfig.GROUP_ID_CONFIG, groupId))` or `.updateConsumerProperties(Map.of("group.id", groupId))`.
+  - Sink (Write): `KafkaIO.<String, String>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(StringSerializer.class).withValueSerializer(StringSerializer.class)`. If `useEOS: true` is specified in node properties, configure exactly-once semantics via `.withEOS(numShards, sinkGroupId)`.
 - **`SnsIO`**:
   - Required Imports: `org.apache.beam.sdk.io.aws2.sns.SnsIO`, `software.amazon.awssdk.services.sns.model.PublishRequest`
   - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` and `software.amazon.awssdk:sns:2.25.16`.
@@ -519,7 +523,8 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 {{dockerfile_template}}
 ```
 - **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
-- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template. Note that Dataflow flex template launcher images are preconfigured by GCP and must not have custom USER overrides that interfere with the launcher entrypoint.
+- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template.
+- **Container Hardening & Least Privilege**: The generated `Dockerfile` MUST include non-root least-privilege guidance. Provide the documented commented instructions demonstrating non-root execution (`# RUN chown -R 1000:1000 /template` and `# USER 1000:1000`) so operators in hardened environments have actionable guidance to enforce least privilege. Never emit a Dockerfile lacking non-root guidance.
 
 ### 'run_directrunner.sh' Template
 ```
@@ -534,8 +539,14 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 - **Parameterized Image Tagging**: Use `IMAGE_TAG="${IMAGE_TAG:-latest}"` and `TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:${IMAGE_TAG}"` rather than hardcoding mutable `:latest` tags.
 - **Parameter Wiring**: Pass runtime variables to `gcloud dataflow flex-template run` via `--parameters` as comma-separated `key=value` pairs:
   `--parameters pipelineJobId="demo",numObjectsPerIteration=1`
+- **Job Configuration & Scaling**: Inspect the YAML `jobConfig` block and translate all specified worker and scaling properties into gcloud runtime parameters or execution flags:
+  - If `jobConfig.machineType` is specified, add `--worker-machine-type="${MACHINE_TYPE:-<machineType>}"` (or pass to gcloud).
+  - If `jobConfig.minInstances` is specified, add `--num-workers="${MIN_INSTANCES:-<minInstances>}"`.
+  - If `jobConfig.maxInstances` is specified, add `--max-workers="${MAX_INSTANCES:-<maxInstances>}"`.
 - Supply `GCS_STAGING_PATH` from `jobConfig.gcsStagingPath` (if present in YAML) or default to `gs://${PROJECT_ID}-dataflow/staging`.
 - Pre-fill `SUBNETWORK` using `jobConfig.subnetwork` from YAML if provided.
+- **Subnetwork Flag Propagation (Directives J5, J6)**: When `jobConfig.subnetwork` is non-empty in the input YAML or `SUBNETWORK` is defined in the script header, ensure `--subnetwork="https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` is passed in `run_dataflowrunner.sh`. If `jobConfig.subnetwork` is empty or blank and no subnetwork is configured, omit the `--subnetwork` parameter flag from the `gcloud dataflow flex-template run` command.
+- **Multi-Line Command Integrity (Directive P5)**: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ensure that every intermediate line in multi-line shell commands (such as `gcloud dataflow flex-template build` and `gcloud dataflow flex-template run`) ends with an explicit line continuation backslash (`\`). Never leave an intermediate argument line without a trailing backslash.
 
 ### 'run_sparkrunner.sh' Template
 ```
@@ -544,6 +555,21 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 - **Argument Placement**: Dataproc Serverless Spark batch passes main arguments after the `--` separator:
   `-- --runner=SparkRunner --pipelineJobId="demo" --numObjectsPerIteration=1`
 - Format `--subnet` URI as `projects/${PROJECT_ID}/${SUBNETWORK}`.
+
+### 'cloudbuild.yaml' Template & Deterministic Tagging Rules
+Generate `cloudbuild.yaml` using deterministic image tagging with Cloud Build built-in substitutions:
+```yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}'
+substitutions:
+  _TAG: '${SHORT_SHA}'
+options:
+  logging: CLOUD_LOGGING_ONLY
+```
+- **Tag Determinism**: Default `_TAG` to `'${SHORT_SHA}'`. NEVER default `_TAG` to `'latest'`, as mutable tags break build reproducibility and trigger security vetos.
 
 ---
 
@@ -558,8 +584,27 @@ Before outputting the final JSON `files` array, verify:
 7. Every transform step name in `.apply("<step_name>", ...)` is globally unique.
 8. Java class name, filename, Dockerfile main class, and `-Dexec.mainClass` all match in PascalCase.
 9. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Java source code or as `@Default.String(...)` annotations on password getters. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
-10. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. Runner scripts use parameterized `${IMAGE_TAG:-latest}` for image tags. Dockerfile configures container hardening permissions (`RUN chmod -R a+rx /template`).
-11. `.dockerignore` is generated to exclude `.git`, `target`, and `*.log` from the Docker build context.
+10. Container Hardening & Dockerfile Non-Root Guidance: Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. The generated `Dockerfile` MUST include non-root least-privilege guidance—either an active non-root user (`USER 1000:1000`) or the documented commented non-root instructions (`# RUN chown ...` / `# USER 1000:1000`) to prevent root privilege escalation.
+11. AvroIO Source Schemas: When an AvroIO source specifies `avroSchema` or schema path in its properties, always read Avro records using that configured schema (e.g. `new Schema.Parser().parse(...)` with the configured schema path/resource), and never substitute or conflate it with a downstream sink or intermediate projection schema.
+12. Java Import and Type Disambiguation: Never use Python/Kotlin-style import aliasing ('import ... as ...') in Java source files, as the 'as' keyword is illegal in Java import statements. When disambiguating between identically named classes across packages (such as 'java.time.Duration' vs. 'org.joda.time.Duration' or 'java.time.Instant' vs. 'org.joda.time.Instant'), import one canonical class and use fully-qualified type names (e.g. 'java.time.Duration.ofSeconds(...)') inline at point of use.
+13. KafkaIO Configuration: When configuring `KafkaIO.read()`, ensure all specified YAML node properties are mapped to the reader configuration. If `groupId` or `kafkaGroupId` is specified, configure the consumer group ID using `.withConsumerConfigUpdates(ImmutableMap.of(ConsumerConfig.GROUP_ID_CONFIG, "<groupId>"))` or `.updateConsumerProperties(Map.of("group.id", "<groupId>"))`.
+14. Distinct Queue Parameters: When generating AWS SqsIO/SnsIO transforms where a pipeline reads from an SQS queue (or SNS SQS subscription) and writes to an SQS queue, ensure distinct pipeline options are declared and bound (e.g. `sourceQueueUrl` vs `targetQueueUrl`). Never bind the sink target queue URL to the source reader transform.
+15. Specification Conformance & Transform Properties: All numeric batching or execution properties specified on nodes MUST be explicitly configured on the transform builder rather than merely declared in `PipelineOptions` and unused. Specifically:
+    - If `batchSize` is specified on sink nodes (such as SqsIO, PubsubIO, or JdbcIO), call `.withBatchSize(...)` or appropriate batching method.
+    - If `outputParallelization: true` (or `false`) is configured on a `JdbcIO` source node, call `.withOutputParallelization(true/false)`.
+    - If `autosharding: true` is configured on a `JdbcIO` sink node, call `.withAutoSharding()`.
+    - If `useEOS: true` is configured on a `KafkaIO` sink node, call `.withEOS(numShards, sinkGroupId)`.
+16. Deterministic Container Image Tagging: In `cloudbuild.yaml` and runner scripts (`run_dataflowrunner.sh`, `run_sparkrunner.sh`), avoid using bare mutable `:latest` tags alone. In `cloudbuild.yaml`, default substitution `_TAG` to `'${SHORT_SHA}'` (never `'latest'`). In runner scripts, default container image tags to a parameterized or deterministic tag variable (e.g., `:${IMAGE_TAG:-latest}`) to guarantee build reproducibility and artifact provenance.
+17. IO Parameterization via PipelineOptions: All IO source and sink endpoints (such as Pub/Sub topics/subscriptions, GCS paths, BigQuery tables, Kafka topics, and queues) defined in YAML node properties must be declared in the `PipelineOptions` interface with their YAML values provided via `@Default.String(...)`, rather than statically hardcoded in pipeline transforms.
+18. GroupIntoBatches Sharding: When preparing unkeyed elements for `GroupIntoBatches`, distribute elements across shards using a keying function (e.g., assigning a random integer key `ThreadLocalRandom.current().nextInt(numShards)` or deterministic hash) rather than using a single static key like `null` or a constant string, preventing worker partition hotspotting.
+19. Shell Script Variable Quoting: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), double-quote all variable references (e.g. `"$JAR_PATH"`, `"$PROJECT_ID"`, `"$IMAGE_TAG"`) to prevent word-splitting and execution errors on paths containing spaces.
+20. DLQ Logging vs Dead-Letter Storage: When routing failures to a Dead Letter Queue (DLQ), always route the complete original message (or error record containing the raw payload) to the DLQ sink for re-processing. However, when logging error details via application logging (e.g. `LOG.error()`), log only the error message, exception, and record ID/metadata—never dump unredacted raw message payloads to standard log streams to prevent PII and credential leakage.
+21. Multi-Line Command Integrity: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ensure every intermediate line of multi-line shell commands ends with an explicit continuation backslash (`\`) to prevent syntax errors under `set -euo pipefail`.
+22. Subnetwork Flag Propagation: When `SUBNETWORK` is defined or `jobConfig.subnetwork` is specified in YAML, ensure `--subnetwork "https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` is passed in `run_dataflowrunner.sh`.
+23. Unit Test Fixture & Execution Integrity: When generating unit tests:
+    - Verify that test assertions and matchers strictly match the exact mock data values, keys, and types produced by the pipeline transforms given the test input fixtures. Never alter mock keys or values between input fixtures and expected assertion matchers.
+    - When testing custom DoFn classes or element parsers, ensure the test actually applies the transform (`ParDo.of(new CustomDoFn())` or calls the parsing method) to synthetic input data in the `TestPipeline` instead of trivially asserting identity on `Create.of(expectedRecords)` without executing the transformation logic.
+24. `.dockerignore` is generated to exclude `.git`, `target`, and `*.log` from the Docker build context.
 
 ---
 

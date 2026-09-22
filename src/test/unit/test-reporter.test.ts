@@ -21,6 +21,8 @@ import {
     clearReportCache,
     getReportFilePath,
     getReportCacheFilePath,
+    detectDirectiveTopic,
+    consolidateDirectives,
 } from '../integration/test-reporter';
 
 describe('Integration Test Reporter (test-reporter.ts)', () => {
@@ -215,5 +217,66 @@ describe('Integration Test Reporter (test-reporter.ts)', () => {
         fs.writeFileSync(cachePath, 'INVALID JSON {[[', 'utf-8');
         const cache = loadReportCache();
         expect(cache).toEqual({});
+    });
+
+    describe('Directive Deduplication & Consolidation', () => {
+        it('detects topics correctly for container tagging, hardening, DLQ logging, and shell quoting (simple condition)', () => {
+            expect(detectDirectiveTopic('Deployment Scripts', 'avoid mutable :latest image tags')).toBe('Deterministic Container Image Tagging (Cloud Build & Runner Scripts)');
+            expect(detectDirectiveTopic('Dockerfile Template', 'ensure a non-root USER beam is specified')).toBe('Container Hardening & Non-Root Execution (Dockerfile)');
+            expect(detectDirectiveTopic('DLQ Rules', 'do not log unredacted raw message payloads to log aggregators')).toBe('Dead-Letter Queue (DLQ) vs Application Logging Redaction');
+            expect(detectDirectiveTopic('Shell Hardening', 'double-quote "$PYTHON_CMD" to avoid word-splitting')).toBe('Shell Script Variable Quoting');
+            expect(detectDirectiveTopic('Custom Transform', 'unique custom section rule')).toBe('Custom Transform');
+        });
+
+        it('consolidates duplicate directives across multiple test suites into a single directive listing all sources (extreme condition)', () => {
+            const entries: TestReportEntry[] = [
+                {
+                    testName: 'Pipeline-Alpha',
+                    language: 'Python',
+                    timestamp: '2026-09-15T12:00:00.000Z',
+                    passed: false,
+                    explanation: 'Tagging defect',
+                    findings: [],
+                    promptRemediationDirectives: [
+                        {
+                            targetPromptFile: 'code-gen-prompt-python.txt',
+                            targetSection: 'Deployment Scripts',
+                            recommendedRuleText: 'Avoid using mutable :latest tags; use ${IMAGE_TAG:-latest}.',
+                            rationale: 'Build reproducibility.',
+                        }
+                    ],
+                    generatedFiles: []
+                },
+                {
+                    testName: 'Pipeline-Beta',
+                    language: 'Python',
+                    timestamp: '2026-09-15T12:01:00.000Z',
+                    passed: false,
+                    explanation: 'Tagging defect repeated',
+                    findings: [],
+                    promptRemediationDirectives: [
+                        {
+                            targetPromptFile: 'code-gen-prompt-python.txt',
+                            targetSection: 'Cloud Build Packaging',
+                            recommendedRuleText: 'Avoid using mutable :latest tags; use ${IMAGE_TAG:-latest} or ${SHORT_SHA} for deterministic builds.',
+                            rationale: 'Build reproducibility and artifact provenance.',
+                        }
+                    ],
+                    generatedFiles: []
+                }
+            ];
+
+            const md = generateReportMarkdown(entries);
+            // Must contain only ONE directive header for Python, not two
+            expect(md).toContain('#### Directive P1: Deterministic Container Image Tagging (Cloud Build & Runner Scripts) (from Pipeline-Alpha, Pipeline-Beta)');
+            expect(md).not.toContain('#### Directive P2');
+            // Must select the more comprehensive recommended text
+            expect(md).toContain('${SHORT_SHA}');
+        });
+
+        it('handles empty directive arrays gracefully without errors (failure condition)', () => {
+            const consolidated = consolidateDirectives([]);
+            expect(consolidated).toEqual([]);
+        });
     });
 });

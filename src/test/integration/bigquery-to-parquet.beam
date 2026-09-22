@@ -1,0 +1,87 @@
+nodes:
+  - id: "source-bigquery-1"
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: BigQuery
+      type: SOURCE
+      iconName: Database
+      beam_transform: BigQueryIO
+      properties:
+        dataset: analytics
+        query: "SELECT id, name, amount, processed_at FROM `my-project.analytics.events`"
+      system_instructions: Execute standard SQL query against BigQuery analytics dataset to extract raw events for batch export.
+    width: 180
+    height: 62
+  - id: "step-map-project-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Map
+      type: STEP
+      iconName: Code
+      beam_transform: Map
+      properties:
+        mappingFunction: "record -> projectToGenericRecord(record)"
+        outputType: GenericRecord
+      system_instructions: Project BigQuery row dictionaries into typed Avro GenericRecord objects conforming to the Parquet target schema.
+    width: 180
+    height: 62
+  - id: "sink-parquet-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: Parquet
+      type: SINK
+      iconName: FileSpreadsheet
+      beam_transform: ParquetIO
+      properties:
+        to: gs://my-bucket/parquet/events
+        suffix: .parquet
+        codec: SNAPPY
+        numShards: "5"
+        schema: |
+          {
+            "type": "record",
+            "name": "EventRecord",
+            "namespace": "com.example.beam",
+            "fields": [
+              {"name": "id", "type": "string"},
+              {"name": "name", "type": "string"},
+              {"name": "amount", "type": "double"},
+              {"name": "processed_at", "type": "long"}
+            ]
+          }
+      system_instructions: Write records to partitioned Snappy-compressed Parquet files in Google Cloud Storage using ParquetIO with 5 output shards.
+    width: 180
+    height: 62
+edges:
+  - id: edge-bq-to-map
+    source: "source-bigquery-1"
+    target: "step-map-project-2"
+  - id: edge-map-to-parquet
+    source: "step-map-project-2"
+    target: "sink-parquet-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: bq-to-parquet-export
+  - key: PROJECT_ID
+    value: my-project
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/bq-to-parquet
+  needsRebuild: false

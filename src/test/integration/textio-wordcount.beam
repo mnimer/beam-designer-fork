@@ -1,0 +1,143 @@
+nodes:
+  - id: "node-1-read-lines"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: Read Lines
+      type: SOURCE
+      iconName: FileText
+      beam_transform: TextIO
+      properties:
+        filePattern: "gs://apache-beam-samples/shakespeare/kinglear.txt"
+        skipHeaderLines: 0
+      system_instructions: "Read lines of text from input file using TextIO.read().from(filePattern) (Java) or beam.io.ReadFromText(filePattern) (Python)."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 80
+      y: 150
+  - id: "node-2-extract-words"
+    type: pipeline
+    position:
+      x: 340
+      y: 150
+    data:
+      label: Extract Words
+      type: STEP
+      iconName: GitMerge
+      beam_transform: FlatMap
+      properties:
+        splitVia: Regex
+        regexPattern: "[^\\p{L}]+"
+      system_instructions: "Split input text lines into individual words using regular expression word boundary delimiter [^\\p{L}]+, filtering out empty tokens."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 340
+      y: 150
+  - id: "node-3-count-words"
+    type: pipeline
+    position:
+      x: 600
+      y: 150
+    data:
+      label: Count Words
+      type: STEP
+      iconName: BarChart
+      beam_transform: Count
+      properties: {}
+      system_instructions: "Count occurrences of each word element using Count.perElement() (Java) or beam.combiners.Count.PerElement() (Python), producing key-value pairs of (word, count)."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 600
+      y: 150
+  - id: "node-4-format-as-text"
+    type: pipeline
+    position:
+      x: 860
+      y: 150
+    data:
+      label: Format As Text
+      type: STEP
+      iconName: Activity
+      beam_transform: Map
+      properties:
+        mappingFunction: "kv -> kv.getKey() + \": \" + kv.getValue()"
+        outputType: String
+      system_instructions: "Format each KV(word, count) pair into a formatted string 'word: count' suitable for writing to text output."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 860
+      y: 150
+  - id: "node-5-write-counts"
+    type: pipeline
+    position:
+      x: 1120
+      y: 150
+    data:
+      label: Write Counts
+      type: SINK
+      iconName: FileText
+      beam_transform: TextIO
+      properties:
+        to: wordcounts
+        suffix: .txt
+        numShards: 1
+      system_instructions: "Write formatted word count lines to output text files using TextIO.write().to(to).withSuffix(suffix)."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+    positionAbsolute:
+      x: 1120
+      y: 150
+edges:
+  - id: e-read-to-extract
+    source: "node-1-read-lines"
+    target: "node-2-extract-words"
+  - id: e-extract-to-count
+    source: "node-2-extract-words"
+    sourceHandle: valid
+    target: "node-3-count-words"
+    targetHandle: null
+  - id: e-count-to-format
+    source: "node-3-count-words"
+    sourceHandle: valid
+    target: "node-4-format-as-text"
+    targetHandle: null
+  - id: e-format-to-write
+    source: "node-4-format-as-text"
+    sourceHandle: valid
+    target: "node-5-write-counts"
+    targetHandle: null
+runtimeVariables:
+  - key: JOB_ID
+    value: wordcount
+  - key: inputFile
+    value: "gs://apache-beam-samples/shakespeare/kinglear.txt"
+  - key: output
+    value: wordcounts
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 2
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/wordcount
+  needsRebuild: false

@@ -16,8 +16,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import YAML from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from './constants';
+import { validateDagTopology } from './dagValidator';
 import {
     redactPipelineYaml,
     buildRedactionPromptNotice,
@@ -639,6 +641,29 @@ export interface HandleRegenerateCodeOptions {
 export async function handleRegenerateCode(options: HandleRegenerateCodeOptions): Promise<void> {
     const { message, context, document, uri, postToWebview, outputChannel, getGcloudProjectFn } = options;
     const yamlData = message.data;
+
+    // Headless pre-flight validation: reject code generation if the pipeline DAG has cycles or invalid topology
+    if (yamlData) {
+        try {
+            const parsed = YAML.parse(yamlData);
+            if (parsed && (Array.isArray(parsed.nodes) || Array.isArray(parsed.edges))) {
+                const validation = validateDagTopology(parsed.nodes || [], parsed.edges || []);
+                if (!validation.isValid) {
+                    const errorMsg = validation.errors.join('; ');
+                    vscode.window.showErrorMessage(`Cannot generate code: ${errorMsg}`);
+                    await postToWebview({
+                        command: 'codeRegenerated',
+                        success: false,
+                        error: errorMsg,
+                    });
+                    return;
+                }
+            }
+        } catch {
+            // Ignore parse errors here and allow downstream handlers to deal with malformed YAML
+        }
+    }
+
     const filenameVal = message.filename;
     const languageVal = message.language;
     const outputFolderVal = message.outputFolder;

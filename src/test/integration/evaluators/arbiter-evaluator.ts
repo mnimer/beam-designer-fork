@@ -30,7 +30,8 @@ import {
     EvaluatorFinding,
     MultiAgentEvaluationResult,
     EvaluationScorecard,
-    RejectedFinding
+    RejectedFinding,
+    generateContentWithRetry
 } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';
@@ -163,6 +164,7 @@ Your tasks:
 3. Actionable Prompt Remediation Directives:
    - When the test fails or exhibits real defects, DO NOT patch or rewrite the generated code.
    - Formulate actionable **Prompt Remediation Directives** targeting the generator prompt template:
+     - DEDUPLICATION & CONSOLIDATION: Group and summarize all recommendations before creating directives. If multiple specialist findings stem from the same root issue (e.g. container tag determinism, Dockerfile non-root permissions, shell variable quoting, or DLQ payload logging), synthesize them into a SINGLE cohesive, actionable rule directive rather than generating duplicate tips.
      - Target files: 'code-gen-prompt-python.txt' and/or 'code-gen-prompt-java.txt'
      - Specify the exact section and concrete instruction wording to add or modify in the prompt template so that the generator model avoids this error in future generations.
 
@@ -255,7 +257,7 @@ Provide your synthesis in JSON.`;
         required: ["isGood", "explanation", "promptRemediationDirectives"]
     };
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
         model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {

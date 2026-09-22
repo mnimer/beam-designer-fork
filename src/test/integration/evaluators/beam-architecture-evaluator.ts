@@ -19,7 +19,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
-import { SpecialistAgentResult } from './types';
+import { SpecialistAgentResult, generateContentWithRetry } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';
 
@@ -104,7 +104,7 @@ Severity Guidelines:
         required: ["passed", "summary", "findings"]
     };
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
         model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {

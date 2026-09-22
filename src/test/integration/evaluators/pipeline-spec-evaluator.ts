@@ -19,7 +19,7 @@
 import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
-import { SpecialistAgentResult, RequirementVerification } from './types';
+import { SpecialistAgentResult, generateContentWithRetry } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';
 
@@ -301,7 +301,6 @@ export async function evaluatePipelineSpecification(
     files: GeneratedFileCandidate[]
 ): Promise<SpecialistAgentResult> {
     const spec = parsePipelineSpec(yamlContent);
-    const rtm = generateRequirementMatrix(spec);
     const checklistText = formatSpecChecklist(spec);
 
     const prompt = `You are the Principal Pipeline Specification & Property Conformance Evaluator Agent.
@@ -382,7 +381,8 @@ Instructions:
         required: ["passed", "summary", "findings", "requirementVerifications"]
     };
 
-    const response = await ai.models.generateContent({
+    // 3. Invoke Gemini model
+    const response = await generateContentWithRetry(ai, {
         model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {

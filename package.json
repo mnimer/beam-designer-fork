@@ -4,6 +4,14 @@
   "description": "Visual pipeline builder for DataFlow using React-Flow",
   "version": "0.0.1",
   "publisher": "antigravity",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloud-gtm/apache-beam-designer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cloud-gtm/apache-beam-designer/issues"
+  },
+  "homepage": "https://github.com/cloud-gtm/apache-beam-designer#readme",
   "engines": {
     "vscode": "^1.74.0"
   },

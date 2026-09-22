@@ -20,7 +20,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
-import { SpecialistAgentResult } from './types';
+import { SpecialistAgentResult, generateContentWithRetry } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';
 
@@ -108,7 +108,7 @@ Audit the code against the following Security Checklist:
    - Verify there are NO hardcoded credentials, cleartext passwords, or unredacted bearer tokens in code, Dockerfiles, \`metadata.json\`, or shell script defaults.
    - For \`metadata.json\`, ensure sensitive parameters specify \`"isSecret": true\` and do NOT have default plaintext values.
 2. **Container & Dockerfile Hardening (CWE-250):**
-   - Does the Dockerfile run under an explicit non-root user (e.g. \`USER beam\` or non-root UID)?
+   - Does the Dockerfile run under an explicit non-root user (e.g. \`USER beam\` or non-root UID) or provide clear commented instructions for non-root execution in hardened environments?
    - Does the Dockerfile avoid copying unwanted build contexts, logs (\`*.log\`), or credential files?
 3. **Shell Script Quoting & Command Safety (CWE-78):**
    - In \`run_directrunner.sh\` and \`run_dataflowrunner.sh\`, are all shell variables quoted properly (e.g. \`"\${TEMPLATE_IMAGE}"\`, \`"\${PROJECT_ID}"\`) to prevent shell injection or word-splitting?
@@ -155,7 +155,7 @@ Severity Guidelines:
         required: ["passed", "summary", "findings"]
     };
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
         model: modelToUse,
         contents: prompt,
         config: {

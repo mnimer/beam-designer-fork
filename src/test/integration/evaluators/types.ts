@@ -92,3 +92,31 @@ export interface MultiAgentEvaluationResult {
     promptRemediationDirectives: PromptRemediationDirective[];
     explanation: string;
 }
+
+/**
+ * Executes a Gemini model call with exponential backoff on HTTP 429 / RESOURCE_EXHAUSTED.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ */
+export async function generateContentWithRetry(
+    ai: any,
+    params: any,
+    maxRetries = 4,
+    initialDelayMs = 4000
+): Promise<any> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await ai.models.generateContent(params);
+        } catch (err: any) {
+            const errStr = String(err?.message || err);
+            const isRateLimit = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || err?.status === 429;
+            if (isRateLimit && attempt < maxRetries) {
+                const delayMs = initialDelayMs * Math.pow(2, attempt - 1);
+                console.warn(`   [RateLimit] ⚠️ 429 Resource Exhausted. Retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            } else {
+                throw err;
+            }
+        }
+    }
+}
