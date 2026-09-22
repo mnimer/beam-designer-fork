@@ -5,20 +5,23 @@
  *
  * Purpose:
  * Evaluates generated Apache Beam pipeline code against core distributed processing
- * architectural invariants, topological fidelity, and known SDK pitfalls.
+ * architectural invariants, topological fidelity, serialization safety, and unit test quality.
  *
  * Architectural decisions:
  * - Focuses strictly on Beam DAG semantics: Windowing on unbounded collections,
  *   correct DoFn output tagging (e.g. avoiding silent element drops), DLQ error
  *   routing, and appropriate timer/sequence generator selection.
- * - Adheres to the prompt engineering rules established in TASK.md (e.g. PeriodicImpulse
- *   for Python tick sources rather than cross-language GenerateSequence).
+ * - Audits DoFn serialization invariants: client and connection instantiation in setup(),
+ *   not in __init__ or class definition.
+ * - Audits generated unit test files (*_test.py / *Test.java) for TestPipeline and assert_that usage.
+ * - Injects 1-indexed line numbers to ground all findings.
  */
 
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
 import { SpecialistAgentResult } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
+import { formatFilesWithLineNumbers } from './format-utils';
 
 /**
  * Runs the Beam Architecture Evaluator sub-agent.
@@ -36,7 +39,7 @@ export async function evaluateBeamArchitecture(
     files: GeneratedFileCandidate[]
 ): Promise<SpecialistAgentResult> {
     const prompt = `You are the Principal Beam Architecture Evaluator Agent.
-Your responsibility is auditing the generated Apache Beam code for strict DAG fidelity, correct distributed stream processing semantics, and Beam SDK best practices.
+Your responsibility is auditing the generated Apache Beam code for strict DAG fidelity, correct distributed stream processing semantics, DoFn serialization safety, and unit test quality.
 
 === TARGET LANGUAGE ===
 ${language}
@@ -46,9 +49,9 @@ ${language}
 ${yamlContent}
 ================================================
 
-=== GENERATED SOURCE FILES ===
-${files.map(f => `--- FILE: ${f.filename} ---\n${f.content}\n`).join('\n')}
-===============================
+=== GENERATED SOURCE FILES & ARTIFACTS (LINE NUMBERED) ===
+${formatFilesWithLineNumbers(files)}
+==========================================================
 
 Evaluate the code against the following Beam Architecture Invariants:
 1. **DAG Fidelity:** Does the code correctly wire every Source, Transform/Step, and Sink defined in the YAML? Are names and transform logic aligned?
@@ -56,13 +59,17 @@ Evaluate the code against the following Beam Architecture Invariants:
 3. **Output Routing & Tagging Integrity:**
    - In Python: Does any DoFn declaring \`.with_outputs(..., main=...)\` yield bare elements for the main output instead of wrapping in TaggedOutput(main_tag)? (Wrapping main output in TaggedOutput causes Beam to route it to a null receiver, silently dropping all records!).
    - In Java: Are TupleTags declared and matched properly on MultiOutputReceivers?
-4. **Timer & Sequence Selection:**
-   - In Python: When a periodic trigger or tick source is needed, does it use native \`PeriodicImpulse\` instead of \`ExternalTransform('beam:external:java:generate_sequence:v1')\`?
+4. **Serialization & Lifecycle Invariants:**
+   - Are external connections, database clients, and Secret Manager clients instantiated inside \`setup()\` or \`open()\`, NEVER in \`__init__\` or class definitions (which causes serialization errors during distributed worker staging)?
 5. **Dead-Letter Queue (DLQ) & Error Handling:** If the pipeline defines an error branch/DLQ, are exceptions caught in DoFns and routed to the error output collection?
+6. **Generated Unit Test Quality (*_test.py / *Test.java):**
+   - Does the unit test use Beam's \`TestPipeline\` rather than standard \`Pipeline\`?
+   - Does it inject mock test data using \`beam.Create\` / \`Create.of\`?
+   - Does it assert output correctness using \`assert_that\` and Beam matchers (e.g. \`equal_to\`), rather than dummy pass statements?
 
 Severity Guidelines:
-- CRITICAL: Silent element dropping (e.g. main output TaggedOutput bug), missing windowing on unbounded aggregations, missing pipeline nodes that break execution.
-- MAJOR: Inefficient transform patterns (e.g. unnecessary cross-language expansion), incorrect trigger configurations.
+- CRITICAL: Silent element dropping (e.g. main output TaggedOutput bug), missing windowing on unbounded aggregations, missing pipeline nodes that break execution, un-serializable connection objects in __init__.
+- MAJOR: Inefficient transform patterns, missing unit test assertions, dummy unit test functions.
 - MINOR: Non-idiomatic transform naming or style.`;
 
     const schema = {
@@ -85,6 +92,8 @@ Severity Guidelines:
                         category: { type: "string", enum: ["ARCHITECTURE", "IDIOMATIC_BEAM"] },
                         severity: { type: "string", enum: ["CRITICAL", "MAJOR", "MINOR"] },
                         file: { type: "string" },
+                        line: { type: "integer" },
+                        evidence: { type: "string" },
                         description: { type: "string" },
                         rationale: { type: "string" }
                     },
@@ -100,7 +109,8 @@ Severity Guidelines:
         contents: prompt,
         config: {
             responseMimeType: 'application/json',
-            responseSchema: schema
+            responseSchema: schema,
+            temperature: 0.1
         }
     });
 

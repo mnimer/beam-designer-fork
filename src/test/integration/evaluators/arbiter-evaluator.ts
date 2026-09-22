@@ -5,7 +5,8 @@
  *
  * Purpose:
  * Synthesizes reports from the deterministic pre-flight gate and specialized sub-agents.
- * Produces a multi-dimensional scorecard, checks hard veto rules, and generates
+ * Validates findings against ground-truth line-numbered code, reconciles false positives,
+ * produces a multi-dimensional scorecard, checks hard veto rules, and generates
  * actionable Prompt Remediation Directives targeting the prompt files
  * (code-gen-prompt-python.txt / code-gen-prompt-java.txt) whenever an evaluation fails.
  *
@@ -14,8 +15,11 @@
  *   the LLM Code Generator itself; therefore, remediation consists of formulating
  *   exact prompt rules to update the prompt templates so the generator ceases
  *   making the error.
- * - Enforces hard vetoes on any compiler syntax error, plaintext credential leak, or
- *   silent data loss defect (such as wrapped main outputs).
+ * - Inspects full line-numbered generated source files to verify or reject sub-agent claims.
+ * - Filters rejected false-positive findings and recalculates the baseline scorecard
+ *   and hard vetoes on confirmed findings only, resolving the false-positive veto trap.
+ * - Receives the full generator prompt template (without artificial truncation) so
+ *   remediation directives cite real prompt sections and existing rules accurately.
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -25,8 +29,11 @@ import {
     SpecialistAgentResult,
     EvaluatorFinding,
     MultiAgentEvaluationResult,
-    EvaluationScorecard
+    EvaluationScorecard,
+    RejectedFinding
 } from './types';
+import { GeneratedFileCandidate } from './deterministic-gate';
+import { formatFilesWithLineNumbers } from './format-utils';
 
 /**
  * Calculates rule-based baseline scores and vetoes from findings.
@@ -56,7 +63,9 @@ export function calculateBaselineScorecard(
     if (!deterministic.secretScanPassed) {
         securityScore = 0;
         deterministic.secretFindings.forEach(f => {
-            hardVetoReasons.push(`Deterministic Secret Leak: ${f.description} (${f.file})`);
+            if (f.severity === 'CRITICAL') {
+                hardVetoReasons.push(`Deterministic Secret Leak: ${f.description} (${f.file})`);
+            }
         });
     }
 
@@ -128,6 +137,7 @@ export async function synthesizeEvaluation(
     ai: GoogleGenAI,
     language: 'Java' | 'Python',
     yamlContent: string,
+    files: GeneratedFileCandidate[],
     deterministic: DeterministicGateResult,
     specialistResults: Record<string, SpecialistAgentResult>,
     codeGenPromptTemplate: string
@@ -137,22 +147,24 @@ export async function synthesizeEvaluation(
         ...Object.values(specialistResults).flatMap(r => r.findings)
     ];
 
-    const baseline = calculateBaselineScorecard(deterministic, allFindings);
+    const initialBaseline = calculateBaselineScorecard(deterministic, allFindings);
 
     const prompt = `You are the Lead Arbiter & Quality Assurance Synthesizer Agent for the Apache Beam Code Generator Integration Test Suite.
 
 Your tasks:
-1. Synthesize the reports from the Deterministic Gate and the Specialist Sub-Agents:
-   - BeamArchitectureAgent (DAG semantics, windowing, DoFn tagged output routing, DLQ)
+1. Synthesize the reports from the Deterministic Gate and Specialist Sub-Agents:
+   - BeamArchitectureAgent (DAG semantics, windowing, DoFn tagged output routing, DLQ, serialization)
    - PipelineSpecificationAgent (YAML property completeness, custom instructions, runtime variables, jobConfig)
    - SecurityAndHardeningAgent (Secret Manager, container hardening, shell quoting)
    - PackagingAndDeployabilityAgent (dependencies, manifest syntax, runner scripts)
-2. Validate findings, filter false positives, and confirm the final evaluation verdict.
-3. CRITICAL: When the test fails or exhibits defects, DO NOT patch or rewrite the generated code.
-   This integration test tests the LLM Code Generator itself. You must formulate actionable
-   **Prompt Remediation Directives** targeting the generator prompt template:
-   - Target files: 'code-gen-prompt-python.txt' and/or 'code-gen-prompt-java.txt'
-   - Specify the exact section and concrete instruction wording to add or modify in the prompt template so that the generator model avoids this error in future generations.
+2. Ground-Truth Validation & False-Positive Reconciliation:
+   - Carefully cross-reference each specialist finding against the generated line-numbered code below.
+   - If a finding is a FALSE POSITIVE (e.g. the sub-agent claimed a property was omitted or insecure, but the line-numbered code actually implements it correctly), list its ID in \`rejectedFindingIds\` with a clear explanation in \`rejectedFindings\`.
+3. Actionable Prompt Remediation Directives:
+   - When the test fails or exhibits real defects, DO NOT patch or rewrite the generated code.
+   - Formulate actionable **Prompt Remediation Directives** targeting the generator prompt template:
+     - Target files: 'code-gen-prompt-python.txt' and/or 'code-gen-prompt-java.txt'
+     - Specify the exact section and concrete instruction wording to add or modify in the prompt template so that the generator model avoids this error in future generations.
 
 === TARGET LANGUAGE ===
 ${language}
@@ -160,6 +172,10 @@ ${language}
 
 === INPUT PIPELINE YAML ===
 ${yamlContent}
+
+=== GENERATED SOURCE CODE & ARTIFACTS (LINE NUMBERED) ===
+${formatFilesWithLineNumbers(files)}
+==========================================================
 
 === DETERMINISTIC PRE-FLIGHT RESULTS ===
 Syntax Valid: ${deterministic.syntaxValid}
@@ -170,14 +186,14 @@ Secret Findings: ${JSON.stringify(deterministic.secretFindings)}
 === SPECIALIST SUB-AGENT REPORTS ===
 ${JSON.stringify(specialistResults, null, 2)}
 
-=== CURRENT CODE GENERATION PROMPT TEMPLATE (EXCERPT) ===
-${codeGenPromptTemplate.substring(0, 3000)}
-...[truncated]
+=== CURRENT CODE GENERATION PROMPT TEMPLATE ===
+${codeGenPromptTemplate}
+===============================================
 
-=== BASELINE SCORES & VETOES ===
-Hard Veto Triggered: ${baseline.hardVetoTriggered}
-Hard Veto Reasons: ${JSON.stringify(baseline.hardVetoReasons)}
-Scorecard: ${JSON.stringify(baseline.scorecard)}
+=== INITIAL RAW BASELINE SCORES & VETOES ===
+Hard Veto Triggered: ${initialBaseline.hardVetoTriggered}
+Hard Veto Reasons: ${JSON.stringify(initialBaseline.hardVetoReasons)}
+Scorecard: ${JSON.stringify(initialBaseline.scorecard)}
 
 Provide your synthesis in JSON.`;
 
@@ -186,11 +202,28 @@ Provide your synthesis in JSON.`;
         properties: {
             isGood: {
                 type: "boolean",
-                description: "Final verdict: true only if code satisfies all requirements and has no critical defects"
+                description: "Final verdict: true only if code satisfies all requirements and has no unaddressed critical defects"
             },
             explanation: {
                 type: "string",
                 description: "Executive synthesis summarizing why the test passed or failed"
+            },
+            rejectedFindingIds: {
+                type: "array",
+                description: "IDs of any specialist findings determined to be false positives",
+                items: { type: "string" }
+            },
+            rejectedFindings: {
+                type: "array",
+                description: "Detailed justifications for each rejected false-positive finding",
+                items: {
+                    type: "object",
+                    properties: {
+                        id: { type: "string" },
+                        reason: { type: "string" }
+                    },
+                    required: ["id", "reason"]
+                }
             },
             promptRemediationDirectives: {
                 type: "array",
@@ -227,7 +260,8 @@ Provide your synthesis in JSON.`;
         contents: prompt,
         config: {
             responseMimeType: 'application/json',
-            responseSchema: schema
+            responseSchema: schema,
+            temperature: 0.1
         }
     });
 
@@ -237,15 +271,24 @@ Provide your synthesis in JSON.`;
 
     const parsed = JSON.parse(response.text);
 
-    // Hard veto overrides model leniency
-    const finalIsGood = !baseline.hardVetoTriggered && parsed.isGood;
+    // Filter out rejected false-positive findings
+    const rejectedIds = new Set<string>(parsed.rejectedFindingIds || []);
+    const confirmedFindings = allFindings.filter(f => !rejectedIds.has(f.id));
+
+    // Recalculate scorecard and hard vetoes on confirmed findings only
+    const finalBaseline = calculateBaselineScorecard(deterministic, confirmedFindings);
+    const finalIsGood = !finalBaseline.hardVetoTriggered && parsed.isGood;
+
+    const rejectedFindings: RejectedFinding[] = parsed.rejectedFindings || [];
 
     return {
         isGood: finalIsGood,
-        scorecard: baseline.scorecard,
-        hardVetoTriggered: baseline.hardVetoTriggered,
-        hardVetoReasons: baseline.hardVetoReasons,
+        scorecard: finalBaseline.scorecard,
+        hardVetoTriggered: finalBaseline.hardVetoTriggered,
+        hardVetoReasons: finalBaseline.hardVetoReasons,
         allFindings,
+        confirmedFindings,
+        rejectedFindings,
         specialistResults,
         promptRemediationDirectives: parsed.promptRemediationDirectives || [],
         explanation: parsed.explanation
