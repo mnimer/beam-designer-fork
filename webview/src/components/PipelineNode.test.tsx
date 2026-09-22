@@ -212,5 +212,40 @@ describe('PipelineNode', () => {
     expect(sinkNode).toHaveClass('border-red-400');
     expect(sinkNode).toHaveClass('ring-2');
   });
+
+  it('renders pulsing crimson border and AlertCircle badge when hasCycle is true', () => {
+    const cycleData = {
+      ...mockData,
+      type: 'STEP',
+      hasCycle: true,
+      validationError: 'Cyclic dependency detected: Step 1 -> Step 2 -> Step 1',
+    };
+    render(<PipelineNode id="node-cycle" data={cycleData} />);
+    const node = screen.getByTestId('pipeline-node-node-cycle');
+    expect(node).toHaveClass('border-rose-500');
+    expect(node).toHaveClass('animate-pulse');
+
+    const badge = screen.getByTestId('cycle-error-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute('title', 'Cyclic dependency detected: Step 1 -> Step 2 -> Step 1');
+  });
+
+  it('renders dashed amber border and AlertTriangle badge when isOrphan is true', () => {
+    const orphanData = {
+      ...mockData,
+      type: 'STEP',
+      isOrphan: true,
+      validationWarning: 'Orphan step: node is not connected to the pipeline',
+    };
+    render(<PipelineNode id="node-orphan" data={orphanData} />);
+    const node = screen.getByTestId('pipeline-node-node-orphan');
+    expect(node).toHaveClass('border-amber-500');
+    expect(node).toHaveClass('border-dashed');
+
+    const badge = screen.getByTestId('orphan-warning-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute('title', 'Orphan step: node is not connected to the pipeline');
+  });
 });
+
 

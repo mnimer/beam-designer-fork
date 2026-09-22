@@ -19,10 +19,45 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onCustomEditor:dataflow-pipeline-builder.beamEditor",
+    "onLanguage:beam",
+    "onView:dataflowExplorer"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "beam",
+        "aliases": [
+          "Apache Beam Pipeline",
+          "beam",
+          "Beam"
+        ],
+        "extensions": [
+          ".beam"
+        ],
+        "mimetypes": [
+          "application/x-yaml",
+          "text/yaml"
+        ]
+      }
+    ],
+    "configurationDefaults": {
+      "workbench.editorAssociations": {
+        "*.beam": "dataflow-pipeline-builder.beamEditor",
+        "{**/*.beam}": "dataflow-pipeline-builder.beamEditor"
+      }
+    },
+    "configuration": {
+      "title": "DataFlow Designer",
+      "properties": {
+        "dataflowDesigner.gcloudPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom absolute path to the gcloud executable. If empty, the extension searches PATH and standard installation locations."
+        }
+      }
+    },
     "customEditors": [
       {
         "viewType": "dataflow-pipeline-builder.beamEditor",
@@ -30,6 +65,9 @@
         "selector": [
           {
             "filenamePattern": "*.beam"
+          },
+          {
+            "filenamePattern": "**/*.beam"
           }
         ],
         "priority": "default"
@@ -40,6 +78,11 @@
         "command": "dataflow-pipeline-builder.createNewPipeline",
         "title": "Beam: New Pipeline",
         "icon": "$(plus)"
+      },
+      {
+        "command": "dataflow-pipeline-builder.openWithDesigner",
+        "title": "Open in Beam Pipeline Designer",
+        "icon": "$(layout)"
       },
       {
         "command": "dataflow-pipeline-builder.showEditor",
@@ -79,11 +122,23 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "dataflow-pipeline-builder.openWithDesigner",
+          "when": "resourceExtname == .beam",
+          "group": "navigation@1"
+        }
+      ],
       "editor/title": [
         {
           "command": "dataflow-pipeline-builder.createNewPipeline",
           "when": "activeCustomEditorId == 'dataflow-pipeline-builder.beamEditor'",
           "group": "navigation@1"
+        },
+        {
+          "command": "dataflow-pipeline-builder.openWithDesigner",
+          "when": "resourceExtname == .beam && activeCustomEditorId != 'dataflow-pipeline-builder.beamEditor'",
+          "group": "navigation@2"
         }
       ],
       "view/title": [
@@ -140,11 +195,16 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "test:integration": "vitest run",
-    "test:integration:watch": "vitest"
+    "pretest": "npm run compile && npm run typecheck:webview && npm run lint",
+    "typecheck:webview": "npm --prefix webview run typecheck",
+    "lint": "eslint src",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:integration:watch": "vitest --config vitest.integration.config.mts",
+    "test:webview": "npm --prefix webview test",
+    "test:all": "npm run test:unit && npm run test:webview"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
@@ -159,7 +219,6 @@
   "dependencies": {
     "@google/genai": "^2.2.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "undici-types": "^8.3.0"
     "undici-types": "^8.3.0",
     "yaml": "^2.9.0"
   }

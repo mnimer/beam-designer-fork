@@ -22,6 +22,17 @@ out
 *.sln
 *.sw?
 .DS_Store
+.gitignore
+
+# Build artifacts emitted beside their .tsx sources (finding A5).
+# These were tracked historically and shadowed the real sources in search.
+webview/src/**/*.js
+webview/src/**/*.js.map
+
+# Integration test cache and report
 src/test/integration/.test-report.json
 src/test/integration/test-report.md
-.gitignore
+test-report.md
+
+
+

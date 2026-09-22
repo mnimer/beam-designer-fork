@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 export interface KafkaSerializerPreset {
   label: string;
@@ -117,7 +118,7 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newInstructions = e.target.value;
     onChange({
       ...properties,
@@ -199,68 +200,46 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Bootstrap Servers Input (Required) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaSinkBootstrapServers" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Bootstrap Servers</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="A comma-separated list of host:port pairs to establish the initial connection to the Kafka cluster (e.g. localhost:9092 or broker1:9092,broker2:9092). Required." />
-        </label>
-        <input
-          id="kafkaSinkBootstrapServers"
-          type="text"
-          name="bootstrapServers"
-          required
-          aria-required="true"
-          aria-invalid={isBootstrapServersInvalid}
-          value={bootstrapServers}
-          onChange={handleChange}
-          placeholder="localhost:9092"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isBootstrapServersInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isBootstrapServersInvalid ? (
-          <span className="text-xs text-red-400">Bootstrap Servers is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">localhost:9092</code>
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="kafkaSinkBootstrapServers"
+        name="bootstrapServers"
+        label="Bootstrap Servers"
+        required={true}
+        tooltip="A comma-separated list of host:port pairs to establish the initial connection to the Kafka cluster (e.g. localhost:9092 or broker1:9092,broker2:9092). Required."
+        value={bootstrapServers}
+        invalid={isBootstrapServersInvalid}
+        error={isBootstrapServersInvalid ? 'Bootstrap Servers is required.' : null}
+        onChange={handleChange}
+        placeholder="localhost:9092"
+        helperText={
+          isBootstrapServersInvalid ? undefined : (
+            <span>
+              Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">localhost:9092</code>
+            </span>
+          )
+        }
+      />
 
       {/* Target Topic Input (Required) */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaSinkTopic" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Topic</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="The target Kafka topic where output records will be published (e.g. output-events). Required." />
-        </label>
-        <input
-          id="kafkaSinkTopic"
-          type="text"
-          name="topic"
-          required
-          aria-required="true"
-          aria-invalid={isTopicInvalid}
-          value={topic}
-          onChange={handleChange}
-          placeholder="output-topic"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isTopicInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isTopicInvalid ? (
-          <span className="text-xs text-red-400">Topic is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">output-events</code>
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="kafkaSinkTopic"
+        name="topic"
+        label="Topic"
+        required={true}
+        tooltip="The target Kafka topic where output records will be published (e.g. output-events). Required."
+        value={topic}
+        invalid={isTopicInvalid}
+        error={isTopicInvalid ? 'Topic is required.' : null}
+        onChange={handleChange}
+        placeholder="output-topic"
+        helperText={
+          isTopicInvalid ? undefined : (
+            <span>
+              Example: <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">output-events</code>
+            </span>
+          )
+        }
+      />
 
       {/* Key Serializer (Required) */}
       <div className="flex flex-col gap-2">
@@ -446,39 +425,34 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
       </div>
 
       {/* Additional Producer Properties */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kafkaProducerProperties" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Producer Properties</span>
-          <InfoTooltip text="Additional Kafka producer configuration properties formatted as key=value on separate lines (e.g. compression.type=snappy, retries=3, batch.size=16384)." />
-        </label>
-        <textarea
-          id="kafkaProducerProperties"
-          name="producerProperties"
-          value={producerProperties}
-          onChange={handleChange}
-          placeholder="compression.type=snappy&#10;retries=3&#10;batch.size=16384"
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <PropertyField
+        id="kafkaProducerProperties"
+        name="producerProperties"
+        label="Producer Properties"
+        tooltip="Additional Kafka producer configuration properties formatted as key=value on separate lines (e.g. compression.type=snappy, retries=3, batch.size=16384)."
+        type="textarea"
+        value={producerProperties}
+        onChange={handleChange}
+        placeholder="compression.type=snappy&#10;retries=3&#10;batch.size=16384"
+        rows={3}
+      />
 
       {/* Flexible Spacer adhering to grid */}
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions Section at Bottom */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="kafkaSinkSystemInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Custom instructions supplied to the LLM when generating code for this Kafka write node." />
-        </label>
-        <textarea
+        <PropertyField
           id="kafkaSinkSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          tooltip="Custom instructions supplied to the LLM when generating code for this Kafka write node."
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for Kafka write code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

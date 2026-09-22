@@ -167,4 +167,26 @@ describe('KafkaIOSourceProperties', () => {
     expect(screen.getByText('Custom Key Deserializer class is required.')).toBeInTheDocument();
     expect(screen.getByText('Custom Value Deserializer class is required.')).toBeInTheDocument();
   });
+
+  it('updates consumerProperties when textarea changes', () => {
+    const mockNode = {
+      data: {
+        label: 'Kafka',
+        properties: {
+          consumerProperties: 'security.protocol=PLAINTEXT'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<KafkaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const textarea = container.querySelector('#kafkaConsumerProperties') as HTMLTextAreaElement;
+    expect(textarea).toHaveValue('security.protocol=PLAINTEXT');
+
+    fireEvent.change(textarea, { target: { name: 'consumerProperties', value: 'security.protocol=SASL_SSL' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      consumerProperties: 'security.protocol=SASL_SSL'
+    }));
+  });
 });

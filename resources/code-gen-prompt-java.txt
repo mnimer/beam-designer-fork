@@ -1,262 +1,341 @@
-I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+You are an expert Apache Beam engineer. Convert the provided React-Flow pipeline YAML into a production-ready, compilable Apache Beam (Dataflow) project in Java.
 
-I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Java, using the latest version of all libraries. 
+Generate all output files conforming to the requested JSON schema: a single JSON object with a `files` array containing `{ "filename": "...", "content": "...", "executable": true/false }`, using the exact library versions pinned in the canonical `pom.xml` baseline in this prompt.
 
-I will also need you to generate:
-- A valid dependency file (pom.xml) 
-- A valid Dataflow Flex Template Dockerfile for Java. 
-- A valid Dataflow Flex Template metadata.json file for the pipeline, defining ONLY the runtime parameters specified under 'runtimeVariables' in the input YAML. 
-- A shell script to run the job locally (name=run_directrunner.sh)    
-- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
-- A shell script to run the job on GCP Serverless Spark (name=run_sparkrunner.sh)
-- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
-- A detailed Readme documenting the pipeline, how to build it, and how to run it.
+## 1. Required Deliverables & Directory Layout
+All files MUST be output directly in the designated root or Maven package layout (do NOT create a top-level wrapper directory named after the pipeline):
 
-## Project code instructions
-- Only generate the pipeline code. I do not need any extra helper application code generated. 
-- Directory & Subfolder Structure Rules:
-  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
-  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder ('Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'pom.xml', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'run_sparkrunner.sh', 'README.md').
-  - Pipeline source code files: All source files MUST follow standard Maven package layout inside 'src/main/java/com/example/<PipelineName>.java' (e.g. 'src/main/java/com/example/Foobar.java') and unit tests inside 'src/test/java/com/example/<PipelineName>Test.java' (e.g. 'src/test/java/com/example/FoobarTest.java'). Class names and filenames MUST use PascalCase matching the pipeline base name.
-- Delete all files and folders in output folder before generating the new code.
-- Generate Unit Tests for the different steps in the pipeline in 'src/test/java/com/example/<PipelineName>Test.java'
-- Validate all unit tests run and pass locally using the DirectRunner
-- **SEPARATION OF RUNNER SCRIPT AND TESTS**:
-  - `run_directrunner.sh` and `run_dataflowrunner.sh` MUST ONLY execute the main pipeline class (`mvn compile exec:java ...`). They must **NEVER** run unit tests (`mvn test`).
-- Use Cloud Build to build all artifacts
-- For Java projects: generate 'pom.xml' and 'run_sparkrunner.sh'. Do NOT generate 'requirements.txt' or 'src/__init__.py'.
-- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+| File Path | Description | Executable |
+|---|---|---|
+| `pom.xml` | Maven build file with all required Beam, runner, and IO dependencies | false |
+| `src/main/java/com/example/<PipelineName>.java` | Main pipeline source code (PascalCase matching pipeline name) | false |
+| `src/test/java/com/example/<PipelineName>Test.java` | Unit tests using Beam `TestPipeline` and `PAssert` | false |
+| `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
+| `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
+| `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
+| `run_directrunner.sh` | Bash script to execute the pipeline locally with DirectRunner | true |
+| `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
+| `run_sparkrunner.sh` | Bash script to package and submit to GCP Serverless Spark (Dataproc) | true |
+| `cloudbuild.yaml` | Cloud Build config to build and push the template container image | false |
+| `README.md` | Concise documentation of pipeline design, configurations, and run instructions | false |
 
-## Pipeline Options & Configuration Rules:
-- **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
-  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared as custom `PipelineOptions` interface methods or command-line parameters in `metadata.json`.
-  - **Runtime Variables Consistency & Reserved Names**:
-    - **NEVER use reserved Beam option names**: `jobId`, `jobName`, `project`, `tempLocation`, `gcpTempLocation`, `runner`, `appName` are reserved by Apache Beam / Dataflow. Declaring `getJobId()` in a custom `PipelineOptions` interface causes `IllegalArgumentException: Expected getter for property [jobId] to be marked with @Default on all ... DataflowWorkerHarnessOptions`.
-    - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipelineJobId` (e.g. `String getPipelineJobId(); void setPipelineJobId(String value);`).
-    - Convert each variable from the YAML's `runtimeVariables` into standard camelCase (e.g., `JOB_ID` -> `pipelineJobId`, `NUM_OBJECTS_PER_ITERATION` -> `numObjectsPerIteration`).
-    - Use this exact camelCase identifier consistently across ALL generated artifacts:
-      1. `PipelineOptions` interface methods (e.g. `String getPipelineJobId(); void setPipelineJobId(String value);`, `Integer getNumObjectsPerIteration(); void setNumObjectsPerIteration(Integer value);`).
-      2. `metadata.json` parameter `"name"` (e.g. `"name": "pipelineJobId"`, `"name": "numObjectsPerIteration"`).
-      3. `run_directrunner.sh` arguments (e.g. `--pipelineJobId="value" --numObjectsPerIteration=1`).
-      4. `run_sparkrunner.sh` arguments (e.g. `--pipelineJobId="value" --numObjectsPerIteration=1`).
-      5. `run_dataflowrunner.sh` parameters (e.g. `--parameters pipelineJobId="value",numObjectsPerIteration=1`).
-    - **ALL Runtime Variables MUST be passed to ALL runner scripts**: Ensure that ALL runtime variables defined in the input YAML are provided with their default values in `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh`.
-  - For Flex Templates, declare standard typed getter/setter methods on the `PipelineOptions` interface. Do NOT use `ValueProvider<T>` because `ValueProvider` is legacy Classic template API.
-  - **DO NOT** create `PipelineOptions` or command-line parameters for node configuration properties (such as JDBC URL, username, password, driverClassName, queries, table names, fetch size, batch size, delimiters, file patterns, BigQuery tables, Pub/Sub topics/subscriptions, etc.).
-  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties MUST be hardcoded directly into the pipeline transform calls in Java (e.g. `.withDataSourceConfiguration(...)`, `.withTable("tableName")`, etc.).
-
-## Pipeline Instructions
-- Generate main java file name as "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java").
-- Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
+### Deliverable Constraints:
+- **File Scope**: Generate ONLY the 11 files listed above. Do not add extra utility classes, config loaders, CI files, linter configs, or example data files.
+- **Output Budget**: The `README.md` MUST be under 150 lines and contain only these sections: Overview, Prerequisites, Build, Run Locally, Deploy to Dataflow, and Runtime Parameters. Do not restate pipeline source code or add narrative marketing boilerplate.
+- **Main Java Filename**: Generate main java file name as "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java").
+- **System Instructions**: Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
 - **Step Names**: Use the node's `label` attribute as the step name in the Java Beam pipeline (e.g. `p.apply("<label>", ...)`). If a node has a customized label, you MUST use that exact string as the step name. If the label is a default transform name, provide a clean, descriptive step name adhering to Apache Beam best practices.
-- If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
-- Use the latest version of all libraries.
+- **Unconnected Outputs**: If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
+- **Library Versions**: Use the exact versions pinned in the canonical `pom.xml` baseline and in the per-connector dependency lists below. Do NOT invent, guess, or "upgrade to latest" a version number. If a library you need is not pinned anywhere in this prompt, choose a version whose API you are certain matches the code you are writing, and pin it explicitly in `pom.xml`. A version pinned in `pom.xml` that does not expose the methods called from the Java source is a build-breaking error.
 
-## Compile instructions
-- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
-- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
+---
 
-Language: Java
+## 2. Output Contract & Placeholder Glossary
+
+### Output Contract
+- Return every file in the `files` array matching the JSON schema.
+- `filename` is relative to the output root, using forward slashes, with NO leading pipeline-name folder and no `./` or `../` prefix.
+- Set `executable: true` for all `.sh` scripts, `false` for all other files.
+- `content` must be the complete final file text. Never use "..." or "unchanged" elisions.
+
+### Placeholder Glossary — You MUST Replace These:
+The reference templates and the canonical `pom.xml` baseline contain literal placeholder tokens. Replace EVERY occurrence across all generated files:
+- `{{pipeline_class_name}}` -> PascalCase Java class name (e.g. `JdbcToJdbcPipeline`).
+- `{{pipeline_name}}` -> kebab-case pipeline base name (e.g. `jdbc-to-jdbc-pipeline`).
+- `{{gcs_staging_path}}` -> `jobConfig.gcsStagingPath` from YAML; if empty or blank, use `gs://${PROJECT_ID}-dataflow/staging`.
+- No `{{...}}` placeholder token may remain in any generated file.
+
+## Credential Handling Rules (GLOBAL - applies to every transform)
+
+Credentials are never stored inline in the pipeline definition. A node configures
+authentication in one of two ways, and you MUST inspect each node's properties to tell
+them apart:
+
+1. **Secret Manager reference (preferred).** The node has `authMode: secretManager` and/or
+   a property whose name ends in `Secret` -- for example `passwordSecret`,
+   `accessKeySecret` -- or a `secretName` property. The VALUE of that property is the
+   SHORT ID of a Google Cloud Secret Manager secret. It is NOT the credential.
+   - You MUST generate code that resolves the secret at runtime.
+   - Required import: `com.google.cloud.secretmanager.v1.SecretManagerServiceClient`,
+     `com.google.cloud.secretmanager.v1.SecretVersionName`
+   - Required Maven dependency:
+     ```xml
+     <dependency>
+       <groupId>com.google.cloud</groupId>
+       <artifactId>google-cloud-secretmanager</artifactId>
+     </dependency>
+     ```
+     (the `libraries-bom` already manages its version if present; otherwise pin one)
+   - Resolve the secret ONCE at pipeline construction time, in `main`, never inside a
+     `DoFn`. A `DoFn` runs per element and per worker, and `SecretManagerServiceClient`
+     is not serializable -- fetching there would both break serialization and issue one
+     API call per record.
+   - Use this shape:
+     ```java
+     /** Reads the payload of a Secret Manager secret. */
+     private static String accessSecret(String projectId, String secretId) throws IOException {
+       try (SecretManagerServiceClient client = SecretManagerServiceClient.create()) {
+         SecretVersionName name = SecretVersionName.of(projectId, secretId, "latest");
+         return client.accessSecretVersion(name).getPayload().getData().toStringUtf8();
+       }
+     }
+     ```
+   - Assign the resolved value to a `final String` local in `main` and pass that into the
+     transform where the plaintext property would otherwise have gone. For example, a
+     JdbcIO node with `passwordSecret: prod-db-pw` becomes
+     `.withPassword(accessSecret(projectId, "prod-db-pw"))`.
+   - Derive `projectId` from the pipeline options (`options.getProject()`). Do NOT hardcode it.
+
+2. **Pipeline Options / Parameterized Credentials (when credentials exist in YAML properties)**:
+   - **CRITICAL ZERO-PLAINTEXT MANDATE**: NEVER embed plaintext database passwords, connection secrets, auth tokens, or private keys as string literals in Java source code or `DataSourceConfiguration` calls (e.g. NEVER write `.withPassword("dbpswrd123")` or `.withUsername("dbuser123")`).
+   - **NO DEFAULT VALUE ANNOTATIONS ON PASSWORDS**: NEVER use `@Default.String(...)` or any default value annotation for sensitive password options in the `PipelineOptions` interface. Secrets must NOT have hardcoded defaults in the code.
+   - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
+     - **Parameterize via `PipelineOptions`**: Expose these credential properties as configurable options in the custom `PipelineOptions` interface without default annotations (e.g., `String getSourceDbUsername(); void setSourceDbUsername(String value);`, `String getSourceDbPassword(); void setSourceDbPassword(String value);`, and similarly for sink nodes, e.g. `String getSinkDbUsername(); void setSinkDbUsername(String value);`, `String getSinkDbPassword(); void setSinkDbPassword(String value);`, or `getDbUsername()` / `getDbPassword()` if a single DB).
+     - Pass the values from `options` into the transform (e.g. `.withUsername(options.getSourceDbUsername()).withPassword(options.getSourceDbPassword())`).
+      - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`, and always specify `"isSecret": true` in addition to `"isOptional": false` for any credential, password, token, or private key parameter to ensure sensitive values are masked in Dataflow UI and execution logs).
+      - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
+        ```bash
+        : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
+        ```
+        Then pass `--sourceDbPassword="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
+      - This rule is an explicit exception to the "only runtimeVariables in PipelineOptions" rule: sensitive credentials MUST be parameterized via `PipelineOptions` to ensure zero plaintext secrets in code and scripts.
+
+**MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
+plaintext property of the same name and use the Secret Manager path.
+
+**REDACTED VALUES**: if a property value is exactly `__REDACTED_BY_BEAM_DESIGNER__`, that is
+a placeholder, not a credential. Never emit it as a string literal. Read the value from an
+environment variable named after the property in upper snake case via `System.getenv(...)`
+and add a brief comment noting that the operator must supply it.
 
 ## Built-in Beam Transform Rules & Syntax Reference
 - **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
 - **NO CUSTOM `DoFn` / `ParDo` CLASSES**: For any node specifying a `beam_transform` attribute, you **MUST** use the native Apache Beam built-in `PTransform` from the SDK syntax table below. Writing custom `DoFn` or `ParDo` classes is **STRICTLY FORBIDDEN** unless explicit custom logic is requested in a node's `system_instructions`.
 
-### Java SDK Syntax & Behavioral Reference:
+---
 
-#### 1. Sources & Sinks (I/O Connectors)
-- **`PubSubIO`**:
-  - Source: `PubsubIO.readStrings().fromSubscription(...)` / `fromTopic(...)`
+## 3. Core Architecture & Coding Rules
+
+### A. Runtime Variables vs. Hardcoded Node Configuration
+- **RUNTIME VARIABLES & SENSITIVE CREDENTIAL PARAMETERIZATION**:
+  - `PipelineOptions`, `metadata.json`, and runner scripts MUST include:
+    1. All variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`).
+    2. Any sensitive credentials (such as JDBC database passwords and usernames) present in node properties, parameterized as described in the Credential Handling Rules above.
+  - **HARDCODE NON-SENSITIVE NODE PROPERTIES**: Non-sensitive node configuration values (JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Java. NEVER expose non-sensitive properties as `PipelineOptions`. NEVER hardcode passwords or sensitive credentials directly in code.
+- **Reserved Option Name Safety & Remapping**:
+  - **NEVER use reserved Beam option names**: `jobId`, `jobName`, `project`, `tempLocation`, `gcpTempLocation`, `runner`, `appName` are reserved by Apache Beam / Dataflow. Declaring `getJobId()` in a custom `PipelineOptions` interface causes fatal `IllegalArgumentException: Expected getter for property [jobId] to be marked with @Default on all ... DataflowWorkerHarnessOptions`.
+  - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipelineJobId` consistently across ALL artifacts:
+    - `PipelineOptions` interface: `String getPipelineJobId(); void setPipelineJobId(String value);`
+    - `metadata.json` parameter `"name"`: `"pipelineJobId"`
+    - `run_directrunner.sh` arguments: `--pipelineJobId="value"`
+    - `run_sparkrunner.sh` arguments: `--pipelineJobId="value"`
+    - `run_dataflowrunner.sh` parameters: `pipelineJobId="value"`
+  - Convert all other runtime variables from YAML into standard camelCase (e.g. `NUM_OBJECTS_PER_ITERATION` -> `numObjectsPerIteration`, getter: `getNumObjectsPerIteration()`, setter: `setNumObjectsPerIteration(Integer value)`).
+  - Use standard typed getters/setters on `PipelineOptions`. Do NOT use `ValueProvider<T>` (deprecated legacy Classic template API).
+  - Ensure that ALL runtime variables defined in YAML are supplied with default values in `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh`.
+
+### B. Node Instruction Fields vs Hardcoded Config
+- `data.system_instructions` and `data.properties.codeGenerationPrompt` (or `data.properties.prompt`) contain natural-language descriptions of the logic this node must implement.
+  - Treat them as implementation instructions: generate Java code that fulfills them.
+  - NEVER emit them as string literals, configuration values, or comment-only stubs.
+  - They are EXEMPT from the "hardcode all node properties" rule.
+  - If they conflict with default behaviors in the reference table below, the node's instructions win.
+- **NO SCHEMA GUESSING / HALLUCINATION**: Do NOT invent, assume, or hardcode payload schema fields based on topic, subscription, dataset, or table names (for example, do NOT assume a subscription named with "object-finalize" carries specific GCS file metadata keys like `bucket`, `name`, `size`, `timeCreated`). Unless explicit schema fields are specified in `system_instructions` or `codeGenerationPrompt`, ALWAYS parse payloads generically across all fields.
+
+### C. Runtime Variable Interpolation
+- Any `${VAR_NAME}` token inside a node's properties or instructions refers to the runtime variable `VAR_NAME` from `runtimeVariables`.
+- Replace it with a read of the corresponding `PipelineOptions` getter using camelCase (e.g. `${NUM_OBJECTS_PER_ITERATION}` -> `options.getNumObjectsPerIteration()`). NEVER hardcode the default value of an interpolated `${VAR_NAME}`.
+
+### D. Custom `DoFn` Policy
+- **PREFER BUILT-IN TRANSFORMS**: If a node's `beam_transform` appears in the SDK Syntax Reference below, use that built-in `PTransform`. Do NOT reimplement it as a custom `DoFn`.
+- **WHEN A CUSTOM `DoFn` IS REQUIRED**: Write a custom `DoFn` ONLY in these cases:
+  1. `beam_transform` is `ParDo` or `ParseMessage` (multi-output branching parser).
+  2. The node has `system_instructions` or `codeGenerationPrompt` describing custom business logic.
+  3. A built-in transform requires a user-supplied function argument (`Filter.by`, `MapElements.via`, `WithKeys.of`, `JdbcIO.PreparedStatementSetter`/`RowMapper`), or type adaptation is needed between two built-ins.
+- Define custom `DoFn` classes as `static` nested classes inside the main pipeline class, or as concise inline lambdas. Do NOT create separate helper source files.
+
+### E. Type Propagation & End-to-End Edge Compatibility
+- **MANDATORY EDGE TYPE ALIGNMENT**: Every edge in the input YAML connects a `source` node to a `target` node. When generating code, you MUST inspect both:
+  1. **Upstream Output Type ($T_{in}$)**: The Java type emitted by the predecessor node (see Section 4).
+  2. **Downstream Expected Input Type ($T_{out}$)**: The Java type consumed by the successor node (see Section 4).
+- **Intermediate Transform Bridging**: Any intermediate step (`ParseMessage`, `ParDo`, `Map`, `Filter`) MUST explicitly bridge $T_{in} \rightarrow T_{out}$ to match the downstream connector's expected input type as defined in Section 4. (For example, BigQuery sinks require `TableRow`, Kafka sinks require `KV<K, V>`, Parquet sinks require `GenericRecord`, Text/PubSub sinks require `String`, etc.).
+- **Automatic Adapters for Direct Incompatible Edges**: If an edge in the YAML directly connects a source to a sink with incompatible types without an intermediate transformation (e.g. `PubsubIO.readStrings()` producing `String` connected directly to `BigQueryIO.writeTableRows()` requiring `TableRow`), you MUST automatically insert a clean mapping step (such as `MapElements` converting `String` to `TableRow`) between them so the Java pipeline is strictly type-safe and compilable.
+
+### F. Transform Naming & Uniqueness
+- Every step name in `.apply("<step_name>", ...)` MUST be non-empty and **globally unique** across the pipeline.
+- Use `data.label` as the step name. If multiple nodes share the same label or if the label equals the default transform name, append a distinct qualifier or node ID (e.g. `Filter Valid Records (node_2)`) to prevent `IllegalArgumentException: A transform with name '...' already exists in the pipeline`.
+
+### G. Streaming vs. Batch Detection
+- If the pipeline contains streaming sources (`PubsubIO`, `KafkaIO`, `MqttIO`, `PeriodicImpulse`, unbounded `GenerateSequence`), configure the pipeline for streaming:
+  - Pass `--streaming=true` in `run_directrunner.sh`.
+  - When creating `PipelineOptions`, ensure streaming options can be configured.
+
+### H. Separation of Runner Scripts and Unit Tests
+- `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh` MUST ONLY execute the main pipeline class. They must **NEVER** run unit tests (`mvn test`).
+- Unit tests live strictly in `src/test/java/com/example/<PipelineName>Test.java` and use Beam's `TestPipeline` and `PAssert`.
+
+### I. Code Documentation & Quality
+- Include author and class documentation header on the main class:
+  ```java
+  /**
+   * Pipeline: <PipelineName>
+   * Description: <Pipeline Description>
+   * Author: Mike Nimer <mikenimer@google.com>
+   */
+  ```
+- Fail fast: Do NOT add undocumented fallbacks or silently swallow exceptions.
+
+---
+
+## 4. Built-in Beam Transform Syntax & Import Reference
+
+### 1. Sources & Sinks (I/O Connectors)
+- **`PubsubIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.gcp.pubsub.PubsubIO`
+  - Source: `PubsubIO.readStrings().fromTopic(...)` or `PubsubIO.readStrings().fromSubscription(...)`
   - Sink: `PubsubIO.writeStrings().to(...)`
-- **`GenerateSequence`**:
-  - Required Imports: `org.apache.beam.sdk.io.GenerateSequence`, `org.joda.time.Duration`
-  - Bounded (fixed range from start to stop): `GenerateSequence.from(start).to(stop)` (e.g. `GenerateSequence.from(0).to(10)`)
-  - Unbounded (infinite stream from start): `GenerateSequence.from(start)` (e.g. `GenerateSequence.from(0)`)
-  - Rate Limiting: `.withRate(elementsPerPeriod, Duration.standardSeconds(periodSeconds))` (or `Duration.millis(...)`)
-  - Max Read Time: `.withMaxReadTime(Duration.standardSeconds(maxReadTimeSeconds))`
-- **`PeriodicImpulse`**:
-  - Required Imports: `org.apache.beam.sdk.transforms.PeriodicImpulse`, `org.joda.time.Duration`, `org.joda.time.Instant`
-  - Unbounded (infinite stream): `PeriodicImpulse.create().startAt(Instant.now()).withInterval(Duration.standardSeconds(intervalSeconds))`
-  - Bounded / With Duration: `PeriodicImpulse.create().startAt(Instant.now()).stopAt(Instant.now().plus(Duration.standardSeconds(durationSeconds))).withInterval(Duration.standardSeconds(intervalSeconds))`
-  - With Custom Start/Stop: `PeriodicImpulse.create().startAt(Instant.ofEpochSecond(startTimestamp)).stopAt(Instant.ofEpochSecond(stopTimestamp)).withInterval(Duration.standardSeconds(intervalSeconds))`
-  - Catch Up Mode: `.catchUpToNow(true)`
 - **`BigQueryIO`**:
-  - Source: `BigQueryIO.readTableRows().from(...)` / `.fromQuery(...)`
-  - Sink: `BigQueryIO.writeTableRows().to(...)`
+  - Required Imports: `org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO`, `com.google.api.services.bigquery.model.TableRow`
+  - Source: `BigQueryIO.readTableRows().from(...)` or `.fromQuery(...)`
+  - Sink: `BigQueryIO.writeTableRows().to(tableSpec).withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER).withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)`
+  - *Note*: `BigQueryIO.readTableRows()` returns `BigQueryIO.TypedRead<TableRow>`, NOT `TypedRead<String>`.
 - **`TextIO`**:
   - Required Imports: `org.apache.beam.sdk.io.TextIO`, `org.apache.beam.sdk.io.Compression`, `org.apache.beam.sdk.io.fs.EmptyMatchTreatment`
-  - Source: `TextIO.read().from(filePattern)` (supports `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.withDelimiter(byte[])`, `.withSkipHeaderLines(int)`, `.withHintMatchesManyFiles()`)
-  - Sink: `TextIO.write().to(destinationPrefix)` (supports `.withSuffix(...)`, `.withNumShards(...)`, `.withoutSharding()`, `.withCompression(Compression.<TYPE>)`, `.withHeader(...)`, `.withFooter(...)`)
+  - Source: `TextIO.read().from(filePattern).withSkipHeaderLines(n)` (supports `.withCompression(...)`, `.withEmptyMatchTreatment(...)`, `.withDelimiter(byte[])`)
+  - Sink: `TextIO.write().to(destinationPrefix).withSuffix(".txt")` (supports `.withNumShards(...)`, `.withoutSharding()`)
 - **`FileIO`**:
-  - Required Imports: `org.apache.beam.sdk.io.FileIO`, `org.apache.beam.sdk.io.Compression`, `org.apache.beam.sdk.io.fs.EmptyMatchTreatment`, `org.joda.time.Duration`
-  - Match Source (`FileIO.match` / `FileIO.matchAll`): `FileIO.match().filepattern(filePattern)` (supports `.withEmptyMatchTreatment(EmptyMatchTreatment.<TREATMENT>)`, `.continuously(Duration.standardMinutes(...), Watch.Growth.never())`)
-  - Read Matches Step (`FileIO.readMatches`): `FileIO.readMatches()` (produces `PCollection<FileIO.ReadableFile>`, supports `.withCompression(Compression.<TYPE>)`, `.withDirectoryTreatment(FileIO.ReadMatches.DirectoryTreatment.<TREATMENT>)`)
-  - Sink (`FileIO.write`): `FileIO.<T>write().to(destinationDir)` (supports `.withPrefix(...)`, `.withSuffix(...)`, `.withCompression(Compression.<TYPE>)`, `.withNumShards(...)`, `.withIgnoreEmptyFiles(...)`)
+  - Required Imports: `org.apache.beam.sdk.io.FileIO`, `org.apache.beam.sdk.io.Compression`, `org.apache.beam.sdk.io.fs.EmptyMatchTreatment`
+  - Match Source: `FileIO.match().filepattern(pattern).withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW_IF_WILDCARD)`
+  - Read Matches: `FileIO.readMatches()` (produces `PCollection<FileIO.ReadableFile>`)
+  - Sink: `FileIO.<T>write().to(destinationDir).withSuffix(...)`
+- **`ParquetIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.parquet.ParquetIO`, `org.apache.avro.Schema`, `org.apache.avro.generic.GenericRecord`, `org.apache.parquet.hadoop.metadata.CompressionCodecName`
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-parquet` and `org.apache.parquet:parquet-avro:1.13.1`.
+  - Source: `ParquetIO.read(schema).from(filePattern)` (produces `PCollection<GenericRecord>`)
+  - Sink: `FileIO.<GenericRecord>write().via(ParquetIO.sink(schema).withCompressionCodec(CompressionCodecName.SNAPPY)).to(destinationDir).withSuffix(".parquet")`
+  - **Avro Schema Parsing (Directive J1)**: When transforming elements into Avro `GenericRecord` instances within a `DoFn` or mapper, parse the Avro Schema string once during initialization (e.g., in `@Setup` or constructor storing a `transient Schema` field), rather than calling `new Schema.Parser().parse(...)` repeatedly inside the per-element `apply`/`processElement` method.
 - **`Create`**:
-  - Source: `Create.of([...])`
+  - Required Imports: `org.apache.beam.sdk.transforms.Create`
+  - Source: `Create.of(Arrays.asList(...))`
+- **`GenerateSequence`**:
+  - Required Imports: `org.apache.beam.sdk.io.GenerateSequence`, `org.joda.time.Duration`
+  - Bounded: `GenerateSequence.from(start).to(stop)` (produces `PCollection<Long>`)
+  - Unbounded: `GenerateSequence.from(start).withRate(elementsPerPeriod, Duration.standardSeconds(periodSeconds))`
+- **`PeriodicImpulse`**:
+  - Required Imports: `org.apache.beam.sdk.transforms.PeriodicImpulse`, `org.joda.time.Duration`, `org.joda.time.Instant`
+  - Unbounded: `PeriodicImpulse.create().startAt(Instant.now()).withInterval(Duration.standardSeconds(intervalSeconds))`
+  - Bounded: `PeriodicImpulse.create().startAt(Instant.now()).stopAt(Instant.now().plus(Duration.standardSeconds(durationSeconds))).withInterval(Duration.standardSeconds(intervalSeconds))`
 - **`JdbcIO`**:
   - Required Imports: `org.apache.beam.sdk.io.jdbc.JdbcIO`
-  - Maven Dependencies:
-    - Always add `org.apache.beam:beam-sdks-java-io-jdbc` to `pom.xml`.
-    - Automatically add the corresponding database driver dependency to `pom.xml` based on the selected `driverClassName` / JDBC URL:
-      - PostgreSQL (`org.postgresql.Driver`): `<groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.3</version>`
-      - MySQL (`com.mysql.cj.jdbc.Driver`): `<groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><version>8.3.0</version>`
-      - Microsoft SQL Server (`com.microsoft.sqlserver.jdbc.SQLServerDriver`): `<groupId>com.microsoft.sqlserver</groupId><artifactId>mssql-jdbc</artifactId><version>12.6.1.jre11</version>`
-      - Oracle (`oracle.jdbc.driver.OracleDriver`): `<groupId>com.oracle.database.jdbc</groupId><artifactId>ojdbc11</artifactId><version>23.3.0.23.09</version>`
-      - SQLite (`org.sqlite.JDBC`): `<groupId>org.xerial</groupId><artifactId>sqlite-jdbc</artifactId><version>3.45.2.0</version>`
-      - Apache Derby (`org.apache.derby.jdbc.ClientDriver`): `<groupId>org.apache.derby</groupId><artifactId>derbyclient</artifactId><version>10.16.1.1</version>`
-  - Query vs Table Selection (Mutually Exclusive):
-    - When `selectType` is `table` or `tableName` is provided in properties:
-      - Use `JdbcIO.readRows().withDataSourceConfiguration(...).withTable(tableName)` (e.g., if `tableName` is `myUsers`, generate `.withTable("myUsers")`).
-      - Strictly use `.withTable(tableName)`. Do NOT use `.withQuery(...)` and do NOT invent custom schemas or `SELECT *` query strings.
-    - When `selectType` is `query` or `query` is provided in properties:
-      - Use `JdbcIO.readRows().withDataSourceConfiguration(...).withQuery(query)`.
-      - Do NOT use `.withTable(...)`.
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-jdbc` plus driver coordinate:
+    - PostgreSQL: `org.postgresql:postgresql:42.7.3`
+    - MySQL: `com.mysql:mysql-connector-j:8.3.0`
+    - SQL Server: `com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11`
+    - Oracle: `com.oracle.database.jdbc:ojdbc11:23.3.0.23.09`
+    - SQLite: `org.xerial:sqlite-jdbc:3.45.2.0`
+    - Apache Derby: `org.apache.derby:derbyclient:10.16.1.1`
   - Source (Read):
-    - Table Name:
-      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withTable(tableName)` (supports `.withFetchSize(int)`, `.withOutputParallelization(boolean)`)
-    - SQL Query:
-      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withQuery(query)` (supports `.withFetchSize(int)`, `.withOutputParallelization(boolean)`) or `JdbcIO.<T>read().withDataSourceConfiguration(...).withQuery(...).withRowMapper(...)`
-  - Sink (Write):
-    - When `selectType` is `statement` or `statement` is provided:
-      `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement(statement).withPreparedStatementSetter(...)` (supports `.withBatchSize(long)`, `.withAutoSharding()`)
-      - **CRITICAL SQL & PREPARED STATEMENT SETTER ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as the number of columns listed. If the input statement in the YAML has mismatched placeholders relative to columns (e.g., 3 columns with only 2 `?` placeholders), normalize the `?` placeholders to match the column count exactly.
-      - The `PreparedStatementSetter` lambda/method MUST set every single positional parameter `1` through `N` matching each `?` placeholder in the SQL statement.
     - When `selectType` is `table` or `tableName` is provided:
-      `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement("INSERT INTO " + tableName + " (col1, col2) VALUES (?, ?)").withPreparedStatementSetter(...)` (supports `.withBatchSize(long)`, `.withAutoSharding()`)
-- **`KafkaIO`**:
-  - Required Imports: `org.apache.beam.sdk.io.kafka.KafkaIO`, `org.apache.beam.sdk.io.kafka.KafkaRecord`, `org.apache.kafka.common.serialization.ByteArrayDeserializer`, `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.ByteArraySerializer`, `org.apache.kafka.common.serialization.StringSerializer`
-  - Maven Dependencies:
-    - Always add `org.apache.beam:beam-sdks-java-io-kafka` and `org.apache.kafka:kafka-clients` to `pom.xml`.
-  - Source (Read):
-    - Syntax: `KafkaIO.<K, V>read().withBootstrapServers(bootstrapServers).withTopic(topic).withKeyDeserializer(KeyDeserializer.class).withValueDeserializer(ValueDeserializer.class)` (or `.withTopics(Arrays.asList(...))` for multiple topics)
-    - **CRITICAL OUTPUT TYPE RULE**: By default, `KafkaIO.<K, V>read()` outputs `PCollection<KafkaRecord<K, V>>`. If downstream steps expect `KV<K, V>`, append `.withoutMetadata()` to the read builder so `KafkaIO.read()` outputs `PCollection<KV<K, V>>`, or handle `KafkaRecord<K, V>` in the downstream DoFn using `record.getKV().getValue()` / `record.getKV().getKey()`.
-    - Supports `.withConsumerConfigUpdates(Map<String, Object> configUpdates)` for consumer configurations (such as `group.id`, `auto.offset.reset`, `security.protocol`, etc.).
-    - Supports `.commitOffsetsInFinalize()` when `commitOffsetsInFinalize` is true.
-    - Supports `.withMaxNumRecords(long)` and `.withMaxReadTime(org.joda.time.Duration.standardSeconds(seconds))` when max records or max read time are specified.
+      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withTable(tableName)` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
+    - When `selectType` is `query` or `query` is provided:
+      `JdbcIO.readRows().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withQuery(query)`
+    - **Execution Controls (Directive J2)**: If `outputParallelization: true` (or `false`) is configured on a `JdbcIO` source node, append `.withOutputParallelization(true)` (or `false`) to the read transform builder.
   - Sink (Write):
-    - Syntax: `KafkaIO.<K, V>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(KeySerializer.class).withValueSerializer(ValueSerializer.class)`
-    - Supports `.withProducerConfigUpdates(Map<String, Object> configUpdates)` for producer configurations (such as `acks`, `retries`, `compression.type`, etc.).
-    - Supports `.withEOS(numPartitions, sinkGroupId)` when Exactly-Once Semantics (`useEOS`) is enabled. Note: When writing to Kafka, input PCollection must be `PCollection<KV<K, V>>` (e.g. using `WithKeys.of(...)` or `MapElements` to map values into KV pairs before writing).
+    - `JdbcIO.<T>write().withDataSourceConfiguration(JdbcIO.DataSourceConfiguration.create(driverClassName, url).withUsername(username).withPassword(password)).withStatement(statement).withPreparedStatementSetter((element, preparedStatement) -> { ... })` (where `username` and `password` are resolved from `options` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
+    - **Execution Controls (Directive J2)**: If `autosharding: true` is configured on a `JdbcIO` sink node, append `.withAutoSharding()` to the write transform builder.
+    - **CRITICAL SQL & PREPARED STATEMENT SETTER ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as columns. The `PreparedStatementSetter` lambda MUST set every positional parameter 1 through N matching each `?` placeholder in the SQL statement.
+- **`KafkaIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.kafka.KafkaIO`, `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.beam.sdk.values.KV`
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-kafka` and `org.apache.kafka:kafka-clients:3.6.1`.
+  - Source (Read): `KafkaIO.<String, String>read().withBootstrapServers(bootstrapServers).withTopic(topic).withKeyDeserializer(StringDeserializer.class).withValueDeserializer(StringDeserializer.class).withoutMetadata()` (produces `PCollection<KV<String, String>>`). If `groupId` or `kafkaGroupId` is specified in node properties, configure it with `.withConsumerConfigUpdates(ImmutableMap.of(ConsumerConfig.GROUP_ID_CONFIG, groupId))` or `.updateConsumerProperties(Map.of("group.id", groupId))`.
+  - Sink (Write): `KafkaIO.<String, String>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(StringSerializer.class).withValueSerializer(StringSerializer.class)`. If `useEOS: true` is specified in node properties, configure exactly-once semantics via `.withEOS(numShards, sinkGroupId)`.
+- **`SnsIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.aws2.sns.SnsIO`, `software.amazon.awssdk.services.sns.model.PublishRequest`
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` and `software.amazon.awssdk:sns:2.25.16`.
+  - Sink (Write): `SnsIO.write().to(topicArn)` (payload elements mapped to `PublishRequest`)
+  - *Note*: `SnsIO` is write-only. If a node specifies SNS as a source, ingest via an Amazon SQS subscription queue (`SqsIO.read().withQueueUrl(...)`) or bridged GCP Pub/Sub topic (`PubsubIO.readStrings().fromTopic(...)`).
+- **`SqsIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.aws2.sqs.SqsIO`, `software.amazon.awssdk.services.sqs.model.Message`
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` and `software.amazon.awssdk:sqs:2.25.16`.
+  - Source (Read): `SqsIO.read().withQueueUrl(queueUrl)` (produces `PCollection<Message>`, body via `message.body()`)
+  - Sink (Write): `SqsIO.write().withQueueUrl(queueUrl)`
+- **`MqttIO`**:
+  - Required Imports: `org.apache.beam.sdk.io.mqtt.MqttIO`
+  - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-mqtt`.
+  - Connection: `MqttIO.ConnectionConfiguration.create(serverUri, topic).withClientId(clientId).withUsername(username).withPassword(password)`
+  - Source (Read): `MqttIO.read().withConnectionConfiguration(connConfig)` (produces `PCollection<byte[]>`)
+  - Sink (Write): `MqttIO.write().withConnectionConfiguration(connConfig)`
 
-#### 2. Element-Wise Transforms
-- **`WithTimestamps`** (Add Timestamp):
-  - Syntax: `WithTimestamps.of((element) -> org.joda.time.Instant.now())` or `WithTimestamps.of(...)`
-  - Default Instruction: Attach current system time (`Instant.now()`) to each element/message unless custom `system_instructions` are provided.
-- **`Filter`**:
-  - Syntax: `Filter.by(...)`
-  - Default Instruction: Create a custom function with a todo comment and return true unless custom `system_instructions` are provided.
+### 2. Element-Wise Transforms
+- **`Map`**:
+  - Syntax: `MapElements.into(TypeDescriptors.strings()).via((String x) -> x.toUpperCase())`
+  - **TypeDescriptor Rule**: ALWAYS specify `TypeDescriptors.*` (or `new TypeDescriptor<T>() {}`) to prevent runtime `Unable to return a default Coder for MapElements` exceptions.
 - **`FlatMap`**:
   - Syntax: `FlatMapElements.into(TypeDescriptors.strings()).via((String x) -> Arrays.asList(x.split(",")))`
-- **`Keys`**:
-  - Syntax: `Keys.create()`
+- **`Filter`**:
+  - Syntax: `Filter.by((SerializableFunction<T, Boolean>) element -> true)`
+- **`WithTimestamps`**:
+  - Syntax: `WithTimestamps.of((SerializableFunction<T, org.joda.time.Instant>) element -> org.joda.time.Instant.now())`
+- **`Keys`**: `Keys.create()`
+- **`Values`**: `Values.create()`
 - **`KVMapper`**:
-  - Syntax: `WithKeys.of(...)`
-  - Default Instruction: Map incoming dictionary/object into a `(key, value)` tuple using the configured key property (defaults to `'id'`).
-- **`KvSwap`**:
-  - Syntax: `KvSwap.of()`
-  - Default Instruction: Swap key and value of incoming `(K, V)` pairs into `(V, K)`.
-- **`Map`**:
-  - Syntax: `MapElements.into(...).via(...)`
-- **`ToString`**:
-  - Syntax: `ToString.elements()` / `ToString.kvs()`
-- **`Values`**:
-  - Syntax: `Values.create()`
+  - Syntax: `WithKeys.of((SerializableFunction<T, String>) element -> "key")`
+- **`KvSwap`**: `KvSwap.of()`
+- **`ToString`**: `ToString.elements()` or `ToString.kvs()`
 
-#### 3. Aggregations & Combining
-- **`ApproximateQuantiles`**:
-  - Syntax: `ApproximateQuantiles.globally(...)` / `.perKey(...)`
-- **`ApproximateUnique`**:
-  - Syntax: `ApproximateUnique.globally(...)` / `.perKey(...)`
-- **`BatchElements`**:
-  - Syntax: `BatchElements.of(...)`
-- **`CoGroupByKey`**:
-  - Syntax: `CoGroupByKey.create()`
-- **`Combine`**:
-  - Syntax: `Combine.globally(...)` / `Combine.perKey(...)`
-- **`CombineWithContext`**:
-  - Syntax: `Combine.globally(...)`
-- **`Count`**:
-  - Syntax: `Count.perElement()` / `Count.perKey()` / `Count.globally()`
-- **`Distinct`**:
-  - Syntax: `Distinct.create()`
-- **`GroupByKey`**:
-  - Syntax: `GroupByKey.create()`
-- **`GroupIntoBatches`**:
-  - Syntax: `GroupIntoBatches.ofSize(...)`
-- **`Latest`**:
-  - Syntax: `Latest.perKey()` / `Latest.globally()`
-- **`Max`**:
-  - Syntax: `Max.integersPerKey()` / `Max.doublesPerKey()` / `Max.globally(...)`
-- **`Mean`**:
-  - Syntax: `Mean.perKey()` / `Mean.globally()`
-- **`Min`**:
-  - Syntax: `Min.integersPerKey()` / `Min.doublesPerKey()` / `Min.globally(...)`
-- **`Sample`**:
-  - Syntax: `Sample.fixedSizeGlobally(...)` / `Sample.fixedSizePerKey(...)`
-- **`Sum`**:
-  - Syntax: `Sum.integersPerKey()` / `Sum.doublesPerKey()` / `Sum.globally(...)`
-- **`Top`**:
-  - Syntax: `Top.largest(...)` / `Top.smallest(...)`
+### 3. Aggregations & Combining
+- **`Count`**: `Count.perElement()`, `Count.perKey()`, `Count.globally()`
+- **`GroupByKey`**: `GroupByKey.create()`
+- **`GroupIntoBatches`**: `GroupIntoBatches.ofSize(batchSize)`
+- **`CoGroupByKey`**: `CoGroupByKey.create()`
+- **`Combine`**: `Combine.globally(...)` or `Combine.perKey(...)`
+- **`Distinct`**: `Distinct.create()`
+- **`Max`**: `Max.integersPerKey()`, `Max.doublesPerKey()`, `Max.globally(...)`
+- **`Min`**: `Min.integersPerKey()`, `Min.doublesPerKey()`, `Min.globally(...)`
+- **`Mean`**: `Mean.perKey()`, `Mean.globally()`
+- **`Sum`**: `Sum.integersPerKey()`, `Sum.doublesPerKey()`, `Sum.globally(...)`
+- **`Latest`**: `Latest.perKey()`, `Latest.globally()`
+- **`Sample`**: `Sample.fixedSizeGlobally(n)` or `Sample.fixedSizePerKey(n)`
+- **`Top`**: `Top.largest(n)` or `Top.smallest(n)`
+- **`BatchElements`**: `BatchElements.of()`
+- **`ApproximateQuantiles`**: `ApproximateQuantiles.globally(numQuantiles)`
 
-#### 4. Windowing, Parsing & Utility Transforms
+### 4. Windowing, Utility & Dangling Outputs
 - **`WindowInto`**:
-  - Syntax: `Window.into(FixedWindows.of(...))` / `SlidingWindows` / `Sessions`
+  - Required Imports: `org.apache.beam.sdk.transforms.windowing.Window`, `org.apache.beam.sdk.transforms.windowing.FixedWindows`, `org.joda.time.Duration`
+  - Syntax: `Window.into(FixedWindows.of(Duration.standardMinutes(minutes)))`
 - **`ParseMessage`**:
-  - Parse Pub/Sub bytes string into JSON / String / Base64.
+  - Required Imports: `com.fasterxml.jackson.databind.ObjectMapper`, `com.fasterxml.jackson.databind.JsonNode`, `org.apache.beam.sdk.transforms.DoFn`, `org.apache.beam.sdk.values.TupleTag`, `org.apache.beam.sdk.values.TupleTagList`, `org.apache.beam.sdk.values.PCollectionTuple`
+  - Tagged Outputs: If downstream edges connect to `valid` and `error` handles, implement a static nested `DoFn` declaring `TupleTag<T> VALID_TAG = new TupleTag<T>() {};` (where `T` is `TableRow` for BigQuery or `String`/`Map`) and `TupleTag<String> ERROR_TAG = new TupleTag<String>() {};`. Apply via `ParDo.of(new ParseMessageDoFn()).withOutputTags(VALID_TAG, TupleTagList.of(ERROR_TAG))`.
+  - **GENERIC JSON PARSING RULE (CRITICAL)**: When parsing JSON into `TableRow` (for BigQuery) and NO explicit schema is defined in `codeGenerationPrompt` or `system_instructions`, **ALWAYS parse all JSON fields generically**:
+    ```java
+    JsonNode root = mapper.readTree(message);
+    TableRow row = new TableRow();
+    if (root.isObject()) {
+        root.fields().forEachRemaining(entry -> {
+            JsonNode val = entry.getValue();
+            row.set(entry.getKey(), val.isValueNode() ? val.asText() : val.toString());
+        });
+    }
+    ```
+    **NEVER** hardcode specific field names (such as `bucket`, `name`, `size`, `timeCreated`) based on topic or subscription names!
 - **`LogMessage`**:
-  - Syntax: `ParDo.of(new LogDoFn())`
-
-#### 5. Other Transforms
+  - Syntax: `MapElements.into(TypeDescriptors.strings()).via((String x) -> { org.slf4j.LoggerFactory.getLogger("Pipeline").info("Log: {}", x); return x; })`
 - **`Flatten`**:
   - Syntax: `PCollectionList.of(pcoll1).and(pcoll2).apply(Flatten.pCollections())`
-  - Rules: Merges multiple `PCollection` objects containing elements of the same data type into a single logical `PCollection`. Input `PCollection` objects are combined into a `PCollectionList` before applying `Flatten.pCollections()`.
-- **`Reshuffle`** / **`ReShuffle`**:
+- **`Reshuffle`**:
   - Syntax: `Reshuffle.of()`
-  - Rules: Redistributes elements across workers by assigning temporary random keys to break runner stage fusion and balance parallel workload.
+- **Global Fallback Rule**: If a transform requires a function argument that the node's properties and instructions do not specify, generate an identity/pass-through implementation with a `// TODO:` comment. Never invent business logic.
+- **Dangling Branches**: If a node produces a `PCollection` that no downstream edge consumes, append a simple logging step so the branch terminates cleanly in a sink.
 
-Language: Java
+---
 
-Pipeline YAML:
-```yaml
-{{pipeline}}
-```
+## 5. Build, Dependency & Metadata Specifications
 
-## Reference File Templates
-Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as class names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
+### A. Canonical `pom.xml` Baseline
+Use this exact XML structure as the single source of truth for the generated `pom.xml`.
+- **STRICT DEPENDENCY VERSIONS**: Use ONLY the exact versions pinned in this baseline and the connector list. NEVER invent, guess, or "upgrade to latest" a version number.
 
-### Dockerfile Template
-```
-{{dockerfile_template}}
-```
-
-### 'run_directrunner.sh' Template
-```
-{{run_directrunner_template}}
-```
-
-### 'run_dataflowrunner.sh' Template
-```
-{{run_dataflowrunner_template}}
-```
-
-### 'run_sparkrunner.sh' Template
-```
-{{run_sparkrunner_template}}
-```
-
-## Template Customization Rules
-- **Template Substitution**: Use the provided static templates below as exact baselines for Dockerfile, `run_directrunner.sh`, `run_dataflowrunner.sh`, and `run_sparkrunner.sh`. Fill in placeholders matching the pipeline base name and package class name.
-- **`jobConfig` Mapping**:
-  - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` and `run_sparkrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
-  - Pre-fill `--subnetwork` in Dataflow/Spark run scripts using `jobConfig.subnetwork` from the input YAML (for Spark Dataproc, format URI as `projects/${PROJECT_ID}/${subnetwork}`).
-- **`PipelineOptions` CLI Argument Casing**: In Apache Beam Java, command-line arguments map directly to the camelCase getter/setter name on the `PipelineOptions` interface (e.g., `getJobId()` -> `--jobId=...`, `getNumObjectsPerIteration()` -> `--numObjectsPerIteration=...`). In all generated scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ALWAYS pass arguments using the exact camelCase property name (e.g. `--jobId=...`, `--numObjectsPerIteration=...`), **NEVER** in UPPERCASE (like `--JOB_ID` or `--NUM_OBJECTS_PER_ITERATION`), which causes `IllegalArgumentException: Class interface missing a property named 'JOB_ID'`.
-
-## Language SDK Best Practices & Gotchas
-
-### Java Projects
-- **Strict XML Syntax (`pom.xml`)**: Ensure strictly valid XML with all tags properly opened and closed (e.g. `<build><plugins>...</plugins></build></project>`).
-- **Canonical `pom.xml` Baseline**: Use the following structure as the baseline for all generated `pom.xml` files:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -281,6 +360,11 @@ Use the following static templates as exact starting points when generating the 
         <dependency>
             <groupId>org.apache.beam</groupId>
             <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
             <version>${beam.version}</version>
         </dependency>
         <dependency>
@@ -390,6 +474,10 @@ Use the following static templates as exact starting points when generating the 
   - Use `TextIO.read().from(...).withSkipHeaderLines(n)` (the method is named `.withSkipHeaderLines(int)`, NOT `.skipHeaderLines(int)`).
   - Use `.withDelimiter(byte[])`, `.withCompression(Compression.<TYPE>)`, `.withEmptyMatchTreatment(EmptyMatchTreatment.<TYPE>)`, and `.withHintMatchesManyFiles()`.
 - **Jackson Dependency Alignment**: Explicitly declare `com.fasterxml.jackson.core:jackson-core`, `jackson-databind`, and `jackson-annotations` version `2.15.3` (or higher) in `pom.xml` to avoid runtime `NoClassDefFoundError: StreamReadConstraints`.
+- **Datafaker (mock / synthetic data generation)**: When the pipeline generates mock data with Datafaker, pin `<groupId>net.datafaker</groupId><artifactId>datafaker</artifactId><version>2.7.0</version>`. The date API changed between releases, so the pinned version and the called method MUST agree:
+  - `faker.timeAndDate()` returns `net.datafaker.providers.base.TimeAndDate`; `past(long, TimeUnit)` returns `java.time.Instant`, whose `toString()` is ISO-8601 (`2025-03-12T10:15:30Z`). This accessor does NOT exist in Datafaker 2.1.0 and calling it there fails with `cannot find symbol: method timeAndDate()`.
+  - `faker.date()` returns `net.datafaker.providers.base.DateAndTime`; `past(int, TimeUnit)` returns `java.sql.Timestamp`, whose `toString()` is space-separated (`2025-03-12 10:15:30.123`), NOT ISO-8601.
+  - Prefer `faker.timeAndDate()` for any value written as a timestamp to BigQuery, because ISO-8601 is the canonical literal format. Do NOT mix: `timeAndDate()` requires the 2.7.0 pin above.
 - **Testing & Hamcrest Dependencies**: Include `org.hamcrest:hamcrest:2.2` at compile/runtime scope (do NOT place Hamcrest under `<scope>test</scope>` because Beam's SparkRunner registers `TestSparkPipelineOptions` which requires `org.hamcrest.Matcher` at runtime when `PipelineOptionsFactory` initializes). Unit testing dependencies like `junit:junit:4.13.2` and `org.junit.vintage:junit-vintage-engine:${junit.version}` can be under `<scope>test</scope>`.
 - **Maven Shade Plugin Output & Filters**: Set `<outputFile>${project.build.directory}/main.jar</outputFile>` in `maven-shade-plugin`. Always configure `<filter><artifact>*:*</artifact><excludes><exclude>META-INF/*.SF</exclude><exclude>META-INF/*.DSA</exclude><exclude>META-INF/*.RSA</exclude></excludes></filter>` (with no spaces in `*:*`) to strip signed JAR digests and prevent `SecurityException: Invalid signature file digest`.
 - **Coders**: Avoid returning `PCollection<Map<String, Object>>` without an explicit coder. Use `.setCoder(...)` or Beam `Row` schema (`PCollection<Row>`).
@@ -398,8 +486,131 @@ Use the following static templates as exact starting points when generating the 
 - **JdbcIO Write Statement Placeholders**: When using `withStatement(...)` with `JdbcIO.<T>write()`, always ensure the number of columns in the SQL statement, the number of `?` placeholders, and the parameters set in `PreparedStatementSetter` (index 1 to N) match 1-to-1.
 - **Side Output Emission**: Use `c.output(tag, value)` in `DoFn.ProcessContext`.
 
-## Documentation References
-- Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
-- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
-- Beam Flatten (Java): https://beam.apache.org/documentation/transforms/java/other/flatten/
-- Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates
+### B. `metadata.json` Flex Template Schema
+Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring parameters for YAML `runtimeVariables` and any parameterized credentials:
+- For any parameter that accepts passwords, auth tokens, connection secrets, or private keys, ALWAYS add `"isSecret": true` alongside `"isOptional": false` in the parameter definition to ensure Cloud Console UI masking and log redaction.
+```json
+{
+  "name": "{{pipeline_name}}",
+  "description": "Dataflow Flex Template for {{pipeline_name}}",
+  "parameters": [
+    {
+      "name": "pipelineJobId",
+      "label": "Pipeline Job ID",
+      "helpText": "Unique identifier for this pipeline execution run",
+      "isOptional": false
+    },
+    {
+      "name": "sourceDbPassword",
+      "label": "Source DB Password",
+      "helpText": "Database authentication password (masked in UI)",
+      "isOptional": false,
+      "isSecret": true
+    }
+  ]
+}
+```
+
+---
+
+## 6. Reference File Templates & Script Customization Rules
+
+Use the following static baselines to generate Dockerfile and runner scripts:
+
+### Dockerfile Template
+```
+{{dockerfile_template}}
+```
+- **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
+- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template.
+- **Container Hardening & Least Privilege**: The generated `Dockerfile` MUST include non-root least-privilege guidance. Provide the documented commented instructions demonstrating non-root execution (`# RUN chown -R 1000:1000 /template` and `# USER 1000:1000`) so operators in hardened environments have actionable guidance to enforce least privilege. Never emit a Dockerfile lacking non-root guidance.
+
+### 'run_directrunner.sh' Template
+```
+{{run_directrunner_template}}
+```
+- **Argument Placement**: In `run_directrunner.sh`, ALL runtime variables MUST go inside the `-Dexec.args="..."` string, space-separated (e.g. `-Dexec.args="--runner=DirectRunner --pipelineJobId=\"demo\" --numObjectsPerIteration=1"`). Arguments placed outside `-Dexec.args` are ignored by Maven.
+
+### 'run_dataflowrunner.sh' Template
+```
+{{run_dataflowrunner_template}}
+```
+- **Parameterized Image Tagging**: Use `IMAGE_TAG="${IMAGE_TAG:-latest}"` and `TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:${IMAGE_TAG}"` rather than hardcoding mutable `:latest` tags.
+- **Parameter Wiring**: Pass runtime variables to `gcloud dataflow flex-template run` via `--parameters` as comma-separated `key=value` pairs:
+  `--parameters pipelineJobId="demo",numObjectsPerIteration=1`
+- **Job Configuration & Scaling**: Inspect the YAML `jobConfig` block and translate all specified worker and scaling properties into gcloud runtime parameters or execution flags:
+  - If `jobConfig.machineType` is specified, add `--worker-machine-type="${MACHINE_TYPE:-<machineType>}"` (or pass to gcloud).
+  - If `jobConfig.minInstances` is specified, add `--num-workers="${MIN_INSTANCES:-<minInstances>}"`.
+  - If `jobConfig.maxInstances` is specified, add `--max-workers="${MAX_INSTANCES:-<maxInstances>}"`.
+- Supply `GCS_STAGING_PATH` from `jobConfig.gcsStagingPath` (if present in YAML) or default to `gs://${PROJECT_ID}-dataflow/staging`.
+- Pre-fill `SUBNETWORK` using `jobConfig.subnetwork` from YAML if provided.
+- **Subnetwork Flag Propagation (Directives J5, J6)**: When `jobConfig.subnetwork` is non-empty in the input YAML or `SUBNETWORK` is defined in the script header, ensure `--subnetwork="https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` is passed in `run_dataflowrunner.sh`. If `jobConfig.subnetwork` is empty or blank and no subnetwork is configured, omit the `--subnetwork` parameter flag from the `gcloud dataflow flex-template run` command.
+- **Multi-Line Command Integrity (Directive P5)**: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ensure that every intermediate line in multi-line shell commands (such as `gcloud dataflow flex-template build` and `gcloud dataflow flex-template run`) ends with an explicit line continuation backslash (`\`). Never leave an intermediate argument line without a trailing backslash.
+
+### 'run_sparkrunner.sh' Template
+```
+{{run_sparkrunner_template}}
+```
+- **Argument Placement**: Dataproc Serverless Spark batch passes main arguments after the `--` separator:
+  `-- --runner=SparkRunner --pipelineJobId="demo" --numObjectsPerIteration=1`
+- Format `--subnet` URI as `projects/${PROJECT_ID}/${SUBNETWORK}`.
+
+### 'cloudbuild.yaml' Template & Deterministic Tagging Rules
+Generate `cloudbuild.yaml` using deterministic image tagging with Cloud Build built-in substitutions:
+```yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}'
+substitutions:
+  _TAG: '${SHORT_SHA}'
+options:
+  logging: CLOUD_LOGGING_ONLY
+```
+- **Tag Determinism**: Default `_TAG` to `'${SHORT_SHA}'`. NEVER default `_TAG` to `'latest'`, as mutable tags break build reproducibility and trigger security vetos.
+
+---
+
+## 7. Final Self-Review Checklist
+Before outputting the final JSON `files` array, verify:
+1. No literal `{{...}}` placeholder remains in any generated file.
+2. Every runtime variable uses the identical camelCase name in the `PipelineOptions` interface, `metadata.json`, and all three runner scripts.
+3. No `PipelineOptions` getter uses a reserved name (`jobId`, `jobName`, `project`, `tempLocation`, `gcpTempLocation`, `runner`, `appName`).
+4. All imports are present; all dependency versions strictly match the pinned versions in `pom.xml`.
+5. `pom.xml` is well-formed XML and includes `beam-sdks-java-io-google-cloud-platform`.
+6. Every `?` in a JDBC SQL statement has a matching index in `PreparedStatementSetter`.
+7. Every transform step name in `.apply("<step_name>", ...)` is globally unique.
+8. Java class name, filename, Dockerfile main class, and `-Dexec.mainClass` all match in PascalCase.
+9. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Java source code or as `@Default.String(...)` annotations on password getters. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
+10. Container Hardening & Dockerfile Non-Root Guidance: Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. The generated `Dockerfile` MUST include non-root least-privilege guidance—either an active non-root user (`USER 1000:1000`) or the documented commented non-root instructions (`# RUN chown ...` / `# USER 1000:1000`) to prevent root privilege escalation.
+11. AvroIO Source Schemas: When an AvroIO source specifies `avroSchema` or schema path in its properties, always read Avro records using that configured schema (e.g. `new Schema.Parser().parse(...)` with the configured schema path/resource), and never substitute or conflate it with a downstream sink or intermediate projection schema.
+12. Java Import and Type Disambiguation: Never use Python/Kotlin-style import aliasing ('import ... as ...') in Java source files, as the 'as' keyword is illegal in Java import statements. When disambiguating between identically named classes across packages (such as 'java.time.Duration' vs. 'org.joda.time.Duration' or 'java.time.Instant' vs. 'org.joda.time.Instant'), import one canonical class and use fully-qualified type names (e.g. 'java.time.Duration.ofSeconds(...)') inline at point of use.
+13. KafkaIO Configuration: When configuring `KafkaIO.read()`, ensure all specified YAML node properties are mapped to the reader configuration. If `groupId` or `kafkaGroupId` is specified, configure the consumer group ID using `.withConsumerConfigUpdates(ImmutableMap.of(ConsumerConfig.GROUP_ID_CONFIG, "<groupId>"))` or `.updateConsumerProperties(Map.of("group.id", "<groupId>"))`.
+14. Distinct Queue Parameters: When generating AWS SqsIO/SnsIO transforms where a pipeline reads from an SQS queue (or SNS SQS subscription) and writes to an SQS queue, ensure distinct pipeline options are declared and bound (e.g. `sourceQueueUrl` vs `targetQueueUrl`). Never bind the sink target queue URL to the source reader transform.
+15. Specification Conformance & Transform Properties: All numeric batching or execution properties specified on nodes MUST be explicitly configured on the transform builder rather than merely declared in `PipelineOptions` and unused. Specifically:
+    - If `batchSize` is specified on sink nodes (such as SqsIO, PubsubIO, or JdbcIO), call `.withBatchSize(...)` or appropriate batching method.
+    - If `outputParallelization: true` (or `false`) is configured on a `JdbcIO` source node, call `.withOutputParallelization(true/false)`.
+    - If `autosharding: true` is configured on a `JdbcIO` sink node, call `.withAutoSharding()`.
+    - If `useEOS: true` is configured on a `KafkaIO` sink node, call `.withEOS(numShards, sinkGroupId)`.
+16. Deterministic Container Image Tagging: In `cloudbuild.yaml` and runner scripts (`run_dataflowrunner.sh`, `run_sparkrunner.sh`), avoid using bare mutable `:latest` tags alone. In `cloudbuild.yaml`, default substitution `_TAG` to `'${SHORT_SHA}'` (never `'latest'`). In runner scripts, default container image tags to a parameterized or deterministic tag variable (e.g., `:${IMAGE_TAG:-latest}`) to guarantee build reproducibility and artifact provenance.
+17. IO Parameterization via PipelineOptions: All IO source and sink endpoints (such as Pub/Sub topics/subscriptions, GCS paths, BigQuery tables, Kafka topics, and queues) defined in YAML node properties must be declared in the `PipelineOptions` interface with their YAML values provided via `@Default.String(...)`, rather than statically hardcoded in pipeline transforms.
+18. GroupIntoBatches Sharding: When preparing unkeyed elements for `GroupIntoBatches`, distribute elements across shards using a keying function (e.g., assigning a random integer key `ThreadLocalRandom.current().nextInt(numShards)` or deterministic hash) rather than using a single static key like `null` or a constant string, preventing worker partition hotspotting.
+19. Shell Script Variable Quoting: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), double-quote all variable references (e.g. `"$JAR_PATH"`, `"$PROJECT_ID"`, `"$IMAGE_TAG"`) to prevent word-splitting and execution errors on paths containing spaces.
+20. DLQ Logging vs Dead-Letter Storage: When routing failures to a Dead Letter Queue (DLQ), always route the complete original message (or error record containing the raw payload) to the DLQ sink for re-processing. However, when logging error details via application logging (e.g. `LOG.error()`), log only the error message, exception, and record ID/metadata—never dump unredacted raw message payloads to standard log streams to prevent PII and credential leakage.
+21. Multi-Line Command Integrity: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), ensure every intermediate line of multi-line shell commands ends with an explicit continuation backslash (`\`) to prevent syntax errors under `set -euo pipefail`.
+22. Subnetwork Flag Propagation: When `SUBNETWORK` is defined or `jobConfig.subnetwork` is specified in YAML, ensure `--subnetwork "https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` is passed in `run_dataflowrunner.sh`.
+23. Unit Test Fixture & Execution Integrity: When generating unit tests:
+    - Verify that test assertions and matchers strictly match the exact mock data values, keys, and types produced by the pipeline transforms given the test input fixtures. Never alter mock keys or values between input fixtures and expected assertion matchers.
+    - When testing custom DoFn classes or element parsers, ensure the test actually applies the transform (`ParDo.of(new CustomDoFn())` or calls the parsing method) to synthetic input data in the `TestPipeline` instead of trivially asserting identity on `Create.of(expectedRecords)` without executing the transformation logic.
+24. `.dockerignore` is generated to exclude `.git`, `target`, and `*.log` from the Docker build context.
+
+---
+
+## 8. Pipeline YAML Specification
+
+Convert this pipeline definition into the complete project deliverables:
+
+```yaml
+{{pipeline}}
+```

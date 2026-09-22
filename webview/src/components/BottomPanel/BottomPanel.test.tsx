@@ -8,7 +8,12 @@ vi.mock('./DeploymentTab', () => ({
   DeploymentTab: () => <div data-testid="deployment-tab">Deployment Content</div>
 }));
 vi.mock('./SourceCodeTab', () => ({
-  SourceCodeTab: ({ generatedCode }: any) => <div data-testid="source-code-tab">{generatedCode}</div>
+  SourceCodeTab: ({ generatedCode, tokenUsage }: any) => (
+    <div data-testid="source-code-tab">
+      {generatedCode}
+      {tokenUsage && <span data-testid="mock-token-usage">{tokenUsage.inputTokens}/{tokenUsage.outputTokens}</span>}
+    </div>
+  )
 }));
 
 describe('BottomPanel', () => {
@@ -40,7 +45,7 @@ describe('BottomPanel', () => {
     render(<BottomPanel {...mockProps} folderFiles={['pipeline.py', 'helper.py', 'requirements.txt']} />);
 
     expect(screen.getByText('DEPLOYMENT')).toBeInTheDocument();
-    expect(screen.getByText('SOURCE CODE')).toBeInTheDocument();
+    expect(screen.getByText('Generate Code')).toBeInTheDocument();
     expect(screen.getByText('2 files')).toBeInTheDocument();
     expect(screen.queryByText('RUNNING JOBS')).not.toBeInTheDocument();
   });
@@ -61,7 +66,7 @@ describe('BottomPanel', () => {
   it('calls setBottomTab when clicking tabs', () => {
     render(<BottomPanel {...mockProps} />);
 
-    fireEvent.click(screen.getByText('SOURCE CODE'));
+    fireEvent.click(screen.getByText('Generate Code'));
     expect(mockProps.setBottomTab).toHaveBeenCalledWith('SOURCE_CODE');
 
     fireEvent.click(screen.getByText('DEPLOYMENT'));
@@ -88,14 +93,63 @@ describe('BottomPanel', () => {
   it('applies high-contrast active styling to the selected tab and muted styling to inactive tabs', () => {
     render(<BottomPanel {...mockProps} bottomTab="SOURCE_CODE" />);
 
-    const sourceCodeBtn = screen.getByRole('button', { name: /SOURCE CODE/i });
+    const generateCodeBtn = screen.getByRole('button', { name: /Generate Code/i });
     const deploymentBtn = screen.getByRole('button', { name: /DEPLOYMENT/i });
 
-    expect(sourceCodeBtn.className).toContain('text-[var(--vscode-text-primary');
-    expect(sourceCodeBtn.className).toContain('border-[var(--vscode-highlight');
+    expect(generateCodeBtn.className).toContain('text-[var(--vscode-text-primary');
+    expect(generateCodeBtn.className).toContain('border-[var(--vscode-highlight');
 
     expect(deploymentBtn.className).toContain('text-[var(--vscode-text-muted');
   });
+
+  // P7: Verify folderFiles filtering is memoised and does not recompute on every render
+  it('memoises the sourceFiles filtering across re-renders when folderFiles does not change (P7)', () => {
+    const folderFiles = ['pipeline.py', 'helper.py', 'config.json'];
+    const filterSpy = vi.spyOn(folderFiles, 'filter');
+
+    const { rerender } = render(
+      <BottomPanel {...mockProps} folderFiles={folderFiles} bottomTab="DEPLOYMENT" />
+    );
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+
+    // Re-rendering with an unrelated prop change (bottomTab) does not re-run filter
+    rerender(
+      <BottomPanel {...mockProps} folderFiles={folderFiles} bottomTab="SOURCE_CODE" />
+    );
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+
+    // Re-rendering with a new folderFiles reference re-runs filter
+    const newFiles = ['pipeline.py', 'updated.py'];
+    const newFilterSpy = vi.spyOn(newFiles, 'filter');
+    rerender(
+      <BottomPanel {...mockProps} folderFiles={newFiles} bottomTab="SOURCE_CODE" />
+    );
+    expect(newFilterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onInteract when a user clicks on any tab or child control in BottomPanel', () => {
+    const onInteract = vi.fn();
+    render(<BottomPanel {...mockProps} onInteract={onInteract} />);
+
+    fireEvent.click(screen.getByText('Generate Code'));
+    expect(onInteract).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('DEPLOYMENT'));
+    expect(onInteract).toHaveBeenCalled();
+  });
+
+  it('passes tokenUsage down to SourceCodeTab', () => {
+    render(
+      <BottomPanel
+        {...mockProps}
+        bottomTab="SOURCE_CODE"
+        tokenUsage={{ inputTokens: 500, outputTokens: 250, totalTokens: 750 }}
+      />
+    );
+
+    expect(screen.getByTestId('mock-token-usage')).toHaveTextContent('500/250');
+  });
 });
+
 
 

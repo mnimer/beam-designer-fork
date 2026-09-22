@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface FlatMapNode {
   data: {
@@ -56,6 +57,9 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
     properties.special_instructions ??
     '';
 
+  /**
+   * Handles changes to the split via strategy dropdown
+   */
   const handleSplitViaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSplitVia = e.target.value as '' | 'Token' | 'Regex';
     onChange({
@@ -67,7 +71,10 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
     });
   };
 
-  const handleDelimiterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles changes to the single character delimiter input
+   */
+  const handleDelimiterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newDelimiter = e.target.value;
     onChange({
       ...properties,
@@ -78,7 +85,10 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
     });
   };
 
-  const handleRegexPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles changes to the regex pattern input
+   */
+  const handleRegexPatternChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newRegex = e.target.value;
     onChange({
       ...properties,
@@ -89,7 +99,10 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes to the code generation instructions textarea
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       splitVia,
@@ -122,61 +135,36 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
 
       {/* Conditional Token Field */}
       {splitVia === 'Token' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="flatMapDelimiter" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Token / Delimiter</span>
-            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-            <InfoTooltip text="Single character delimiter used to split elements (e.g. comma, tab, space). Required." />
-          </label>
-          <input
-            id="flatMapDelimiter"
-            type="text"
-            name="delimiter"
-            aria-required="true"
-            aria-invalid={isDelimiterInvalid}
-            value={delimiter}
-            onChange={handleDelimiterChange}
-            maxLength={1}
-            placeholder=","
-            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none w-24 text-center font-mono ${
-              isDelimiterInvalid
-                ? 'border-red-500/80 focus:border-red-500'
-                : 'border-slate-700 focus:border-blue-500'
-            }`}
-          />
-          {isDelimiterInvalid && (
-            <span className="text-xs text-red-400">Delimiter is required.</span>
-          )}
-        </div>
+        <PropertyField
+          id="flatMapDelimiter"
+          name="delimiter"
+          label="Token / Delimiter"
+          required="Required"
+          tooltip="Single character delimiter used to split elements (e.g. comma, tab, space). Required."
+          invalid={isDelimiterInvalid}
+          error={isDelimiterInvalid ? 'Delimiter is required.' : null}
+          value={delimiter}
+          onChange={handleDelimiterChange}
+          maxLength={1}
+          placeholder=","
+          className="w-24 text-center font-mono"
+        />
       )}
 
       {/* Conditional Regex Field */}
       {splitVia === 'Regex' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="flatMapRegexPattern" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Regex Expression</span>
-            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-            <InfoTooltip text="Regular expression pattern to extract tokens from each element (e.g. [A-Za-z]+). Required." />
-          </label>
-          <input
-            id="flatMapRegexPattern"
-            type="text"
-            name="regexPattern"
-            aria-required="true"
-            aria-invalid={isRegexInvalid}
-            value={regexPattern}
-            onChange={handleRegexPatternChange}
-            placeholder="e.g. [A-Za-z]+"
-            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-              isRegexInvalid
-                ? 'border-red-500/80 focus:border-red-500'
-                : 'border-slate-700 focus:border-blue-500'
-            }`}
-          />
-          {isRegexInvalid && (
-            <span className="text-xs text-red-400">Regex pattern is required.</span>
-          )}
-        </div>
+        <PropertyField
+          id="flatMapRegexPattern"
+          name="regexPattern"
+          label="Regex Expression"
+          required="Required"
+          tooltip="Regular expression pattern to extract tokens from each element (e.g. [A-Za-z]+). Required."
+          invalid={isRegexInvalid}
+          error={isRegexInvalid ? 'Regex pattern is required.' : null}
+          value={regexPattern}
+          onChange={handleRegexPatternChange}
+          placeholder="e.g. [A-Za-z]+"
+        />
       )}
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
@@ -186,20 +174,18 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
       {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
       <div className="flex-1 min-h-4" />
 
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="flatMapSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="flatMapSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter code generation instructions for FlatMap..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="flatMapSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter code generation instructions for FlatMap..."
+        mono={false}
+      />
     </div>
   );
 };

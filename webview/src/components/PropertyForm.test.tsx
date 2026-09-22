@@ -1,11 +1,105 @@
-
+/**
+ * PropertyForm Unit Tests
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Validates immutable metadata-based property form resolution, regression resistance against
+ * label changes, fallback handling for unknown or missing metadata, and coverage across all
+ * registered Beam transforms and IO components.
+ */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { PropertyForm } from './PropertyForm';
+import fs from 'fs';
+import path from 'path';
+import YAML from 'yaml';
+import { PropertyForm, PROPERTY_FORM_REGISTRY, getPropertyFormComponent } from './PropertyForm';
+import { migrateLegacyNodes } from '../utils/legacyNodeMigration';
 
 describe('PropertyForm', () => {
-  it('renders PubSubProperties when label contains PubSub', () => {
+  // =========================================================================
+  // Core Regression Tests: Immutable Metadata vs User-Editable Label
+  // =========================================================================
+
+  it('REGRESSION: renders BigQuery form when label contains a different connector name (e.g. "my PubSub-ish step")', () => {
+    const mockNode = {
+      data: {
+        label: 'my PubSub-ish step',
+        type: 'SINK',
+        beam_transform: 'BigQueryIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    // Must render BigQuerySinkProperties (with Table Name placeholder)
+    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
+    // Must NOT render PubSub properties
+    expect(screen.queryByPlaceholderText('projects/my-project/topics/my-topic')).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: renders PubSub form when label contains a different connector name (e.g. "BigQuery Ingestion")', () => {
+    const mockNode = {
+      data: {
+        label: 'BigQuery Ingestion',
+        type: 'SOURCE',
+        beam_transform: 'PubSubIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    // Must render PubSubProperties
+    expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
+    // Must NOT render BigQuery properties
+    expect(screen.queryByPlaceholderText('my_table')).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: renders Kafka form when node is renamed away from connector name to a custom label', () => {
+    const mockNode = {
+      data: {
+        label: 'Custom Ingest Queue #42',
+        type: 'SOURCE',
+        beam_transform: 'KafkaIO',
+        properties: {
+          bootstrapServers: 'localhost:9092',
+          topics: 'orders'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
+    expect(screen.getByLabelText(/Topic\(s\)/i)).toHaveValue('orders');
+  });
+
+  // =========================================================================
+  // Unregistered / Missing Metadata Fallback Tests (Fail-Fast)
+  // =========================================================================
+
+  it('renders explicit unregistered state when beam_transform is unknown', () => {
+    const mockNode = {
+      data: {
+        label: 'Custom Operator',
+        beam_transform: 'NonExistentTransform123',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('No property form registered for type "NonExistentTransform123"')).toBeInTheDocument();
+  });
+
+  it('renders explicit unregistered state when metadata is completely missing even if label matches a connector', () => {
     const mockNode = {
       data: {
         label: 'PubSub Source',
@@ -16,13 +110,91 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
+    // Must fail fast and NOT dispatch on the label
+    expect(screen.getByText('No property form registered for type "unknown"')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('projects/my-project/topics/my-topic')).not.toBeInTheDocument();
+  });
+
+  it('renders explicit unregistered state showing node type when beam_transform is missing but type is present', () => {
+    const mockNode = {
+      data: {
+        label: 'Unknown Sink Step',
+        type: 'SINK',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('No property form registered for type "SINK"')).toBeInTheDocument();
+  });
+
+  it('renders explicit unregistered state when node is null or undefined', () => {
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={null} onChange={mockOnChange} />);
+
+    expect(screen.getByText('No property form registered for type "unknown"')).toBeInTheDocument();
+  });
+
+  // =========================================================================
+  // Registry Resolution Tests
+  // =========================================================================
+
+  it('resolves all keys in PROPERTY_FORM_REGISTRY to valid React components', () => {
+    const keys = Object.keys(PROPERTY_FORM_REGISTRY);
+    expect(keys.length).toBeGreaterThan(30);
+
+    for (const key of keys) {
+      const Component = PROPERTY_FORM_REGISTRY[key];
+      expect(typeof Component).toBe('function');
+    }
+  });
+
+  it('resolves componentType metadata as alternative to beam_transform', () => {
+    const mockNode = {
+      data: {
+        label: 'Custom Component',
+        type: 'STEP',
+        componentType: 'ParDo',
+        properties: {}
+      }
+    };
+    const Component = getPropertyFormComponent(mockNode);
+    expect(Component).toBeDefined();
+
+    const mockOnChange = vi.fn();
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
+  });
+
+  // =========================================================================
+  // Source IO Property Forms
+  // =========================================================================
+
+  it('renders PubSubProperties when type is SOURCE and beam_transform is PubSubIO', () => {
+    const mockNode = {
+      data: {
+        label: 'PubSub Source',
+        type: 'SOURCE',
+        beam_transform: 'PubSubIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
     expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
   });
 
-  it('renders BigQueryProperties when label contains BigQuery', () => {
+  it('renders BigQuerySourceProperties when type is SOURCE and beam_transform is BigQueryIO', () => {
     const mockNode = {
       data: {
-        label: 'BigQuery Sink',
+        label: 'BigQuery Source',
+        type: 'SOURCE',
+        beam_transform: 'BigQueryIO',
         properties: {}
       }
     };
@@ -30,214 +202,15 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('my-project:my_dataset.my_table')).toBeInTheDocument();
   });
 
-  it('renders WindowingProperties when label contains Windowing', () => {
-    const mockNode = {
-      data: {
-        label: 'Windowing Step',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByDisplayValue('60')).toBeInTheDocument();
-  });
-
-  it('renders generic message for unknown label', () => {
-    const mockNode = {
-      data: {
-        label: 'Unknown Node',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Nothing to customize')).toBeInTheDocument();
-  });
-  it('renders ParseMessageProperties when label is Parse Message', () => {
-    const mockNode = {
-      data: {
-        label: 'Parse Message',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Message Type')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
-    expect(screen.getByText('Parse JSON message payloads and convert them to structured Java Beans, Row, or Map / Dict formats.')).toBeInTheDocument();
-    expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
-
-    const textarea = screen.getByPlaceholderText('Enter code generation instructions for message parsing...');
-    fireEvent.change(textarea, { target: { name: 'system_instructions', value: 'Parse custom field' } });
-    expect(mockOnChange).toHaveBeenCalledWith({ system_instructions: 'Parse custom field' });
-  });
-
-  it('renders appropriate helper text based on messageType property', () => {
-    const mockNode = {
-      data: {
-        label: 'Parse Message',
-        properties: {
-          messageType: 'Base64' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByDisplayValue('Base64')).toBeInTheDocument();
-    expect(screen.getByText('Decode Base64 encoded byte payloads into raw binary or UTF-8 text.')).toBeInTheDocument();
-  });
-
-  it('renders WindowingProperties when label is Fixed Windows', () => {
-    const mockNode = {
-      data: {
-        label: 'Fixed Windows',
-        properties: {
-          windowType: 'Fixed Window' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Window Type')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Fixed Window')).toBeInTheDocument();
-  });
-
-  it('renders WindowingProperties when label is Sliding Windows', () => {
-    const mockNode = {
-      data: {
-        label: 'Sliding Windows',
-        properties: {
-          windowType: 'Sliding Window' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Window Type')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Sliding Window')).toBeInTheDocument();
-  });
-
-  it('renders WindowingProperties when label is User Windows', () => {
-    const mockNode = {
-      data: {
-        label: 'User Windows',
-        properties: {
-          windowType: 'Session Window' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Window Type')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Session Window')).toBeInTheDocument();
-  });
-
-  it('renders LogMessageProperties when label is Log Message', () => {
-    const mockNode = {
-      data: {
-        label: 'Log Message',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Log Level')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
-  });
-
-  it('renders KVMapperProperties when label is KV Mapper', () => {
-    const mockNode = {
-      data: {
-        label: 'KV Mapper',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Key Property Name')).toBeInTheDocument();
-  });
-
-  it('renders FilterProperties when label is Filter', () => {
-    const mockNode = {
-      data: {
-        label: 'Filter',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Compare Target')).toBeInTheDocument();
-  });
-
-  it('renders FlatMapProperties when label is FlatMap', () => {
-    const mockNode = {
-      data: {
-        label: 'FlatMap',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Split via')).toBeInTheDocument();
-  });
-
-  it('renders MapProperties when label is Map', () => {
-    const mockNode = {
-      data: {
-        label: 'Map',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
-  });
-
-  it('renders AggregationProperties when label is Approximate Quantiles', () => {
-    const mockNode = {
-      data: {
-        label: 'Approximate Quantiles',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText(/Computes approximate quantiles of the elements in a collection\./i)).toBeInTheDocument();
-  });
-
-  it('renders CreateProperties when label is Create', () => {
+  it('renders CreateProperties when beam_transform is Create', () => {
     const mockNode = {
       data: {
         label: 'Create',
+        type: 'SOURCE',
+        beam_transform: 'Create',
         properties: {}
       }
     };
@@ -248,222 +221,7 @@ describe('PropertyForm', () => {
     expect(screen.getByText('In-Memory Elements')).toBeInTheDocument();
   });
 
-  it('renders ParDoProperties when label is ParDo', () => {
-    const mockNode = {
-      data: {
-        label: 'ParDo',
-        beam_transform: 'ParDo',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
-    expect(screen.getByText('System Instructions')).toBeInTheDocument();
-  });
-
-  it('renders OtherProperties when label is Flatten', () => {
-    const mockNode = {
-      data: {
-        label: 'Flatten',
-        beam_transform: 'Flatten',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText(/Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
-  });
-
-  it('renders OtherProperties when label is ReShuffle', () => {
-    const mockNode = {
-      data: {
-        label: 'ReShuffle',
-        beam_transform: 'Reshuffle',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText(/Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
-  });
-
-  it('renders TextIOSourceProperties when type is SOURCE and label is TextIO', () => {
-    const mockNode = {
-      data: {
-        label: 'TextIO',
-        type: 'SOURCE',
-        beam_transform: 'TextIO',
-        properties: {
-          filePattern: 'gs://input/*.txt'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/File Pattern \/ Path \(\.from\)/i)).toHaveValue('gs://input/*.txt');
-  });
-
-  it('renders TextIOSinkProperties when type is SINK and label is TextIO', () => {
-    const mockNode = {
-      data: {
-        label: 'TextIO',
-        type: 'SINK',
-        beam_transform: 'TextIO',
-        properties: {
-          to: 'gs://output/results'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Destination File Prefix \(\.to\)/i)).toHaveValue('gs://output/results');
-  });
-
-  it('renders FileIOSourceProperties when label is FileIO and type is SOURCE', () => {
-    const mockNode = {
-      data: {
-        label: 'FileIO Match',
-        type: 'SOURCE',
-        beam_transform: 'FileIO.match',
-        properties: {
-          filePattern: 'gs://input/*.csv'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/File Pattern/i)).toHaveValue('gs://input/*.csv');
-    expect(screen.getByText(/Continuously \(Stream Watch\)/i)).toBeInTheDocument();
-  });
-
-  it('renders FileIOReadMatchesProperties when label is FileIO Read Matches', () => {
-    const mockNode = {
-      data: {
-        label: 'FileIO Read Matches',
-        type: 'STEP',
-        beam_transform: 'FileIO.readMatches',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText(/PCollection<FileIO\.ReadableFile>/i)).toBeInTheDocument();
-  });
-
-  it('renders FileIOSinkProperties when type is SINK and label is FileIO', () => {
-    const mockNode = {
-      data: {
-        label: 'FileIO',
-        type: 'SINK',
-        beam_transform: 'FileIO',
-        properties: {
-          to: 'gs://output/files/'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Destination Directory \(\.to\)/i)).toHaveValue('gs://output/files/');
-  });
-
-  it('renders JdbcIOSourceProperties when type is SOURCE and label is JdbcIO', () => {
-    const mockNode = {
-      data: {
-        label: 'JdbcIO',
-        type: 'SOURCE',
-        beam_transform: 'JdbcIO',
-        properties: {
-          url: 'jdbc:postgresql://localhost:5432/mydb',
-          query: 'SELECT 1'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
-    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('SELECT 1');
-  });
-
-  it('renders JdbcIOSinkProperties when type is SINK and label is JdbcIO', () => {
-    const mockNode = {
-      data: {
-        label: 'JdbcIO',
-        type: 'SINK',
-        beam_transform: 'JdbcIO',
-        properties: {
-          url: 'jdbc:postgresql://localhost:5432/mydb',
-          statement: 'INSERT INTO tbl VALUES (?)'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(container.querySelector('#jdbcSinkUrl')).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
-    expect(container.querySelector('#jdbcSinkStatement')).toHaveValue('INSERT INTO tbl VALUES (?)');
-  });
-
-  it('renders KafkaIOSourceProperties when type is SOURCE and label is Kafka', () => {
-    const mockNode = {
-      data: {
-        label: 'Kafka',
-        type: 'SOURCE',
-        beam_transform: 'KafkaIO',
-        properties: {
-          bootstrapServers: 'localhost:9092',
-          topics: 'input-topic'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
-    expect(screen.getByLabelText(/Topic\(s\)/i)).toHaveValue('input-topic');
-  });
-
-  it('renders KafkaIOSinkProperties when type is SINK and label is Kafka', () => {
-    const mockNode = {
-      data: {
-        label: 'Kafka',
-        type: 'SINK',
-        beam_transform: 'KafkaIO',
-        properties: {
-          bootstrapServers: 'broker1:9092',
-          topic: 'output-topic'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('broker1:9092');
-    expect(screen.getByLabelText(/^Topic/i)).toHaveValue('output-topic');
-  });
-
-  it('renders GenerateSequenceProperties when label or beam_transform is GenerateSequence', () => {
+  it('renders GenerateSequenceProperties when beam_transform is GenerateSequence', () => {
     const mockNode = {
       data: {
         label: 'Generate Sequence',
@@ -485,7 +243,7 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/Stop Index/i, { selector: 'input' })).toHaveValue(100);
   });
 
-  it('renders PeriodicImpulseProperties when label or beam_transform is PeriodicImpulse', () => {
+  it('renders PeriodicImpulseProperties when beam_transform is PeriodicImpulse', () => {
     const mockNode = {
       data: {
         label: 'Periodic Impulse',
@@ -506,6 +264,747 @@ describe('PropertyForm', () => {
     expect(screen.getByLabelText(/Start Time/i, { selector: 'select' })).toHaveValue('now');
     expect(screen.getByLabelText(/Stop Condition/i, { selector: 'select' })).toHaveValue('never');
   });
+
+  it('renders TextIOSourceProperties when type is SOURCE and beam_transform is TextIO', () => {
+    const mockNode = {
+      data: {
+        label: 'TextIO',
+        type: 'SOURCE',
+        beam_transform: 'TextIO',
+        properties: {
+          filePattern: 'gs://input/*.txt'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/File Pattern \/ Path \(\.from\)/i)).toHaveValue('gs://input/*.txt');
+  });
+
+  it('renders FileIOSourceProperties when beam_transform is FileIO.match', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO Match',
+        type: 'SOURCE',
+        beam_transform: 'FileIO.match',
+        properties: {
+          filePattern: 'gs://input/*.csv'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/File Pattern/i)).toHaveValue('gs://input/*.csv');
+    expect(screen.getByText(/Continuously \(Stream Watch\)/i)).toBeInTheDocument();
+  });
+
+  it('renders JdbcIOSourceProperties when type is SOURCE and beam_transform is JdbcIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JdbcIO',
+        type: 'SOURCE',
+        beam_transform: 'JdbcIO',
+        properties: {
+          url: 'jdbc:postgresql://localhost:5432/mydb',
+          query: 'SELECT 1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/JDBC Connection URL/i)).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
+    expect(screen.getByLabelText(/SQL Statement/i)).toHaveValue('SELECT 1');
+  });
+
+  it('renders KafkaIOSourceProperties when type is SOURCE and beam_transform is KafkaIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Kafka',
+        type: 'SOURCE',
+        beam_transform: 'KafkaIO',
+        properties: {
+          bootstrapServers: 'localhost:9092',
+          topics: 'input-topic'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
+    expect(screen.getByLabelText(/Topic\(s\)/i)).toHaveValue('input-topic');
+  });
+
+  it('renders KinesisIOSourceProperties when type is SOURCE and beam_transform is KinesisIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        type: 'SOURCE',
+        beam_transform: 'KinesisIO',
+        properties: {
+          streamName: 'input-stream'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Initial Position/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Watermark Policy/i)).toBeInTheDocument();
+  });
+
+  it('renders ParquetIOSourceProperties when type is SOURCE and beam_transform is ParquetIO', () => {
+    const mockNode = {
+      data: {
+        label: 'ParquetIO',
+        type: 'SOURCE',
+        beam_transform: 'ParquetIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/File Pattern \/ Path \(\.from\)/i)).toBeInTheDocument();
+  });
+
+  it('renders AvroIOSourceProperties when type is SOURCE and beam_transform is AvroIO', () => {
+    const mockNode = {
+      data: {
+        label: 'AvroIO',
+        type: 'SOURCE',
+        beam_transform: 'AvroIO',
+        properties: {
+          filePattern: 'gs://bucket/data/*.avro'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const filePatternInput = container.querySelector('#avroFilePattern') as HTMLInputElement;
+    expect(filePatternInput).toBeInTheDocument();
+    expect(filePatternInput).toHaveValue('gs://bucket/data/*.avro');
+  });
+
+  it('renders SnsIOSourceProperties when type is SOURCE and beam_transform is SnsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'SNS',
+        type: 'SOURCE',
+        beam_transform: 'SnsIO',
+        properties: {
+          topicArn: 'arn:aws:sns:us-east-1:123456789012:test-topic',
+          queueUrl: 'https://sqs.us-east-1.amazonaws.com/123456789012/test-queue'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('arn:aws:sns:us-east-1:123456789012:my-topic')).toHaveValue('arn:aws:sns:us-east-1:123456789012:test-topic');
+    expect(screen.getByPlaceholderText('https://sqs.us-east-1.amazonaws.com/123456789012/my-queue')).toHaveValue('https://sqs.us-east-1.amazonaws.com/123456789012/test-queue');
+  });
+
+  it('renders JmsIOSourceProperties when type is SOURCE and beam_transform is JmsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JMS',
+        type: 'SOURCE',
+        beam_transform: 'JmsIO',
+        properties: {
+          destinationType: 'queue',
+          queue: 'inbound.orders'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const destInput = container.querySelector('#jmsDestinationName') as HTMLInputElement;
+    expect(destInput).toBeInTheDocument();
+    expect(destInput).toHaveValue('inbound.orders');
+  });
+
+  it('renders SqsIOSourceProperties when type is SOURCE and beam_transform is SqsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'SQS',
+        type: 'SOURCE',
+        beam_transform: 'SqsIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('https://sqs.us-east-1.amazonaws.com/123456789012/my-queue')).toBeInTheDocument();
+  });
+
+  it('renders MqttIOSourceProperties when type is SOURCE and beam_transform is MqttIO', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        type: 'SOURCE',
+        beam_transform: 'MqttIO',
+        properties: {
+          serverUri: 'tcp://broker.hivemq.com:1883',
+          topic: 'devices/+/telemetry'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Server URI/i)).toHaveValue('tcp://broker.hivemq.com:1883');
+    expect(screen.getByLabelText(/Subscription Topic \/ Filter/i)).toHaveValue('devices/+/telemetry');
+  });
+
+  // =========================================================================
+  // Sink IO Property Forms
+  // =========================================================================
+
+  it('renders PubSubSinkProperties when type is SINK and beam_transform is PubSubIO', () => {
+    const mockNode = {
+      data: {
+        label: 'PubSub Sink',
+        type: 'SINK',
+        beam_transform: 'PubSubIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
+  });
+
+  it('renders BigQuerySinkProperties when type is SINK and beam_transform is BigQueryIO', () => {
+    const mockNode = {
+      data: {
+        label: 'BigQuery Sink',
+        type: 'SINK',
+        beam_transform: 'BigQueryIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
+  });
+
+  it('renders TextIOSinkProperties when type is SINK and beam_transform is TextIO', () => {
+    const mockNode = {
+      data: {
+        label: 'TextIO',
+        type: 'SINK',
+        beam_transform: 'TextIO',
+        properties: {
+          to: 'gs://output/results'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Destination File Prefix \(\.to\)/i)).toHaveValue('gs://output/results');
+  });
+
+  it('renders FileIOSinkProperties when type is SINK and beam_transform is FileIO', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO',
+        type: 'SINK',
+        beam_transform: 'FileIO',
+        properties: {
+          to: 'gs://output/files/'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Destination Directory \(\.to\)/i)).toHaveValue('gs://output/files/');
+  });
+
+  it('renders JdbcIOSinkProperties when type is SINK and beam_transform is JdbcIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JdbcIO',
+        type: 'SINK',
+        beam_transform: 'JdbcIO',
+        properties: {
+          url: 'jdbc:postgresql://localhost:5432/mydb',
+          statement: 'INSERT INTO tbl VALUES (?)'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(container.querySelector('#jdbcSinkUrl')).toHaveValue('jdbc:postgresql://localhost:5432/mydb');
+    expect(container.querySelector('#jdbcSinkStatement')).toHaveValue('INSERT INTO tbl VALUES (?)');
+  });
+
+  it('renders KafkaIOSinkProperties when type is SINK and beam_transform is KafkaIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Kafka',
+        type: 'SINK',
+        beam_transform: 'KafkaIO',
+        properties: {
+          bootstrapServers: 'broker1:9092',
+          topic: 'output-topic'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('broker1:9092');
+    expect(screen.getByLabelText(/^Topic/i)).toHaveValue('output-topic');
+  });
+
+  it('renders KinesisIOSinkProperties when type is SINK and beam_transform is KinesisIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Kinesis',
+        type: 'SINK',
+        beam_transform: 'KinesisIO',
+        properties: {
+          streamName: 'output-stream'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Partition Key Source/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Serialization Format/i)).toBeInTheDocument();
+  });
+
+  it('renders ParquetIOSinkProperties when type is SINK and beam_transform is ParquetIO', () => {
+    const mockNode = {
+      data: {
+        label: 'ParquetIO',
+        type: 'SINK',
+        beam_transform: 'ParquetIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Destination Directory \/ Prefix \(\.to\)/i)).toBeInTheDocument();
+  });
+
+  it('renders AvroIOSinkProperties when type is SINK and beam_transform is AvroIO', () => {
+    const mockNode = {
+      data: {
+        label: 'AvroIO',
+        type: 'SINK',
+        beam_transform: 'AvroIO',
+        properties: {
+          to: 'gs://bucket/output/records',
+          suffix: '.avro'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const toInput = container.querySelector('#avroSinkTo') as HTMLInputElement;
+    expect(toInput).toBeInTheDocument();
+    expect(toInput).toHaveValue('gs://bucket/output/records');
+  });
+
+  it('renders SnsIOSinkProperties when type is SINK and beam_transform is SnsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'SNS',
+        type: 'SINK',
+        beam_transform: 'SnsIO',
+        properties: {
+          topicArn: 'arn:aws:sns:us-east-1:123456789012:sink-topic',
+          subject: 'Test Notification'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('arn:aws:sns:us-east-1:123456789012:my-topic')).toHaveValue('arn:aws:sns:us-east-1:123456789012:sink-topic');
+    expect(screen.getByPlaceholderText('e.g. Pipeline Notification')).toHaveValue('Test Notification');
+  });
+
+  it('renders JmsIOSinkProperties when type is SINK and beam_transform is JmsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'JMS',
+        type: 'SINK',
+        beam_transform: 'JmsIO',
+        properties: {
+          destinationType: 'topic',
+          topic: 'outbound.notifications'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    const destInput = container.querySelector('#jmsSinkDestinationName') as HTMLInputElement;
+    expect(destInput).toBeInTheDocument();
+    expect(destInput).toHaveValue('outbound.notifications');
+  });
+
+  it('renders SqsIOSinkProperties when type is SINK and beam_transform is SqsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'SQS',
+        type: 'SINK',
+        beam_transform: 'SqsIO',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByPlaceholderText('https://sqs.us-east-1.amazonaws.com/123456789012/my-queue')).toBeInTheDocument();
+  });
+
+  it('renders MqttIOSinkProperties when type is SINK and beam_transform is MqttIO', () => {
+    const mockNode = {
+      data: {
+        label: 'MQTT',
+        type: 'SINK',
+        beam_transform: 'MqttIO',
+        properties: {
+          serverUri: 'tcp://broker.hivemq.com:1883',
+          topic: 'commands/device1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Server URI/i)).toHaveValue('tcp://broker.hivemq.com:1883');
+    expect(screen.getByLabelText(/Publish Topic/i)).toHaveValue('commands/device1');
+    expect(screen.getByLabelText(/Retain Messages/i)).toBeInTheDocument();
+  });
+
+  it('renders LogMessageProperties when beam_transform is LogMessage', () => {
+    const mockNode = {
+      data: {
+        label: 'Log Message',
+        type: 'SINK',
+        beam_transform: 'LogMessage',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Log Level')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Info')).toBeInTheDocument();
+  });
+
+  // =========================================================================
+  // Step Transforms
+  // =========================================================================
+
+  it('renders FileIOReadMatchesProperties when beam_transform is FileIO.readMatches', () => {
+    const mockNode = {
+      data: {
+        label: 'FileIO Read Matches',
+        type: 'STEP',
+        beam_transform: 'FileIO.readMatches',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/PCollection<FileIO\.ReadableFile>/i)).toBeInTheDocument();
+  });
+
+  it('renders WindowingProperties when beam_transform is Window', () => {
+    const mockNode = {
+      data: {
+        label: 'Window Step',
+        type: 'STEP',
+        beam_transform: 'Window',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByDisplayValue('60')).toBeInTheDocument();
+  });
+
+  it('renders WindowingProperties when beam_transform is WindowInto', () => {
+    const mockNode = {
+      data: {
+        label: 'Fixed Windows',
+        type: 'STEP',
+        beam_transform: 'WindowInto',
+        properties: {
+          windowType: 'Fixed Window' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Window Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Fixed Window')).toBeInTheDocument();
+  });
+
+  it('renders ParseMessageProperties when beam_transform is ParseMessage', () => {
+    const mockNode = {
+      data: {
+        label: 'Parse Message',
+        type: 'STEP',
+        beam_transform: 'ParseMessage',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Message Type')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('JSON')).toBeInTheDocument();
+    expect(screen.getByText('Parse JSON message payloads and convert them to structured Java Beans, Row, or Map / Dict formats.')).toBeInTheDocument();
+    expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText('Enter code generation instructions for message parsing...');
+    fireEvent.change(textarea, { target: { name: 'system_instructions', value: 'Parse custom field' } });
+    expect(mockOnChange).toHaveBeenCalledWith({ system_instructions: 'Parse custom field' });
+  });
+
+  it('renders WithTimestampsProperties when beam_transform is WithTimestamps', () => {
+    const mockNode = {
+      data: {
+        label: 'Add Timestamp',
+        type: 'STEP',
+        beam_transform: 'WithTimestamps',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Timestamp Source')).toBeInTheDocument();
+  });
+
+  it('renders KVMapperProperties when beam_transform is KVMapper', () => {
+    const mockNode = {
+      data: {
+        label: 'KV Mapper',
+        type: 'STEP',
+        beam_transform: 'KVMapper',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Key Property Name')).toBeInTheDocument();
+  });
+
+  it('renders FilterProperties when beam_transform is Filter', () => {
+    const mockNode = {
+      data: {
+        label: 'Filter',
+        type: 'STEP',
+        beam_transform: 'Filter',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Compare Target')).toBeInTheDocument();
+  });
+
+  it('renders FlatMapProperties when beam_transform is FlatMap', () => {
+    const mockNode = {
+      data: {
+        label: 'FlatMap',
+        type: 'STEP',
+        beam_transform: 'FlatMap',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Split via')).toBeInTheDocument();
+  });
+
+  it('renders MapProperties when beam_transform is Map', () => {
+    const mockNode = {
+      data: {
+        label: 'Map',
+        type: 'STEP',
+        beam_transform: 'Map',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
+  });
+
+  it('renders ParDoProperties when beam_transform is ParDo', () => {
+    const mockNode = {
+      data: {
+        label: 'ParDo',
+        type: 'STEP',
+        beam_transform: 'ParDo',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
+    expect(screen.getByText('System Instructions')).toBeInTheDocument();
+  });
+
+  it('renders AggregationProperties when beam_transform is an aggregation (e.g. Combine)', () => {
+    const mockNode = {
+      data: {
+        label: 'Combine',
+        type: 'STEP',
+        beam_transform: 'Combine',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Combines elements in a collection using a global combine function\./i)).toBeInTheDocument();
+  });
+
+  it('renders OtherProperties when beam_transform is Flatten', () => {
+    const mockNode = {
+      data: {
+        label: 'Flatten Step',
+        type: 'STEP',
+        beam_transform: 'Flatten',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Merges multiple PCollection objects of the same type into a single logical PCollection\./i)).toBeInTheDocument();
+  });
+
+  it('renders OtherProperties when beam_transform is Reshuffle', () => {
+    const mockNode = {
+      data: {
+        label: 'ReShuffle Step',
+        type: 'STEP',
+        beam_transform: 'Reshuffle',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText(/Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
+  });
 });
 
+describe('Real Sample Pipelines Acceptance Tests', () => {
+  it('loads real resources/samples/pubsub-to-bigquery.beam and asserts every node resolves to a real property form without unregistered warnings', () => {
+    const filePath = path.resolve(__dirname, '../../../resources/samples/pubsub-to-bigquery.beam');
+    expect(fs.existsSync(filePath)).toBe(true);
 
+    const content = fs.readFileSync(filePath, 'utf8');
+    const parsed = YAML.parse(content);
+    expect(Array.isArray(parsed.nodes)).toBe(true);
+
+    const migratedNodes = migrateLegacyNodes(parsed.nodes);
+    expect(migratedNodes.length).toBe(4);
+
+    for (const node of migratedNodes) {
+      const mockOnChange = vi.fn();
+      const { container } = render(<PropertyForm node={node} onChange={mockOnChange} />);
+
+      // Must NOT render the unregistered fallback
+      expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+
+      // Must render form inputs/controls (real property form)
+      expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    }
+  });
+
+  it('loads real resources/samples/generate-mock-data.beam and asserts every node resolves to a real property form without unregistered warnings', () => {
+    const filePath = path.resolve(__dirname, '../../../resources/samples/generate-mock-data.beam');
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    const parsed = YAML.parse(content);
+    expect(Array.isArray(parsed.nodes)).toBe(true);
+
+    const migratedNodes = migrateLegacyNodes(parsed.nodes);
+    expect(migratedNodes.length).toBe(3);
+
+    for (const node of migratedNodes) {
+      const mockOnChange = vi.fn();
+      const { container } = render(<PropertyForm node={node} onChange={mockOnChange} />);
+
+      // Must NOT render the unregistered fallback
+      expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+
+      // Must render form inputs/controls (real property form)
+      expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    }
+  });
+});

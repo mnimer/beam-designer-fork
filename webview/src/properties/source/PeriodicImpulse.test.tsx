@@ -157,4 +157,33 @@ describe('PeriodicImpulseProperties', () => {
       })
     );
   });
+
+  it('handles fractional interval and extreme duration bounds', () => {
+    const mockNode = {
+      data: {
+        label: 'Periodic Impulse',
+        properties: {
+          intervalSeconds: 0.25,
+          stopMode: 'duration' as const,
+          durationSeconds: 86400
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<PeriodicImpulseProperties node={mockNode} onChange={mockOnChange} />);
+
+    const intervalInput = screen.getByLabelText(/emission interval/i, { selector: 'input' });
+    expect(intervalInput).toHaveValue(0.25);
+
+    const durationInput = screen.getByLabelText(/run duration/i, { selector: 'input' });
+    expect(durationInput).toHaveValue(86400);
+
+    fireEvent.change(intervalInput, { target: { name: 'intervalSeconds', value: '0.1' } });
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intervalSeconds: '0.1'
+      })
+    );
+  });
 });

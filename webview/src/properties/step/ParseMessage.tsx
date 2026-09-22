@@ -14,6 +14,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface ParseMessageNode {
   data: {
@@ -47,13 +48,17 @@ export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ 
     properties.special_instructions ??
     '';
 
-  // Handle select or textarea change and propagate up
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
+  /**
+   * Handles select or textarea changes and propagates up
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     onChange({ ...properties, [name]: value });
   };
 
-  // Helper text based on selected message type
+  /**
+   * Returns contextual helper text based on selected message payload decoder type
+   */
   const getHelperText = () => {
     switch (messageType) {
       case 'JSON':
@@ -94,20 +99,19 @@ export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ 
       {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
       <div className="flex-1 min-h-4" />
 
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="parseMessageSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="parseMessageSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter code generation instructions for message parsing..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      {/* Code Generation Instructions */}
+      <PropertyField
+        id="parseMessageSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleChange}
+        placeholder="Enter code generation instructions for message parsing..."
+        mono={false}
+      />
     </div>
   );
 };

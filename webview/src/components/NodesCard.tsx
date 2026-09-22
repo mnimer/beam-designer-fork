@@ -15,7 +15,10 @@
  * - Direct add (+) and drag-and-drop support onto canvas.
  * - Persists accordion group open/closed states using VS Code webview state (vscode.getState/setState)
  *   with localStorage fallback so users' group preferences are preserved across file opens and sessions.
+ * - Exclusive accordion behavior: When a category group is expanded, other groups in the same tab's panel
+ *   automatically collapse to prevent the slide-out panel from overflowing vertically.
  * - Step and Sink menu items are disabled when nodesCount is 0 to enforce pipeline validity.
+ * - Added MqttIO nodes to Streaming Sources and Streaming Sinks categories for IoT message broker streaming.
  * - Adheres strictly to the 8pt grid spacing system, VS Code semantic tokens, and Tailwind CSS styling.
  */
 import React, { useState, useMemo } from 'react';
@@ -69,23 +72,24 @@ export const DEFAULT_SAMPLES: SamplePipeline[] = [
 const GROUPS_STORAGE_KEY = 'beam_node_groups_state';
 
 /**
- * Default open state for all palette accordion groups (all open by default).
+ * Default open state for all palette accordion groups.
+ * To keep panels fitting comfortably on screen, only the first category group in each tab is open by default.
  */
 export const defaultGroupOpenState: Record<string, boolean> = {
   sources_streaming_sources: true,
-  sources_database_sources: true,
-  sources_file_sources: true,
-  sources_other_sources: true,
+  sources_database_sources: false,
+  sources_file_sources: false,
+  sources_other_sources: false,
   steps_core_transforms: true,
-  steps_message_parsers: true,
-  steps_element_transforms: true,
-  steps_aggregations: true,
-  steps_windows: true,
-  steps_other_transforms: true,
+  steps_message_parsers: false,
+  steps_element_transforms: false,
+  steps_aggregations: false,
+  steps_windows: false,
+  steps_other_transforms: false,
   sinks_streaming_sinks: true,
-  sinks_database_sinks: true,
-  sinks_file_sinks: true,
-  sinks_logging_sinks: true,
+  sinks_database_sinks: false,
+  sinks_file_sinks: false,
+  sinks_logging_sinks: false,
   samples_sample_pipelines: true,
 };
 
@@ -179,13 +183,20 @@ interface NodeDefinition {
 // Source node definitions
 const SOURCE_NODES: NodeDefinition[] = [
   { label: 'Kafka', type: 'SOURCE', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Consume streaming records from Kafka topic', category: 'Streaming Sources' },
+  { label: 'Kinesis', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Consume streaming records from AWS Kinesis stream', category: 'Streaming Sources' },
   { label: 'PubSub', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Read streaming messages from Cloud Pub/Sub', category: 'Streaming Sources' },
+  { label: 'SNS', type: 'SOURCE', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Consume streaming messages from Amazon SNS topic', category: 'Streaming Sources' },
+  { label: 'JMS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Consume streaming messages from JMS queue or topic', category: 'Streaming Sources' },
+  { label: 'SQS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Read streaming messages from Amazon SQS queue', category: 'Streaming Sources' },
+  { label: 'MQTT', type: 'SOURCE', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Consume streaming messages from MQTT broker topic', category: 'Streaming Sources' },
   { label: 'Generate Sequence', type: 'SOURCE', iconName: 'ListOrdered', beamTransform: 'GenerateSequence', badge: 'Synthetic', description: 'Generate periodic integer sequence', category: 'Streaming Sources' },
   { label: 'Periodic Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'PeriodicImpulse', badge: 'Trigger', description: 'Emit elements periodically on interval', category: 'Streaming Sources' },
   { label: 'BigQuery', type: 'SOURCE', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Read records from BigQuery table or SQL query', category: 'Database Sources' },
   { label: 'JdbcIO', type: 'SOURCE', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Query relational database over JDBC', category: 'Database Sources' },
   { label: 'FileIO', type: 'SOURCE', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Match and read file streams', category: 'File Sources' },
+  { label: 'ParquetIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Read columnar Parquet records', category: 'File Sources' },
   { label: 'TextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Read newline-delimited text records', category: 'File Sources' },
+  { label: 'AvroIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Read records from Avro files', category: 'File Sources' },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
 ];
 
@@ -227,11 +238,18 @@ const STEP_NODES: NodeDefinition[] = [
 // Sink node definitions
 const SINK_NODES: NodeDefinition[] = [
   { label: 'Kafka', type: 'SINK', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Publish records to Apache Kafka topic', category: 'Streaming Sinks' },
+  { label: 'Kinesis', type: 'SINK', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Publish records to AWS Kinesis stream', category: 'Streaming Sinks' },
   { label: 'PubSub', type: 'SINK', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Publish messages to Cloud Pub/Sub topic', category: 'Streaming Sinks' },
+  { label: 'SNS', type: 'SINK', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Publish messages to Amazon Simple Notification Service topic', category: 'Streaming Sinks' },
+  { label: 'JMS', type: 'SINK', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Publish messages to JMS queue or topic', category: 'Streaming Sinks' },
+  { label: 'SQS', type: 'SINK', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Publish messages to Amazon SQS queue', category: 'Streaming Sinks' },
+  { label: 'MQTT', type: 'SINK', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Publish streaming messages to MQTT broker topic', category: 'Streaming Sinks' },
   { label: 'BigQuery', type: 'SINK', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Write or stream rows into BigQuery table', category: 'Database Sinks' },
   { label: 'JdbcIO', type: 'SINK', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Write rows to SQL database via JDBC', category: 'Database Sinks' },
   { label: 'FileIO', type: 'SINK', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Write dynamic files to Cloud Storage/Disk', category: 'File Sinks' },
+  { label: 'ParquetIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Write columnar Parquet files', category: 'File Sinks' },
   { label: 'TextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Write newline-delimited text records', category: 'File Sinks' },
+  { label: 'AvroIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Write records to Avro files', category: 'File Sinks' },
   { label: 'Log Message', type: 'SINK', iconName: 'Terminal', beamTransform: 'LogMessage', badge: 'Debug', description: 'Emit structured logs for elements', category: 'Logging Sinks' },
 ];
 
@@ -302,9 +320,35 @@ export const NodesCard: React.FC<NodesCardProps> = ({
     }
   };
 
+  /**
+   * Toggles the open/closed state of an accordion group in the slide-out panel.
+   * When a group is opened/expanded, all other groups in the active tab's panel are
+   * automatically collapsed to prevent vertical overflow and keep the panel on screen.
+   * 
+   * @param groupKey - Unique group identifier (e.g. 'sources_streaming_sources')
+   * @param isOpen - The new open state of the group
+   */
   const handleToggleGroup = (groupKey: string, isOpen: boolean) => {
     setGroupOpenState((prev) => {
-      const updated = { ...prev, [groupKey]: isOpen };
+      let updated: Record<string, boolean>;
+      if (isOpen) {
+        // NOTE: Exclusive accordion behavior - collapse all other groups in the active tab
+        const currentTabPrefix = `${(activeTab || 'sources').toLowerCase()}_`;
+        updated = { ...prev };
+
+        // Collapse all groups matching current tab prefix
+        Object.keys(updated).forEach((key) => {
+          if (key.startsWith(currentTabPrefix)) {
+            updated[key] = false;
+          }
+        });
+
+        // Expand only the targeted group
+        updated[groupKey] = true;
+      } else {
+        // When closing the group, record it as closed
+        updated = { ...prev, [groupKey]: false };
+      }
       persistGroupState(updated);
       return updated;
     });
@@ -657,7 +701,8 @@ export const NodesCard: React.FC<NodesCardProps> = ({
                   return (
                     <details
                       key={`${categoryName}-${searchQuery ? 'search' : 'default'}`}
-                      open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? true)}
+                      name={`palette-${(activeTab || 'sources').toLowerCase()}`}
+                      open={searchQuery.trim().length > 0 ? true : (groupOpenState[groupKey] ?? false)}
                       onToggle={(e) => handleToggleGroup(groupKey, (e.currentTarget as HTMLDetailsElement).open)}
                       className="group bg-[var(--vscode-card-bg,#1e293b)] border border-[var(--vscode-border-light,#334155)] rounded-lg overflow-hidden transition-all"
                     >

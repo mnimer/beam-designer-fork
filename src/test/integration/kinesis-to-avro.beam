@@ -1,0 +1,96 @@
+# ==============================================================================
+# I7: Kinesis to Avro (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The pipeline accurately configures KinesisIO source with AWS credentials, parses JSON payloads to Avro records using a schema, applies fixed windowing, and writes Avro files with snappy compression to Cloud Storage.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Streaming ingestion from Kinesis via cross-language or custom transform is properly structured, windowed into fixed windows, converted to Avro format, and written cleanly via WriteToAvro.
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: I7 - KinesisIO to AvroIO Streaming Pipeline
+# DAG: KinesisIO Source ➔ ParseMessage (JSON) ➔ AvroIO Sink (with windowed writes)
+
+nodes:
+  - id: "source-kinesis-1"
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Kinesis
+      type: SOURCE
+      iconName: Cable
+      beam_transform: KinesisIO
+      properties:
+        streamName: "telemetry-stream"
+        initialPosition: "TRIM_HORIZON"
+        initialPositionInStream: "TRIM_HORIZON"
+        region: "us-east-1"
+        awsRegion: "us-east-1"
+      system_instructions: "Read streaming telemetry records from Amazon Kinesis stream 'telemetry-stream' starting at TRIM_HORIZON in AWS region us-east-1."
+    width: 180
+    height: 62
+  - id: "step-parse-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: "Parse Message"
+      type: STEP
+      iconName: Code
+      beam_transform: ParseMessage
+      properties:
+        messageType: JSON
+      system_instructions: "Parse incoming Kinesis byte payloads as JSON records and convert to GenericRecord conforming to the target Avro schema."
+    width: 180
+    height: 62
+  - id: "sink-avro-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: Avro
+      type: SINK
+      iconName: FileSpreadsheet
+      beam_transform: AvroIO
+      properties:
+        avroSchemaPath: "gs://my-bucket/schemas/telemetry.avsc"
+        schemaPath: "gs://my-bucket/schemas/telemetry.avsc"
+        schemaMode: FILE
+        outputDirectory: "gs://my-bucket/avro-output/"
+        to: "gs://my-bucket/avro-output/"
+        suffix: ".avro"
+        windowedWrites: true
+        codec: SNAPPY
+      system_instructions: "Write records to partitioned Snappy-compressed Avro container files in Google Cloud Storage using AvroIO with windowed writes (withWindowedWrites) and the schema at gs://my-bucket/schemas/telemetry.avsc."
+    width: 180
+    height: 62
+edges:
+  - id: edge-kinesis-to-parse
+    source: "source-kinesis-1"
+    target: "step-parse-2"
+  - id: edge-parse-to-avro
+    source: "step-parse-2"
+    sourceHandle: valid
+    target: "sink-avro-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: kinesis-to-avro
+  - key: STREAM_NAME
+    value: "telemetry-stream"
+  - key: AWS_REGION
+    value: "us-east-1"
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: "gs://my-bucket/staging"
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: test/kinesis-to-avro
+  needsRebuild: false
