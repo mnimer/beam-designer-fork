@@ -243,6 +243,30 @@ describe('SourceCodeTab', () => {
       expect(spy).toHaveBeenCalledTimes(2);
     });
 
+    it('renders token usage message when tokenUsage prop is provided', () => {
+      render(
+        <SourceCodeTab
+          {...mockProps}
+          tokenUsage={{
+            inputTokens: 1420,
+            outputTokens: 856,
+            totalTokens: 2276,
+          }}
+        />
+      );
+
+      const tokenBox = screen.getByTestId('token-usage');
+      expect(tokenBox).toBeInTheDocument();
+      expect(screen.getByText('Tokens:')).toBeInTheDocument();
+      expect(screen.getByText('1,420')).toBeInTheDocument();
+      expect(screen.getByText('856')).toBeInTheDocument();
+    });
+
+    it('does not render token usage message when tokenUsage is null or undefined', () => {
+      render(<SourceCodeTab {...mockProps} tokenUsage={null} />);
+      expect(screen.queryByTestId('token-usage')).not.toBeInTheDocument();
+    });
+
     it('disables Generate Code button and displays validation error callout when isGraphValid is false', () => {
       render(
         <SourceCodeTab
