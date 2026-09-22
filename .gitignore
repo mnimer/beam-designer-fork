@@ -22,3 +22,6 @@ out
 *.sln
 *.sw?
 .DS_Store
+src/test/integration/.test-report.json
+src/test/integration/test-report.md
+.gitignore
