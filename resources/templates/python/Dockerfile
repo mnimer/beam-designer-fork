@@ -1,7 +1,7 @@
 ARG IMAGE_PYTHON_VERSION=3.11
 
 # --- Stage 1: Get Python Flex Template Launcher Binary ---
-FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:latest AS launcher
+FROM gcr.io/dataflow-templates-base/python3-template-launcher-base:1.1 AS launcher
 
 # --- Stage 2: Build Application Image ---
 FROM apache/beam_python${IMAGE_PYTHON_VERSION}_sdk:2.55.0
@@ -21,3 +21,14 @@ RUN pip install --no-cache-dir -r requirements.txt --index-url https://pypi.org/
 
 # 5. Specify Pipeline Entrypoint
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/src/{{pipeline_name}}.py
+
+# Security Hardening (Least Privilege):
+# By default, containers run as the root user. To mitigate container escape and privilege escalation
+# vulnerabilities in hardened production environments, uncomment the following lines to enforce non-root execution:
+# RUN groupadd -r -g 1000 beam && \
+#     useradd -r -u 1000 -g beam -d /home/beam -m -s /bin/bash beam && \
+#     chown -R beam:beam /template
+# USER beam:beam
+
+# 6. Container Hardening: Ensure template permissions for runner execution
+RUN chmod -R a+rx /template

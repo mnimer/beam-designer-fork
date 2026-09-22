@@ -1,0 +1,127 @@
+# ==============================================================================
+# I20: MQTT to MQTT Retained with DLQ (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The implementation accurately sets up MqttIO source and sink with retained flag configuration, implements the critical alert ParDo DoFn with clean multi-output tagged routing (VALID_TAG and ERROR_TAG), handles serialization cleanly, and includes comprehensive unit testing.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The MQTT source and sink connectors are configured accurately with QoS and retain parameters; the ParDo transform correctly routes valid detections to the bare main output and processing errors to the DLQ tagged output; unit tests thoroughly validate alert filtering and dead-letter handling.
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+# Purpose: Pipeline specification for I20 MQTT to MQTT Retained with DLQ (MqttIO to MqttIO + LogMessage)
+nodes:
+  - id: "source-mqtt-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: "MQTT"
+      type: SOURCE
+      iconName: Radio
+      beam_transform: MqttIO
+      properties:
+        brokerUri: "tcp://iot.internal:1883"
+        serverUri: "tcp://iot.internal:1883"
+        inputTopic: "factory/sensors/#"
+        topic: "factory/sensors/#"
+        qos: 1
+      system_instructions: "Read streaming sensor telemetry from MQTT broker at 'tcp://iot.internal:1883' subscribed to topic pattern 'factory/sensors/#' using MqttIO.read() in Java or ReadFromMqtt in Python."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-pardo-detect-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: "ParDo"
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        alertTopic: "factory/alerts/critical"
+      system_instructions: "Evaluate sensor telemetry payloads against critical threshold limits. Emit detected critical alerts to the main 'valid' output tag for alert publishing. If payload is malformed or an evaluation error occurs, route the erroneous element to the 'error' output tag for Dead Letter Queue (DLQ) processing."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-mqtt-alert-3"
+    type: pipeline
+    position:
+      x: 700
+      y: 80
+    data:
+      label: "MQTT"
+      type: SINK
+      iconName: Radio
+      beam_transform: MqttIO
+      properties:
+        brokerUri: "tcp://iot.internal:1883"
+        serverUri: "tcp://iot.internal:1883"
+        alertTopic: "factory/alerts/critical"
+        topic: "factory/alerts/critical"
+        qos: 1
+        retain: true
+        retained: true
+      system_instructions: "Publish critical alert messages to MQTT broker at 'tcp://iot.internal:1883' on topic 'factory/alerts/critical' with QoS 1 and retain flag set to true (retained: true)."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-log-dlq-4"
+    type: pipeline
+    position:
+      x: 700
+      y: 240
+    data:
+      label: "Log Message"
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        logLevel: "ERROR"
+      system_instructions: "Log malformed sensor payloads and processing exceptions routed to the dead-letter error branch."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+edges:
+  - id: "e-mqtt-to-detect"
+    source: "source-mqtt-1"
+    target: "step-pardo-detect-2"
+  - id: "e-detect-to-mqtt"
+    source: "step-pardo-detect-2"
+    sourceHandle: valid
+    target: "sink-mqtt-alert-3"
+    targetHandle: null
+  - id: "e-detect-to-dlq"
+    source: "step-pardo-detect-2"
+    sourceHandle: error
+    target: "sink-log-dlq-4"
+    targetHandle: null
+runtimeVariables:
+  - key: JOB_ID
+    value: "mqtt-to-mqtt-retained"
+  - key: brokerUri
+    value: "tcp://iot.internal:1883"
+  - key: inputTopic
+    value: "factory/sensors/#"
+  - key: alertTopic
+    value: "factory/alerts/critical"
+  - key: qos
+    value: 1
+  - key: retain
+    value: true
+jobConfig:
+  runner: "DirectRunner"
+  machineType: "n1-standard-1"
+  minInstances: 1
+  maxInstances: 2
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: "Java"
+  outputFolder: "test/mqtt-to-mqtt-retained"
+  needsRebuild: false

@@ -15,6 +15,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface FilterNode {
   data: {
@@ -72,6 +73,9 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     properties.special_instructions ??
     '';
 
+  /**
+   * Handles changes to the compare target select dropdown
+   */
   const handleCompareTargetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTarget = e.target.value as 'Message Property' | 'Header Property';
     const newInstructions = generateFilterSystemInstruction(newTarget, property, operator, value);
@@ -85,7 +89,10 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     });
   };
 
-  const handlePropertyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles changes to the property/field name input
+   */
+  const handlePropertyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newProp = e.target.value;
     const newInstructions = generateFilterSystemInstruction(compareTarget, newProp, operator, value);
     onChange({
@@ -98,6 +105,9 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     });
   };
 
+  /**
+   * Handles changes to the comparison operator select dropdown
+   */
   const handleOperatorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newOp = e.target.value as '==' | '!=' | '>' | '<';
     const newInstructions = generateFilterSystemInstruction(compareTarget, property, newOp, value);
@@ -111,7 +121,10 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     });
   };
 
-  const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles changes to the target value input
+   */
+  const handleValueChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newVal = e.target.value;
     const newInstructions = generateFilterSystemInstruction(compareTarget, property, operator, newVal);
     onChange({
@@ -124,7 +137,10 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes to the code generation instructions textarea
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -152,31 +168,20 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
       </div>
 
       {/* Property */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="filterPropertyInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Property / Field Name</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="Name of the payload or header attribute to inspect in the filter predicate. Required." />
-        </label>
-        <input
-          id="filterPropertyInput"
-          type="text"
-          name="property"
-          aria-required="true"
-          aria-invalid={isPropertyInvalid}
-          value={property}
-          onChange={handlePropertyChange}
-          placeholder="e.g. status"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none w-full ${
-            isPropertyInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isPropertyInvalid && (
-          <span className="text-xs text-red-400">Property name is required.</span>
-        )}
-      </div>
+      <PropertyField
+        id="filterPropertyInput"
+        name="property"
+        label="Property / Field Name"
+        required="Required"
+        tooltip="Name of the payload or header attribute to inspect in the filter predicate. Required."
+        invalid={isPropertyInvalid}
+        error={isPropertyInvalid ? 'Property name is required.' : null}
+        value={property}
+        onChange={handlePropertyChange}
+        placeholder="e.g. status"
+        mono={false}
+        className="w-full"
+      />
 
       {/* Operator */}
       <div className="flex flex-col items-center">
@@ -199,21 +204,17 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
       </div>
 
       {/* Value */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="filterValueInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Target Value</span>
-          <InfoTooltip text="Literal value to compare against." />
-        </label>
-        <input
-          id="filterValueInput"
-          type="text"
-          name="value"
-          value={value}
-          onChange={handleValueChange}
-          placeholder="e.g. active"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 w-full"
-        />
-      </div>
+      <PropertyField
+        id="filterValueInput"
+        name="value"
+        label="Target Value"
+        tooltip="Literal value to compare against."
+        value={value}
+        onChange={handleValueChange}
+        placeholder="e.g. active"
+        mono={false}
+        className="w-full"
+      />
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
         Filter elements based on boolean conditions or properties.
@@ -223,20 +224,18 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="filterSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="filterSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Filter code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="filterSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter custom instructions for Filter code generation..."
+        mono={false}
+      />
     </div>
   );
 };

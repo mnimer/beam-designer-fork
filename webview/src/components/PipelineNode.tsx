@@ -20,7 +20,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap, Pencil } from 'lucide-react';
+import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
 
 const iconComponentMap: Record<string, any> = {
   Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
@@ -36,6 +36,10 @@ export interface PipelineNodeProps {
     beam_transform?: string;
     system_instructions?: string;
     properties?: Record<string, any>;
+    hasCycle?: boolean;
+    isOrphan?: boolean;
+    validationError?: string;
+    validationWarning?: string;
     onLabelChange?: (id: string, newLabel: string) => void;
   };
   selected?: boolean;
@@ -124,7 +128,16 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
   };
 
   // Determine dynamic node border and glow styles based on category: Green (Sources), Blue (Steps), Red (Sinks)
+  // With high-priority crimson pulsing for cyclic dependencies and dashed amber for orphan steps
   const getNodeBorderClasses = () => {
+    if (data.hasCycle) {
+      return 'border-rose-500 ring-2 ring-rose-500/70 shadow-lg shadow-rose-500/25 animate-pulse';
+    }
+    if (data.isOrphan) {
+      return selected
+        ? 'border-amber-400 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10 border-dashed'
+        : 'border-amber-500 border-dashed hover:border-amber-400';
+    }
     if (data.type === 'SOURCE') {
       return selected 
         ? 'border-emerald-400 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10' 
@@ -180,9 +193,29 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
           )}
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
-            {data.type}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
+              {data.type}
+            </span>
+            {data.hasCycle && (
+              <span
+                className="flex items-center text-rose-400 cursor-help"
+                title={data.validationError || 'Cycle detected: this node participates in a cyclic dependency loop'}
+                data-testid="cycle-error-badge"
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400 fill-rose-500/20" />
+              </span>
+            )}
+            {data.isOrphan && !data.hasCycle && (
+              <span
+                className="flex items-center text-amber-400 cursor-help"
+                title={data.validationWarning || 'Orphan step: node is not connected to the pipeline'}
+                data-testid="orphan-warning-badge"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 fill-amber-500/20" />
+              </span>
+            )}
+          </div>
           {isEditing ? (
             <input
               ref={inputRef}

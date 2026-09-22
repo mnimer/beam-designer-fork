@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface ParDoNode {
   data: {
@@ -61,7 +61,7 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
    * Handle changes to the Code Generation Prompt textarea
    * Updates prompt property and preserves system instructions
    */
-  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handlePromptChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     // Get updated prompt text from event
     const newPrompt = e.target.value;
 
@@ -77,7 +77,7 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
    * Handle changes to the System Instructions textarea
    * Updates system_instructions property and preserves code generation prompt
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     // Get updated system instructions text from event
     const newInstructions = e.target.value;
 
@@ -92,44 +92,40 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Code Generation Prompt Section at Top */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="pardoPrompt" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Prompt</span>
-          <InfoTooltip text="User-defined processing logic instructions for generating the Beam DoFn (@ProcessElement method)." />
-        </label>
-        <textarea
-          id="pardoPrompt"
-          name="codeGenerationPrompt"
-          value={codeGenerationPrompt}
-          onChange={handlePromptChange}
-          placeholder="Enter instructions for code generation..."
-          rows={4}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
+      <PropertyField
+        id="pardoPrompt"
+        name="codeGenerationPrompt"
+        label="Code Generation Prompt"
+        tooltip="User-defined processing logic instructions for generating the Beam DoFn (@ProcessElement method)."
+        type="textarea"
+        rows={4}
+        value={codeGenerationPrompt}
+        onChange={handlePromptChange}
+        placeholder="Enter instructions for code generation..."
+        mono={false}
+      >
         <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
           Note: Write instructions that cover what should happen to the incoming messages and what the output format should be.
         </div>
-      </div>
+      </PropertyField>
 
       {/* Flexible Spacer taking up all free space to bottom-align System Instructions */}
       <div className="flex-1 min-h-4" />
 
       {/* System Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="pardoSystemInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>System Instructions</span>
-          <InfoTooltip text="System-level instructions injected into the LLM prompt (e.g. error handling, dead-letter routing, schema constraints)." />
-        </label>
-        <textarea
-          id="pardoSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter system instructions..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="pardoSystemInstructions"
+        name="system_instructions"
+        label="System Instructions"
+        tooltip="System-level instructions injected into the LLM prompt (e.g. error handling, dead-letter routing, schema constraints)."
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter system instructions..."
+        mono={false}
+      />
     </div>
   );
 };

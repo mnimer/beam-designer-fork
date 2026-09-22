@@ -80,4 +80,58 @@ describe('FileIOReadMatchesProperties', () => {
       directoryTreatment: 'SKIP'
     }));
   });
+
+  it('displays required validation error when filePattern is empty in FileIOSourceProperties', () => {
+    const mockNode: any = {
+      data: {
+        label: 'FileIO Match',
+        beam_transform: 'FileIO.match',
+        properties: {
+          filePattern: ''
+        }
+      }
+    };
+
+    const { container, getByRole } = render(<FileIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+
+    const patternInput = container.querySelector('#filePattern') as HTMLInputElement;
+    expect(patternInput).toHaveAttribute('aria-invalid', 'true');
+    expect(getByRole('alert')).toHaveTextContent('File Pattern is required.');
+  });
+
+  it('handles system_instructions changes for both FileIO components', () => {
+    const mockNodeSource: any = {
+      data: {
+        label: 'FileIO Match',
+        beam_transform: 'FileIO.match',
+        properties: {
+          system_instructions: 'Match instruction'
+        }
+      }
+    };
+    const { container: container1 } = render(<FileIOSourceProperties node={mockNodeSource} onChange={mockOnChange} />);
+    const textarea1 = container1.querySelector('#fileSourceSystemInstructions') as HTMLTextAreaElement;
+    expect(textarea1).toHaveValue('Match instruction');
+    fireEvent.change(textarea1, { target: { value: 'Updated match instruction' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      system_instructions: 'Updated match instruction'
+    }));
+
+    const mockNodeRead: any = {
+      data: {
+        label: 'FileIO Read',
+        beam_transform: 'FileIO.readMatches',
+        properties: {
+          system_instructions: 'Read instruction'
+        }
+      }
+    };
+    const { container: container2 } = render(<FileIOReadMatchesProperties node={mockNodeRead} onChange={mockOnChange} />);
+    const textarea2 = container2.querySelector('#readMatchesSystemInstructions') as HTMLTextAreaElement;
+    expect(textarea2).toHaveValue('Read instruction');
+    fireEvent.change(textarea2, { target: { value: 'Updated read instruction' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      system_instructions: 'Updated read instruction'
+    }));
+  });
 });

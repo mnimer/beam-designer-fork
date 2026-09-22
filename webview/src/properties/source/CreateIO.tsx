@@ -16,6 +16,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface CreatePropertiesProps {
   node: any;
@@ -58,7 +59,7 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
     }
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -134,17 +135,16 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="createSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="createSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for Create.of() code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

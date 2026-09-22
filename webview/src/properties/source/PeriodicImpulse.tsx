@@ -1,5 +1,6 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 /**
  * PeriodicImpulse Properties Component
@@ -93,26 +94,20 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
   return (
     <div className="flex flex-col gap-4">
       {/* Interval in Seconds */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="intervalSeconds" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Emission Interval (Seconds)</span>
-          <InfoTooltip text="Duration between successive impulse firings in seconds (via PeriodicImpulse.create().withInterval(Duration) or PeriodicImpulse(fire_interval))." />
-        </label>
-        <input
-          id="intervalSeconds"
-          type="number"
-          name="intervalSeconds"
-          min="0.1"
-          step="any"
-          value={intervalSeconds}
-          onChange={handleChange}
-          placeholder="1"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-        <span className="text-xs text-slate-500">
-          Duration between successive impulse firings (e.g. 1 = every second, 60 = every minute).
-        </span>
-      </div>
+      <PropertyField
+        id="intervalSeconds"
+        name="intervalSeconds"
+        label="Emission Interval (Seconds)"
+        type="number"
+        min="0.1"
+        step="any"
+        value={intervalSeconds}
+        onChange={handleChange}
+        placeholder="1"
+        tooltip="Duration between successive impulse firings in seconds (via PeriodicImpulse.create().withInterval(Duration) or PeriodicImpulse(fire_interval))."
+        helperText="Duration between successive impulse firings (e.g. 1 = every second, 60 = every minute)."
+        mono={false}
+      />
 
       {/* Start Time Mode */}
       <div className="flex flex-col gap-2">
@@ -134,21 +129,17 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
 
       {/* Custom Start Timestamp (if selected) */}
       {startMode === 'custom_timestamp' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="startTimestamp" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Start Epoch Timestamp (Seconds)</span>
-            <InfoTooltip text="Explicit start time as unix epoch seconds." />
-          </label>
-          <input
-            id="startTimestamp"
-            type="number"
-            name="startTimestamp"
-            value={startTimestamp}
-            onChange={handleChange}
-            placeholder="1700000000"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
+        <PropertyField
+          id="startTimestamp"
+          name="startTimestamp"
+          label="Start Epoch Timestamp (Seconds)"
+          type="number"
+          value={startTimestamp}
+          onChange={handleChange}
+          placeholder="1700000000"
+          tooltip="Explicit start time as unix epoch seconds."
+          mono={false}
+        />
       )}
 
       {/* Stop Time Mode */}
@@ -172,44 +163,34 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
 
       {/* Stop Duration in Seconds (if selected) */}
       {stopMode === 'duration' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="durationSeconds" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Run Duration (Seconds)</span>
-            <InfoTooltip text="Stop impulses after the specified duration in seconds (e.g. 3600 = 1 hour)." />
-          </label>
-          <input
-            id="durationSeconds"
-            type="number"
-            name="durationSeconds"
-            min="1"
-            value={durationSeconds}
-            onChange={handleChange}
-            placeholder="3600 (1 hour)"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-          />
-          <span className="text-xs text-slate-500">
-            Pipeline impulses will stop after this duration (e.g. 3600 = 1 hour).
-          </span>
-        </div>
+        <PropertyField
+          id="durationSeconds"
+          name="durationSeconds"
+          label="Run Duration (Seconds)"
+          type="number"
+          min="1"
+          value={durationSeconds}
+          onChange={handleChange}
+          placeholder="3600 (1 hour)"
+          tooltip="Stop impulses after the specified duration in seconds (e.g. 3600 = 1 hour)."
+          helperText="Pipeline impulses will stop after this duration (e.g. 3600 = 1 hour)."
+          mono={false}
+        />
       )}
 
       {/* Custom Stop Timestamp (if selected) */}
       {stopMode === 'custom_timestamp' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="stopTimestamp" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Stop Epoch Timestamp (Seconds)</span>
-            <InfoTooltip text="Explicit stop time as unix epoch seconds." />
-          </label>
-          <input
-            id="stopTimestamp"
-            type="number"
-            name="stopTimestamp"
-            value={stopTimestamp}
-            onChange={handleChange}
-            placeholder="1700003600"
-            className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
+        <PropertyField
+          id="stopTimestamp"
+          name="stopTimestamp"
+          label="Stop Epoch Timestamp (Seconds)"
+          type="number"
+          value={stopTimestamp}
+          onChange={handleChange}
+          placeholder="1700003600"
+          tooltip="Explicit stop time as unix epoch seconds."
+          mono={false}
+        />
       )}
 
       {/* Catch Up To Now Toggle */}
@@ -232,21 +213,18 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
       </div>
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="system_instructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom guidance injected into the LLM code generation prompt for this transform." />
-        </label>
-        <textarea
-          id="system_instructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter custom instructions for code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="system_instructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        type="textarea"
+        value={systemInstructions}
+        onChange={handleChange}
+        placeholder="Enter custom instructions for code generation..."
+        rows={3}
+        tooltip="Optional custom guidance injected into the LLM code generation prompt for this transform."
+        mono={false}
+      />
     </div>
   );
 };

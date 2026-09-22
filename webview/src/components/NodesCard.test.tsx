@@ -165,6 +165,8 @@ describe('NodesCard', () => {
     expect(screen.getByText('File Sources')).toBeInTheDocument();
     expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('JMS')).toBeInTheDocument();
+    expect(screen.getByText('MQTT')).toBeInTheDocument();
     expect(screen.getByText('Generate Sequence')).toBeInTheDocument();
     expect(screen.getByText('Periodic Impulse')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
@@ -222,6 +224,8 @@ describe('NodesCard', () => {
 
     expect(screen.getByText('Kafka')).toBeInTheDocument();
     expect(screen.getByText('PubSub')).toBeInTheDocument();
+    expect(screen.getByText('JMS')).toBeInTheDocument();
+    expect(screen.getByText('MQTT')).toBeInTheDocument();
     expect(screen.getByText('BigQuery')).toBeInTheDocument();
     expect(screen.getByText('JdbcIO')).toBeInTheDocument();
     expect(screen.getByText('FileIO')).toBeInTheDocument();
@@ -506,6 +510,59 @@ describe('NodesCard', () => {
       expect(detailsList[0].open).toBe(false);
       // sources_database_sources is second details
       expect(detailsList[1].open).toBe(true);
+    });
+
+    it('renders Kinesis in Streaming Sources and Streaming Sinks tabs', () => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText('Kinesis')).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText('Kinesis')).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+    });
+
+    it('renders AvroIO in SOURCES under File Sources and in SINKS under File Sinks', () => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      expect(screen.getByText('AvroIO')).toBeInTheDocument();
+      expect(screen.getByText('Read records from Avro files')).toBeInTheDocument();
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      expect(screen.getByText('AvroIO')).toBeInTheDocument();
+      expect(screen.getByText('Write records to Avro files')).toBeInTheDocument();
+    });
+
+    it('collapses other groups when a user opens/expands a group in a panel', () => {
+      const { container } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
+      );
+
+      const detailsList = container.querySelectorAll('details');
+      expect(detailsList.length).toBeGreaterThan(1);
+
+      // By default, the first group (Streaming Sources) is open, second (Database Sources) is closed
+      expect(detailsList[0].open).toBe(true);
+      expect(detailsList[1].open).toBe(false);
+
+      // Expand the second group (Database Sources)
+      detailsList[1].open = true;
+      fireEvent(detailsList[1], new Event('toggle'));
+
+      // The second group should now be open, and the first group must be collapsed
+      expect(detailsList[1].open).toBe(true);
+      expect(detailsList[0].open).toBe(false);
     });
   });
 });

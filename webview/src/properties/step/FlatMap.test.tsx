@@ -118,6 +118,7 @@ describe('FlatMapProperties', () => {
     const mockNode = {
       data: {
         label: 'FlatMap',
+        beam_transform: 'FlatMap',
         properties: {}
       }
     };

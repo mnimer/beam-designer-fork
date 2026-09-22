@@ -16,6 +16,7 @@
 import React from 'react';
 import { BEAM_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface FileIOSinkNode {
   data: {
@@ -45,6 +46,9 @@ interface FileIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * FileIOSinkProperties component renders property controls for FileIO writes.
+ */
 export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -65,7 +69,10 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
     properties.special_instructions ??
     '';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /**
+   * Handles text, checkbox, and select input changes.
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
@@ -76,7 +83,10 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Updates custom instructions for code generation.
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -86,87 +96,57 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Destination Directory */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="fileSinkTo" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Destination Directory (.to)</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="Base output directory path where files are written (e.g. gs://my-bucket/output/ or /local/output/). Required." />
-        </label>
-        <input
-          id="fileSinkTo"
-          type="text"
-          name="to"
-          aria-required="true"
-          aria-invalid={isToInvalid}
-          value={to}
-          onChange={handleChange}
-          placeholder="gs://my-bucket/output/ or /local/output/"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-            isToInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isToInvalid ? (
-          <span className="text-xs text-red-400">Destination directory is required.</span>
-        ) : (
-          <span className="text-xs text-slate-400">
-            Root folder or GCS directory where output files are written.
-          </span>
-        )}
-      </div>
+      <PropertyField
+        id="fileSinkTo"
+        name="to"
+        label="Destination Directory (.to)"
+        required={true}
+        tooltip="Base output directory path where files are written (e.g. gs://my-bucket/output/ or /local/output/). Required."
+        value={to}
+        invalid={isToInvalid}
+        error={isToInvalid ? 'Destination directory is required.' : null}
+        onChange={handleChange}
+        placeholder="gs://my-bucket/output/ or /local/output/"
+        helperText={
+          isToInvalid ? undefined : 'Root folder or GCS directory where output files are written.'
+        }
+      />
 
       {/* Prefix */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="fileSinkPrefix" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Filename Prefix (.withPrefix)</span>
-          <InfoTooltip text="Prefix string prepended to all output file shard names (e.g. output-)." />
-        </label>
-        <input
-          id="fileSinkPrefix"
-          type="text"
-          name="prefix"
-          value={prefix}
-          onChange={handleChange}
-          placeholder="output-"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="fileSinkPrefix"
+        name="prefix"
+        label="Filename Prefix (.withPrefix)"
+        tooltip="Prefix string prepended to all output file shard names (e.g. output-)."
+        value={prefix}
+        onChange={handleChange}
+        placeholder="output-"
+      />
 
       {/* Suffix */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="fileSinkSuffix" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Filename Suffix (.withSuffix)</span>
-          <InfoTooltip text="Suffix or file extension appended to output shard names (e.g. .parquet, .avro, .csv)." />
-        </label>
-        <input
-          id="fileSinkSuffix"
-          type="text"
-          name="suffix"
-          value={suffix}
-          onChange={handleChange}
-          placeholder=".csv, .json, .parquet"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-        />
-      </div>
+      <PropertyField
+        id="fileSinkSuffix"
+        name="suffix"
+        label="Filename Suffix (.withSuffix)"
+        tooltip="Suffix or file extension appended to output shard names (e.g. .parquet, .avro, .csv)."
+        value={suffix}
+        onChange={handleChange}
+        placeholder=".csv, .json, .parquet"
+      />
 
       {/* Number of Shards */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="fileSinkNumShards" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Number of Shards (.withNumShards)</span>
-          <InfoTooltip text="Fixed number of shards to write. Set to 0 or leave empty for runner-determined sharding." />
-        </label>
-        <input
-          id="fileSinkNumShards"
-          type="number"
-          name="numShards"
-          min="0"
-          value={numShards}
-          onChange={handleChange}
-          placeholder="0 (Runner Determined)"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-      </div>
+      <PropertyField
+        id="fileSinkNumShards"
+        name="numShards"
+        label="Number of Shards (.withNumShards)"
+        tooltip="Fixed number of shards to write. Set to 0 or leave empty for runner-determined sharding."
+        type="number"
+        min="0"
+        value={numShards}
+        onChange={handleChange}
+        placeholder="0 (Runner Determined)"
+        mono={false}
+      />
 
       {/* Compression Row */}
       <div className="flex flex-col gap-2 p-3 bg-slate-800/40 rounded border border-slate-700/50">
@@ -225,17 +205,16 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
 
       {/* Code Generation Instructions */}
       <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="fileSinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
+        <PropertyField
           id="fileSinkSystemInstructions"
           name="system_instructions"
+          label="Code Generation Instructions"
+          type="textarea"
           value={systemInstructions}
           onChange={handleInstructionsChange}
           placeholder="Enter custom instructions for FileIO sink code generation..."
           rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
+          mono={false}
         />
       </div>
     </div>

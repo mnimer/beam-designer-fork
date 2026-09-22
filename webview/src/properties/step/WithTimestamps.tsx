@@ -16,6 +16,7 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface WithTimestampsNode {
   data: {
@@ -65,6 +66,9 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
     properties.special_instructions ??
     generateTimestampSystemInstruction(timestampType, propertyName);
 
+  /**
+   * Handles changes to the timestamp source type select dropdown
+   */
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newType = e.target.value as 'Current Time' | 'Message Property' | 'Header Property';
     const newInstructions = generateTimestampSystemInstruction(newType, propertyName);
@@ -76,7 +80,10 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
     });
   };
 
-  const handlePropertyNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles changes to the timestamp property name input
+   */
+  const handlePropertyNameChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newPropName = e.target.value;
     const newInstructions = generateTimestampSystemInstruction(timestampType, newPropName);
     onChange({
@@ -87,7 +94,10 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
     });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes to the code generation instructions textarea
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       timestampType,
@@ -117,31 +127,19 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
       </div>
 
       {showPropertyNameInput && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="withTimestampsPropertyInput" className="flex items-center text-xs font-bold uppercase text-slate-500">
-            <span>Property Name</span>
-            <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-            <InfoTooltip text="Field or header attribute name containing the epoch timestamp or ISO date string. Required." />
-          </label>
-          <input
-            id="withTimestampsPropertyInput"
-            type="text"
-            name="propertyName"
-            aria-required="true"
-            aria-invalid={isPropertyNameInvalid}
-            value={propertyName}
-            onChange={handlePropertyNameChange}
-            placeholder={timestampType === 'Header Property' ? 'e.g. publish_time' : 'e.g. event_timestamp'}
-            className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
-              isPropertyNameInvalid
-                ? 'border-red-500/80 focus:border-red-500'
-                : 'border-slate-700 focus:border-blue-500'
-            }`}
-          />
-          {isPropertyNameInvalid && (
-            <span className="text-xs text-red-400">Property name is required.</span>
-          )}
-        </div>
+        <PropertyField
+          id="withTimestampsPropertyInput"
+          name="propertyName"
+          label="Property Name"
+          required="Required"
+          tooltip="Field or header attribute name containing the epoch timestamp or ISO date string. Required."
+          invalid={isPropertyNameInvalid}
+          error={isPropertyNameInvalid ? 'Property name is required.' : null}
+          value={propertyName}
+          onChange={handlePropertyNameChange}
+          placeholder={timestampType === 'Header Property' ? 'e.g. publish_time' : 'e.g. event_timestamp'}
+          mono={false}
+        />
       )}
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
@@ -151,20 +149,19 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
       {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
       <div className="flex-1 min-h-4" />
 
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="withTimestampsSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="withTimestampsSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter code generation instructions for timestamp assignment..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      {/* Code Generation Instructions */}
+      <PropertyField
+        id="withTimestampsSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter code generation instructions for timestamp assignment..."
+        mono={false}
+      />
     </div>
   );
 };

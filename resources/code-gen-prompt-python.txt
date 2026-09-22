@@ -1,64 +1,95 @@
-I have this react-flow diagram of an Apache BEAM pipeline, in yaml file format. 
+You are an expert Apache Beam engineer. Convert the provided React-Flow pipeline YAML into a production-ready, executable Apache Beam (Dataflow) project in Python.
 
-I need you to convert this yaml into a valid apache beam (dataflow) Pipeline in Python, using the latest version of all libraries. 
+Generate all output files conforming to the requested JSON schema: a single JSON object with a `files` array containing `{ "filename": "...", "content": "...", "executable": true/false }`.
 
-I will also need you to generate:
-- A valid dependency file (requirements.txt)
-- A valid Dataflow Flex Template Dockerfile for Python. 
-- A valid Dataflow Flex Template metadata.json file for the pipeline, defining ONLY the runtime parameters specified under 'runtimeVariables' in the input YAML. 
-- A shell script to run the job locally (name=run_directrunner.sh)    
-- A shell script to run the job on GCP Dataflow (name=run_dataflowrunner.sh)
-- A cloudbuild.yaml file to build and push the compiled container to the artifact registry.
-- A detailed Readme documenting the pipeline, how to build it, and how to run it.
+## 1. Required Deliverables & Directory Layout
+All files MUST be output directly in the designated root or `src/` layout (do NOT create a top-level wrapper directory named after the pipeline):
 
-## Project code instructions
-- Only generate the pipeline code. I do not need any extra helper application code generated. 
-- Directory & Subfolder Structure Rules:
-  - Do NOT create a top-level directory wrapper named after the pipeline (do NOT output filenames starting with 'foobar/' or '<pipeline-name>/'). The output directory provided to you is already the target side-folder.
-  - Root side-folder files: All docker, shell scripts, metadata, dependencies, cloudbuild, and documentation files MUST be generated directly in the root of the side-folder ('Dockerfile', 'cloudbuild.yaml', 'metadata.json', 'requirements.txt', 'run_directrunner.sh', 'run_dataflowrunner.sh', 'README.md').
-  - Pipeline source code files: All code files and tests MUST be generated inside 'src/' (e.g. 'src/foobar.py', 'src/foobar_test.py').
-- Delete all files and folders in output folder before generating the new code.
-- Validate all generated files are valid after creation
-- Generate Unit Tests for the different steps in the pipeline in `src/<pipeline_name>_test.py`
-- Validate all unit tests run and pass locally using the DirectRunner
-- **SEPARATION OF RUNNER SCRIPT AND TESTS**:
-  - `run_directrunner.sh` MUST ONLY execute the main pipeline file (`python src/<pipeline_name>.py --runner=DirectRunner ... "$@"`). It must **NEVER** run unit tests (`unittest`, `pytest`, `unittest.main()`).
-  - The main pipeline file `src/<pipeline_name>.py` MUST have `if __name__ == '__main__': run()` and MUST **NEVER** import `unittest` or invoke `unittest.main()`.
-  - For streaming/unbounded pipelines (e.g. `PubSubIO`, `PeriodicImpulse`, unbounded `GenerateSequence`), configure the pipeline with `streaming=True` / pass `--streaming` in `run_directrunner.sh`.
-- Use Cloud Build to build all artifacts
-- For Python projects: generate 'requirements.txt'. Do NOT generate 'pom.xml', 'run_sparkrunner.sh', or any Java build directories (such as 'target/').
-- You MUST generate an empty package marker file named `src/__init__.py` so that `src` is recognized as an importable Python package by `unittest`.
-- For Python unit test files, import statements MUST reference the actual pipeline module name matching the target pipeline filename (e.g., if the main pipeline file is named 'foobar.py', unit tests MUST import transforms using 'from src.foobar import ...' or 'from foobar import ...', NOT hardcoded 'from src.pipeline import ...').
-- Keep all generated files, README documentation, and configuration concise, production-ready, and direct. Avoid excessively long narrative boilerplate to ensure response fits within model output token limits.
+| File Path | Description | Executable |
+|---|---|---|
+| `requirements.txt` | Python dependencies file with compatible packages | false |
+| `src/<pipeline_name>.py` | Main pipeline source code (snake_case matching pipeline name) | false |
+| `src/<pipeline_name>_test.py` | Unit tests using Beam `TestPipeline` and `assert_that` | false |
+| `src/__init__.py` | Empty package marker file for package and test discovery | false |
+| `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
+| `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
+| `.dockerignore` | Build context exclusions (.git, venv, *.log, __pycache__) | false |
+| `run_directrunner.sh` | Bash script to initialize/activate venv, install dependencies, and run locally | true |
+| `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
+| `cloudbuild.yaml` | Cloud Build config to build and push the template container image | false |
+| `README.md` | Concise documentation of pipeline design, configurations, and run instructions | false |
 
-## Pipeline Options & Configuration Rules:
-- **STRICT RUNTIME VARIABLES / PIPELINE OPTIONS RULE**:
-  - ONLY variables explicitly listed in the `runtimeVariables` section of the input YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`) may be declared as custom `PipelineOptions` or `argparse` parameters in Python and in `metadata.json`.
-  - **Runtime Variables Consistency & Reserved Names**:
-    - **Avoid reserved option collisions**: If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipeline_job_id` (or `pipelineJobId`) to avoid collisions with Dataflow runner internals.
-    - Convert each variable from the YAML's `runtimeVariables` into standard snake_case (e.g., `JOB_ID` -> `pipeline_job_id`, `NUM_OBJECTS_PER_ITERATION` -> `num_objects_per_iteration`).
-    - Use this exact identifier consistently across ALL generated artifacts:
-      1. `argparse` / `PipelineOptions` CLI argument parser (e.g. `parser.add_argument('--pipeline_job_id', ...)`).
-      2. `metadata.json` parameter `"name"` (e.g. `"name": "pipeline_job_id"`).
-      3. `run_directrunner.sh` arguments (e.g. `--pipeline_job_id="value" --num_objects_per_iteration=1`).
-      4. `run_dataflowrunner.sh` parameters (e.g. `--parameters pipeline_job_id="value",num_objects_per_iteration=1`).
-    - **ALL Runtime Variables MUST be passed to ALL runner scripts**: Ensure that ALL runtime variables defined in the input YAML are provided with their default values in `run_directrunner.sh` and `run_dataflowrunner.sh`.
-  - For Flex Templates, use standard `argparse` argument definitions. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
-  - **DO NOT** create `PipelineOptions` or command-line parameters for node configuration properties (such as JDBC URL, username, password, driverClassName, queries, table names, fetch size, batch size, delimiters, file patterns, BigQuery tables, Pub/Sub topics/subscriptions, etc.).
-  - **HARDCODE ALL NODE PROPERTIES**: All node configuration values from the YAML properties MUST be hardcoded directly into the pipeline transform calls in Python (e.g. `ReadFromJdbc(table_name="...", ...)`, etc.).
+### Deliverable Constraints:
+- **File Scope**: Generate ONLY the 11 files listed above. Do not add extra utility modules, config loaders, CI files, linter configs, or example data files.
+- **Output Budget**: The `README.md` MUST be under 150 lines and contain only these sections: Overview, Prerequisites, Setup, Run Locally, Deploy to Dataflow, and Runtime Parameters. Do not restate pipeline source code or add narrative marketing boilerplate.
 
-## Pipeline Instructions
-- Generate main python file name as "<pipeline-name>.py" (e.g. "foobar.py").
-- Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
-- **Step Names**: Use the node's `label` attribute as the step name in the Python Beam pipeline (e.g. `p | '<label>' >> ...`). If a node has a customized label, you MUST use that exact string as the step name. If the label is a default transform name, provide a clean, descriptive step name adhering to Apache Beam best practices.
-- If the pipeline has an output that goes nowhere (invalid beam pipeline), include a simple Logger step to print the output message.
-- Use the latest version of all libraries.
+---
 
-## Compile instructions
-- Validate the code by running lint and compile tools, keep iterating until the code compiles successfully.
-- Validate the code by running unit tests locally using the DirectRunner, keep iterating until all unit tests pass.
+## 2. Output Contract & Placeholder Glossary
 
-Language: Python
+### Output Contract
+- Return every file in the `files` array matching the JSON schema.
+- `filename` is relative to the output root, using forward slashes, with NO leading pipeline-name folder and no `./` or `../` prefix.
+- Set `executable: true` for all `.sh` scripts, `false` for all other files.
+- `content` must be the complete final file text. Never use "..." or "unchanged" elisions.
+
+### Placeholder Glossary — You MUST Replace These:
+The reference templates contain literal placeholder tokens. Replace EVERY occurrence across all generated files:
+- `{{pipeline_name}}` -> snake_case pipeline base name (e.g. `pubsub_to_bigquery`).
+  - Derive this by lowercasing the pipeline name and replacing any hyphens or spaces with underscores (`_`).
+  - Because this value is used BOTH as the Python module filename (`src/{{pipeline_name}}.py`) and as the container image name, it MUST be a valid Python identifier: lowercase letters, digits, and underscores only. NEVER use hyphens.
+- `{{gcs_staging_path}}` -> `jobConfig.gcsStagingPath` from YAML; if empty or blank, use `gs://${PROJECT_ID}-dataflow/staging`.
+- No `{{...}}` placeholder token may remain in any generated file.
+
+## Credential Handling Rules (GLOBAL - applies to every transform)
+
+Credentials are never stored inline in the pipeline definition. A node configures
+authentication in one of two ways, and you MUST inspect each node's properties to tell
+them apart:
+
+1. **Secret Manager reference (preferred).** The node has `authMode: secretManager` and/or
+   a property whose name ends in `Secret` -- for example `passwordSecret`,
+   `accessKeySecret` -- or a `secretName` property. The VALUE of that property is the
+   SHORT ID of a Google Cloud Secret Manager secret. It is NOT the credential.
+   - You MUST generate code that resolves the secret at runtime.
+   - Required import: `from google.cloud import secretmanager`
+   - Add `google-cloud-secret-manager` to `requirements.txt`.
+   - Resolve the secret ONCE during pipeline construction, never per element. Fetching
+     inside a `DoFn` would issue one API call per record.
+   - Use this shape:
+     ```python
+     def _access_secret(project_id: str, secret_id: str, version: str = "latest") -> str:
+         """Reads the payload of a Secret Manager secret."""
+         client = secretmanager.SecretManagerServiceClient()
+         name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
+         return client.access_secret_version(request={"name": name}).payload.data.decode("UTF-8")
+     ```
+   - Pass the resolved value into the transform where the plaintext property would
+     otherwise have gone. For example, a JdbcIO node with `passwordSecret: prod-db-pw`
+     becomes `password=_access_secret(project_id, "prod-db-pw")`.
+   - Derive `project_id` from the pipeline options / `--project` argument. Do NOT hardcode it.
+
+2. **CLI Arguments / Parameterized Credentials (when credentials exist in YAML properties)**:
+   - **CRITICAL ZERO-PLAINTEXT MANDATE**: NEVER embed plaintext database passwords, connection secrets, auth tokens, or private keys as string literals in Python source code or `ReadFromJdbc` / `WriteToJdbc` calls (e.g. NEVER write `password="dbpswrd123"` or `username="dbuser123"`).
+   - **NO DEFAULT VALUES ON PASSWORDS**: NEVER specify default values for passwords in `parser.add_argument(...)` (e.g. do NOT use `default='dbpswrd123'`). Use `required=True` instead so passwords must be explicitly provided at runtime.
+   - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
+     - **Parameterize via `argparse` / `PipelineOptions`**: Expose these credential properties as CLI arguments in the argument parser (e.g. `parser.add_argument('--source_db_username', required=True, ...)`, `parser.add_argument('--source_db_password', required=True, ...)`, and similarly for sink nodes, e.g. `parser.add_argument('--sink_db_username', required=True, ...)`, `parser.add_argument('--sink_db_password', required=True, ...)`, or `--db_username` / `--db_password` if a single DB).
+     - Pass the values from `known_args` into the transform (e.g. `username=known_args.source_db_username, password=known_args.source_db_password`).
+     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`, and for any sensitive credential, password, token, or private key ALWAYS specify `"isSecret": true` to ensure Cloud Console UI masking and secret redaction).
+     - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
+       ```bash
+       : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
+       ```
+       Then pass `--source_db_password="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
+     - This rule is an explicit exception to the "only runtimeVariables in CLI arguments" rule: sensitive credentials MUST be parameterized via CLI arguments to ensure zero plaintext secrets in code and scripts.
+
+**MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
+plaintext property of the same name and use the Secret Manager path.
+
+**REDACTED VALUES**: if a property value is exactly `__REDACTED_BY_BEAM_DESIGNER__`, that is
+a placeholder, not a credential. Never emit it as a string literal. Read the value from an
+environment variable named after the property in upper snake case and add a brief comment
+noting that the operator must supply it.
 
 ## Built-in Beam Transform Rules & Syntax Reference
 - **GLOBAL MANDATORY RULE**: Check the `beam_transform` attribute on each node in the input YAML below.
@@ -66,14 +97,103 @@ Language: Python
 - **SDK SYNTAX OVERRIDES**:
   - **Python `WithTimestamps`**: Use `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (with `import time`). Do NOT use `beam.WithTimestamps()`.
 
-### Python SDK Syntax & Behavioral Reference:
+---
 
-#### 1. Sources & Sinks (I/O Connectors)
+## 3. Core Architecture & Coding Rules
+
+### A. Runtime Variables vs. Hardcoded Node Configuration
+- **RUNTIME VARIABLES & SENSITIVE CREDENTIAL PARAMETERIZATION**:
+  - Command-line arguments, `metadata.json`, and runner scripts MUST include:
+    1. All variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`).
+    2. Any sensitive credentials (such as JDBC database passwords and usernames) present in node properties, parameterized as described in the Credential Handling Rules above.
+  - **HARDCODE NON-SENSITIVE NODE PROPERTIES**: Non-sensitive node configuration values (JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Python. NEVER expose non-sensitive properties as CLI arguments. NEVER hardcode passwords or sensitive credentials directly in code.
+- **Reserved Option Name Safety & Remapping**:
+  - **NEVER use reserved Beam/Dataflow option names**: `job_name`, `job_id`, `project`, `region`, `runner`, `temp_location`, `staging_location`, `template_location`, `streaming`, `subnetwork` are reserved by Apache Beam / Dataflow.
+  - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipeline_job_id` consistently across ALL artifacts:
+    - `argparse` parameter: `parser.add_argument('--pipeline_job_id', ...)`
+    - `metadata.json` parameter `"name"`: `"pipeline_job_id"`
+    - `run_directrunner.sh` argument: `--pipeline_job_id="value"`
+    - `run_dataflowrunner.sh` parameter: `pipeline_job_id="value"`
+  - Convert all other runtime variables from YAML into standard snake_case (e.g. `NUM_OBJECTS_PER_ITERATION` -> `num_objects_per_iteration`).
+  - For Flex Templates, use standard `parser.add_argument(...)`. **NEVER** use `parser.add_value_provider_argument(...)` (deprecated legacy Classic template API that causes runtime `TypeCheckError`).
+  - Ensure that ALL runtime variables defined in YAML are supplied with default values in `run_directrunner.sh` and `run_dataflowrunner.sh`.
+
+### B. Node Instruction Fields vs Hardcoded Config
+- `data.system_instructions` and `data.properties.codeGenerationPrompt` (or `data.properties.prompt`) contain natural-language descriptions of the logic this node must implement.
+  - Treat them as implementation instructions: generate Python code that fulfills them.
+  - NEVER emit them as string literals, configuration values, or comment-only stubs.
+  - They are EXEMPT from the "hardcode all node properties" rule.
+  - If they conflict with default behaviors in the reference table below, the node's instructions win.
+- **NO SCHEMA GUESSING / HALLUCINATION**: Do NOT invent, assume, or hardcode payload schema fields based on topic, subscription, dataset, or table names (for example, do NOT assume a subscription named with "object-finalize" carries specific GCS file metadata keys like `bucket`, `name`, `size`, `timeCreated`). Unless explicit schema fields are specified in `system_instructions` or `codeGenerationPrompt`, ALWAYS parse payloads generically across all fields.
+
+### C. Runtime Variable Interpolation
+- Any `${VAR_NAME}` token inside a node's properties or instructions refers to the runtime variable `VAR_NAME` from `runtimeVariables`.
+- Replace it with a read of the corresponding parsed CLI argument using snake_case (e.g. `${NUM_OBJECTS_PER_ITERATION}` -> `known_args.num_objects_per_iteration`). NEVER hardcode the default value of an interpolated `${VAR_NAME}`.
+
+### D. Custom `DoFn` Policy
+- **PREFER BUILT-IN TRANSFORMS**: If a node's `beam_transform` appears in the SDK Syntax Reference below, use that built-in `PTransform`. Do NOT reimplement it as a custom `DoFn`.
+- **WHEN A CUSTOM `DoFn` OR FUNCTION IS REQUIRED**: Write a custom `beam.DoFn` or function ONLY in these cases:
+  1. `beam_transform` is `ParDo` or `ParseMessage` (multi-output branching parser).
+  2. The node has `system_instructions` or `codeGenerationPrompt` describing custom business logic.
+  3. A built-in transform requires a user-supplied callable (`beam.Filter`, `beam.Map`, `beam.FlatMap`, or adapter lambdas between built-ins).
+- Define custom `beam.DoFn` classes or functions in the main pipeline module. Do NOT create separate helper source files.
+
+### E. Type Propagation & End-to-End Edge Compatibility
+- **MANDATORY EDGE TYPE ALIGNMENT**: Every edge in the input YAML connects a `source` node to a `target` node. When generating code, you MUST inspect both:
+  1. **Upstream Output Type ($T_{in}$)**: The Python type emitted by the predecessor node (see Section 4).
+  2. **Downstream Expected Input Type ($T_{out}$)**: The Python type consumed by the successor node (see Section 4).
+- **Intermediate Transform Bridging**: Any intermediate step (`ParseMessage`, `ParDo`, `Map`, `Filter`) MUST explicitly bridge $T_{in} \rightarrow T_{out}$ to match the downstream connector's expected input type as defined in Section 4. (For example, BigQuery sinks require `dict`, Kafka sinks require `(key, value)` tuples, Parquet sinks require PyArrow record dicts, Text sinks require `str`, PubSub sinks require `bytes`, etc.).
+- **Automatic Adapters for Direct Incompatible Edges**: If an edge in the YAML directly connects a source to a sink with incompatible types without an intermediate transformation (e.g. `ReadFromPubSub` producing `bytes` connected directly to `WriteToBigQuery` requiring `dict`), you MUST automatically insert a clean mapping step (such as `beam.Map` decoding and converting JSON bytes to `dict`) between them so the Python pipeline is strictly type-safe.
+
+### F. Transform Naming & Uniqueness
+- Every step name in `p | '<step_name>' >> ...` MUST be non-empty and **globally unique** across the pipeline.
+- Use `data.label` as the step name. If multiple nodes share the same label or if the label equals the default transform name, append a distinct qualifier or node ID (e.g. `'Filter Valid Records (node_2)'`) to prevent `RuntimeError: A transform with label "..." already exists in the pipeline`.
+
+### G. Streaming vs. Batch Detection
+- If the pipeline contains streaming sources (`PubSubIO`, `KafkaIO`, `MqttIO`, `PeriodicImpulse`), configure the pipeline for streaming:
+  - Add `options.view_as(StandardOptions).streaming = True` when initializing `PipelineOptions` or pass `--streaming` in `run_directrunner.sh`.
+
+### H. Separation of Runner Scripts and Unit Tests
+- `run_directrunner.sh` and `run_dataflowrunner.sh` MUST ONLY execute the main pipeline file (`python src/<pipeline_name>.py ... "$@"`). They must **NEVER** run unit tests (`unittest`).
+- The main pipeline file `src/<pipeline_name>.py` MUST have `if __name__ == '__main__': run()` and MUST **NEVER** import `unittest` or invoke `unittest.main()`.
+- Unit tests live strictly in `src/<pipeline_name>_test.py` and use Beam's `TestPipeline`, `assert_that`, and `equal_to`. Import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
+
+### I. Code Documentation & Quality
+- Include author and module documentation header on the main file:
+  ```python
+  """
+  Pipeline: <PipelineName>
+  Description: <Pipeline Description>
+  Author: Mike Nimer <mikenimer@google.com>
+  """
+  ```
+- Fail fast: Do NOT add undocumented fallbacks or silently swallow exceptions.
+
+---
+
+## 4. Built-in Beam Transform Syntax & Import Reference
+
+### 1. Sources & Sinks (I/O Connectors)
 - **`PubSubIO`**:
-  - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)`
-  - Sink: `beam.io.WriteToPubSub(topic=...)`
+  - Required Imports: `import apache_beam as beam`
+  - Source: `beam.io.ReadFromPubSub(subscription=..., topic=...)` (produces `bytes`)
+  - Sink: `beam.io.WriteToPubSub(topic=...)` (consumes `bytes`)
 - **`GenerateSequence`**:
-  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
+  - **CRITICAL — PREFER `PeriodicImpulse` FOR PERIODIC TRIGGERS**: `GenerateSequence` has **no native Python implementation**. It is a Java transform reached over cross-language expansion, which means it requires (a) downloading an ~800MB Java expansion-service JAR and (b) **a running Docker daemon** to host the Java SDK harness that actually executes it. On a developer machine without Docker the pipeline starts, logs unrelated JVM noise from every connector bundled in the shadowJar (e.g. `Running JvmInitializer#beforeProcessing for ...KafkaIOInitializer`), and **produces no elements**.
+    - Therefore, when the node is only being used as a **periodic trigger / tick source** (i.e. the emitted numbers are discarded and downstream only needs "fire every N seconds"), you **MUST** generate `PeriodicImpulse` instead. It is pure Python, needs no JVM and no Docker:
+      ```python
+      import time
+      from apache_beam.transforms.periodicsequence import PeriodicImpulse
+
+      trigger_stream = p | 'trigger' >> PeriodicImpulse(
+          start_timestamp=time.time(),
+          fire_interval=period_seconds,   # seconds, NOT milliseconds
+      )
+      ```
+    - To fan out N elements per tick: `| 'fan out' >> beam.FlatMap(lambda ts: range(elements_per_period))`.
+    - If bounded without rate limit and purely local in-memory: `beam.Create(range(start, stop))`.
+    - Only fall through to the cross-language forms below when the pipeline genuinely consumes the **sequence values themselves** (e.g. the numbers are used as keys or IDs) and a periodic tick is not sufficient.
+  - Required Imports (cross-language forms only): `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService` (and optionally `from apache_beam.io.external.generate_sequence import GenerateSequence` for non-rate-limited bounded sequences).
   - **CRITICAL RATE LIMITING & PERIOD RULE**:
     - Python SDK's helper class `GenerateSequence.__init__` omitted the `period` parameter in its constructor, so calling `GenerateSequence(elements_per_period=1)` causes the Java expansion service to throw `java.lang.IllegalArgumentException: elements per period specified, but no period specified`.
     - Therefore, when rate limiting or period is configured (e.g. `elementsPerPeriod` or `periodSeconds`), you **MUST** use `ExternalTransform('beam:external:java:generate_sequence:v1', ...)` with `ImplicitSchemaPayloadBuilder` supplying both `elements_per_period` AND `period` in milliseconds (`periodSeconds * 1000`):
@@ -89,6 +209,7 @@ Language: Python
           BeamJarExpansionService('sdks:java:io:expansion-service:shadowJar')
       )
       ```
+    - NOTE: `ImplicitSchemaPayloadBuilder` **silently drops any key whose value is `None`**, so `'stop': None` is simply absent from the payload and correctly yields an unbounded sequence. Do not attempt to pass `-1` or `0` to mean "unbounded".
   - Bounded without Rate Limiting (start to stop):
     ```python
     from apache_beam.io.external.generate_sequence import GenerateSequence
@@ -114,178 +235,299 @@ Language: Python
 - **`PeriodicImpulse`**:
   - Required Imports: `import time`, `from apache_beam.transforms.periodicsequence import PeriodicImpulse`
   - Unbounded: `PeriodicImpulse(start_timestamp=time.time(), fire_interval=interval_seconds)`
-  - Bounded / With Duration: `PeriodicImpulse(start_timestamp=time.time(), stop_timestamp=time.time() + duration_seconds, fire_interval=interval_seconds)`
-  - With Custom Start/Stop: `PeriodicImpulse(start_timestamp=start_timestamp, stop_timestamp=stop_timestamp, fire_interval=interval_seconds)`
+  - Bounded: `PeriodicImpulse(start_timestamp=time.time(), stop_timestamp=time.time() + duration_seconds, fire_interval=interval_seconds)`
 - **`BigQueryIO`**:
   - Source: `beam.io.ReadFromBigQuery(query=..., table=..., use_standard_sql=True)`
-  - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=..., write_disposition=...)`
+  - Sink: `beam.io.WriteToBigQuery(table=..., create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER, write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)` (consumes `dict` rows)
 - **`TextIO`**:
-  - Source: `beam.io.ReadFromText(file_pattern=..., skip_header_lines=..., compression_type=..., delimiter=...)`
-  - Sink: `beam.io.WriteToText(file_path_prefix=..., file_name_suffix=..., num_shards=..., compression_type=..., header=..., footer=...)`
+  - Source: `beam.io.ReadFromText(file_pattern=..., skip_header_lines=...)`
+  - Sink: `beam.io.WriteToText(file_path_prefix=..., file_name_suffix=".txt")` (consumes `str`)
 - **`FileIO`**:
-  - Required Import: `from apache_beam.io import fileio` (or `import apache_beam.io.fileio as fileio`)
-  - Match Source (`FileIO.match`): `fileio.MatchFiles(file_pattern)` / `fileio.MatchAll()`
-  - Read Matches Step (`FileIO.readMatches`): `fileio.ReadMatches(compression_type=...)` (produces `ReadableFile` elements)
-  - Sink (`FileIO.write`): `fileio.WriteToFiles(path=..., prefix=..., suffix=..., num_shards=..., ...)`
+  - Required Import: `from apache_beam.io import fileio` (MANDATORY: `apache_beam.io` does not expose `fileio` without explicit import)
+  - Match Source: `fileio.MatchFiles(file_pattern)`
+  - Read Matches: `fileio.ReadMatches()` (produces `ReadableFile` elements)
+  - Sink: `fileio.WriteToFiles(path=..., file_name_suffix=...)`
+- **`ParquetIO`**:
+  - Required Imports: `import pyarrow`, `from apache_beam.io.parquetio import ReadFromParquet, WriteToParquet`
+  - Source: `ReadFromParquet(file_pattern=...)`
+  - Sink: `WriteToParquet(file_path_prefix=..., schema=schema)`
 - **`Create`**:
   - Source: `beam.Create([...])`
 - **`JdbcIO`**:
   - Required Imports: `from apache_beam.io.jdbc import ReadFromJdbc, WriteToJdbc`
-  - Note: Uses Apache Beam Cross-Language expansion. The runner automatically manages the expansion service.
   - Driver Dependencies & `classpath`:
     - PostgreSQL (`org.postgresql.Driver`) is built into Beam's expansion service by default.
-    - For all other database drivers, automatically provide the Maven coordinate via the `classpath` argument in `ReadFromJdbc` / `WriteToJdbc`:
+    - For all other drivers, provide the Maven coordinate via `classpath=[...]`:
       - MySQL (`com.mysql.cj.jdbc.Driver`): `classpath=["com.mysql:mysql-connector-j:8.3.0"]`
-      - Microsoft SQL Server (`com.microsoft.sqlserver.jdbc.SQLServerDriver`): `classpath=["com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11"]`
+      - SQL Server (`com.microsoft.sqlserver.jdbc.SQLServerDriver`): `classpath=["com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11"]`
       - Oracle (`oracle.jdbc.driver.OracleDriver`): `classpath=["com.oracle.database.jdbc:ojdbc11:23.3.0.23.09"]`
       - SQLite (`org.sqlite.JDBC`): `classpath=["org.xerial:sqlite-jdbc:3.45.2.0"]`
       - Apache Derby (`org.apache.derby.jdbc.ClientDriver`): `classpath=["org.apache.derby:derbyclient:10.16.1.1"]`
-  - Query vs Table Selection (Mutually Exclusive):
-    - When `selectType` is `table` or `tableName` is provided: Pass `table_name=tableName`. Do NOT pass `query` or `statement`.
-    - When `selectType` is `query` / `statement` or `query` / `statement` is provided: Pass `query=query` (for source) or `statement=statement` (for sink). Do NOT pass `table_name`.
   - Source (Read):
-    - When reading from table: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)`
-    - When reading via SQL query: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., query=..., classpath=...)`
-    - Row Access: `ReadFromJdbc` yields Beam `Row` objects. Access row fields in subsequent transforms using attribute notation (e.g. `getattr(element, 'field_name', None)` or `element.field_name`).
+    - When `selectType` is `table`: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=..., classpath=...)` (where `username` and `password` are resolved from `known_args` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
+    - When `selectType` is `query`: `ReadFromJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., query=..., classpath=...)`
+    - Execution & Performance Tuning (Directive P1): Ensure all operational and performance tuning properties specified on node YAML definitions are mapped to snake_case keyword arguments and passed directly into `ReadFromJdbc`:
+      - `outputParallelization: true` -> `output_parallelization=True`
+      - `fetchSize` -> `fetch_size=...`
   - Sink (Write):
-    - When writing via `statement`:
-      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)`
-      - **CRITICAL SQL & TUPLE ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as the number of columns listed. If the input statement in the YAML has mismatched placeholders relative to columns (e.g., 3 columns with only 2 `?` placeholders), normalize the `?` placeholders to match the column count exactly.
-      - The transform preceding `WriteToJdbc` MUST emit a `tuple` whose element count and order **EXACTLY match** the positional `?` placeholders in the SQL statement.
-    - When writing via `table_name`:
-      `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., table_name=table_name, classpath=...)`
-      - Input elements should be schema-aware Beam `Row` or `NamedTuple` objects registered with `coders.RowCoder` matching table columns.
+    - `WriteToJdbc(driver_class_name=..., jdbc_url=..., username=..., password=..., statement=statement, classpath=...)` (where `username` and `password` are resolved from `known_args` or Secret Manager per Credential Handling Rules, NEVER embedded as hardcoded string literals)
+    - Execution & Performance Tuning (Directive P1): Ensure all operational and performance tuning properties specified on node YAML definitions are mapped to snake_case keyword arguments and passed directly into `WriteToJdbc`:
+      - `autosharding: true` -> `autosharding=True`
+      - `batchSize` -> `batch_size=...`
+    - **CRITICAL SQL & TUPLE ALIGNMENT RULE**: The SQL statement column list (e.g. `INSERT INTO table (col1, col2) VALUES (?, ?)`) MUST have the exact same number of `?` placeholders as columns. The upstream transform preceding `WriteToJdbc` MUST emit a `tuple` whose element count and order match the `?` placeholders 1-to-1.
 - **`KafkaIO`**:
   - Required Imports: `from apache_beam.io.kafka import ReadFromKafka, WriteToKafka`
-  - Note: Uses Apache Beam Cross-Language expansion.
-  - Source (Read):
-    - Syntax: `ReadFromKafka(consumer_config={'bootstrap.servers': bootstrap_servers, 'group.id': group_id, 'auto.offset.reset': 'latest', ...}, topics=[topics], key_deserializer=key_deserializer, value_deserializer=value_deserializer, commit_offset_in_finalize=True)`
-    - Elements produced are KafkaRecord objects or `(key, value)` byte pairs.
-    - Supports `max_num_records=...`, `max_read_time=...` if bounded limits are configured.
-  - Sink (Write):
-    - Syntax: `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers, 'acks': 'all', ...}, topic=topic, key_serializer=key_serializer, value_serializer=value_serializer)`
-    - Input elements to `WriteToKafka` must be `(key, value)` tuples.
+  - Source (Read): `ReadFromKafka(consumer_config={'bootstrap.servers': bootstrap_servers, 'group.id': group_id, 'auto.offset.reset': 'latest'}, topics=[topic])`
+  - Sink (Write): `WriteToKafka(producer_config={'bootstrap.servers': bootstrap_servers}, topic=topic)` (consumes `(key, value)` tuples)
+  - Configuration & Serializers (Directive P2): Strictly map all serializer and semantic properties specified in the YAML properties:
+    - If `keySerializer` or `valueSerializer` is specified (e.g. `org.apache.kafka.common.serialization.StringSerializer`), bind them directly to `key.serializer` / `value.serializer` in `producer_config`. Never replace explicit serializers with default `ByteArraySerializer`.
+    - If `useEOS: true` is configured on Kafka sink nodes, ensure exactly-once semantics configuration (e.g. `'enable.idempotence': 'true'` or EOS sink options) is explicitly reflected in `producer_config`.
+- **`SnsIO`**:
+  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService`
+  - Sink (Write): Use cross-language Java expansion transform targeting `beam:transform:org.apache.beam:aws2_sns_write:v1`.
+  - *Note*: `SnsIO` is write-only. If a node specifies SNS as a source, ingest via an SQS subscription queue (`ReadFromSqs` via `ExternalTransform`) or bridged GCP Pub/Sub topic (`ReadFromPubSub`).
+- **`SqsIO`**:
+  - Required Imports: `from apache_beam.transforms.external import ExternalTransform, ImplicitSchemaPayloadBuilder, BeamJarExpansionService`
+  - Source (Read): Cross-language transform `beam:transform:org.apache.beam:sqs_read:v1`.
+  - Sink (Write): Cross-language transform `beam:transform:org.apache.beam:sqs_write:v1`.
+- **`MqttIO`**:
+  - Required Imports: `from apache_beam.transforms.xlang.io import ReadFromMqtt, WriteToMqtt`
+  - Source (Read): `ReadFromMqtt(server_uri=..., topic=...)` (produces `bytes`). If `qos` is specified in node properties, pass `qos=...`.
+  - Sink (Write): `WriteToMqtt(server_uri=..., topic=...)` (consumes `bytes`). If `qos` or `retain`/`retained` is specified in node properties or instructions, pass them explicitly into `WriteToMqtt(server_uri=..., topic=..., qos=..., retain=...)`.
 
-#### 2. Element-Wise Transforms
-- **`WithTimestamps`** (Add Timestamp):
-  - Syntax: `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (import `time`)
-  - Default Instruction: Attach current system time (`time.time()`) to each element/message unless custom `system_instructions` are provided.
-- **`Filter`**:
-  - Syntax: `beam.Filter(lambda x: ...)`
-  - Default Instruction: Create a custom function with a todo comment and return true unless custom `system_instructions` are provided.
-- **`FlatMap`**:
-  - Syntax: `beam.FlatMap(lambda x: x.split(','))` or `beam.FlatMap(lambda x: re.findall(r'[A-Za-z]+', x))`
-- **`Keys`**:
-  - Syntax: `beam.Keys()`
-- **`KVMapper`**:
-  - Syntax: `beam.Map(lambda x: (x.get('id'), x))`
-  - Default Instruction: Map incoming dictionary/object into a `(key, value)` tuple using the configured key property (defaults to `'id'`).
-- **`KvSwap`**:
-  - Syntax: `beam.KvSwap()`
-  - Default Instruction: Swap key and value of incoming `(K, V)` pairs into `(V, K)`.
-- **`Map`**:
-  - Syntax: `beam.Map(lambda x: ...)`
-- **`ToString`**:
-  - Syntax: `beam.ToString.Element()` / `beam.ToString.KVs()`
-- **`Values`**:
-  - Syntax: `beam.Values()`
+### 2. Element-Wise Transforms
+- **`WithTimestamps`**:
+  - Syntax: `beam.Map(lambda x: beam.window.TimestampedValue(x, time.time()))` (with `import time`). Do NOT use `beam.WithTimestamps()`.
+- **`Map`**: `beam.Map(lambda x: ...)`
+- **`FlatMap`**: `beam.FlatMap(lambda x: ...)`
+- **`Filter`**: `beam.Filter(lambda x: True)`
+- **`Keys`**: `beam.Keys()`
+- **`Values`**: `beam.Values()`
+- **`KVMapper`**: `beam.Map(lambda x: (x.get('id', 'default_key'), x))`
+- **`KvSwap`**: `beam.KvSwap()`
+- **`ToString`**: `beam.ToString.Element()` or `beam.ToString.KVs()`
 
-#### 3. Aggregations & Combining
-- **`ApproximateQuantiles`**:
-  - Syntax: `beam.approximatequantiles.ApproximateQuantiles.Globally(...)` / `.PerKey(...)`
-- **`ApproximateUnique`**:
-  - Syntax: `beam.ApproximateUnique.Globally(...)` / `.PerKey(...)`
-- **`BatchElements`**:
-  - Syntax: `beam.BatchElements(min_batch_size=..., max_batch_size=...)`
-- **`CoGroupByKey`**:
-  - Syntax: `beam.CoGroupByKey()`
-- **`Combine`**:
-  - Syntax: `beam.CombineGlobally(...)` / `beam.CombinePerKey(...)`
-- **`CombineWithContext`**:
-  - Syntax: `beam.CombineGlobally(...).with_defaults()`
-- **`Count`**:
-  - Syntax: `beam.combiners.Count.PerElement()` / `beam.combiners.Count.PerKey()` / `beam.combiners.Count.Globally()`
-- **`Distinct`**:
-  - Syntax: `beam.Distinct()`
-- **`GroupByKey`**:
-  - Syntax: `beam.GroupByKey()`
-- **`GroupIntoBatches`**:
-  - Syntax: `beam.GroupIntoBatches(batch_size=...)`
-- **`Latest`**:
-  - Syntax: `beam.combiners.Latest.PerKey()` / `beam.combiners.Latest.Globally()`
-- **`Max`**:
-  - Syntax: `beam.combiners.Top.Of(...)` or `beam.Max.PerKey()` / `beam.Max.Globally()`
-- **`Mean`**:
-  - Syntax: `beam.combiners.Mean.PerKey()` / `beam.combiners.Mean.Globally()`
-- **`Min`**:
-  - Syntax: `beam.Min.PerKey()` / `beam.Min.Globally()`
-- **`Sample`**:
-  - Syntax: `beam.combiners.Sample.FixedSizeGlobally(...)` / `.FixedSizePerKey(...)`
-- **`Sum`**:
-  - Syntax: `beam.combiners.Sum.PerKey()` / `beam.combiners.Sum.Globally()`
-- **`Top`**:
-  - Syntax: `beam.combiners.Top.Of(...)` / `beam.combiners.Top.PerKey(...)`
+### 3. Aggregations & Combining
+- **`Count`**: `beam.combiners.Count.PerElement()`, `beam.combiners.Count.PerKey()`, `beam.combiners.Count.Globally()`
+- **`GroupByKey`**: `beam.GroupByKey()`
+- **`GroupIntoBatches`**: `beam.GroupIntoBatches(batch_size)`
+- **`CoGroupByKey`**: `beam.CoGroupByKey()`
+- **`Combine`**: `beam.CombineGlobally(...)` or `beam.CombinePerKey(...)`
+- **`Distinct`**: `beam.Distinct()`
+- **`Max`**: `beam.CombinePerKey(max)` or `beam.CombineGlobally(max)`
+- **`Min`**: `beam.CombinePerKey(min)` or `beam.CombineGlobally(min)`
+- **`Mean`**: `beam.combiners.Mean.PerKey()`, `beam.combiners.Mean.Globally()`
+- **`Sum`**: `beam.combiners.Sum.PerKey()`, `beam.combiners.Sum.Globally()`
+- **`Latest`**: `beam.combiners.Latest.PerKey()`, `beam.combiners.Latest.Globally()`
+- **`Sample`**: `beam.combiners.Sample.FixedSizeGlobally(n)`, `beam.combiners.Sample.FixedSizePerKey(n)`
+- **`Top`**: `beam.combiners.Top.Of(n)`, `beam.combiners.Top.PerKey(n)`
+- **`BatchElements`**: `beam.BatchElements(min_batch_size=..., max_batch_size=...)`
+- **`ApproximateQuantiles`**: `from apache_beam.transforms.stats import ApproximateQuantiles`, `ApproximateQuantiles.Globally(num_quantiles)`
 
-#### 4. Windowing, Parsing & Utility Transforms
+### 4. Windowing, Utility & Dangling Outputs
 - **`WindowInto`**:
-  - Syntax: `beam.WindowInto(window.FixedWindows(...))` / `SlidingWindows` / `Sessions`
+  - Required Imports: `from apache_beam import window`
+  - Syntax: `beam.WindowInto(window.FixedWindows(size_in_seconds))`
 - **`ParseMessage`**:
-  - Parse Pub/Sub bytes string into JSON / String / Base64.
+  - Required Imports: `import json`, `from apache_beam import pvalue`
+  - Tagged Outputs: If downstream edges connect to `valid` and `error` handles, implement a `beam.DoFn`:
+    ```python
+    class ParseMessageDoFn(beam.DoFn):
+        def process(self, element):
+            try:
+                # Handle bytes or string payload
+                msg_str = element.decode('utf-8') if isinstance(element, bytes) else str(element)
+                data = json.loads(msg_str)
+                # Generic JSON Parsing: emit data dictionary directly
+                yield pvalue.TaggedOutput('valid', data)
+            except Exception as e:
+                yield pvalue.TaggedOutput('error', {'error': str(e), 'raw': str(element)})
+    ```
+    Apply via `p | 'Parse Message' >> beam.ParDo(ParseMessageDoFn()).with_outputs('valid', 'error')`.
+  - **GENERIC JSON PARSING RULE (CRITICAL)**: When parsing JSON (for BigQuery or general processing) and NO explicit schema is defined in `codeGenerationPrompt` or `system_instructions`, **ALWAYS parse all JSON fields dynamically into a `dict`** (`json.loads(...)`). **NEVER** hardcode specific field names (such as `bucket`, `name`, `size`, `timeCreated`) based on topic or subscription names!
 - **`LogMessage`**:
-  - Syntax: `beam.Map(lambda x: print(f"Log: {x}", flush=True) or logging.info(f"Log: {x}"))`
+  - Required Imports: `import logging`
+  - Syntax: Define a passthrough logger so elements are preserved:
+    ```python
+    def _log_element(element):
+        logging.info("Log: %s", element)
+        return element
 
-#### 5. Other Transforms
+    | 'Log Message' >> beam.Map(_log_element)
+    ```
+  - **NEVER** use `print(...) or logging.info(...)` in a lambda because both return `None`, silently destroying downstream data.
 - **`Flatten`**:
-  - Syntax: `(pcoll1, pcoll2) | beam.Flatten()` or `[pcoll1, pcoll2] | beam.Flatten()`
-  - Rules: Merges multiple `PCollection` objects containing elements of the same data type into a single logical `PCollection`. Pass a tuple or list of `PCollection` objects into `beam.Flatten()`.
-- **`Reshuffle`** / **`ReShuffle`**:
-  - Syntax: `beam.Reshuffle()` or `beam.Reshuffle(num_buckets=...)`
-  - Rules: Redistributes elements across workers by assigning temporary random keys to break runner stage fusion and balance parallel workload.
+  - Syntax: `(pcoll1, pcoll2) | beam.Flatten()`
+- **`Reshuffle`**:
+  - Syntax: `beam.Reshuffle()`
+- **Global Fallback Rule**: If a transform requires a function argument that the node's properties and instructions do not specify, generate an identity/pass-through implementation with a `# TODO:` comment. Never invent business logic.
+- **Dangling Branches**: If a node produces a `PCollection` that no downstream edge consumes, append a simple logging step so the branch terminates cleanly in a sink.
 
-Language: Python
+---
 
-Pipeline YAML:
-```yaml
-{{pipeline}}
+## 5. Build, Dependency & Metadata Specifications
+
+### A. Dependency Configuration (`requirements.txt`)
+Use the following baseline dependencies for `requirements.txt`:
+```text
+apache-beam[gcp]>=2.55.0,<3.0.0
+pyarrow>=10.0.0
+```
+- **Beam version alignment**: The `apache-beam[gcp]` dependency must be compatible with the Dockerfile base image (`apache/beam_python3.11_sdk:2.55.0`).
+- Only add extra packages (such as `kafka-python`, database drivers) if specific transforms require them. Do NOT include `pyspark`.
+
+### B. `metadata.json` Flex Template Schema
+Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring parameters for YAML `runtimeVariables` and any parameterized credentials:
+- For any parameter that accepts passwords, auth tokens, connection secrets, or private keys, ALWAYS add `"isSecret": true` alongside `"isOptional": false` in the parameter definition to ensure Cloud Console UI masking and log redaction.
+```json
+{
+  "name": "{{pipeline_name}}",
+  "description": "Dataflow Flex Template for {{pipeline_name}}",
+  "parameters": [
+    {
+      "name": "pipeline_job_id",
+      "label": "Pipeline Job ID",
+      "helpText": "Unique identifier for this pipeline execution run",
+      "isOptional": false
+    },
+    {
+      "name": "source_db_password",
+      "label": "Source DB Password",
+      "helpText": "Database authentication password (masked in UI)",
+      "isOptional": false,
+      "isSecret": true
+    }
+  ]
+}
 ```
 
-## Reference File Templates
-Use the following static templates as exact starting points when generating the Dockerfile and shell scripts. Customize placeholder variables (such as pipeline module names, project IDs, subnetworks, and options) to match the input YAML pipeline configuration:
+---
+
+## 6. Reference File Templates & Script Customization Rules
+
+Use the following static baselines to generate Dockerfile and runner scripts:
 
 ### Dockerfile Template
 ```
 {{dockerfile_template}}
 ```
+- **Container Hardening & Least Privilege**: You MUST address container security in the generated `Dockerfile`. Either execute under an explicit non-root user (e.g. `USER beam`) OR preserve the documented commented instructions demonstrating non-root user creation and execution (`# RUN groupadd ...` and `# USER beam:beam`) so operators in hardened environments have actionable non-root guidance. Never omit non-root least-privilege guidance from the Dockerfile.
+- **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
 
 ### 'run_directrunner.sh' Template
 ```
 {{run_directrunner_template}}
 ```
+- **Argument Placement**: Pass all runtime variables with their default values as CLI flags immediately after `--runner=DirectRunner` and before the trailing `"$@"` (e.g. `--pipeline_job_id="demo" --num_objects_per_iteration=1 "$@"`).
+- **Variable Quoting**: Ensure all variable and command references, specifically `"$PYTHON_CMD"` and `"$VENV_DIR"`, are strictly double-quoted everywhere (e.g., `"$PYTHON_CMD" -m venv "$VENV_DIR"`).
+- For streaming pipelines, pass `--streaming`.
 
 ### 'run_dataflowrunner.sh' Template
 ```
 {{run_dataflowrunner_template}}
 ```
+- **Parameterized Image Tagging**: Use `IMAGE_TAG="${IMAGE_TAG:-latest}"` and `TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:${IMAGE_TAG}"` rather than hardcoding mutable `:latest` tags.
+- **Parameter Wiring**: Pass runtime variables to `gcloud dataflow flex-template run` via `--parameters` as comma-separated `key=value` pairs:
+  `--parameters pipeline_job_id="demo",num_objects_per_iteration=1`
+- **Job Configuration & Scaling**: Inspect the YAML `jobConfig` block and translate all specified worker and scaling properties into gcloud runtime parameters or execution flags:
+  - If `jobConfig.machineType` is specified, add `--worker-machine-type="${MACHINE_TYPE:-<machineType>}"` (or pass to gcloud).
+  - If `jobConfig.minInstances` is specified, add `--num-workers="${MIN_INSTANCES:-<minInstances>}"`.
+  - If `jobConfig.maxInstances` is specified, add `--max-workers="${MAX_INSTANCES:-<maxInstances>}"`.
+- Replace `{{gcs_staging_path}}` with `jobConfig.gcsStagingPath` from YAML; if empty or blank, default to `gs://${PROJECT_ID}-dataflow/staging`.
+- Pre-fill `SUBNETWORK` using `jobConfig.subnetwork` from YAML if provided.
+- **Subnetwork Flag Propagation (Directive P1)**: When generating `run_dataflowrunner.sh`, always include the `--subnetwork "https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` flag in `gcloud dataflow flex-template run` whenever `SUBNETWORK` is defined in the script configuration header or `jobConfig.subnetwork` is specified in YAML.
+- **Multi-Line Command Integrity (Directive P5)**: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`), ensure that every intermediate line in multi-line shell commands (such as `gcloud dataflow flex-template build` and `gcloud dataflow flex-template run`) ends with an explicit line continuation backslash (`\`). Never leave an intermediate argument line without a trailing backslash.
 
-## Template Customization Rules
-- **Template Substitution**: Use the provided static templates below as exact baselines for Dockerfile, `run_directrunner.sh`, and `run_dataflowrunner.sh`. Fill in placeholders matching the pipeline base name.
-- **`jobConfig` Mapping**:
-  - Supply `GCS_STAGING_PATH` in `run_dataflowrunner.sh` using `jobConfig.gcsStagingPath` from the input YAML.
-  - Pre-fill `--subnetwork` in Dataflow run script using `jobConfig.subnetwork` from the input YAML.
+### 'cloudbuild.yaml' Template & Deterministic Tagging Rules
+Generate `cloudbuild.yaml` using deterministic image tagging with Cloud Build built-in substitutions:
+```yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}'
+substitutions:
+  _TAG: '${SHORT_SHA}'
+options:
+  logging: CLOUD_LOGGING_ONLY
+```
+- **Tag Determinism**: Default `_TAG` to `'${SHORT_SHA}'`. NEVER default `_TAG` to `'latest'`, as mutable tags break build reproducibility and trigger security vetos.
 
-## Language SDK Best Practices & Gotchas
+---
+
+## 7. Final Self-Review Checklist
+Before outputting the final JSON `files` array, verify:
+1. No literal `{{...}}` placeholder remains in any generated file.
+2. `{{pipeline_name}}` is rendered in snake_case, and `src/<module>.py`, the Dockerfile `FLEX_TEMPLATE_PYTHON_PY_FILE`, `run_directrunner.sh`, and unit test imports all agree.
+3. Every runtime variable uses the identical snake_case name across CLI argument parser, `metadata.json`, and both runner scripts.
+4. No CLI option uses a reserved Beam name (`job_name`, `job_id`, `project`, `temp_location`, `staging_location`, `runner`, `region`).
+5. All imports are present; `requirements.txt` contains compatible package bounds (`apache-beam[gcp]>=2.55.0,<3.0.0`).
+6. `src/__init__.py` is generated as an empty file.
+7. `src/<pipeline_name>.py` has `if __name__ == '__main__': run()` and never calls `unittest.main()`.
+8. Every `?` in a JDBC SQL statement matches the upstream tuple element count 1-to-1.
+9. Every transform step name in `p | '<step_name>' >> ...` is globally unique.
+10. Sinks receive their required type (e.g. `bytes` for Pub/Sub and MQTT, `dict` for BigQuery, `(k, v)` tuples for Kafka), with bridging steps where needed.
+11. No logging lambda returns `None` where elements must flow downstream.
+12. For streaming pipelines, `--streaming` is passed in `run_directrunner.sh`.
+13. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Python source code or as `default=` values in `parser.add_argument(...)`. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
+14. Container Hardening & Dockerfile Non-Root Guidance: Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. The generated `Dockerfile` MUST include non-root least-privilege guidance—either active `USER beam` or the documented commented non-root instructions (`# RUN groupadd ...` / `# USER beam:beam`) to prevent root privilege escalation.
+15. Transform Argument & Property Binding: When generating Beam IO transforms, you MUST pass all configured node properties directly into the transform constructors, kwargs, or configuration dictionaries in the pipeline graph:
+    - In `ReadFromJdbc` and `WriteToJdbc`: map all operational and performance tuning properties specified on node YAML definitions (`outputParallelization: true` -> `output_parallelization=True`, `autosharding: true` -> `autosharding=True`, `fetchSize` -> `fetch_size=...`, `batchSize` -> `batch_size=...`).
+    - In `WriteToKafka`: strictly map all serializer and semantic properties specified in the YAML properties. If `keySerializer` or `valueSerializer` is specified (e.g. `org.apache.kafka.common.serialization.StringSerializer`), bind them directly to `key.serializer` / `value.serializer` in `producer_config`. Never substitute default `ByteArraySerializer`. When `useEOS: true` is configured on Kafka sink nodes, ensure exactly-once semantics configuration (e.g. `'enable.idempotence': 'true'`) is explicitly configured in `producer_config`.
+    - In `ReadFromMqtt` / `WriteToMqtt`: pass `qos`, `retain`/`retained`, `topic`, `server_uri`, etc.
+    - Parsing properties in `argparse` alone is insufficient; every CLI option derived from YAML properties must be bound to the respective Beam transform invocation.
+16. Deterministic Container Image Tagging: In `cloudbuild.yaml` and runner scripts (`run_dataflowrunner.sh`, `run_sparkrunner.sh`), avoid using bare mutable `:latest` tags alone. In `cloudbuild.yaml`, default substitution `_TAG` to `'${SHORT_SHA}'` (never `'latest'`). In runner scripts, default container image tags to a parameterized or deterministic tag variable (e.g., `:${IMAGE_TAG:-latest}`) to guarantee build reproducibility and artifact provenance.
+17. IO Parameterization via PipelineOptions: All IO source and sink endpoints (such as Pub/Sub topics/subscriptions, GCS paths, BigQuery tables, Kafka topics, and queues) defined in YAML node properties must be exposed as CLI flags in `argparse` with their YAML values provided as default arguments, rather than statically hardcoded in pipeline transforms.
+18. GroupIntoBatches Sharding: When preparing unkeyed data for `GroupIntoBatches`, distribute elements across shards using a keying function (e.g., `(random.randint(0, num_shards - 1), element)`) rather than using a single static key like `None` or `'batch_key'`, preventing worker partition hotspotting.
+19. Shell Script Variable Quoting: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), double-quote all variable references and command expansions (e.g. `"$PYTHON_CMD"`, `"$VENV_DIR"`, `"$PROJECT_ID"`, `"$IMAGE_TAG"`) to prevent word-splitting and execution errors on paths containing spaces.
+20. DLQ Logging vs Dead-Letter Storage: When routing failures to a Dead Letter Queue (DLQ), always route the complete original message (or error record containing the raw payload) to the DLQ sink for re-processing. However, when logging error details via application logging (e.g. `logging.warning()` / `LOG.error()`), log only the error message, exception, and record ID/metadata—never dump unredacted raw message payloads to standard log streams to prevent PII and credential leakage.
+21. Multi-Line Command Integrity: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`), ensure every intermediate line of multi-line shell commands ends with an explicit continuation backslash (`\`) to prevent syntax errors under `set -euo pipefail`.
+22. Subnetwork Flag Propagation: When `SUBNETWORK` is defined or `jobConfig.subnetwork` is specified in YAML, ensure `--subnetwork "https://www.googleapis.com/compute/v1/projects/${PROJECT_ID}/${SUBNETWORK}"` is passed in `run_dataflowrunner.sh`.
+23. Unit Test Fixture & Execution Integrity: When generating unit tests in `src/<pipeline_name>_test.py`:
+    - Verify that test assertions (e.g. `assert_that(..., equal_to([...]))`) strictly match the exact data values, keys, and types produced by the transforms under test given the test input fixtures. Never alter mock keys or values (such as prefixing key names like `'sensor_id-'` instead of `'sensor-'`) between input fixtures and expected assertion matchers.
+    - When testing custom DoFn classes or element parsers, ensure the test actually applies the transform (`beam.ParDo(...)` or invoking the processing method) to synthetic input data in `TestPipeline` instead of trivially asserting identity on `beam.Create(expected)` without executing the transformation logic.
+24. `.dockerignore` is generated to exclude `.git`, `venv`, `*.log`, and `__pycache__` from the Docker build context.
 
 ### Python Projects
-- **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.
+- **Python Compatibility**: In `requirements.txt`, specify valid PyPI release versions: `apache-beam[gcp]>=2.55.0,<3.0.0` (aligning with the Dockerfile base image `apache/beam_python3.11_sdk:2.55.0`). Do NOT include `pyspark`.
 - **Package Marker**: Always generate `src/__init__.py`.
 - **Pipeline Options & Argument Parsing**: Always use standard `parser.add_argument(...)` when defining custom `PipelineOptions` or `argparse`. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
 - **FileIO Imports**: When using FileIO (`MatchFiles`, `ReadMatches`, `WriteToFiles`), always include `from apache_beam.io import fileio` because `apache_beam.io` does not automatically expose `fileio` as an attribute on `beam.io` without an explicit import.
 - **JdbcIO Cross-Language Driver Classpath**: When connecting to MySQL, SQL Server, Oracle, SQLite, or Derby via `ReadFromJdbc` / `WriteToJdbc`, always supply the corresponding Maven coordinate in `classpath=[...]` so the Beam Java expansion service loads the JDBC driver.
 - **JdbcIO Write Statement Placeholders**: When using `statement` with `WriteToJdbc`, always ensure the number of columns in the SQL statement, the number of `?` placeholders, and the number of tuple items yielded by the upstream `DoFn` match 1-to-1.
 - **Unit Test Imports**: In unit tests, import the pipeline module using `from src.<pipeline_name> import ...` or `from <pipeline_name> import ...`.
+- **Tagged Outputs — NEVER wrap the main output in `TaggedOutput`**: This silently discards every element. Beam routes an unrecognised tag to a null receiver, so there is **no error, no warning, and no output** — the pipeline runs to completion emitting nothing, which is extremely hard to debug.
+  - When a `DoFn` has multiple outputs, `yield` the main output **bare** and wrap only the additional outputs:
+    ```python
+    TAG_ERRORS = 'errors'
 
-## Documentation References
-- Apache Beam IO Connectors: https://beam.apache.org/documentation/io/connectors/
-- Beam Programming Guide: https://beam.apache.org/documentation/programming-guide/
-- Beam Flatten (Python): https://beam.apache.org/documentation/transforms/python/other/flatten/
-- Dataflow Flex Templates: https://docs.cloud.google.com/dataflow/docs/guides/templates/using-flex-templates
+    class MyDoFn(beam.DoFn):
+        def process(self, element):
+            try:
+                yield transform(element)                              # CORRECT: main output, bare
+            except Exception as e:
+                yield TaggedOutput(TAG_ERRORS, {'error': str(e)})     # CORRECT: additional output
+
+    results = pcoll | beam.ParDo(MyDoFn()).with_outputs(TAG_ERRORS, main='valid')
+    _ = results['valid']      | 'Log'    >> beam.Map(...)
+    _ = results[TAG_ERRORS]   | 'Errors' >> beam.Map(...)
+    ```
+  - **NEVER** do this — `main='valid'` names the main output, it does NOT register `'valid'` as a wrappable tag:
+    ```python
+    yield TaggedOutput('valid', record)   # WRONG: silently dropped, produces zero output
+    ```
+  - The `main=` keyword only sets the *attribute name* used to read the main output off the result (`results['valid']`). Inside `process`, the main output is always the untagged one.
+- **Synthetic Sequence Generation (GenerateSequence)**: When implementing synthetic sequence generation in Python, **NEVER** use `ExternalTransform` with Java expansion services (e.g. `'beam:external:java:generate_sequence:v1'`). ALWAYS use native Python stream generation, such as `apache_beam.transforms.periodicsequence.PeriodicImpulse` or `PeriodicSequence` paired with an element counter `DoFn` (e.g., generating incrementing integer sequences at the specified rate limit).
+- **Event-Time Timestamps (WithTimestamps)**: For `WithTimestamps` transforms, use `beam.transforms.util.WithTimestamps(timestamp_fn)` or yield `beam.transforms.window.TimestampedValue(element, timestamp)` from a `DoFn` rather than applying plain `beam.Map`.
+- **Runner Scripts & Shell Automation Rules**: Ensure all generated bash scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`) follow strict bash syntax conventions with `set -euo pipefail`. In conditional blocks detecting Python interpreters, ensure every `if` and `elif` statement is explicitly terminated with `then` (e.g., `if command -v python3.12 &>/dev/null; then ... elif command -v python3.11 &>/dev/null; then ... else ... fi`).
+- **FileIO Sinks with Dynamic Destinations**: When using `apache_beam.io.fileio.WriteToFiles` with dynamic destinations (e.g. partitioned by key or record attribute), ensure that elements entering `WriteToFiles` retain their partition metadata for destination routing (`destination=lambda record: record.get('country', ...)`). If the record payload is a structured object or dictionary, do NOT strip the partition key with an intermediate `beam.Map` before `WriteToFiles`. Instead, define a custom `fileio.FileSink` subclass (implementing `open`, `write`, `flush`) that extracts and serializes each record's payload (e.g. writing `record.get('line', str(record))` to the file handle) so both destination routing and payload serialization work seamlessly.
+
+---
+
+## 8. Pipeline YAML Specification
+
+Convert this pipeline definition into the complete project deliverables:
+
+```yaml
+{{pipeline}}
+```

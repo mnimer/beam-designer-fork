@@ -1,8 +1,31 @@
+/**
+ * Integration Test Runner and Multi-Agent Evaluation Harness for Apache Beam Codegen.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Purpose:
+ * Coordinates live end-to-end integration tests by generating complete Apache Beam
+ * pipelines using Gemini 3.7 Flash and evaluating the output using a multi-agent
+ * evaluation harness (Deterministic Gate, BeamArchitectureAgent, SecurityAndHardeningAgent,
+ * PackagingAndDeployabilityAgent, PipelineSpecificationAgent, and Lead Arbiter).
+ *
+ * Architectural decisions:
+ * - Dynamically synchronizes pipelineConfig.language in the YAML specification to match
+ *   the target generation language, eliminating language-mismatch cross-talk between tests.
+ * - Replaces monolithic evaluation prompt with multi-agent specialist hierarchy.
+ * - Emits actionable Prompt Remediation Directives targeting code-gen-prompt-python.txt
+ *   and code-gen-prompt-java.txt when tests fail, rather than patching generated test code.
+ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
+import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
+import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
+import { MultiAgentEvaluationResult, generateContentWithRetry } from './evaluators/types';
+import { recordAndSaveTestReport } from './test-reporter';
 
 export interface GeneratedFile {
     filename: string;
@@ -14,12 +37,34 @@ export interface EvaluationResult {
     isGood: boolean;
     issues: string[];
     explanation: string;
+    multiAgentResult?: MultiAgentEvaluationResult;
 }
 
 export interface PipelineTestConfig {
     testName: string;
-    yamlContent: string;
+    beamContent?: string;
+    yamlContent?: string;
     languages?: ('Java' | 'Python')[];
+}
+
+/**
+ * Loads a .beam pipeline definition file from disk given a relative or absolute path.
+ */
+export function loadBeamPipeline(filePath: string): string {
+    const candidatePaths = [
+        filePath,
+        path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath),
+        path.join(__dirname, filePath.endsWith('.beam') ? filePath : `${filePath}.beam`),
+        path.join(process.cwd(), 'src', 'test', 'integration', filePath),
+        path.join(process.cwd(), 'src', 'test', 'integration', filePath.endsWith('.beam') ? filePath : `${filePath}.beam`)
+    ];
+
+    for (const p of candidatePaths) {
+        if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+            return fs.readFileSync(p, 'utf-8');
+        }
+    }
+    throw new Error(`Could not locate .beam pipeline file: ${filePath}`);
 }
 
 export function getGcloudProject(): Promise<string | undefined> {
@@ -55,6 +100,31 @@ export function readResource(filePath: string): string {
 }
 
 /**
+ * Synchronizes the pipelineConfig.language property in the pipeline YAML
+ * to match the target test language.
+ *
+ * @param yamlContent - Original YAML content.
+ * @param targetLanguage - Target language ('Java' | 'Python').
+ * @returns Synchronized YAML content string.
+ */
+export function synchronizePipelineLanguage(yamlContent: string, targetLanguage: 'Java' | 'Python'): string {
+    if (!yamlContent) return yamlContent;
+    try {
+        const parsed = yaml.parse(yamlContent);
+        if (parsed && typeof parsed === 'object') {
+            if (!parsed.pipelineConfig) {
+                parsed.pipelineConfig = {};
+            }
+            parsed.pipelineConfig.language = targetLanguage;
+            return yaml.stringify(parsed);
+        }
+    } catch {
+        return yamlContent.replace(/(language:\s*)[A-Za-z]+/g, `$1${targetLanguage}`);
+    }
+    return yamlContent;
+}
+
+/**
  * Builds the exact same prompt used by the extension for a given language and pipeline YAML.
  */
 export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string): string {
@@ -82,64 +152,41 @@ export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string
 }
 
 /**
- * Evaluates generated code against the EXACT prompt template used to generate it, with NO extra custom hints.
+ * Evaluates generated code using the Multi-Agent Evaluation Harness.
+ *
+ * @param ai - Initialized GoogleGenAI client.
+ * @param codeGenPrompt - Full prompt template string.
+ * @param files - Array of generated files.
+ * @param language - Target language ('Java' | 'Python').
+ * @param yamlContent - Original pipeline YAML.
+ * @returns EvaluationResult with detailed scorecard and prompt directives.
  */
 export async function evaluateGeneratedCode(
     ai: GoogleGenAI,
     codeGenPrompt: string,
-    files: GeneratedFile[]
+    files: GeneratedFile[],
+    language: 'Java' | 'Python' = 'Python',
+    yamlContent = ''
 ): Promise<EvaluationResult> {
-    const evaluationPrompt = `You are an expert Apache Beam automated code evaluator and QA validator.
-Evaluate whether the generated files strictly adhere to all guidelines, rules, syntax specifications, and constraints defined in the following Code Generation Prompt and input pipeline YAML:
+    const multiAgentResult = await runMultiAgentEvaluation(
+        ai,
+        language,
+        yamlContent,
+        codeGenPrompt,
+        files
+    );
 
-=== CODE GENERATION SYSTEM PROMPT & SPECIFICATION ===
-${codeGenPrompt}
-=====================================================
+    const report = formatEvaluationReport(multiAgentResult, language);
+    console.log(report);
 
-=== ALL GENERATED FILES ===
-${files.map(f => `--- FILE: ${f.filename} ---\n${f.content}\n`).join('\n')}
-===========================
-
-TASK:
-1. Thoroughly verify that the generated files satisfy all requirements and instructions contained in the system prompt above.
-2. Verify that the code is valid, compilable, and free of syntax errors, type mismatches, or missing dependencies.
-3. If the generated output is correct and complies with all prompt requirements, return \`isGood: true\` with an empty or minor \`issues\` list.
-4. If there are any bugs, rule violations, missing dependencies, or defects, return \`isGood: false\` with the exact \`issues\` enumerated.`;
-
-    const evaluationSchema = {
-        type: "object",
-        properties: {
-            isGood: {
-                type: "boolean",
-                description: "Whether the generated code satisfies all prompt instructions and Beam standards without defects"
-            },
-            issues: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of issues, bugs, or prompt rule violations found in the generated output"
-            },
-            explanation: {
-                type: "string",
-                description: "Detailed explanation summarizing the evaluation results"
-            }
-        },
-        required: ["isGood", "issues", "explanation"]
+    return {
+        isGood: multiAgentResult.isGood,
+        issues: multiAgentResult.allFindings.map(
+            f => `[${f.category}] ${f.severity}: ${f.description} (${f.file})`
+        ),
+        explanation: multiAgentResult.explanation,
+        multiAgentResult
     };
-
-    const evalResponse = await ai.models.generateContent({
-        model: DEFAULT_GEMINI_MODEL,
-        contents: evaluationPrompt,
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: evaluationSchema
-        }
-    });
-
-    if (!evalResponse.text) {
-        throw new Error('Empty evaluation response received from Gemini');
-    }
-
-    return JSON.parse(evalResponse.text) as EvaluationResult;
 }
 
 /**
@@ -175,12 +222,19 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
         console.log(`------------------------------------------------------`);
 
         try {
-            const prompt = buildCodeGenPrompt(language, config.yamlContent);
+            const rawContent = config.beamContent || config.yamlContent;
+            if (!rawContent) {
+                throw new Error(`Pipeline content is required (provide beamContent or yamlContent) for ${config.testName}`);
+            }
+
+            // Synchronize pipeline language with current target language
+            const pipelineContent = synchronizePipelineLanguage(rawContent, language);
+            const prompt = buildCodeGenPrompt(language, pipelineContent);
             const responseSchema = JSON.parse(readResource('code-gen-schema.json'));
 
             console.log(`1. Generating ${language} code via Gemini (${DEFAULT_GEMINI_MODEL})...`);
             const startTime = Date.now();
-            const response = await ai.models.generateContent({
+            const response = await generateContentWithRetry(ai, {
                 model: DEFAULT_GEMINI_MODEL,
                 contents: prompt,
                 config: {
@@ -203,11 +257,10 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
 
             if (mainFile) {
                 console.log(`\n📄 Generated Main File (${mainFile.filename}):\n`);
-                console.log(mainFile.content);
             }
 
-            console.log(`\n2. Evaluating generated ${language} code against prompt instructions via Gemini...`);
-            const evalResult = await evaluateGeneratedCode(ai, prompt, files);
+            console.log(`\n2. Evaluating generated ${language} code via Multi-Agent Evaluation Harness...`);
+            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, pipelineContent);
 
             console.log(`\n📋 Review Results for ${language}:`);
             console.log(`   Status: ${evalResult.isGood ? '✅ PASS' : '❌ FAIL'}`);
@@ -217,9 +270,41 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
                 evalResult.issues.forEach((issue, idx) => console.log(`     ${idx + 1}. ${issue}`));
             }
 
+            // Persist evaluation findings, scorecards, and prompt directives to test-report.md
+            const reportPath = recordAndSaveTestReport({
+                testName: config.testName,
+                language: language,
+                timestamp: new Date().toISOString(),
+                passed: evalResult.isGood,
+                durationMs: Date.now() - startTime,
+                scorecard: evalResult.multiAgentResult?.scorecard,
+                hardVetoTriggered: evalResult.multiAgentResult?.hardVetoTriggered,
+                hardVetoReasons: evalResult.multiAgentResult?.hardVetoReasons,
+                explanation: evalResult.explanation,
+                findings: evalResult.multiAgentResult?.confirmedFindings || evalResult.multiAgentResult?.allFindings || [],
+                promptRemediationDirectives: evalResult.multiAgentResult?.promptRemediationDirectives || [],
+                generatedFiles: files.map(f => ({
+                    filename: f.filename,
+                    lines: f.content.split('\n').length
+                }))
+            });
+            console.log(`\n📄 Test report updated: ${reportPath}`);
+
             results[language] = evalResult.isGood;
         } catch (err: any) {
             console.error(`❌ Error during ${language} test:`, err.message || err);
+            const reportPath = recordAndSaveTestReport({
+                testName: config.testName,
+                language: language,
+                timestamp: new Date().toISOString(),
+                passed: false,
+                explanation: `Execution error: ${err.message || err}`,
+                findings: [],
+                promptRemediationDirectives: [],
+                generatedFiles: [],
+                error: err.message || String(err)
+            });
+            console.log(`\n📄 Test report updated: ${reportPath}`);
             results[language] = false;
         }
     }

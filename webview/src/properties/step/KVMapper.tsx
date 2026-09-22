@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
 
 interface KVMapperNode {
   data: {
@@ -55,12 +55,17 @@ export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, on
     properties.special_instructions ??
     '';
 
-  // Handle input change and propagate up
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handles input changes for key and value property names
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  /**
+   * Handles changes to code generation instructions
+   */
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({
       ...properties,
       system_instructions: e.target.value
@@ -69,47 +74,30 @@ export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, on
 
   return (
     <div className="flex-1 flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kvKeyPropertyName" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Key Property Name</span>
-          <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-          <InfoTooltip text="Field or attribute name to extract as the Key for the KV<K, V> pair. Required." />
-        </label>
-        <input 
-          id="kvKeyPropertyName"
-          type="text" 
-          name="keyPropertyName" 
-          aria-required="true"
-          aria-invalid={isKeyPropertyInvalid}
-          value={keyPropertyName} 
-          onChange={handleChange} 
-          placeholder="e.g. id, userId"
-          className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none ${
-            isKeyPropertyInvalid
-              ? 'border-red-500/80 focus:border-red-500'
-              : 'border-slate-700 focus:border-blue-500'
-          }`}
-        />
-        {isKeyPropertyInvalid && (
-          <span className="text-xs text-red-400">Key property name is required.</span>
-        )}
-      </div>
+      <PropertyField
+        id="kvKeyPropertyName"
+        name="keyPropertyName"
+        label="Key Property Name"
+        required="Required"
+        tooltip="Field or attribute name to extract as the Key for the KV<K, V> pair. Required."
+        invalid={isKeyPropertyInvalid}
+        error={isKeyPropertyInvalid ? 'Key property name is required.' : null}
+        value={keyPropertyName}
+        onChange={handleChange}
+        placeholder="e.g. id, userId"
+        mono={false}
+      />
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="kvValuePropertyName" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Value Property Name (Optional)</span>
-          <InfoTooltip text="Optional field to extract as the Value. If left empty, the entire element is preserved as the value." />
-        </label>
-        <input 
-          id="kvValuePropertyName"
-          type="text" 
-          name="valuePropertyName" 
-          value={valuePropertyName} 
-          onChange={handleChange} 
-          placeholder="Leave empty for entire element"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-        />
-      </div>
+      <PropertyField
+        id="kvValuePropertyName"
+        name="valuePropertyName"
+        label="Value Property Name (Optional)"
+        tooltip="Optional field to extract as the Value. If left empty, the entire element is preserved as the value."
+        value={valuePropertyName}
+        onChange={handleChange}
+        placeholder="Leave empty for entire element"
+        mono={false}
+      />
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
         Extract a property from the element to act as the key, creating a key-value pair (KV element) for keyed transforms like GroupByKey and Session Windows.
@@ -119,20 +107,18 @@ export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, on
       <div className="flex-1 min-h-4" />
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="kvSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="kvSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for KV mapping code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <PropertyField
+        id="kvSystemInstructions"
+        name="system_instructions"
+        label="Code Generation Instructions"
+        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        type="textarea"
+        rows={3}
+        value={systemInstructions}
+        onChange={handleInstructionsChange}
+        placeholder="Enter custom instructions for KV mapping code generation..."
+        mono={false}
+      />
     </div>
   );
 };
