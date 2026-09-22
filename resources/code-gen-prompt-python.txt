@@ -13,13 +13,14 @@ All files MUST be output directly in the designated root or `src/` layout (do NO
 | `src/__init__.py` | Empty package marker file for package and test discovery | false |
 | `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
 | `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
+| `.dockerignore` | Build context exclusions (.git, venv, *.log, __pycache__) | false |
 | `run_directrunner.sh` | Bash script to initialize/activate venv, install dependencies, and run locally | true |
 | `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
 | `cloudbuild.yaml` | Cloud Build config to build and push the template container image | false |
 | `README.md` | Concise documentation of pipeline design, configurations, and run instructions | false |
 
 ### Deliverable Constraints:
-- **File Scope**: Generate ONLY the 10 files listed above. Do not add extra utility modules, config loaders, CI files, linter configs, `.gitignore`, or example data files.
+- **File Scope**: Generate ONLY the 11 files listed above. Do not add extra utility modules, config loaders, CI files, linter configs, or example data files.
 - **Output Budget**: The `README.md` MUST be under 150 lines and contain only these sections: Overview, Prerequisites, Setup, Run Locally, Deploy to Dataflow, and Runtime Parameters. Do not restate pipeline source code or add narrative marketing boilerplate.
 
 ---
@@ -393,6 +394,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 ```
 {{dockerfile_template}}
 ```
+- **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
 
 ### 'run_directrunner.sh' Template
 ```
@@ -405,6 +407,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 ```
 {{run_dataflowrunner_template}}
 ```
+- **Parameterized Image Tagging**: Use `IMAGE_TAG="${IMAGE_TAG:-latest}"` and `TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:${IMAGE_TAG}"` rather than hardcoding mutable `:latest` tags.
 - **Parameter Wiring**: Pass runtime variables to `gcloud dataflow flex-template run` via `--parameters` as comma-separated `key=value` pairs:
   `--parameters pipeline_job_id="demo",num_objects_per_iteration=1`
 - Replace `{{gcs_staging_path}}` with `jobConfig.gcsStagingPath` from YAML; if empty or blank, default to `gs://${PROJECT_ID}-dataflow/staging`.
@@ -427,7 +430,8 @@ Before outputting the final JSON `files` array, verify:
 11. No logging lambda returns `None` where elements must flow downstream.
 12. For streaming pipelines, `--streaming` is passed in `run_directrunner.sh`.
 13. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Python source code or as `default=` values in `parser.add_argument(...)`. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
-14. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`.
+14. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. Runner scripts use parameterized `${IMAGE_TAG:-latest}` for image tags. Dockerfile configures container hardening permissions (`RUN chmod -R a+rx /template`).
+15. `.dockerignore` is generated to exclude `.git`, `venv`, `*.log`, and `__pycache__` from the Docker build context.
 
 ### Python Projects
 - **Python 3.12+ Compatibility**: In `requirements.txt`, specify `apache-beam[gcp]>=2.74.0` (do NOT pin old packages requiring deprecated `pkg_resources`). Do NOT include `pyspark`.

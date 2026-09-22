@@ -580,6 +580,11 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
             command: 'codeRegenerated',
             success: true,
             code: mainPipelineCode,
+            tokenUsage: response.usageMetadata ? {
+                inputTokens: response.usageMetadata.promptTokenCount ?? 0,
+                outputTokens: response.usageMetadata.candidatesTokenCount ?? 0,
+                totalTokens: (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0),
+            } : undefined,
         });
 
     } catch (err: any) {

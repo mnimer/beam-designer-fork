@@ -12,6 +12,7 @@ All files MUST be output directly in the designated root or Maven package layout
 | `src/test/java/com/example/<PipelineName>Test.java` | Unit tests using Beam `TestPipeline` and `PAssert` | false |
 | `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
 | `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
+| `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
 | `run_directrunner.sh` | Bash script to execute the pipeline locally with DirectRunner | true |
 | `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
 | `run_sparkrunner.sh` | Bash script to package and submit to GCP Serverless Spark (Dataproc) | true |
@@ -19,7 +20,7 @@ All files MUST be output directly in the designated root or Maven package layout
 | `README.md` | Concise documentation of pipeline design, configurations, and run instructions | false |
 
 ### Deliverable Constraints:
-- **File Scope**: Generate ONLY the 10 files listed above. Do not add extra utility classes, config loaders, CI files, linter configs, `.gitignore`, or example data files.
+- **File Scope**: Generate ONLY the 11 files listed above. Do not add extra utility classes, config loaders, CI files, linter configs, or example data files.
 - **Output Budget**: The `README.md` MUST be under 150 lines and contain only these sections: Overview, Prerequisites, Build, Run Locally, Deploy to Dataflow, and Runtime Parameters. Do not restate pipeline source code or add narrative marketing boilerplate.
 - **Main Java Filename**: Generate main java file name as "<PipelineName>.java" (PascalCase, e.g. "Foobar.java" located in "src/main/java/com/example/Foobar.java").
 - **System Instructions**: Every node in the yaml might have a 'system_instructions' attribute. If it does, use this to customize the code generation for that specific node. 
@@ -509,6 +510,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 ```
 {{dockerfile_template}}
 ```
+- **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
 
 ### 'run_directrunner.sh' Template
 ```
@@ -520,6 +522,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 ```
 {{run_dataflowrunner_template}}
 ```
+- **Parameterized Image Tagging**: Use `IMAGE_TAG="${IMAGE_TAG:-latest}"` and `TEMPLATE_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/beam-pipelines/${IMAGE_NAME}:${IMAGE_TAG}"` rather than hardcoding mutable `:latest` tags.
 - **Parameter Wiring**: Pass runtime variables to `gcloud dataflow flex-template run` via `--parameters` as comma-separated `key=value` pairs:
   `--parameters pipelineJobId="demo",numObjectsPerIteration=1`
 - Supply `GCS_STAGING_PATH` from `jobConfig.gcsStagingPath` (if present in YAML) or default to `gs://${PROJECT_ID}-dataflow/staging`.
@@ -546,7 +549,8 @@ Before outputting the final JSON `files` array, verify:
 7. Every transform step name in `.apply("<step_name>", ...)` is globally unique.
 8. Java class name, filename, Dockerfile main class, and `-Dexec.mainClass` all match in PascalCase.
 9. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Java source code or as `@Default.String(...)` annotations on password getters. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
-10. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`.
+10. Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. Runner scripts use parameterized `${IMAGE_TAG:-latest}` for image tags. Dockerfile configures container hardening permissions (`RUN chmod -R a+rx /template`).
+11. `.dockerignore` is generated to exclude `.git`, `target`, and `*.log` from the Docker build context.
 
 ---
 

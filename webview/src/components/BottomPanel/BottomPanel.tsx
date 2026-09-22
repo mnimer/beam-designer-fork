@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Maximize2, Minimize2, Code2 } from 'lucide-react';
 import { DeploymentTab, type LogEntry } from './DeploymentTab';
-import { SourceCodeTab } from './SourceCodeTab';
+import { SourceCodeTab, type TokenUsage } from './SourceCodeTab';
 import { filterSourceFiles } from '../../utils/fileFilters';
 
 /**
@@ -52,6 +52,8 @@ interface BottomPanelProps {
   onClearLogs?: () => void;
   onOpenConsole?: (url: string) => void;
   projectId?: string;
+  tokenUsage?: TokenUsage | null;
+  onInteract?: () => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -86,7 +88,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   runnerCommand = '',
   onClearLogs,
   onOpenConsole,
-  projectId = 'YOUR_PROJECT_ID'
+  projectId = 'YOUR_PROJECT_ID',
+  tokenUsage = null,
+  onInteract
 }) => {
   // Filter only .java and .py source files (excluding venv, caches, dependencies) for tab badge count
   const sourceFiles = useMemo(() => filterSourceFiles(folderFiles), [folderFiles]);
@@ -95,6 +99,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     <div 
       className="bg-[var(--vscode-workbench-bg,#151722)] text-[var(--vscode-text-primary)] flex flex-col"
       style={isExpanded ? { height: '100%' } : height ? { height: `${height}px` } : { height: '30%' }}
+      onClickCapture={onInteract}
+      onFocusCapture={onInteract}
     >
       {/* Tab Headers */}
       <div className="flex items-center justify-between border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)] px-4">
@@ -176,6 +182,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onSelectFile={onSelectFile}
             selectedFileContent={selectedFileContent}
             isGenerating={isGenerating}
+            tokenUsage={tokenUsage}
           />
         )}
       </div>

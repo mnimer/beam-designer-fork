@@ -519,5 +519,46 @@ edges: []
       vi.useRealTimers();
     }
   });
+
+  it('closes any open PropertyPane when user clicks on tabs, fields, or buttons in the bottom panel', () => {
+    render(<AppWithProvider />);
+
+    // Load a pipeline with a node
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        relativeFolder: 'src',
+        defaultOutputFolder: 'src/test',
+        data: `
+nodes:
+  - id: 'n-pubsub'
+    type: 'pipeline'
+    data:
+      label: 'Read From PubSub'
+      type: 'SOURCE'
+      properties: {}
+edges: []
+`
+      }
+    }));
+
+    // Click the node on canvas to open PropertyPane
+    const nodeEl = screen.getByTestId('node-n-pubsub');
+    fireEvent.click(nodeEl);
+
+    // Verify PropertyPane is open
+    expect(screen.getByRole('heading', { name: /Properties/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Read From PubSub')).toBeInTheDocument();
+
+    // Click on any tab in BottomPanel (e.g. Generate Code tab)
+    const generateCodeTabBtn = screen.getAllByText('Generate Code')[0];
+    fireEvent.click(generateCodeTabBtn);
+
+    // Verify PropertyPane is now closed
+    expect(screen.queryByRole('heading', { name: /Properties/i })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Read From PubSub')).not.toBeInTheDocument();
+  });
 });
+
 

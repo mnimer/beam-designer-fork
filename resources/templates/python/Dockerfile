@@ -21,3 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt --index-url https://pypi.org/
 
 # 5. Specify Pipeline Entrypoint
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE=/template/src/{{pipeline_name}}.py
+
+# 6. Container Hardening: Ensure template permissions for runner execution
+RUN chmod -R a+rx /template

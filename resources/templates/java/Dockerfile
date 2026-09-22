@@ -11,3 +11,6 @@ WORKDIR /template
 COPY --from=builder /app/target/main.jar /template/main.jar
 ENV FLEX_TEMPLATE_JAVA_CLASSPATH=/template/main.jar
 ENV FLEX_TEMPLATE_JAVA_MAIN_CLASS=com.example.{{pipeline_class_name}}
+
+# Container Hardening: Ensure template permissions for runner execution
+RUN chmod -R a+rx /template
