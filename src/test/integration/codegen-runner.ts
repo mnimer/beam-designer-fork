@@ -7,9 +7,11 @@
  * Coordinates live end-to-end integration tests by generating complete Apache Beam
  * pipelines using Gemini 3.7 Flash and evaluating the output using a multi-agent
  * evaluation harness (Deterministic Gate, BeamArchitectureAgent, SecurityAndHardeningAgent,
- * PackagingAndDeployabilityAgent, and Lead Arbiter).
+ * PackagingAndDeployabilityAgent, PipelineSpecificationAgent, and Lead Arbiter).
  *
  * Architectural decisions:
+ * - Dynamically synchronizes pipelineConfig.language in the YAML specification to match
+ *   the target generation language, eliminating language-mismatch cross-talk between tests.
  * - Replaces monolithic evaluation prompt with multi-agent specialist hierarchy.
  * - Emits actionable Prompt Remediation Directives targeting code-gen-prompt-python.txt
  *   and code-gen-prompt-java.txt when tests fail, rather than patching generated test code.
@@ -18,6 +20,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
+import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
 import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
@@ -76,6 +79,31 @@ export function readResource(filePath: string): string {
 }
 
 /**
+ * Synchronizes the pipelineConfig.language property in the pipeline YAML
+ * to match the target test language.
+ *
+ * @param yamlContent - Original YAML content.
+ * @param targetLanguage - Target language ('Java' | 'Python').
+ * @returns Synchronized YAML content string.
+ */
+export function synchronizePipelineLanguage(yamlContent: string, targetLanguage: 'Java' | 'Python'): string {
+    if (!yamlContent) return yamlContent;
+    try {
+        const parsed = yaml.parse(yamlContent);
+        if (parsed && typeof parsed === 'object') {
+            if (!parsed.pipelineConfig) {
+                parsed.pipelineConfig = {};
+            }
+            parsed.pipelineConfig.language = targetLanguage;
+            return yaml.stringify(parsed);
+        }
+    } catch {
+        return yamlContent.replace(/(language:\s*)[A-Za-z]+/g, `$1${targetLanguage}`);
+    }
+    return yamlContent;
+}
+
+/**
  * Builds the exact same prompt used by the extension for a given language and pipeline YAML.
  */
 export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string): string {
@@ -104,10 +132,6 @@ export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string
 
 /**
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
- * Runs deterministic pre-flight checks, 3 specialized evaluator sub-agents
- * (BeamArchitectureAgent, SecurityAndHardeningAgent, PackagingAndDeployabilityAgent),
- * and the Lead Arbiter agent to generate multi-dimensional scores and actionable
- * prompt remediation directives.
  *
  * @param ai - Initialized GoogleGenAI client.
  * @param codeGenPrompt - Full prompt template string.
@@ -177,7 +201,9 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
         console.log(`------------------------------------------------------`);
 
         try {
-            const prompt = buildCodeGenPrompt(language, config.yamlContent);
+            // Synchronize YAML pipelineConfig.language with current target language
+            const targetYaml = synchronizePipelineLanguage(config.yamlContent, language);
+            const prompt = buildCodeGenPrompt(language, targetYaml);
             const responseSchema = JSON.parse(readResource('code-gen-schema.json'));
 
             console.log(`1. Generating ${language} code via Gemini (${DEFAULT_GEMINI_MODEL})...`);
@@ -209,7 +235,7 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
             }
 
             console.log(`\n2. Evaluating generated ${language} code via Multi-Agent Evaluation Harness...`);
-            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, config.yamlContent);
+            const evalResult = await evaluateGeneratedCode(ai, prompt, files, language, targetYaml);
 
             console.log(`\n📋 Review Results for ${language}:`);
             console.log(`   Status: ${evalResult.isGood ? '✅ PASS' : '❌ FAIL'}`);
@@ -230,7 +256,7 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
                 hardVetoTriggered: evalResult.multiAgentResult?.hardVetoTriggered,
                 hardVetoReasons: evalResult.multiAgentResult?.hardVetoReasons,
                 explanation: evalResult.explanation,
-                findings: evalResult.multiAgentResult?.allFindings || [],
+                findings: evalResult.multiAgentResult?.confirmedFindings || evalResult.multiAgentResult?.allFindings || [],
                 promptRemediationDirectives: evalResult.multiAgentResult?.promptRemediationDirectives || [],
                 generatedFiles: files.map(f => ({
                     filename: f.filename,

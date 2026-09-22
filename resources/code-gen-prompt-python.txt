@@ -75,7 +75,7 @@ them apart:
    - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
      - **Parameterize via `argparse` / `PipelineOptions`**: Expose these credential properties as CLI arguments in the argument parser (e.g. `parser.add_argument('--source_db_username', required=True, ...)`, `parser.add_argument('--source_db_password', required=True, ...)`, and similarly for sink nodes, e.g. `parser.add_argument('--sink_db_username', required=True, ...)`, `parser.add_argument('--sink_db_password', required=True, ...)`, or `--db_username` / `--db_password` if a single DB).
      - Pass the values from `known_args` into the transform (e.g. `username=known_args.source_db_username, password=known_args.source_db_password`).
-     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`).
+     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`, and for any sensitive credential, password, token, or private key ALWAYS specify `"isSecret": true` to ensure Cloud Console UI masking and secret redaction).
      - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
        ```bash
        : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
@@ -368,7 +368,8 @@ pyarrow>=10.0.0
 - Only add extra packages (such as `kafka-python`, database drivers) if specific transforms require them. Do NOT include `pyspark`.
 
 ### B. `metadata.json` Flex Template Schema
-Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring ONLY parameters for YAML `runtimeVariables`:
+Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring parameters for YAML `runtimeVariables` and any parameterized credentials:
+- For any parameter that accepts passwords, auth tokens, connection secrets, or private keys, ALWAYS add `"isSecret": true` alongside `"isOptional": false` in the parameter definition to ensure Cloud Console UI masking and log redaction.
 ```json
 {
   "name": "{{pipeline_name}}",
@@ -379,6 +380,13 @@ Generate `metadata.json` directly in the project root conforming to the standard
       "label": "Pipeline Job ID",
       "helpText": "Unique identifier for this pipeline execution run",
       "isOptional": false
+    },
+    {
+      "name": "source_db_password",
+      "label": "Source DB Password",
+      "helpText": "Database authentication password (masked in UI)",
+      "isOptional": false,
+      "isSecret": true
     }
   ]
 }

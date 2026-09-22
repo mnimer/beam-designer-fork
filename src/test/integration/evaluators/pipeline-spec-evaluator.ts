@@ -5,28 +5,23 @@
  *
  * Purpose:
  * Audits generated Apache Beam code, runner scripts, build manifests, and deployment
- * artifacts against the visual DAG specification (YAML) to ensure that all user-configured
- * node properties, custom transform instructions, runtime variables, and job configurations
- * are faithfully incorporated and utilized in the generated codebase.
+ * artifacts against the visual DAG specification (YAML) using a formal
+ * Requirement Traceability Matrix (RTM).
  *
  * Architectural decisions:
- * - Parses the YAML pipeline definition into a structured specification checklist
- *   (nodes, properties, custom instructions, runtime variables, job configurations).
- * - Instructs the sub-agent to cross-reference every defined property against generated source files,
- *   catching silently ignored properties, arbitrary fallback values, or missing custom prompt logic.
- * - Emits structured findings with category 'SPECIFICATION' and severities:
- *   - CRITICAL: A configured property or user specification required for pipeline behavior
- *     is completely missing/ignored, or custom logic in system_instructions was omitted.
- *   - MAJOR: A property was partially configured, replaced with an unintended default value,
- *     or runtime variables / jobConfig settings were omitted.
- *   - MINOR: Non-blocking cosmetic differences or minor unused optional parameter.
+ * - Generates explicit requirement IDs (`REQ-NODE-*`, `REQ-INSTR-*`, `REQ-VAR-*`, `REQ-CONFIG-*`, `REQ-EDGE-*`).
+ * - Mandates that the evaluator output a verification record for every requirement ID
+ *   with status (`VERIFIED` | `PARTIAL` | `MISSING`) and verbatim line-numbered code evidence.
+ * - Any `MISSING` requirement automatically produces a CRITICAL or MAJOR finding.
+ * - Formats all generated files with 1-indexed line numbers.
  */
 
 import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
-import { SpecialistAgentResult } from './types';
+import { SpecialistAgentResult, RequirementVerification } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
+import { formatFilesWithLineNumbers } from './format-utils';
 
 /**
  * Structured representation of a parsed pipeline node for specification audit.
@@ -52,15 +47,20 @@ export interface ParsedPipelineSpec {
     edges: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }[];
 }
 
+export interface SpecRequirementItem {
+    reqId: string;
+    category: string;
+    description: string;
+    expected: string;
+}
+
 /**
  * Safely parses the pipeline YAML string into a structured specification model.
- * Handles corrupt, empty, or partial YAML gracefully.
  *
  * @param yamlContent - Raw pipeline YAML content.
  * @returns Structured ParsedPipelineSpec object.
  */
 export function parsePipelineSpec(yamlContent: string): ParsedPipelineSpec {
-    // NOTE: If YAML content is empty or only whitespace, return safe defaults immediately.
     if (!yamlContent || !yamlContent.trim()) {
         return {
             nodes: [],
@@ -83,7 +83,6 @@ export function parsePipelineSpec(yamlContent: string): ParsedPipelineSpec {
             };
         }
 
-        // Extract nodes and their configured properties
         const rawNodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
         const nodes: ParsedPipelineNode[] = rawNodes.map((n: any) => {
             const data = n.data || {};
@@ -99,18 +98,15 @@ export function parsePipelineSpec(yamlContent: string): ParsedPipelineSpec {
             };
         });
 
-        // Extract runtime variables
         const rawVars = Array.isArray(parsed.runtimeVariables) ? parsed.runtimeVariables : [];
         const runtimeVariables = rawVars.map((v: any) => ({
             key: String(v.key || ''),
             value: v.value
         })).filter((v: any) => v.key.length > 0);
 
-        // Extract job and pipeline configs
         const jobConfig = typeof parsed.jobConfig === 'object' && parsed.jobConfig !== null ? parsed.jobConfig : {};
         const pipelineConfig = typeof parsed.pipelineConfig === 'object' && parsed.pipelineConfig !== null ? parsed.pipelineConfig : {};
 
-        // Extract edges
         const rawEdges = Array.isArray(parsed.edges) ? parsed.edges : [];
         const edges = rawEdges.map((e: any) => ({
             id: e.id,
@@ -128,7 +124,6 @@ export function parsePipelineSpec(yamlContent: string): ParsedPipelineSpec {
             edges
         };
     } catch {
-        // HACK: On YAML parse failure, return empty specification to allow downstream agents to proceed
         return {
             nodes: [],
             runtimeVariables: [],
@@ -140,15 +135,98 @@ export function parsePipelineSpec(yamlContent: string): ParsedPipelineSpec {
 }
 
 /**
- * Formats a parsed pipeline specification into a human-readable checklist for the evaluator model.
+ * Extracts a flattened Requirement Traceability Matrix (RTM) from the specification.
+ *
+ * @param spec - Parsed pipeline specification.
+ * @returns Array of explicit requirement items with deterministic IDs.
+ */
+export function generateRequirementMatrix(spec: ParsedPipelineSpec): SpecRequirementItem[] {
+    const items: SpecRequirementItem[] = [];
+
+    // 1. Node properties
+    spec.nodes.forEach((node, nodeIdx) => {
+        const nodeNum = nodeIdx + 1;
+        const transformDesc = node.beamTransform ? ` (${node.beamTransform})` : '';
+
+        Object.entries(node.properties).forEach(([k, v]) => {
+            items.push({
+                reqId: `REQ-NODE-${nodeNum}-${k.toUpperCase()}`,
+                category: 'NODE_PROPERTY',
+                description: `Node "${node.label}"${transformDesc} property: ${k}`,
+                expected: JSON.stringify(v)
+            });
+        });
+
+        if (node.systemInstructions) {
+            items.push({
+                reqId: `REQ-INSTR-${nodeNum}`,
+                category: 'CUSTOM_INSTRUCTIONS',
+                description: `Node "${node.label}" custom system instructions`,
+                expected: node.systemInstructions
+            });
+        }
+
+        if (node.codeGenerationPrompt) {
+            items.push({
+                reqId: `REQ-PROMPT-${nodeNum}`,
+                category: 'CUSTOM_PROMPT',
+                description: `Node "${node.label}" custom code generation prompt`,
+                expected: node.codeGenerationPrompt
+            });
+        }
+    });
+
+    // 2. Runtime variables
+    spec.runtimeVariables.forEach(rv => {
+        items.push({
+            reqId: `REQ-VAR-${rv.key.toUpperCase()}`,
+            category: 'RUNTIME_VARIABLE',
+            description: `Runtime variable ${rv.key}`,
+            expected: JSON.stringify(rv.value)
+        });
+    });
+
+    // 3. Job configuration
+    Object.entries(spec.jobConfig).forEach(([k, v]) => {
+        if (v !== '' && v !== null && v !== undefined) {
+            items.push({
+                reqId: `REQ-CONFIG-${k.toUpperCase()}`,
+                category: 'JOB_CONFIG',
+                description: `Job configuration ${k}`,
+                expected: JSON.stringify(v)
+            });
+        }
+    });
+
+    // 4. Edges and DLQ routing
+    spec.edges.forEach((edge, edgeIdx) => {
+        const handle = edge.sourceHandle ? ` via handle '${edge.sourceHandle}'` : '';
+        items.push({
+            reqId: `REQ-EDGE-${edgeIdx + 1}`,
+            category: 'TOPOLOGY_EDGE',
+            description: `Edge from ${edge.source} to ${edge.target}${handle}`,
+            expected: `Connects output to input${edge.sourceHandle ? ` with output tag '${edge.sourceHandle}'` : ''}`
+        });
+    });
+
+    return items;
+}
+
+/**
+ * Formats a parsed pipeline specification into a human-readable checklist and RTM table.
  *
  * @param spec - Structured ParsedPipelineSpec.
  * @returns Formatted checklist string.
  */
 export function formatSpecChecklist(spec: ParsedPipelineSpec): string {
     const lines: string[] = [];
+    const rtm = generateRequirementMatrix(spec);
 
     lines.push(`Total Nodes: ${spec.nodes.length}`);
+    if (spec.nodes.length === 0 && rtm.length === 0) {
+        return lines.join('\n');
+    }
+
     for (const [idx, node] of spec.nodes.entries()) {
         lines.push(`\n[Node ${idx + 1}] ID: "${node.id}" | Label: "${node.label}" | Type: ${node.type} | Transform: ${node.beamTransform || 'N/A'}`);
 
@@ -194,6 +272,16 @@ export function formatSpecChecklist(spec: ParsedPipelineSpec): string {
         }
     }
 
+    lines.push(`\nTotal Traceable Requirements: ${rtm.length}`);
+    lines.push('');
+    lines.push('| Requirement ID | Category | Description | Expected Value / Behavior |');
+    lines.push('| :--- | :--- | :--- | :--- |');
+
+    for (const item of rtm) {
+        const cleanExpected = item.expected.replace(/\n/g, ' ').substring(0, 100);
+        lines.push(`| \`${item.reqId}\` | ${item.category} | ${item.description} | ${cleanExpected} |`);
+    }
+
     return lines.join('\n');
 }
 
@@ -212,60 +300,66 @@ export async function evaluatePipelineSpecification(
     yamlContent: string,
     files: GeneratedFileCandidate[]
 ): Promise<SpecialistAgentResult> {
-    // 1. Parse YAML into structured specification
     const spec = parsePipelineSpec(yamlContent);
+    const rtm = generateRequirementMatrix(spec);
     const checklistText = formatSpecChecklist(spec);
 
-    // 2. Build evaluator prompt
     const prompt = `You are the Principal Pipeline Specification & Property Conformance Evaluator Agent.
-Your responsibility is auditing generated Apache Beam code to verify that it FAITHFULLY IMPLEMENTS THE EXACT PIPELINE DEFINED IN THE YAML SPECIFICATION.
-You must ensure that ALL user-configured node properties, custom instructions, runtime variables, and job configurations are properly incorporated and used.
+Your responsibility is auditing generated Apache Beam code to verify that it FAITHFULLY IMPLEMENTS 100% OF THE SPECIFICATION.
+You must verify each requirement in the Requirement Traceability Matrix (RTM) below against the line-numbered code.
 
 === TARGET LANGUAGE ===
 ${language}
 =======================
 
-=== PARSED SPECIFICATION CHECKLIST ===
+=== REQUIREMENT TRACEABILITY MATRIX (RTM) ===
 ${checklistText}
-======================================
+=============================================
 
 === FULL INPUT PIPELINE YAML ===
 ${yamlContent}
 ================================
 
-=== GENERATED SOURCE FILES & ARTIFACTS ===
-${files.map(f => `--- FILE: ${f.filename} ---\n${f.content}\n`).join('\n')}
-=========================================
+=== GENERATED SOURCE FILES & ARTIFACTS (LINE NUMBERED) ===
+${formatFilesWithLineNumbers(files)}
+==========================================================
 
-Audit the code against the following Specification Conformance Checklist:
-1. **Node Properties Completeness & Utilization:**
-   - Inspect every node and its declared properties in the checklist (e.g. driverClassName, url, username, password, tableName, statement, selectType, outputParallelization, autosharding, bootstrapServers, topics, groupId, maxNumRecords, maxReadTime, keyDeserializer, valueDeserializer, keySerializer, useEOS, etc.).
-   - Verify that EVERY property explicitly set in the YAML is actually configured, referenced, or applied in the generated code or configuration files.
-   - Flag any property that was set by the user in the YAML but is MISSING, SILENTLY OMITTED, or REPLACED with an arbitrary default value.
-2. **Custom Instructions & Transform Logic:**
-   - If a node defines \`system_instructions\` or \`codeGenerationPrompt\` (e.g. "Wrap the generated code in a try/catch, returning all errors to a separate pcollection", "Convert byteArray to json"), verify that the generated DoFn or transform actually implements that required behavior.
-3. **Runtime Variables & Job Configuration:**
-   - Verify that declared \`runtimeVariables\` (e.g. JOB_ID) are declared in PipelineOptions or utilized in the pipeline.
-   - Verify that \`jobConfig\` settings (e.g. runner, machineType, minInstances, maxInstances, network, subnetwork) are reflected in PipelineOptions or execution runner scripts (\`run_directrunner.sh\`, \`run_dataflowrunner.sh\`).
-4. **Transform Types & Topological Fidelity:**
-   - Verify that the designated \`beam_transform\` connectors (e.g. JdbcIO, KafkaIO, PubSubIO, ParDo) match what is used in the pipeline code.
-   - Verify that error branches (handles with \`error\`) route to their respective DLQ error sinks/steps.
-
-Severity Guidelines:
-- CRITICAL: A configured property or user specification required for pipeline execution is completely missing/ignored (e.g. tableName ignored, SQL statement omitted, topic not configured), or custom logic specified in system_instructions was omitted.
-- MAJOR: A configured property was replaced with an unintended default value, or runtimeVariables / jobConfig were omitted from pipeline options or runner scripts.
-- MINOR: Naming discrepancies or non-blocking unused optional configuration parameters.`;
+Instructions:
+1. Verify EVERY requirement in the RTM. For each \`reqId\`, determine whether it is:
+   - \`VERIFIED\`: Fully implemented and faithfully utilized.
+   - \`PARTIAL\`: Partially implemented or substituted with an unintended default value.
+   - \`MISSING\`: Completely omitted or silently ignored in the generated code.
+2. Provide verbatim line-numbered code evidence for each verification.
+3. For any requirement marked \`MISSING\` or \`PARTIAL\`, emit a corresponding finding in \`findings[]\`.
+   - CRITICAL: Omission of functional transform parameters (e.g. tableName, topic, SQL statement, custom system_instructions logic, or DLQ routing).
+   - MAJOR: Substitution of configured property with arbitrary default, missing runtime variable, or omitted jobConfig parameter.
+   - MINOR: Optional cosmetic discrepancy.`;
 
     const schema = {
         type: "object",
         properties: {
             passed: {
                 type: "boolean",
-                description: "True if all configured properties and specification requirements are faithfully implemented"
+                description: "True if all requirements are VERIFIED without any CRITICAL or MAJOR omissions"
             },
             summary: {
                 type: "string",
                 description: "Specification conformance assessment summary"
+            },
+            requirementVerifications: {
+                type: "array",
+                description: "Full audit record verifying each requirement in the RTM",
+                items: {
+                    type: "object",
+                    properties: {
+                        reqId: { type: "string" },
+                        category: { type: "string" },
+                        description: { type: "string" },
+                        status: { type: "string", enum: ["VERIFIED", "PARTIAL", "MISSING"] },
+                        evidence: { type: "string" }
+                    },
+                    required: ["reqId", "category", "description", "status"]
+                }
             },
             findings: {
                 type: "array",
@@ -276,6 +370,8 @@ Severity Guidelines:
                         category: { type: "string", enum: ["SPECIFICATION"] },
                         severity: { type: "string", enum: ["CRITICAL", "MAJOR", "MINOR"] },
                         file: { type: "string" },
+                        line: { type: "integer" },
+                        evidence: { type: "string" },
                         description: { type: "string" },
                         rationale: { type: "string" }
                     },
@@ -283,16 +379,16 @@ Severity Guidelines:
                 }
             }
         },
-        required: ["passed", "summary", "findings"]
+        required: ["passed", "summary", "findings", "requirementVerifications"]
     };
 
-    // 3. Invoke Gemini model
     const response = await ai.models.generateContent({
         model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
             responseMimeType: 'application/json',
-            responseSchema: schema
+            responseSchema: schema,
+            temperature: 0.1
         }
     });
 
@@ -305,6 +401,7 @@ Severity Guidelines:
         agentName: 'PipelineSpecificationAgent',
         passed: parsed.passed,
         summary: parsed.summary,
-        findings: parsed.findings || []
+        findings: parsed.findings || [],
+        requirementVerifications: parsed.requirementVerifications || []
     };
 }

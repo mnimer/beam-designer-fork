@@ -5,17 +5,21 @@
  *
  * Purpose:
  * Coordinates the full end-to-end evaluation lifecycle:
- * 1. Runs the Deterministic Pre-Flight Gate (syntax compilation + regex secret scan).
- * 2. Concurrently invokes the 3 specialized sub-agents:
+ * 1. Runs the Deterministic Pre-Flight Gate (syntax, bash -n, JSON, XML, placeholders, secret scan).
+ * 2. Concurrently invokes the 4 specialized sub-agents:
  *    - BeamArchitectureAgent
- *    - SecurityAndHardeningAgent
+ *    - PipelineSpecificationAgent (with Requirement Traceability Matrix)
+ *    - SecurityAndHardeningAgent (with gemini-3.8-flash-cyber / fallback)
  *    - PackagingAndDeployabilityAgent
- * 3. Dispatches results to the Lead Arbiter Agent for scoring, hard veto enforcement,
- *    and automated Prompt Remediation Directive generation for the prompt templates.
+ * 3. Dispatches results to the Lead Arbiter Agent with full code visibility for scoring,
+ *    false-positive reconciliation, hard veto enforcement, and prompt remediation.
  *
  * Architectural decisions:
- * - Runs specialist evaluations concurrently via Promise.all to minimize evaluation latency.
- * - Formats rich markdown scorecards and explicit prompt remediation guidance in test output.
+ * - Subagent catch blocks do NOT inject synthetic MAJOR code-defect findings into the code
+ *   quality scorecard for network/503/timeout errors.
+ * - Passes full line-numbered files to Lead Arbiter to enable accurate verification.
+ * - Formats rich terminal reports including scorecard, confirmed findings, rejected false positives,
+ *   and actionable prompt remediation directives.
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -55,58 +59,42 @@ export async function runMultiAgentEvaluation(
 
     console.log(`   [MultiAgentEvaluator] 2. Spawning Specialist Sub-Agents concurrently...`);
     const [beamArch, pipelineSpec, security, packaging] = await Promise.all([
-        evaluateBeamArchitecture(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => ({
-            agentName: 'BeamArchitectureAgent',
-            passed: false,
-            summary: `Error invoking BeamArchitectureAgent: ${err.message}`,
-            findings: [{
-                id: 'ERR-ARCH-SUBAGENT',
-                category: 'ARCHITECTURE',
-                severity: 'MAJOR',
-                file: 'system',
-                description: `BeamArchitectureAgent invocation failed: ${err.message}`,
-                rationale: 'Subagent runtime error'
-            }]
-        })),
-        evaluatePipelineSpecification(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => ({
-            agentName: 'PipelineSpecificationAgent',
-            passed: false,
-            summary: `Error invoking PipelineSpecificationAgent: ${err.message}`,
-            findings: [{
-                id: 'ERR-SPEC-SUBAGENT',
-                category: 'SPECIFICATION',
-                severity: 'MAJOR',
-                file: 'system',
-                description: `PipelineSpecificationAgent invocation failed: ${err.message}`,
-                rationale: 'Subagent runtime error'
-            }]
-        })),
-        evaluateSecurityAndHardening(ai, language, files).catch((err): SpecialistAgentResult => ({
-            agentName: 'SecurityAndHardeningAgent',
-            passed: false,
-            summary: `Error invoking SecurityAndHardeningAgent: ${err.message}`,
-            findings: [{
-                id: 'ERR-SEC-SUBAGENT',
-                category: 'SECURITY',
-                severity: 'MAJOR',
-                file: 'system',
-                description: `SecurityAndHardeningAgent invocation failed: ${err.message}`,
-                rationale: 'Subagent runtime error'
-            }]
-        })),
-        evaluatePackagingAndDeployability(ai, language, files).catch((err): SpecialistAgentResult => ({
-            agentName: 'PackagingAndDeployabilityAgent',
-            passed: false,
-            summary: `Error invoking PackagingAndDeployabilityAgent: ${err.message}`,
-            findings: [{
-                id: 'ERR-PKG-SUBAGENT',
-                category: 'PACKAGING',
-                severity: 'MAJOR',
-                file: 'system',
-                description: `PackagingAndDeployabilityAgent invocation failed: ${err.message}`,
-                rationale: 'Subagent runtime error'
-            }]
-        }))
+        evaluateBeamArchitecture(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => {
+            console.error(`   [MultiAgentEvaluator] ⚠️ BeamArchitectureAgent error: ${err.message}`);
+            return {
+                agentName: 'BeamArchitectureAgent',
+                passed: false,
+                summary: `Subagent infrastructure/API error: ${err.message}`,
+                findings: [] // NOTE: Do not dock code quality points for subagent API errors
+            };
+        }),
+        evaluatePipelineSpecification(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => {
+            console.error(`   [MultiAgentEvaluator] ⚠️ PipelineSpecificationAgent error: ${err.message}`);
+            return {
+                agentName: 'PipelineSpecificationAgent',
+                passed: false,
+                summary: `Subagent infrastructure/API error: ${err.message}`,
+                findings: []
+            };
+        }),
+        evaluateSecurityAndHardening(ai, language, files).catch((err): SpecialistAgentResult => {
+            console.error(`   [MultiAgentEvaluator] ⚠️ SecurityAndHardeningAgent error: ${err.message}`);
+            return {
+                agentName: 'SecurityAndHardeningAgent',
+                passed: false,
+                summary: `Subagent infrastructure/API error: ${err.message}`,
+                findings: []
+            };
+        }),
+        evaluatePackagingAndDeployability(ai, language, files).catch((err): SpecialistAgentResult => {
+            console.error(`   [MultiAgentEvaluator] ⚠️ PackagingAndDeployabilityAgent error: ${err.message}`);
+            return {
+                agentName: 'PackagingAndDeployabilityAgent',
+                passed: false,
+                summary: `Subagent infrastructure/API error: ${err.message}`,
+                findings: []
+            };
+        })
     ]);
 
     const specialistResults: Record<string, SpecialistAgentResult> = {
@@ -121,6 +109,7 @@ export async function runMultiAgentEvaluation(
         ai,
         language,
         yamlContent,
+        files,
         deterministic,
         specialistResults,
         codeGenPrompt
@@ -160,13 +149,35 @@ export function formatEvaluationReport(result: MultiAgentEvaluationResult, langu
     lines.push(`\n📝 Executive Explanation:`);
     lines.push(`   ${result.explanation}`);
 
-    if (result.allFindings.length > 0) {
-        lines.push(`\n🔍 Findings (${result.allFindings.length}):`);
-        result.allFindings.forEach((f, idx) => {
+    // Confirmed findings
+    const confirmed = result.confirmedFindings || result.allFindings;
+    if (confirmed.length > 0) {
+        lines.push(`\n🔍 Confirmed Findings (${confirmed.length}):`);
+        confirmed.forEach((f, idx) => {
             const icon = f.severity === 'CRITICAL' ? '🔴' : f.severity === 'MAJOR' ? '🟠' : '🟡';
-            lines.push(`   ${idx + 1}. [${f.category}] ${icon} ${f.severity}: ${f.description} (${f.file})`);
+            const loc = f.line ? ` (${f.file}:${f.line})` : ` (${f.file})`;
+            lines.push(`   ${idx + 1}. [${f.category}] ${icon} ${f.severity}: ${f.description}${loc}`);
+            if (f.evidence) {
+                lines.push(`      Evidence: ${f.evidence}`);
+            }
             lines.push(`      Rationale: ${f.rationale}`);
         });
+    }
+
+    // Rejected false-positive findings
+    if (result.rejectedFindings && result.rejectedFindings.length > 0) {
+        lines.push(`\n🛡️ Reconciled False Positives (${result.rejectedFindings.length}):`);
+        result.rejectedFindings.forEach((rf, idx) => {
+            lines.push(`   ${idx + 1}. [REJECTED: ${rf.id}] ${rf.reason}`);
+        });
+    }
+
+    // RTM Verifications
+    const specResult = result.specialistResults?.PipelineSpecificationAgent;
+    if (specResult?.requirementVerifications && specResult.requirementVerifications.length > 0) {
+        const verified = specResult.requirementVerifications.filter(v => v.status === 'VERIFIED').length;
+        const total = specResult.requirementVerifications.length;
+        lines.push(`\n📋 Requirement Traceability: ${verified}/${total} requirements verified (${Math.round((verified / total) * 100)}%)`);
     }
 
     if (result.promptRemediationDirectives.length > 0) {
