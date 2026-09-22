@@ -1,3 +1,10 @@
+# ==============================================================================
+# I17: CoGroupByKey Relational Join (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Joins in-memory Orders and Customers collections on customerId using Beam CoGroupByKey with TupleTags, iterates over CoGbkResult safely in a ParDo to produce enriched records, and outputs text lines to Cloud Storage using TextIO.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Extracts customerId join keys from in-memory Orders and Customers PCollections, executes a relational CoGroupByKey join, flattens and enriches matching records via ParDo with null-safety, and writes formatted text output to Cloud Storage using WriteToText.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I17 Multi-Collection Relational Join (Create Sources + CoGroupByKey + ParDo to TextIO)
 nodes:

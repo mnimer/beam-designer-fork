@@ -1,3 +1,10 @@
+# ==============================================================================
+# I15: PubSub Session Windows (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The pipeline correctly consumes Pub/Sub clickstream events with event timestamps, groups user interactions into session windows with early processing-time firings and accumulation mode, and streams session counts to BigQuery.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: PubSub session windowing with 10-minute gap duration, custom triggers, and accumulating panes is accurately implemented and writes aggregated session counts to BigQuery.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I15 User Session Windowing & Early Triggers (PubSubIO to BigQueryIO)
 nodes:

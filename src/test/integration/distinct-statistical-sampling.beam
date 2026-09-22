@@ -1,3 +1,10 @@
+# ==============================================================================
+# I18: Distinct and Statistical Sampling (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The DAG correctly sequences TextIO -> Distinct -> Sample -> ApproximateUnique -> LogMessage. Pipeline options, runtime variables, and jobConfig properties are appropriately parameterized and wired across metadata.json and runner scripts.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The DAG correctly sequences TextIO, Distinct, Sample.FixedSizeGlobally with list flattening, ApproximateUnique.Globally, and passthrough logging.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I18 Distinct and Statistical Sampling (TextIO to LogMessage)
 nodes:

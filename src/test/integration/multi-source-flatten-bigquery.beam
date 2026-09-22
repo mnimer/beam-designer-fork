@@ -1,3 +1,10 @@
+# ==============================================================================
+# I16: Multi-Source Flatten BigQuery (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Ingests heterogeneous streaming inputs from Cloud Pub/Sub and Apache Kafka, normalizes events to a uniform schema, merges streams using Flatten.pCollections(), rebalances workers and breaks fusion via Reshuffle, and streams records into BigQuery with WRITE_APPEND.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Successfully reads and normalizes multi-source streams from Pub/Sub and Kafka, merges PCollections with Flatten, applies Reshuffle to prevent fusion and balance worker partitions, and streams output into BigQuery.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I16 Multi-Stream Ingestion, Merge, and Reshuffle (PubSubIO + KafkaIO to BigQueryIO)
 nodes:

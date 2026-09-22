@@ -10,6 +10,12 @@
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
  *
  * Loads pipeline definition from sidecar file: avro-to-parquet-lakehouse.beam
+ *
+ * Architectural decisions:
+ * - Decouples pipeline visual specification from assertions by defining schema transformations declaratively inside avro-to-parquet-lakehouse.beam.
+ * - Separates Java and Python tests into distinct 'it' blocks to ensure fine-grained execution reporting and isolation.
+ * - Establishes a 180s timeout limit to prevent flakiness during slow model responses.
+ * - Exposes a programmatic test runner (runAvroToParquetLakehouseTest) for broader integration pipeline scheduling and diagnostics.
  */
 
 import { describe, it, expect } from 'vitest';

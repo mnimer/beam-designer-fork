@@ -30,8 +30,8 @@ import {
     EvaluatorFinding,
     MultiAgentEvaluationResult,
     EvaluationScorecard,
-    generateContentWithRetry,
-    RejectedFinding
+    RejectedFinding,
+    generateContentWithRetry
 } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';

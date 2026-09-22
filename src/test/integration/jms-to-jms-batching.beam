@@ -1,3 +1,10 @@
+# ==============================================================================
+# I10: JMS to JMS Batching (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Consumes incoming enterprise JMS messages from ActiveMQ queue using JmsIO, bundles records into batches of 100 using GroupIntoBatches, processes batched payloads in a bulk ParDo, and safely outputs bundles to a destination JMS queue.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Connects to JMS message broker, leverages GroupIntoBatches or batch bundling transform to group elements into 100-count bundles, processes batch payloads in DoFn, and publishes batched messages to target JMS queue sink.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 #
 # Pipeline Specification: I10 - JmsIO to JmsIO Batching Pipeline

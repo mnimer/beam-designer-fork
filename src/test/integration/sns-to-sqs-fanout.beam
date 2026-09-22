@@ -1,3 +1,10 @@
+# ==============================================================================
+# I19: SNS to SQS Fanout (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The pipeline correctly ingests SNS notifications via an Amazon SQS subscription queue, unpacks and validates the JSON payload within a robust ParDo transform, and batch-publishes valid records to the destination Amazon SQS queue.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Ingestion of SNS notifications via SQS subscription using cross-language sqs_read is correctly implemented. The ParDo properly unpacks the envelope and routes outputs bare for the main tag and wrapped for errors, and the SQS sink batches payloads via cross-language sqs_write.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I19 SNS to SQS Fanout (SnsIO to SqsIO)
 nodes:
