@@ -91,13 +91,13 @@ them apart:
    - When a node specifies authentication properties (such as `password`, `username`, or connection strings) directly in YAML without a `*Secret` reference:
      - **Parameterize via `PipelineOptions`**: Expose these credential properties as configurable options in the custom `PipelineOptions` interface without default annotations (e.g., `String getSourceDbUsername(); void setSourceDbUsername(String value);`, `String getSourceDbPassword(); void setSourceDbPassword(String value);`, and similarly for sink nodes, e.g. `String getSinkDbUsername(); void setSinkDbUsername(String value);`, `String getSinkDbPassword(); void setSinkDbPassword(String value);`, or `getDbUsername()` / `getDbPassword()` if a single DB).
      - Pass the values from `options` into the transform (e.g. `.withUsername(options.getSourceDbUsername()).withPassword(options.getSourceDbPassword())`).
-     - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`).
-     - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
-       ```bash
-       : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
-       ```
-       Then pass `--sourceDbPassword="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
-     - This rule is an explicit exception to the "only runtimeVariables in PipelineOptions" rule: sensitive credentials MUST be parameterized via `PipelineOptions` to ensure zero plaintext secrets in code and scripts.
+      - Declare the corresponding parameters in `metadata.json` under `parameters` (marked `"isOptional": false`, and always specify `"isSecret": true` in addition to `"isOptional": false` for any credential, password, token, or private key parameter to ensure sensitive values are masked in Dataflow UI and execution logs).
+      - **NO FALLBACK STRINGS IN RUNNER SCRIPTS**: Do NOT include hardcoded fallback strings for sensitive passwords or tokens in runner shell scripts (e.g. NEVER write `PASSWORD=${PASSWORD:-'dbpswrd123'}`). Instead, check for the required environment variable, exiting with an error if unset:
+        ```bash
+        : "${SOURCE_DB_PASSWORD:?Error: SOURCE_DB_PASSWORD environment variable must be set}"
+        ```
+        Then pass `--sourceDbPassword="${SOURCE_DB_PASSWORD}"` (usernames or non-sensitive identifiers can use standard fallbacks like `${SOURCE_DB_USERNAME:-dbuser123}`).
+      - This rule is an explicit exception to the "only runtimeVariables in PipelineOptions" rule: sensitive credentials MUST be parameterized via `PipelineOptions` to ensure zero plaintext secrets in code and scripts.
 
 **MUTUAL EXCLUSION**: never emit both. If a node has a `*Secret` reference, ignore any
 plaintext property of the same name and use the Secret Manager path.
@@ -483,7 +483,8 @@ Use this exact XML structure as the single source of truth for the generated `po
 - **Side Output Emission**: Use `c.output(tag, value)` in `DoFn.ProcessContext`.
 
 ### B. `metadata.json` Flex Template Schema
-Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring ONLY parameters for YAML `runtimeVariables`:
+Generate `metadata.json` directly in the project root conforming to the standard Dataflow Flex Template metadata format, declaring parameters for YAML `runtimeVariables` and any parameterized credentials:
+- For any parameter that accepts passwords, auth tokens, connection secrets, or private keys, ALWAYS add `"isSecret": true` alongside `"isOptional": false` in the parameter definition to ensure Cloud Console UI masking and log redaction.
 ```json
 {
   "name": "{{pipeline_name}}",
@@ -494,6 +495,13 @@ Generate `metadata.json` directly in the project root conforming to the standard
       "label": "Pipeline Job ID",
       "helpText": "Unique identifier for this pipeline execution run",
       "isOptional": false
+    },
+    {
+      "name": "sourceDbPassword",
+      "label": "Source DB Password",
+      "helpText": "Database authentication password (masked in UI)",
+      "isOptional": false,
+      "isSecret": true
     }
   ]
 }
@@ -509,6 +517,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 ```
 {{dockerfile_template}}
 ```
+- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template. Note that Dataflow flex template launcher images are preconfigured by GCP and must not have custom USER overrides that interfere with the launcher entrypoint.
 
 ### 'run_directrunner.sh' Template
 ```
