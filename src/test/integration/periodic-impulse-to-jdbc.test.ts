@@ -10,6 +10,11 @@
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
  *
  * Loads pipeline definition from sidecar file: periodic-impulse-to-jdbc.beam
+ *
+ * Architectural decisions:
+ * - Employs a declarative yaml/json representation within periodic-impulse-to-jdbc.beam to avoid hardcoding pipeline stages.
+ * - Utilizes separate, sequential execution of Java and Python test scenarios with generous 180s timeouts to accommodate LLM invocation over Vertex AI.
+ * - Supports programmatic run capability (runPeriodicImpulseToJdbcTest) for automated task runner invocations and debugging.
  */
 
 import { describe, it, expect } from 'vitest';

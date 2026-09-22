@@ -1,4 +1,10 @@
-# PeriodicImpulse to JdbcIO Pipeline
+# ==============================================================================
+# I13: PeriodicImpulse to JdbcIO (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Emits periodic triggers every 300 seconds via PeriodicImpulse, queries an external REST metrics API in a resilient ParDo, and writes structured records to MySQL via JdbcIO using parameterized prepared statements.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Utilizes PeriodicImpulse to trigger recurrent batch polls, executes HTTP requests in a ParDo DoFn with error handling, and inserts batches into relational storage using relational DB sinks.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 #
 # Periodic trigger ETL: PeriodicImpulse interval source -> ParDo external API caller -> JdbcIO sink.

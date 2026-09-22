@@ -310,7 +310,6 @@ describe('SourceCodeTab', () => {
       expect(screen.queryByTestId('codegen-validation-error')).not.toBeInTheDocument();
       expect(screen.queryByText('Generation disabled: resolve diagram errors to continue')).not.toBeInTheDocument();
     });
-
     it('renders token usage message when tokenUsage prop is provided', () => {
       render(
         <SourceCodeTab

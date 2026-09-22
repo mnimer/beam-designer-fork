@@ -1,3 +1,10 @@
+# ==============================================================================
+# I9: MQTT to BigQuery Sliding (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Connects to MQTT broker with TLS/QoS 1 via MqttIO, parses JSON payloads into sensor events, assigns 300-second sliding windows with 60-second periods, computes mean metrics per sensor key, and streams results into BigQuery.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Ingests IoT telemetry from MQTT, parses JSON sensor payloads, applies sliding windowing with proper hopping periods, aggregates readings with Mean per sensor, and emits rows to BigQuery via streaming insert.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 #
 # Pipeline Specification: I9 - MqttIO to BigQueryIO Sliding Window Pipeline

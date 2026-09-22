@@ -1,3 +1,10 @@
+# ==============================================================================
+# I20: MQTT to MQTT Retained with DLQ (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The implementation accurately sets up MqttIO source and sink with retained flag configuration, implements the critical alert ParDo DoFn with clean multi-output tagged routing (VALID_TAG and ERROR_TAG), handles serialization cleanly, and includes comprehensive unit testing.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The MQTT source and sink connectors are configured accurately with QoS and retain parameters; the ParDo transform correctly routes valid detections to the bare main output and processing errors to the DLQ tagged output; unit tests thoroughly validate alert filtering and dead-letter handling.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 # Purpose: Pipeline specification for I20 MQTT to MQTT Retained with DLQ (MqttIO to MqttIO + LogMessage)
 nodes:

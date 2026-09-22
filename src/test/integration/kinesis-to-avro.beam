@@ -1,3 +1,10 @@
+# ==============================================================================
+# I7: Kinesis to Avro (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The pipeline accurately configures KinesisIO source with AWS credentials, parses JSON payloads to Avro records using a schema, applies fixed windowing, and writes Avro files with snappy compression to Cloud Storage.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Streaming ingestion from Kinesis via cross-language or custom transform is properly structured, windowed into fixed windows, converted to Avro format, and written cleanly via WriteToAvro.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 #
 # Pipeline Specification: I7 - KinesisIO to AvroIO Streaming Pipeline

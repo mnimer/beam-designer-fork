@@ -10,6 +10,12 @@
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
  *
  * Loads pipeline definition from sidecar file: create-aggregations-kv.beam
+ *
+ * Architectural decisions:
+ * - Keeps test definitions purely declarative by sourcing the DAG setup from the external file create-aggregations-kv.beam.
+ * - Deconstructs Java and Python test scenarios into isolated Vitest steps to ensure clear visibility into language-specific generation failures.
+ * - Enforces a 180s timeout limit to account for complex multi-branch pipeline generation and agentic evaluation passes.
+ * - Provides a programmatic test hook (runCreateAggregationsKvTest) for on-demand execution and health checks.
  */
 
 import { describe, it, expect } from 'vitest';

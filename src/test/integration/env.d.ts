@@ -23,7 +23,6 @@ declare module '*.beam' {
     const content: string;
     export default content;
 }
-
 declare module '*.beam?raw' {
     const content: string;
     export default content;

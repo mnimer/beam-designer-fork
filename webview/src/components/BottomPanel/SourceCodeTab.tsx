@@ -344,7 +344,6 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
                 )}
                 <span>{isGenerating ? 'Generating...' : 'Generate Code'}</span>
               </button>
-
               <button
                 type="button"
                 onClick={onStopGeneration}
@@ -367,7 +366,6 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
                 <span>Generation disabled: resolve diagram errors to continue</span>
               </p>
             )}
-
             {/* Token Usage Stats */}
             {tokenUsage && (
               <div 

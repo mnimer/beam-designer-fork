@@ -10,6 +10,12 @@
  * Evaluates generated code using the Multi-Agent Evaluation Harness.
  *
  * Loads pipeline definition from sidecar file: fileio-dynamic-destinations.beam
+ *
+ * Architectural decisions:
+ * - Keeps test definitions declarative by separating pipeline configuration (.beam sidecar) from evaluation logic.
+ * - Implements individual language-specific Vitest assertions for isolated error reporting per-language.
+ * - Sets a robust timeout (180s) to handle generative latency from the underlying Gemini model.
+ * - Provides a programmatic entrypoint (runFileIoDynamicDestinationsTest) to allow execution outside of test runners.
  */
 
 import { describe, it, expect } from 'vitest';

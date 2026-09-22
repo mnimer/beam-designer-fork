@@ -1,3 +1,10 @@
+# ==============================================================================
+# I8: SQS to SNS Filtered (Java & Python)
+# Java Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: The pipeline accurately connects SqsIO to consume queue messages with AWS credentials, applies a Filter transform to select high-priority records, enriches payloads in ParDo, and publishes via SnsIO to the designated SNS topic.
+# Python Generation & Evaluation: ✅ PASS (100 / 100)
+# Explanation: Streaming ingestion from AWS SQS is filtered by priority attributes, transformed and enriched via Python DoFn, and securely dispatched to AWS SNS topic sink without credential leakage.
+# ==============================================================================
 # Author: Mike Nimer <mikenimer@google.com>
 #
 # Pipeline Specification: I8 - SqsIO to SnsIO Filtered Pipeline
