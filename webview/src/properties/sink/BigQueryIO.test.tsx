@@ -367,6 +367,50 @@ describe('BigQuerySinkProperties', () => {
 
     expect(screen.getByText('Dataset not found: my_dataset')).toBeInTheDocument();
   });
+
+  it('does not display schema editor when createDisposition is CREATE_NEVER', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          createDisposition: 'beam.io.BigQueryDisposition.CREATE_NEVER'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.queryByText('Table Schema')).not.toBeInTheDocument();
+  });
+
+  it('displays schema editor when createDisposition is CREATE_IF_NEEDED and handles field additions', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          createDisposition: 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<BigQuerySinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Table Schema')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+
+    const addFieldBtn = screen.getByRole('button', { name: /Add Schema Field/i });
+    fireEvent.click(addFieldBtn);
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaFields: [
+          { name: '', type: 'STRING', mode: 'NULLABLE', description: '' }
+        ],
+        schema: expect.any(String),
+        schemaString: expect.any(String)
+      })
+    );
+  });
 });
 
 

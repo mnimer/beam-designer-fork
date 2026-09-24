@@ -559,6 +559,87 @@ edges: []
     expect(screen.queryByRole('heading', { name: /Properties/i })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Read From PubSub')).not.toBeInTheDocument();
   });
+
+  it('allows resizing the PropertyPane via the left handle and enforces 320px minimum', () => {
+    render(<AppWithProvider />);
+
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        relativeFolder: 'src',
+        defaultOutputFolder: 'src/test',
+        data: `
+nodes:
+  - id: 'n-pubsub'
+    type: 'pipeline'
+    data:
+      label: 'Read From PubSub'
+      type: 'SOURCE'
+      properties: {}
+edges: []
+`
+      }
+    }));
+
+    const nodeEl = screen.getByTestId('node-n-pubsub');
+    fireEvent.click(nodeEl);
+
+    const resizeHandle = screen.getByTestId('property-pane-resize-handle');
+    expect(resizeHandle).toBeInTheDocument();
+
+    // Start drag
+    fireEvent.mouseDown(resizeHandle);
+
+    // Default mock right edge in jsdom = 1024
+    // Mouse moved to clientX = 424 => width = 1024 - 424 = 600
+    fireEvent(window, new MouseEvent('mousemove', { clientX: 424 }));
+
+    const heading = screen.getByRole('heading', { name: /Properties/i });
+    const propertyPaneWrapper = heading.closest('.absolute.right-0.top-0.bottom-0') as HTMLElement;
+    expect(propertyPaneWrapper).toBeInTheDocument();
+    expect(propertyPaneWrapper.style.width).toBe('600px');
+
+    // Drag further right to test minimum clamp (320px): clientX = 900 => width = 1024 - 900 = 124 < 320 -> should clamp to 320
+    fireEvent(window, new MouseEvent('mousemove', { clientX: 900 }));
+    expect(propertyPaneWrapper.style.width).toBe('320px');
+
+    // Finish drag
+    fireEvent(window, new MouseEvent('mouseup'));
+  });
+
+  it('closes PropertyPane when clicking the X close button', () => {
+    render(<AppWithProvider />);
+
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        relativeFolder: 'src',
+        defaultOutputFolder: 'src/test',
+        data: `
+nodes:
+  - id: 'n-pubsub'
+    type: 'pipeline'
+    data:
+      label: 'Read From PubSub'
+      type: 'SOURCE'
+      properties: {}
+edges: []
+`
+      }
+    }));
+
+    const nodeEl = screen.getByTestId('node-n-pubsub');
+    fireEvent.click(nodeEl);
+
+    expect(screen.getByRole('heading', { name: /Properties/i })).toBeInTheDocument();
+
+    const closeBtn = screen.getByRole('button', { name: 'Close properties' });
+    fireEvent.click(closeBtn);
+
+    expect(screen.queryByRole('heading', { name: /Properties/i })).not.toBeInTheDocument();
+  });
 });
 
 

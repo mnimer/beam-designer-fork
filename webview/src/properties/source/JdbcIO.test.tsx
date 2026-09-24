@@ -171,28 +171,7 @@ describe('JdbcIOSourceProperties', () => {
     expect(select.querySelectorAll('option').length).toBe(JDBC_DRIVER_PRESETS.length);
   });
 
-  it('opens a legacy node with a password and no authMode in plaintext mode with value preserved', () => {
-    const mockNode: any = {
-      data: {
-        label: 'JdbcIO',
-        properties: {
-          password: 'legacy-cleartext-password',
-        },
-      },
-    };
-
-    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
-    expect(authModeSelect).toBeInTheDocument();
-    expect(authModeSelect).toHaveValue('plaintext');
-
-    const passwordInput = container.querySelector('input[name="password"]') as HTMLInputElement;
-    expect(passwordInput).toBeInTheDocument();
-    expect(passwordInput).toHaveValue('legacy-cleartext-password');
-  });
-
-  it('opens a fresh node with no credential in Secret Manager mode', () => {
+  it('renders username and password secret inputs without authMode dropdown or plaintext password', () => {
     const mockNode: any = {
       data: {
         label: 'JdbcIO',
@@ -202,27 +181,27 @@ describe('JdbcIOSourceProperties', () => {
 
     const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
-    expect(authModeSelect).toBeInTheDocument();
-    expect(authModeSelect).toHaveValue('secretManager');
+    expect(container.querySelector('#jdbcUsername')).toBeInTheDocument();
+    expect(container.querySelector('#jdbcPasswordSecret')).toBeInTheDocument();
+    expect(container.querySelector('#jdbc-source-secrets-list')).toBeInTheDocument();
 
-    expect(container.querySelector('input[name="passwordSecret"]')).toBeInTheDocument();
+    // Verify authMode dropdown and plaintext password fields are removed
+    expect(container.querySelector('select[name="authMode"]')).not.toBeInTheDocument();
     expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+    expect(screen.queryByText(/cleartext/i)).not.toBeInTheDocument();
   });
 
-  it('choosing a secret writes passwordSecret and does NOT write password', () => {
+  it('choosing or typing a secret writes passwordSecret and does NOT write password', () => {
     const mockNode: any = {
       data: {
         label: 'JdbcIO',
-        properties: {
-          authMode: 'secretManager',
-        },
+        properties: {},
       },
     };
 
     const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const secretInput = container.querySelector('input[name="passwordSecret"]') as HTMLInputElement;
+    const secretInput = container.querySelector('#jdbcPasswordSecret') as HTMLInputElement;
     expect(secretInput).toBeInTheDocument();
 
     fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'db-secret-id' } });
@@ -235,19 +214,30 @@ describe('JdbcIOSourceProperties', () => {
     expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 
-  it('renders cleartext warning in plaintext mode', () => {
+  it('cleans up legacy plaintext password if present when updating properties', () => {
     const mockNode: any = {
       data: {
         label: 'JdbcIO',
         properties: {
-          authMode: 'plaintext',
-          password: 'my-password',
+          username: 'dbuser',
+          password: 'old-cleartext-password',
         },
       },
     };
 
-    render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JdbcIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText(/cleartext/i)).toBeInTheDocument();
+    // Plaintext password field is not shown
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+
+    const userInput = container.querySelector('#jdbcUsername') as HTMLInputElement;
+    fireEvent.change(userInput, { target: { name: 'username', value: 'newuser' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: 'newuser',
+      })
+    );
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 });

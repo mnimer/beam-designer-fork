@@ -295,6 +295,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   id="snsSourceCustomRegion"
                   type="text"
                   name="customRegion"
+                  aria-label="Custom AWS Region"
                   value={customRegion}
                   onChange={handleChange}
                   placeholder="e.g. me-central-1"
@@ -339,6 +340,8 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   <PropertyField
                     id="snsSourceAccessKeySecret"
                     name="accessKeySecret"
+                    label="AWS Access Key Secret"
+                    tooltip="Secret Manager secret name for AWS access key ID."
                     value={accessKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
@@ -350,6 +353,8 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   <PropertyField
                     id="snsSourceSecretKeySecret"
                     name="secretKeySecret"
+                    label="AWS Secret Key Secret"
+                    tooltip="Secret Manager secret name for AWS secret access key."
                     value={secretKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"

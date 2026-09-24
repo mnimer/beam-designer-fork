@@ -94,7 +94,7 @@ describe('SecretManagerAuthFields', () => {
     const input = screen.getByPlaceholderText(/aws-sqs-credentials/) as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('sqs-credentials');
-    expect(input).toHaveAttribute('list', 'sqs-sink-secrets-list');
+    expect(input.getAttribute('data-list') || input.getAttribute('list')).toBe('sqs-sink-secrets-list');
 
     const datalist = document.getElementById('sqs-sink-secrets-list');
     expect(datalist).toBeInTheDocument();

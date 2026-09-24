@@ -15,7 +15,8 @@
  * - Supports both input and textarea elements seamlessly.
  */
 
-import React, { useId } from 'react';
+import React, { useId, useState, useRef, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { InfoTooltip } from '../InfoTooltip';
 
 export interface PropertyFieldOption {
@@ -52,6 +53,8 @@ export interface PropertyFieldProps {
   list?: string;
   /** Array of suggestion options to render in an attached datalist */
   datalist?: (string | PropertyFieldOption)[];
+  /** Whether suggestions are actively loading from extension host */
+  loading?: boolean;
   /** Whether to apply monospace font (font-mono). Defaults to true for technical data fields. */
   mono?: boolean;
   /** Disabled state */
@@ -116,6 +119,7 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
   helperText,
   list,
   datalist,
+  loading = false,
   mono = true,
   disabled,
   readOnly,
@@ -135,6 +139,79 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
   const generatedId = useId();
   const inputId = id || (name ? `field-${name}` : generatedId);
   const datalistId = list || (datalist && datalist.length > 0 ? `${inputId}-datalist` : undefined);
+
+  // Extract suggestions from datalist prop
+  const optionsFromProp: PropertyFieldOption[] = (datalist || []).map((item) => {
+    if (typeof item === 'string') {
+      return { value: item, label: item };
+    }
+    return { value: item.value, label: item.label || item.value };
+  });
+
+  // Also extract suggestions from children if a <datalist> was passed as a child
+  const optionsFromChildren: PropertyFieldOption[] = [];
+  React.Children.forEach(children, (child: any) => {
+    if (child && child.type === 'datalist' && child.props && child.props.children) {
+      React.Children.forEach(child.props.children, (opt: any) => {
+        if (opt && opt.props && opt.props.value !== undefined) {
+          optionsFromChildren.push({
+            value: String(opt.props.value),
+            label: typeof opt.props.children === 'string'
+              ? opt.props.children
+              : (opt.props.label || String(opt.props.value)),
+          });
+        }
+      });
+    }
+  });
+
+  const allOptions = optionsFromProp.length > 0 ? optionsFromProp : optionsFromChildren;
+  const showCombobox = Boolean((datalist !== undefined || allOptions.length > 0) && type !== 'textarea');
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent | PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const filteredOptions = filterQuery.trim()
+    ? allOptions.filter((opt) => {
+        const q = filterQuery.toLowerCase();
+        return (
+          opt.value.toLowerCase().includes(q) ||
+          (opt.label && opt.label.toLowerCase().includes(q))
+        );
+      })
+    : allOptions;
+
+  const handleSelectOption = (optValue: string) => {
+    if (onChange) {
+      const syntheticEvent = {
+        target: { name: name || '', value: optValue, type: 'text' },
+        currentTarget: { name: name || '', value: optValue, type: 'text' },
+      } as React.ChangeEvent<HTMLInputElement>;
+      onChange(syntheticEvent);
+    }
+    if (onValueChange) {
+      onValueChange(optValue);
+    }
+    setFilterQuery('');
+    setIsOpen(false);
+  };
 
   // Compute invalid status
   const isInvalid = Boolean(
@@ -158,11 +235,33 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
    * Dispatches change events to both standard onChange and onValueChange callbacks.
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (showCombobox) {
+      setFilterQuery(e.target.value);
+      if (!isOpen) {
+        setIsOpen(true);
+      }
+    }
     if (onChange) {
       onChange(e);
     }
     if (onValueChange) {
       onValueChange(e.target.value);
+    }
+  };
+
+  const handleFocus = () => {
+    if (showCombobox && !isOpen) {
+      setIsOpen(true);
+      setFilterQuery('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    } else if (e.key === 'ArrowDown' && showCombobox && !isOpen) {
+      setIsOpen(true);
+      setFilterQuery('');
     }
   };
 
@@ -200,28 +299,101 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
           {...rest}
         />
       ) : (
-        <input
-          id={inputId}
-          type={type}
-          name={name}
-          aria-required={ariaRequiredProp ?? isRequired}
-          aria-invalid={ariaInvalidProp ?? isInvalid}
-          value={value}
-          onChange={handleChange}
-          placeholder={placeholder}
-          disabled={disabled}
-          readOnly={readOnly}
-          list={datalistId}
-          min={min}
-          max={max}
-          step={step}
-          className={`${baseInputClasses} ${borderClasses} ${className || ''}`}
-          {...rest}
-        />
+        <div ref={containerRef} className="relative w-full">
+          <input
+            ref={inputRef}
+            id={inputId}
+            type={type}
+            name={name}
+            aria-required={ariaRequiredProp ?? isRequired}
+            aria-invalid={ariaInvalidProp ?? isInvalid}
+            value={value}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            readOnly={readOnly}
+            data-list={datalistId}
+            list={showCombobox ? undefined : datalistId}
+            min={min}
+            max={max}
+            step={step}
+            className={`${baseInputClasses} ${borderClasses} ${showCombobox ? 'pr-8' : ''} ${className || ''} w-full`}
+            {...rest}
+          />
+          {showCombobox && (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Toggle suggestions"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsOpen((prev) => {
+                  if (!prev) {
+                    setFilterQuery('');
+                  }
+                  return !prev;
+                });
+              }}
+              disabled={disabled || readOnly}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-150 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
+              />
+            </button>
+          )}
+
+          {/* Combobox Dropdown Menu */}
+          {isOpen && showCombobox && (
+            <div
+              className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-[#1e202a] border border-slate-700 rounded shadow-2xl z-50 py-1"
+              role="listbox"
+            >
+              {allOptions.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-slate-400 italic">
+                  {loading ? 'Loading suggestions...' : 'No suggestions available'}
+                </div>
+              ) : filteredOptions.length > 0 ? (
+                filteredOptions.map((opt, idx) => {
+                  const isSelected = String(value) === opt.value;
+                  return (
+                    <div
+                      key={`${opt.value}-${idx}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectOption(opt.value);
+                      }}
+                      className={`px-3 py-1.5 text-xs cursor-pointer flex flex-col hover:bg-slate-700/60 ${
+                        isSelected
+                          ? 'bg-blue-600/20 text-blue-300 font-semibold'
+                          : 'text-slate-200'
+                      }`}
+                    >
+                      <span className="font-mono truncate">{opt.label || opt.value}</span>
+                      {opt.label && opt.label !== opt.value && (
+                        <span className="text-[10px] text-slate-400 font-mono truncate">{opt.value}</span>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-2 text-xs text-slate-400 italic">
+                  No matching suggestions
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Datalist suggestions */}
-      {datalist && datalist.length > 0 && datalistId && (
+      {datalistId && datalist && (
         <datalist id={datalistId}>
           {datalist.map((item, idx) => {
             const optVal = typeof item === 'string' ? item : item.value;

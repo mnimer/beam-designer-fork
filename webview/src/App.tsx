@@ -32,6 +32,7 @@ import 'reactflow/dist/style.css';
 import './App.css';
 import { PipelineNode, type PipelineNodeProps } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 import { ThemeProvider } from './context/ThemeContext';
@@ -499,6 +500,71 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
+  // Property panel resizing state (default 320px = w-80, minimum 320px)
+  const [propertyPanelWidth, setPropertyPanelWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = Number(window.localStorage.getItem('beam_property_panel_width'));
+        if (!isNaN(saved) && saved >= 320) {
+          return saved;
+        }
+      } catch {
+        // Ignore localStorage access restrictions in iframe
+      }
+    }
+    return 320;
+  });
+  const [isPropertyPanelResizing, setIsPropertyPanelResizing] = useState(false);
+
+  const handlePropertyPanelResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsPropertyPanelResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isPropertyPanelResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = mainContentRef.current;
+      const containerRect = container?.getBoundingClientRect();
+      const rightEdge = (containerRect && containerRect.right > 0) ? containerRect.right : (window.innerWidth || 1024);
+      let newWidth = rightEdge - e.clientX;
+
+      const minWidth = 320;
+      const containerWidth = (containerRect && containerRect.width > 0) ? containerRect.width : (window.innerWidth || 1024);
+      const maxWidth = Math.max(minWidth, containerWidth - 150);
+
+      if (newWidth < minWidth) newWidth = minWidth;
+      if (newWidth > maxWidth) newWidth = maxWidth;
+
+      setPropertyPanelWidth(newWidth);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem('beam_property_panel_width', String(newWidth));
+        } catch {
+          // Ignore localStorage error
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsPropertyPanelResizing(false);
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPropertyPanelResizing]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(true);
@@ -551,11 +617,17 @@ function App() {
   return (
     <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
       {/* Main Content Area (Canvas + Bottom Panel) */}
-      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Diagram Canvas & Property Pane Area */}
+      <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        {/* Diagram Canvas Area */}
         <div className={`flex-1 relative min-h-0 overflow-hidden ${isBottomPanelExpanded ? 'hidden' : 'flex'}`}>
           {/* Canvas */}
-          <div className="flex-1 relative h-full min-w-0">
+          <div
+            className="flex-1 relative h-full min-w-0"
+            style={{
+              marginRight: selectedNodeId ? `${propertyPanelWidth}px` : 0,
+              transition: isPropertyPanelResizing ? 'none' : 'margin-right 150ms ease-out',
+            }}
+          >
             {/* Floating Card on Left */}
             <NodesCard
               activeTab={activeTab}
@@ -632,24 +704,16 @@ function App() {
               </ReactFlow>
             </LabelChangeContext.Provider>
           </div>
-
-          {/* Property Pane on Right of Diagram */}
-          {selectedNodeId && nodes.find((n) => n.id === selectedNodeId) && (
-            <PropertyPane
-              node={nodes.find((n) => n.id === selectedNodeId)!}
-              onChange={(props) => handleApplyProperties(selectedNodeId, props)}
-              onLabelChange={(newLabel) => handleNodeLabelChange(selectedNodeId, newLabel)}
-              runtimeVariables={runtimeVariables}
-              onAddKVMapper={handleAddKVMapper}
-            />
-          )}
         </div>
 
         {/* Resizable Divider */}
         {!isBottomPanelExpanded && (
           <div
-            className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-50 relative"
-            onMouseDown={handleMouseDown}
+            className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-30 relative"
+            onMouseDown={(e) => {
+              handleMouseDown(e);
+              handleBottomPanelInteract();
+            }}
           />
         )}
 
@@ -692,6 +756,27 @@ function App() {
           tokenUsage={tokenUsage}
           onInteract={handleBottomPanelInteract}
         />
+
+        {/* Property Pane taking full height of window, over tabs on bottom */}
+        {selectedNodeId && nodes.find((n) => n.id === selectedNodeId) && (
+          <div
+            className="absolute right-0 top-0 bottom-0 z-40 shadow-2xl flex"
+            style={{ width: `${propertyPanelWidth}px` }}
+          >
+            <ErrorBoundary fallbackTitle="Property Panel Error">
+              <PropertyPane
+                node={nodes.find((n) => n.id === selectedNodeId)!}
+                onChange={(props) => handleApplyProperties(selectedNodeId, props)}
+                onLabelChange={(newLabel) => handleNodeLabelChange(selectedNodeId, newLabel)}
+                runtimeVariables={runtimeVariables}
+                onAddKVMapper={handleAddKVMapper}
+                width={propertyPanelWidth}
+                onResizeStart={handlePropertyPanelResizeStart}
+                onClose={() => setSelectedNodeId(null)}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
       </div>
     </div>
   );

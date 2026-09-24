@@ -152,7 +152,7 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
 }) => {
   // Only auto-load secrets from extension host if secrets prop was not explicitly provided
   const shouldAutoLoad = passedSecrets === undefined;
-  const { items: loadedSecrets, error: assetError } = useAssetLoader<SecretItem | string>('secrets', {
+  const { items: loadedSecrets, error: assetError, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets', {
     enabled: shouldAutoLoad
   });
 
@@ -214,6 +214,8 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
           }}
           placeholder={secretPlaceholder}
           list={effectiveDatalistId}
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
           error={effectiveError}
           helperText={
             <span>

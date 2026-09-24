@@ -31,7 +31,6 @@ interface FileIOSinkNode {
       withCompression?: boolean;
       compression?: string;
       numShards?: string | number;
-      ignoreEmptyFiles?: boolean;
       system_instructions?: string;
       special_instructions?: string;
       codeGenerationPrompt?: string;
@@ -57,7 +56,6 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
   const withCompression = properties.withCompression ?? false;
   const compression = properties.compression || 'AUTO';
   const numShards = properties.numShards ?? '';
-  const ignoreEmptyFiles = properties.ignoreEmptyFiles ?? false;
 
   const isToInvalid = !to.trim();
 
@@ -182,22 +180,6 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
             </select>
           </div>
         )}
-      </div>
-
-      {/* Ignore Empty Files */}
-      <div className="p-3 bg-slate-800/40 rounded border border-slate-700/50">
-        <label htmlFor="fileSinkIgnoreEmptyFiles" className="flex items-center gap-2 cursor-pointer">
-          <input
-            id="fileSinkIgnoreEmptyFiles"
-            type="checkbox"
-            name="ignoreEmptyFiles"
-            checked={ignoreEmptyFiles}
-            onChange={handleChange}
-            className="w-4 h-4 rounded border-slate-700 text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#252836]"
-          />
-          <span className="text-sm font-medium text-slate-300">Ignore Empty Files (.withIgnoreEmptyFiles)</span>
-          <InfoTooltip text="Skips writing empty output files if no elements are processed for a shard." />
-        </label>
       </div>
 
       {/* Flexible Spacer */}

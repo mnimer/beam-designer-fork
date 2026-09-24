@@ -1,0 +1,124 @@
+nodes:
+- id: source-1
+  type: pipeline
+  position:
+    x: 100
+    y: 150
+  data:
+    label: Create
+    type: SOURCE
+    iconName: Box
+    beam_transform: Create
+    properties:
+      elements:
+      - '{"key": "cat", "value": 10}'
+      - '{"key": "dog", "value": 25}'
+      - '{"key": "bird", "value": 5}'
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-swap
+  type: pipeline
+  position:
+    x: 320
+    y: 150
+  data:
+    label: KV Swap
+    type: STEP
+    iconName: Shuffle
+    beam_transform: KvSwap
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-keys
+  type: pipeline
+  position:
+    x: 540
+    y: 150
+  data:
+    label: Keys
+    type: STEP
+    iconName: Key
+    beam_transform: Keys
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-values
+  type: pipeline
+  position:
+    x: 760
+    y: 150
+  data:
+    label: Values
+    type: STEP
+    iconName: Grid
+    beam_transform: Values
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-top
+  type: pipeline
+  position:
+    x: 980
+    y: 150
+  data:
+    label: Top
+    type: STEP
+    iconName: BarChart
+    beam_transform: Top
+    properties:
+      count: 3
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: sink-log
+  type: pipeline
+  position:
+    x: 1200
+    y: 150
+  data:
+    label: Log Message
+    type: SINK
+    iconName: Terminal
+    beam_transform: LogMessage
+    properties:
+      prefix: '[KV-Top]'
+    system_instructions: ''
+  width: 180
+  height: 62
+edges:
+- id: edge-source-1-to-step-swap
+  source: source-1
+  target: step-swap
+- id: edge-step-swap-to-step-keys
+  source: step-swap
+  target: step-keys
+- id: edge-step-keys-to-step-values
+  source: step-keys
+  target: step-values
+- id: edge-step-values-to-step-top
+  source: step-values
+  target: step-top
+- id: edge-step-top-to-sink-log
+  source: step-top
+  target: sink-log
+runtimeVariables:
+- key: ENVIRONMENT
+  value: agent-engine
+- key: JOB_ID
+  value: key-value-manipulation-agent-engine
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ''
+  subnetwork: ''
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/key-value-manipulation-agent-engine
+  needsRebuild: false

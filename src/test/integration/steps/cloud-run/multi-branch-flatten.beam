@@ -1,0 +1,109 @@
+nodes:
+- id: source-branch-a
+  type: pipeline
+  position:
+    x: 100
+    y: 150
+  data:
+    label: Create Branch A
+    type: SOURCE
+    iconName: Box
+    beam_transform: Create
+    properties:
+      elements:
+      - event-A1
+      - event-A2
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: source-branch-b
+  type: pipeline
+  position:
+    x: 320
+    y: 150
+  data:
+    label: Create Branch B
+    type: SOURCE
+    iconName: Box
+    beam_transform: Create
+    properties:
+      elements:
+      - event-B1
+      - event-B2
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-flatten
+  type: pipeline
+  position:
+    x: 540
+    y: 150
+  data:
+    label: Flatten
+    type: STEP
+    iconName: Layers
+    beam_transform: Flatten
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-pardo-tag
+  type: pipeline
+  position:
+    x: 760
+    y: 150
+  data:
+    label: ParDo Tag
+    type: STEP
+    iconName: Code
+    beam_transform: ParDo
+    properties:
+      system_instructions: Tag incoming merged events with ingest timestamp.
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: sink-log
+  type: pipeline
+  position:
+    x: 980
+    y: 150
+  data:
+    label: Log Message
+    type: SINK
+    iconName: Terminal
+    beam_transform: LogMessage
+    properties:
+      prefix: '[Merged-Events]'
+    system_instructions: ''
+  width: 180
+  height: 62
+edges:
+- id: edge-source-branch-a-to-step-flatten
+  source: source-branch-a
+  target: step-flatten
+- id: edge-source-branch-b-to-step-flatten
+  source: source-branch-b
+  target: step-flatten
+- id: edge-step-flatten-to-step-pardo-tag
+  source: step-flatten
+  target: step-pardo-tag
+- id: edge-step-pardo-tag-to-sink-log
+  source: step-pardo-tag
+  target: sink-log
+runtimeVariables:
+- key: ENVIRONMENT
+  value: cloud-run
+- key: JOB_ID
+  value: multi-branch-flatten-cloud-run
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ''
+  subnetwork: ''
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/multi-branch-flatten-cloud-run
+  needsRebuild: false

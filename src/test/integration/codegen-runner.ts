@@ -47,6 +47,25 @@ export interface PipelineTestConfig {
     languages?: ('Java' | 'Python')[];
 }
 
+function findFileRecursive(dir: string, filename: string): string | null {
+    if (!fs.existsSync(dir)) return null;
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const found = findFileRecursive(full, filename);
+                if (found) return found;
+            } else if (entry.isFile() && entry.name === filename) {
+                return full;
+            }
+        }
+    } catch {
+        // Ignore read errors
+    }
+    return null;
+}
+
 /**
  * Loads a .beam pipeline definition file from disk given a relative or absolute path.
  */
@@ -55,6 +74,8 @@ export function loadBeamPipeline(filePath: string): string {
         filePath,
         path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath),
         path.join(__dirname, filePath.endsWith('.beam') ? filePath : `${filePath}.beam`),
+        path.join(process.cwd(), 'src', 'integration', filePath),
+        path.join(process.cwd(), 'src', 'integration', filePath.endsWith('.beam') ? filePath : `${filePath}.beam`),
         path.join(process.cwd(), 'src', 'test', 'integration', filePath),
         path.join(process.cwd(), 'src', 'test', 'integration', filePath.endsWith('.beam') ? filePath : `${filePath}.beam`)
     ];
@@ -64,6 +85,15 @@ export function loadBeamPipeline(filePath: string): string {
             return fs.readFileSync(p, 'utf-8');
         }
     }
+
+    const filename = path.basename(filePath).endsWith('.beam') ? path.basename(filePath) : `${path.basename(filePath)}.beam`;
+    for (const searchRoot of [path.join(process.cwd(), 'src', 'integration'), path.join(process.cwd(), 'src', 'test', 'integration')]) {
+        const found = findFileRecursive(searchRoot, filename);
+        if (found) {
+            return fs.readFileSync(found, 'utf-8');
+        }
+    }
+
     throw new Error(`Could not locate .beam pipeline file: ${filePath}`);
 }
 

@@ -1,0 +1,163 @@
+nodes:
+- id: source-1
+  type: pipeline
+  position:
+    x: 100
+    y: 150
+  data:
+    label: Generate Sequence
+    type: SOURCE
+    iconName: ListOrdered
+    beam_transform: GenerateSequence
+    properties:
+      from: 1
+      to: 500
+      ratePerSec: 25
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-pardo-mock
+  type: pipeline
+  position:
+    x: 320
+    y: 150
+  data:
+    label: ParDo Mock
+    type: STEP
+    iconName: Code
+    beam_transform: ParDo
+    properties:
+      system_instructions: Convert sequence number to simulated user event record
+        with user_id and amount.
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-timestamp
+  type: pipeline
+  position:
+    x: 540
+    y: 150
+  data:
+    label: Add Timestamp
+    type: STEP
+    iconName: Calendar
+    beam_transform: WithTimestamps
+    properties:
+      timestampField: event_timestamp
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-window
+  type: pipeline
+  position:
+    x: 760
+    y: 150
+  data:
+    label: Window
+    type: STEP
+    iconName: Clock
+    beam_transform: WindowInto
+    properties:
+      windowType: FIXED
+      size: 60s
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-kvmapper
+  type: pipeline
+  position:
+    x: 980
+    y: 150
+  data:
+    label: KV Mapper
+    type: STEP
+    iconName: Hash
+    beam_transform: KVMapper
+    properties:
+      keyField: user_id
+      valueField: amount
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-groupbykey
+  type: pipeline
+  position:
+    x: 1200
+    y: 150
+  data:
+    label: Group By Key
+    type: STEP
+    iconName: BarChart
+    beam_transform: GroupByKey
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-sum
+  type: pipeline
+  position:
+    x: 1420
+    y: 150
+  data:
+    label: Sum
+    type: STEP
+    iconName: BarChart
+    beam_transform: Sum
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: sink-log
+  type: pipeline
+  position:
+    x: 1640
+    y: 150
+  data:
+    label: Log Message
+    type: SINK
+    iconName: Terminal
+    beam_transform: LogMessage
+    properties:
+      prefix: '[Window-Sum]'
+    system_instructions: ''
+  width: 180
+  height: 62
+edges:
+- id: edge-source-1-to-step-pardo-mock
+  source: source-1
+  target: step-pardo-mock
+- id: edge-step-pardo-mock-to-step-timestamp
+  source: step-pardo-mock
+  target: step-timestamp
+- id: edge-step-timestamp-to-step-window
+  source: step-timestamp
+  target: step-window
+- id: edge-step-window-to-step-kvmapper
+  source: step-window
+  target: step-kvmapper
+- id: edge-step-kvmapper-to-step-groupbykey
+  source: step-kvmapper
+  target: step-groupbykey
+- id: edge-step-groupbykey-to-step-sum
+  source: step-groupbykey
+  target: step-sum
+- id: edge-step-sum-to-sink-log
+  source: step-sum
+  target: sink-log
+runtimeVariables:
+- key: ENVIRONMENT
+  value: agent-engine
+- key: JOB_ID
+  value: windowing-kv-groupby-agent-engine
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ''
+  subnetwork: ''
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/windowing-kv-groupby-agent-engine
+  needsRebuild: false

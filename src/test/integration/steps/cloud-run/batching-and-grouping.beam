@@ -1,0 +1,126 @@
+nodes:
+- id: source-1
+  type: pipeline
+  position:
+    x: 100
+    y: 150
+  data:
+    label: Generate Sequence
+    type: SOURCE
+    iconName: ListOrdered
+    beam_transform: GenerateSequence
+    properties:
+      from: 1
+      to: 200
+      ratePerSec: 50
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-pardo-key
+  type: pipeline
+  position:
+    x: 320
+    y: 150
+  data:
+    label: ParDo Key Mapper
+    type: STEP
+    iconName: Code
+    beam_transform: ParDo
+    properties:
+      system_instructions: Convert sequence to KV pair with constant key 'batch_key'.
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-group-batches
+  type: pipeline
+  position:
+    x: 540
+    y: 150
+  data:
+    label: Group Into Batches
+    type: STEP
+    iconName: BarChart
+    beam_transform: GroupIntoBatches
+    properties:
+      batchSize: 25
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-batch-elements
+  type: pipeline
+  position:
+    x: 760
+    y: 150
+  data:
+    label: Batch Elements
+    type: STEP
+    iconName: BarChart
+    beam_transform: BatchElements
+    properties:
+      minBatchSize: 10
+      maxBatchSize: 50
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: step-reshuffle
+  type: pipeline
+  position:
+    x: 980
+    y: 150
+  data:
+    label: ReShuffle
+    type: STEP
+    iconName: Shuffle
+    beam_transform: Reshuffle
+    properties: {}
+    system_instructions: ''
+  width: 180
+  height: 62
+- id: sink-log
+  type: pipeline
+  position:
+    x: 1200
+    y: 150
+  data:
+    label: Log Message
+    type: SINK
+    iconName: Terminal
+    beam_transform: LogMessage
+    properties:
+      prefix: '[Batched-Output]'
+    system_instructions: ''
+  width: 180
+  height: 62
+edges:
+- id: edge-source-1-to-step-pardo-key
+  source: source-1
+  target: step-pardo-key
+- id: edge-step-pardo-key-to-step-group-batches
+  source: step-pardo-key
+  target: step-group-batches
+- id: edge-step-group-batches-to-step-batch-elements
+  source: step-group-batches
+  target: step-batch-elements
+- id: edge-step-batch-elements-to-step-reshuffle
+  source: step-batch-elements
+  target: step-reshuffle
+- id: edge-step-reshuffle-to-sink-log
+  source: step-reshuffle
+  target: sink-log
+runtimeVariables:
+- key: ENVIRONMENT
+  value: cloud-run
+- key: JOB_ID
+  value: batching-and-grouping-cloud-run
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ''
+  subnetwork: ''
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/batching-and-grouping-cloud-run
+  needsRebuild: false

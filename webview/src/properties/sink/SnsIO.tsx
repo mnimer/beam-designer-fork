@@ -217,6 +217,7 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
           <PropertyField
             id="snsSinkCustomRegion"
             name="customRegion"
+            label="Custom AWS Region"
             value={customRegion}
             onChange={handleChange}
             placeholder="e.g. me-central-1"
