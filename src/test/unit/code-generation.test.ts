@@ -619,3 +619,277 @@ edges:
 });
 
 
+/**
+ * Regression tests for connector facts added to the codegen prompts after the
+ * 2026-09-24 integration run (54/61 passing).
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Context: the run's auto-generated remediation directives recommended API that does
+ * not exist. Two were caught before they reached the prompts and are pinned here so a
+ * future edit cannot reintroduce them:
+ *
+ *  1. XmlIO. The directive told the generator to chain
+ *     `.withSuffix(...).withNumShards(...).withShardTemplate(...)` onto `XmlIO.write()`.
+ *     Verified against the real Beam 2.53.0 source: `XmlIO.Write` exposes exactly four
+ *     builder methods -- `to`, `withRecordClass`, `withRootElement`, `withCharset`. The
+ *     `.xml` suffix is hardcoded inside `expand()`. Following that directive would have
+ *     turned a passing-but-flagged test into an outright compile failure.
+ *
+ *  2. ParquetIO codec. The directive offered `'uncompressed'` as a spelling for no
+ *     compression. Beam forwards `codec` straight to pyarrow, whose validator accepts
+ *     only NONE/SNAPPY/GZIP/LZO/BROTLI/LZ4/ZSTD; `'uncompressed'` raises
+ *     `ArrowException: Unsupported compression`.
+ */
+describe('Codegen prompts — connector API coherence (regression)', () => {
+    const JAVA_PROMPT = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-java.txt'), 'utf-8');
+    const PYTHON_PROMPT = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-python.txt'), 'utf-8');
+
+    // Non-vacuity guard: every assertion below searches these strings, so prove they loaded.
+    it('both prompt files are readable and non-trivial', () => {
+        expect(JAVA_PROMPT.length).toBeGreaterThan(1000);
+        expect(PYTHON_PROMPT.length).toBeGreaterThan(1000);
+    });
+
+    describe('XmlIO write surface', () => {
+        it('documents XmlIO at all, so the model is not left to improvise it', () => {
+            expect(JAVA_PROMPT).toContain('XmlIO');
+        });
+
+        it('never recommends the three builder methods XmlIO.Write does not have', () => {
+            // Scoped to the XmlIO section: withSuffix/withNumShards are legitimate elsewhere
+            // (TextIO, FileIO), so a naive whole-file search would be both wrong and vacuous.
+            const section = JAVA_PROMPT.split('- **`XmlIO`**:')[1]?.split('\n- **`')[0] ?? '';
+            expect(section, 'XmlIO section not found in the Java prompt').not.toBe('');
+
+            // The prompt is allowed to *mention* these names to forbid them; what must never
+            // appear is the chained-call form that reads as a recommendation.
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withSuffix\(/);
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withNumShards\(/);
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withShardTemplate\(/);
+        });
+
+        it('states plainly that the suffix is not configurable', () => {
+            // Without the rationale the model tends to "helpfully" restore the missing call.
+            expect(JAVA_PROMPT).toMatch(/no\b[^\n]*`withSuffix`/i);
+        });
+    });
+
+    describe('ParquetIO codec vocabulary', () => {
+        it('maps the UNCOMPRESSED node property to the only spelling pyarrow accepts', () => {
+            expect(PYTHON_PROMPT).toMatch(/UNCOMPRESSED[^\n]*codec='none'/);
+        });
+
+        it('warns that the intuitive spelling is rejected', () => {
+            expect(PYTHON_PROMPT).toContain("`'uncompressed'` is NOT a legal pyarrow value");
+        });
+    });
+
+    /**
+     * Iceberg is reachable only through Managed I/O, whose config map is validated at
+     * construction — an unknown key fails the pipeline rather than being ignored. Two keys the
+     * sink panel used to collect, `write_mode` and `create_table_if_not_exists`, do not exist
+     * anywhere in the Beam tree (verified against `IcebergWriteSchemaTransformProvider`). The
+     * panel fields were deleted; these assertions stop the prompts from reintroducing them.
+     */
+    describe('Iceberg Managed I/O surface', () => {
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt documents Iceberg rather than leaving the model to improvise', (_lang, get) => {
+            expect(get()).toContain('IcebergIO');
+            expect(get()).toContain('Managed I/O');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt names the two config keys that do not exist', (_lang, get) => {
+            expect(get()).toContain('there is no `write_mode` and no `create_table_if_not_exists`');
+            expect(get()).toContain('append-only');
+        });
+
+        it('Java prompt distinguishes the read output tag from the write snapshots tag', () => {
+            // Both are PCollectionRowTuple, and using "output" on the write result is the
+            // single easiest mistake to make here.
+            const section = JAVA_PROMPT.split('- **`IcebergIO`**')[1]?.split('\n- **`')[0] ?? '';
+            expect(section, 'IcebergIO section not found in the Java prompt').not.toBe('');
+            expect(section).toContain('.get("output")');
+            expect(section).toContain('"snapshots"');
+        });
+
+        it('Python prompt forbids the non-existent apache_beam.io.iceberg module', () => {
+            // `ReadFromIceberg` / `WriteToIceberg` exist only as Beam YAML transform identifiers;
+            // an earlier draft directive tried to import them as Python classes.
+            expect(PYTHON_PROMPT).toContain('NO** `apache_beam.io.iceberg` module');
+            expect(PYTHON_PROMPT).toContain('from apache_beam.transforms import managed');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt maps the camelCase panel keys onto snake_case config keys', (_lang, get) => {
+            // The panel stores camelCase; Managed's schema is snake_case. Without the explicit
+            // mapping the model passes `catalogName` straight through and construction fails.
+            expect(get()).toContain('`catalogName` → `catalog_name`');
+            expect(get()).toContain('`partition_fields`');
+            // catalogType/warehouseLocation/catalogUri are nested, not top-level.
+            expect(get()).toContain('NOT top-level keys');
+        });
+    });
+
+    describe('Tier 2 connector API composition & vocabulary rules', () => {
+        it('Java prompt routes TikaIO with* options via FileIO.readMatches -> TikaIO.parseFiles and delegates SINK:TikaIO to TextIO.write', () => {
+            expect(JAVA_PROMPT).toContain('`TikaIO.parse().filepattern(filePattern)` has **NO** `.with*` builder methods');
+            expect(JAVA_PROMPT).toContain('TikaIO.parseFiles()');
+            expect(JAVA_PROMPT).toContain('There is **NO** `TikaIO.write()` class in Apache Beam');
+        });
+
+        it('Java prompt documents ThriftIO.readFiles composition and forbids write-only TSimpleJSONProtocol on read', () => {
+            expect(JAVA_PROMPT).toContain('ThriftIO.readFiles(T.class).withProtocol(protocolFactory)');
+            expect(JAVA_PROMPT).toContain('TSimpleJSONProtocol is a write only protocol');
+            expect(JAVA_PROMPT).toContain('Never emit `TSimpleJSONProtocol` on read');
+        });
+
+        it('Java prompt warns against the broken ContextualTextIO.Read.watchForNewFiles javadoc and documents resourceId schema', () => {
+            expect(JAVA_PROMPT).toContain('`ContextualTextIO.Read.watchForNewFiles(...)` does **NOT** exist');
+            expect(JAVA_PROMPT).toContain('`resourceId`');
+            expect(JAVA_PROMPT).toContain('`ContextualTextIO` has **NO** `write()` or `sink()` API');
+        });
+
+        it('Java prompt documents CsvIO.parseRows composition, mandatory header, and JsonIO write-only fallback to JsonToRow', () => {
+            expect(JAVA_PROMPT).toContain('CsvIO.parseRows(schema, csvFormat)');
+            expect(JAVA_PROMPT).toContain('`CsvIOParseHelpers.validateCsvFormat` **requires** a non-null, non-empty `.withHeader');
+            expect(JAVA_PROMPT).toContain('`JsonIO` in Java is **write-only**');
+            expect(JAVA_PROMPT).toContain('JsonToRow.withSchema(schema)');
+        });
+
+        it('Python prompt forbids passing compression= to ReadFromCsv/WriteToCsv/ReadFromJson/WriteToJson', () => {
+            expect(PYTHON_PROMPT).toContain("raise NotImplementedError('compression')");
+            expect(PYTHON_PROMPT).toContain('**Never pass `compression=`** to `ReadFromCsv` or `WriteToCsv`');
+        });
+
+        it('Java prompt forbids Compression.AUTO on TFRecordIO.write and Compression.XZ/TAR everywhere', () => {
+            expect(JAVA_PROMPT).toContain('`Compression.AUTO.writeCompressed()` throws `UnsupportedOperationException`');
+            expect(JAVA_PROMPT).toContain('`Compression` has **NO** `XZ` or `TAR` member');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt enforces azfs:// for AzureBlobStoreFileSystem and forbids abfss://', (_lang, get) => {
+            expect(get()).toContain('ONLY `azfs://{account}/{container}/{blob}`');
+            expect(get()).toContain('abfss://');
+        });
+    });
+
+    describe('property completeness sweep', () => {
+        // The single root cause behind 6 of the 7 failures in the run: a configured node
+        // property was silently dropped. Both checklists previously enumerated four named
+        // properties; every actual failure involved one that was not on that list.
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s checklist requires every node property to be accounted for', (_lang, prompt) => {
+            expect(prompt).toContain('Walk the `properties` map of EVERY node');
+            expect(prompt).toContain('Silently dropping a configured property is a defect');
+        });
+    });
+
+    /**
+     * Beam version floor.
+     *
+     * The pins should track the newest Beam release; this suite deliberately asserts a
+     * FLOOR rather than an exact version so routine upgrades do not require a test edit,
+     * while a regression below the floor fails loudly.
+     *
+     * Why 2.65 and not something lower:
+     *   - Managed I/O (`org.apache.beam.sdk.managed`) does not exist before Java 2.58 /
+     *     Python 2.61. It is the only supported way to reach Iceberg.
+     *   - The Iceberg config keys the UI collects (`partition_fields`, `table_properties`,
+     *     `keep`/`drop`/`filter`) landed after 2.60. Managed I/O validates config keys at
+     *     construction, so an unknown key is a pipeline construction failure, not a no-op.
+     *   2.65 is the first floor that clears both.
+     *
+     * The prompts must keep pinning an EXPLICIT version. Telling the model to "use the
+     * latest version" is what produced the Datafaker 2.1.0 / timeAndDate() build failure
+     * guarded above: the model cannot resolve "latest" and invents a plausible number.
+     */
+    describe('Beam version floor', () => {
+        const MIN_BEAM = [2, 65, 0];
+
+        const parseVersion = (v: string): number[] => v.split('.').map(n => parseInt(n, 10));
+
+        const gte = (a: number[], b: number[]): boolean => {
+            for (let i = 0; i < Math.max(a.length, b.length); i++) {
+                const x = a[i] ?? 0;
+                const y = b[i] ?? 0;
+                if (x > y) { return true; }
+                if (x < y) { return false; }
+            }
+            return true;
+        };
+
+        it('the Java prompt pins a Beam version at or above the Managed I/O floor', () => {
+            const pin = JAVA_PROMPT.match(/<beam\.version>\s*([0-9][0-9.]*)\s*<\/beam\.version>/);
+            expect(pin, 'expected an explicit <beam.version> pin in the Java prompt').not.toBeNull();
+            if (!pin) { return; }
+            expect(
+                gte(parseVersion(pin[1]), MIN_BEAM),
+                `Java prompt pins Beam ${pin[1]}, below the ${MIN_BEAM.join('.')} floor required ` +
+                `for Managed I/O and its Iceberg config keys`
+            ).toBe(true);
+        });
+
+        it('the Python prompt pins a Beam version at or above the Managed I/O floor', () => {
+            const pin = PYTHON_PROMPT.match(/apache-beam\[gcp\]>=\s*([0-9][0-9.]*)/);
+            expect(pin, 'expected an explicit apache-beam[gcp] pin in the Python prompt').not.toBeNull();
+            if (!pin) { return; }
+            expect(
+                gte(parseVersion(pin[1]), MIN_BEAM),
+                `Python prompt pins Beam ${pin[1]}, below the ${MIN_BEAM.join('.')} floor required ` +
+                `for Managed I/O and its Iceberg config keys`
+            ).toBe(true);
+        });
+
+        it('the Python requirements pin and the Dockerfile base image agree', () => {
+            // A mismatch here means the container ships one SDK while the job requests
+            // another, which surfaces as confusing runtime errors rather than a build failure.
+            const req = PYTHON_PROMPT.match(/apache-beam\[gcp\]>=\s*([0-9][0-9.]*)/);
+            const img = PYTHON_PROMPT.match(/apache\/beam_python3\.11_sdk:([0-9][0-9.]*)/);
+            expect(req).not.toBeNull();
+            expect(img).not.toBeNull();
+            if (!req || !img) { return; }
+            expect(img[1]).toBe(req[1]);
+        });
+    });
+
+    /**
+     * Flex Template parameterization. §3A and checklist #17 previously contradicted each
+     * other outright -- §3A said never expose non-sensitive properties as options, #17 said
+     * every IO endpoint must be one. A generator satisfying either violated the other.
+     */
+    describe('deployment-varying property carve-out', () => {
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt exposes input and output locations as runtime options', (_lang, prompt) => {
+            expect(prompt).toContain('DEPLOYMENT-VARYING PROPERTIES MUST BE RUNTIME OPTIONS');
+            expect(prompt).toContain('**Input locations**');
+            expect(prompt).toContain('**Output locations**');
+        });
+
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt no longer blanket-forbids exposing non-sensitive properties', (_lang, prompt) => {
+            // The exact sentence that contradicted checklist #17.
+            expect(prompt).not.toContain('NEVER expose non-sensitive properties');
+        });
+    });
+});
+
+
+

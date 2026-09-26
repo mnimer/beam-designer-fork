@@ -1,0 +1,86 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - 2026-01-01T00:00:00Z ERROR Namenode lease expired
+          - 2026-01-01T00:01:00Z ERROR Block replication timeout
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Normalize each error log line and emit the formatted String
+        for HDFS TextIO output.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: HDFS Sink
+      type: SINK
+      iconName: HardDrive
+      beam_transform: HadoopFileSystem
+      properties:
+        to: hdfs://namenode:8020/output/errors/
+        suffix: .txt
+        namenodeHost: namenode
+        namenodePort: 8020
+        hdfsUser: beam
+        authMechanism: SIMPLE
+        configurationResources: /etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+        replicationFactor: 3
+        blockSize: "134217728"
+        format: TextIO
+        compression: UNCOMPRESSED
+        numShards: "3"
+        shardTemplate: -SSSSS-of-NNNNN
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: hadoopfilesystem-sink-agent-engine
+  - key: INPUT_HDFS_PATTERN
+    value: hdfs://namenode:8020/data/logs/*.txt
+  - key: OUTPUT_HDFS_PREFIX
+    value: hdfs://namenode:8020/output/errors/
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/hadoopfilesystem-sink-agent-engine
+  needsRebuild: false

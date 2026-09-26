@@ -1,144 +1,137 @@
 nodes:
-- id: source-1
-  type: pipeline
-  position:
-    x: 100
-    y: 150
-  data:
-    label: Create
-    type: SOURCE
-    iconName: Box
-    beam_transform: Create
-    properties:
-      elements:
-      - Apache Beam is powerful
-      - Dataflow provides managed execution
-      - Beam pipelines scale horizontally
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-flatmap
-  type: pipeline
-  position:
-    x: 320
-    y: 150
-  data:
-    label: FlatMap
-    type: STEP
-    iconName: GitMerge
-    beam_transform: FlatMap
-    properties:
-      splitDelimiter: ' '
-      outputType: String
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-filter
-  type: pipeline
-  position:
-    x: 540
-    y: 150
-  data:
-    label: Filter
-    type: STEP
-    iconName: Filter
-    beam_transform: Filter
-    properties:
-      predicate: word.length() > 3
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-map
-  type: pipeline
-  position:
-    x: 760
-    y: 150
-  data:
-    label: Map
-    type: STEP
-    iconName: Activity
-    beam_transform: Map
-    properties:
-      mappingFunction: word.toLowerCase()
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-count
-  type: pipeline
-  position:
-    x: 980
-    y: 150
-  data:
-    label: Count
-    type: STEP
-    iconName: BarChart
-    beam_transform: Count
-    properties: {}
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-tostring
-  type: pipeline
-  position:
-    x: 1200
-    y: 150
-  data:
-    label: To String
-    type: STEP
-    iconName: Type
-    beam_transform: ToString
-    properties:
-      delimiter: ' -> '
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: sink-log
-  type: pipeline
-  position:
-    x: 1420
-    y: 150
-  data:
-    label: Log Message
-    type: SINK
-    iconName: Terminal
-    beam_transform: LogMessage
-    properties:
-      prefix: '[Word-Count]'
-    system_instructions: ''
-  width: 180
-  height: 62
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - Apache Beam is powerful
+          - Dataflow provides managed execution
+          - Beam pipelines scale horizontally
+    width: 180
+    height: 62
+  - id: step-flatmap
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: FlatMap
+      type: STEP
+      iconName: GitMerge
+      beam_transform: FlatMap
+      properties:
+        splitDelimiter: " "
+        outputType: String
+    width: 180
+    height: 62
+  - id: step-filter
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Filter
+      type: STEP
+      iconName: Filter
+      beam_transform: Filter
+      properties:
+        predicate: word.length() > 3
+    width: 180
+    height: 62
+  - id: step-map
+    type: pipeline
+    position:
+      x: 760
+      y: 150
+    data:
+      label: Map
+      type: STEP
+      iconName: Activity
+      beam_transform: Map
+      properties:
+        mappingFunction: word.toLowerCase()
+    width: 180
+    height: 62
+  - id: step-count
+    type: pipeline
+    position:
+      x: 980
+      y: 150
+    data:
+      label: Count
+      type: STEP
+      iconName: BarChart
+      beam_transform: Count
+      properties: {}
+    width: 180
+    height: 62
+  - id: step-tostring
+    type: pipeline
+    position:
+      x: 1200
+      y: 150
+    data:
+      label: To String
+      type: STEP
+      iconName: Type
+      beam_transform: ToString
+      properties:
+        delimiter: " -> "
+    width: 180
+    height: 62
+  - id: sink-log
+    type: pipeline
+    position:
+      x: 1420
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Word-Count]"
+    width: 180
+    height: 62
 edges:
-- id: edge-source-1-to-step-flatmap
-  source: source-1
-  target: step-flatmap
-- id: edge-step-flatmap-to-step-filter
-  source: step-flatmap
-  target: step-filter
-- id: edge-step-filter-to-step-map
-  source: step-filter
-  target: step-map
-- id: edge-step-map-to-step-count
-  source: step-map
-  target: step-count
-- id: edge-step-count-to-step-tostring
-  source: step-count
-  target: step-tostring
-- id: edge-step-tostring-to-sink-log
-  source: step-tostring
-  target: sink-log
+  - id: edge-source-1-to-step-flatmap
+    source: source-1
+    target: step-flatmap
+  - id: edge-step-flatmap-to-step-filter
+    source: step-flatmap
+    target: step-filter
+  - id: edge-step-filter-to-step-map
+    source: step-filter
+    target: step-map
+  - id: edge-step-map-to-step-count
+    source: step-map
+    target: step-count
+  - id: edge-step-count-to-step-tostring
+    source: step-count
+    target: step-tostring
+  - id: edge-step-tostring-to-sink-log
+    source: step-tostring
+    target: sink-log
 runtimeVariables:
-- key: ENVIRONMENT
-  value: agent-engine
-- key: JOB_ID
-  value: text-tokenization-filtering-agent-engine
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: text-tokenization-filtering-agent-engine
 jobConfig:
   runner: DirectRunner
   machineType: n1-standard-1
   minInstances: 1
   maxInstances: 5
   gcsStagingPath: gs://my-bucket/staging/agent-engine
-  network: ''
-  subnetwork: ''
+  network: ""
+  subnetwork: ""
 pipelineConfig:
   language: Java
   outputFolder: pipelines/agent-engine/text-tokenization-filtering-agent-engine

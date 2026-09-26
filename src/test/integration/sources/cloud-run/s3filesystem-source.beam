@@ -1,0 +1,80 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: S3 Read Parquet
+      type: SOURCE
+      iconName: Cloud
+      beam_transform: S3FileSystem
+      properties:
+        filePattern: s3://my-company-lake/events/year=2024/*.parquet
+        awsRegion: us-west-2
+        credentialsProvider: DefaultCredentialsProvider
+        format: ParquetIO
+        validate: true
+        minBundleSize: 67108864
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Filter active Parquet records read from Amazon S3 (s3://)
+        and format each record into a string payload for logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[S3FileSystem-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: s3filesystem-source-cloud-run
+  - key: S3_INPUT_PATTERN
+    value: s3://my-company-lake/events/year=2024/*.parquet
+  - key: S3_OUTPUT_PREFIX
+    value: s3://my-company-lake/processed/events
+  - key: AWS_REGION
+    value: us-west-2
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/s3filesystem-source-cloud-run
+  needsRebuild: false

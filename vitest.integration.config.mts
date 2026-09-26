@@ -33,6 +33,6 @@ export default defineConfig({
         hookTimeout: 60000,
         globals: true,
         environment: 'node',
-        maxConcurrency: 3,
+        maxConcurrency: 10,
     },
 });

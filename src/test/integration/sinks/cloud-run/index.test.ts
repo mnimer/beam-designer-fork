@@ -16,6 +16,19 @@ import { runSnsSinkTest } from './sns-sink.test';
 import { runSqsSinkTest } from './sqs-sink.test';
 import { runJmsSinkTest } from './jms-sink.test';
 import { runMqttSinkTest } from './mqtt-sink.test';
+import { runAzureblobstorefilesystemSinkTest } from './azureblobstorefilesystem-sink.test';
+import { runContextualtextioSinkTest } from './contextualtextio-sink.test';
+import { runCsvioSinkTest } from './csvio-sink.test';
+import { runGcsfilesystemSinkTest } from './gcsfilesystem-sink.test';
+import { runHadoopfilesystemSinkTest } from './hadoopfilesystem-sink.test';
+import { runIcebergSinkTest } from './iceberg-sink.test';
+import { runJsonioSinkTest } from './jsonio-sink.test';
+import { runLocalfilesystemSinkTest } from './localfilesystem-sink.test';
+import { runS3filesystemSinkTest } from './s3filesystem-sink.test';
+import { runTfrecordioSinkTest } from './tfrecordio-sink.test';
+import { runThriftioSinkTest } from './thriftio-sink.test';
+import { runTikaioSinkTest } from './tikaio-sink.test';
+import { runXmlioSinkTest } from './xmlio-sink.test';
 
 export async function runAllSinksCloudrunTests(): Promise<void> {
     console.log('Running all Sink integration tests for cloud-run...');
@@ -33,6 +46,19 @@ export async function runAllSinksCloudrunTests(): Promise<void> {
     await runSqsSinkTest();
     await runJmsSinkTest();
     await runMqttSinkTest();
+    await runAzureblobstorefilesystemSinkTest();
+    await runContextualtextioSinkTest();
+    await runCsvioSinkTest();
+    await runGcsfilesystemSinkTest();
+    await runHadoopfilesystemSinkTest();
+    await runIcebergSinkTest();
+    await runJsonioSinkTest();
+    await runLocalfilesystemSinkTest();
+    await runS3filesystemSinkTest();
+    await runTfrecordioSinkTest();
+    await runThriftioSinkTest();
+    await runTikaioSinkTest();
+    await runXmlioSinkTest();
 }
 
 describe('Sinks Suite (cloud-run)', () => {

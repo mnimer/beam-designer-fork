@@ -1,0 +1,79 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"orderId": "ord-100", "customerId": "cust-1", "total": 99.95}'
+          - '{"orderId": "ord-101", "customerId": "cust-2", "total": 149.50}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Parse each JSON string into an OrderRecord (implementing
+        TBase) instance and register ThriftCoder.of(OrderRecord.class, new
+        TBinaryProtocol.Factory()) for FileIO.write().via(ThriftIO.sink(...)).
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: ThriftIO Write
+      type: SINK
+      iconName: FileCode
+      beam_transform: ThriftIO
+      properties:
+        to: gs://my-bucket/thrift/processed/orders
+        suffix: .thrift
+        protocolFactory: TBinaryProtocol
+        compression: UNCOMPRESSED
+        numShards: "5"
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: thriftio-sink-cloud-run
+  - key: INPUT_THRIFT_PATH
+    value: gs://my-bucket/thrift/raw/*.thrift
+  - key: OUTPUT_THRIFT_PREFIX
+    value: gs://my-bucket/thrift/processed/orders
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/thriftio-sink-cloud-run
+  needsRebuild: false

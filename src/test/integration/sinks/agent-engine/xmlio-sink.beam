@@ -1,0 +1,81 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": "item-1", "name": "Widget", "quantity": 25}'
+          - '{"id": "item-2", "name": "Gadget", "quantity": 50}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Parse each JSON string into a JAXB-annotated
+        ProcessedItemRecord (@XmlRootElement) instance and emit it for
+        XmlIO.write().
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: XmlIO
+      type: SINK
+      iconName: FileCode
+      beam_transform: XmlIO
+      properties:
+        to: gs://my-xml-bucket/output/processed-inventory
+        suffix: .xml
+        rootElement: processedInventory
+        recordClass: com.example.model.ProcessedItemRecord
+        charset: UTF-8
+        numShards: "3"
+        shardTemplate: -SSSSS-of-NNNNN
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: xmlio-sink-agent-engine
+  - key: INPUT_XML_PATH
+    value: gs://my-xml-bucket/input/inventory-*.xml
+  - key: OUTPUT_XML_PREFIX
+    value: gs://my-xml-bucket/output/processed-inventory
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/xmlio-sink-agent-engine
+  needsRebuild: false

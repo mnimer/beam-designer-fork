@@ -528,20 +528,26 @@ describe('NodesCard', () => {
       expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
     });
 
-    it('renders AvroIO in SOURCES under File Sources and in SINKS under File Sinks', () => {
+    it('renders AvroIO, TikaIO, and Iceberg in SOURCES under File Sources and in SINKS under File Sinks', () => {
       const { rerender } = render(
         <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={0} hasPubSubSource={false} onDragStart={mockOnDragStart} />
       );
 
       expect(screen.getByText('AvroIO')).toBeInTheDocument();
+      expect(screen.getByText('TikaIO')).toBeInTheDocument();
+      expect(screen.getAllByText('Iceberg').length).toBeGreaterThan(0);
       expect(screen.getByText('Read records from Avro files')).toBeInTheDocument();
+      expect(screen.queryByText('Data Services Sources')).not.toBeInTheDocument();
 
       rerender(
         <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
       );
 
       expect(screen.getByText('AvroIO')).toBeInTheDocument();
+      expect(screen.getByText('TikaIO')).toBeInTheDocument();
+      expect(screen.getAllByText('Iceberg').length).toBeGreaterThan(0);
       expect(screen.getByText('Write records to Avro files')).toBeInTheDocument();
+      expect(screen.queryByText('Data Services Sinks')).not.toBeInTheDocument();
     });
 
     it('collapses other groups when a user opens/expands a group in a panel', () => {

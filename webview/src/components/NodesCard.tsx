@@ -170,7 +170,7 @@ interface NodesCardProps {
 }
 
 
-interface NodeDefinition {
+export interface NodeDefinition {
   label: string;
   type: 'SOURCE' | 'STEP' | 'SINK';
   iconName: string;
@@ -178,10 +178,11 @@ interface NodeDefinition {
   badge: string;
   description: string;
   category: string;
+  supportedLanguages?: ('Java' | 'Python' | 'Go' | 'TypeScript')[];
 }
 
 // Source node definitions
-const SOURCE_NODES: NodeDefinition[] = [
+export const SOURCE_NODES: NodeDefinition[] = [
   { label: 'Kafka', type: 'SOURCE', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Consume streaming records from Kafka topic', category: 'Streaming Sources' },
   { label: 'Kinesis', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Consume streaming records from AWS Kinesis stream', category: 'Streaming Sources' },
   { label: 'PubSub', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Read streaming messages from Cloud Pub/Sub', category: 'Streaming Sources' },
@@ -197,11 +198,24 @@ const SOURCE_NODES: NodeDefinition[] = [
   { label: 'ParquetIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Read columnar Parquet records', category: 'File Sources' },
   { label: 'TextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Read newline-delimited text records', category: 'File Sources' },
   { label: 'AvroIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Read records from Avro files', category: 'File Sources' },
+  { label: 'TFRecordIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'TFRecordIO', badge: 'TFRecord', description: 'Read binary TFRecord ML datasets', category: 'File Sources' },
+  { label: 'CsvIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'CsvIO', badge: 'CSV', description: 'Read delimited CSV rows into schema records', category: 'File Sources' },
+  { label: 'XmlIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'XmlIO', badge: 'XML', description: 'Read JAXB-mapped XML record elements', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'JsonIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'JsonIO', badge: 'JSON', description: 'Read newline-delimited JSON records', category: 'File Sources' },
+  { label: 'ContextualTextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'ContextualTextIO', badge: 'Context', description: 'Read text lines with file and line-number context', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'ThriftIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ThriftIO', badge: 'Thrift', description: 'Read Thrift structs via TProtocol factory', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'HadoopFileSystem', type: 'SOURCE', iconName: 'HardDrive', beamTransform: 'HadoopFileSystem', badge: 'HDFS', description: 'Read from HDFS cluster paths', category: 'File Sources' },
+  { label: 'GcsFileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'GcsFileSystem', badge: 'GCS', description: 'Read from Cloud Storage with request metrics', category: 'File Sources' },
+  { label: 'LocalFileSystem', type: 'SOURCE', iconName: 'Folder', beamTransform: 'LocalFileSystem', badge: 'Local', description: 'Read from worker-local disk paths', category: 'File Sources' },
+  { label: 'S3FileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'S3FileSystem', badge: 'S3', description: 'Read from Amazon S3 bucket paths', category: 'File Sources' },
+  { label: 'AzureBlobStoreFileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'AzureBlobStoreFileSystem', badge: 'Azure', description: 'Read from Azure Blob Storage containers', category: 'File Sources' },
+  { label: 'TikaIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TikaIO', badge: 'Tika', description: 'Extract text and metadata from documents via Apache Tika', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'Iceberg', type: 'SOURCE', iconName: 'Database', beamTransform: 'IcebergIO', badge: 'Iceberg', description: 'Read Apache Iceberg tables via Managed I/O', category: 'File Sources' },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
 ];
 
 // Step node definitions
-const STEP_NODES: NodeDefinition[] = [
+export const STEP_NODES: NodeDefinition[] = [
   { label: 'ParDo', type: 'STEP', iconName: 'Code', beamTransform: 'ParDo', badge: 'Core', description: 'Apply custom per-element DoFn transform', category: 'Core Transforms' },
   { label: 'Parse Message', type: 'STEP', iconName: 'FileCode', beamTransform: 'ParseMessage', badge: 'Parser', description: 'Parse structured JSON/Avro payload', category: 'Message Parsers' },
   { label: 'Add Timestamp', type: 'STEP', iconName: 'Calendar', beamTransform: 'WithTimestamps', badge: 'Timestamp', description: 'Assign event timestamps to elements', category: 'Element Transforms' },
@@ -236,7 +250,7 @@ const STEP_NODES: NodeDefinition[] = [
 ];
 
 // Sink node definitions
-const SINK_NODES: NodeDefinition[] = [
+export const SINK_NODES: NodeDefinition[] = [
   { label: 'Kafka', type: 'SINK', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Publish records to Apache Kafka topic', category: 'Streaming Sinks' },
   { label: 'Kinesis', type: 'SINK', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Publish records to AWS Kinesis stream', category: 'Streaming Sinks' },
   { label: 'PubSub', type: 'SINK', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Publish messages to Cloud Pub/Sub topic', category: 'Streaming Sinks' },
@@ -250,6 +264,19 @@ const SINK_NODES: NodeDefinition[] = [
   { label: 'ParquetIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Write columnar Parquet files', category: 'File Sinks' },
   { label: 'TextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Write newline-delimited text records', category: 'File Sinks' },
   { label: 'AvroIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Write records to Avro files', category: 'File Sinks' },
+  { label: 'TFRecordIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'TFRecordIO', badge: 'TFRecord', description: 'Write binary TFRecord ML datasets', category: 'File Sinks' },
+  { label: 'CsvIO', type: 'SINK', iconName: 'FileText', beamTransform: 'CsvIO', badge: 'CSV', description: 'Write delimited CSV rows with header', category: 'File Sinks' },
+  { label: 'XmlIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'XmlIO', badge: 'XML', description: 'Write JAXB-mapped XML documents', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'JsonIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'JsonIO', badge: 'JSON', description: 'Write newline-delimited JSON records', category: 'File Sinks' },
+  { label: 'ContextualTextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'ContextualTextIO', badge: 'Context', description: 'Write text lines with header and footer', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'ThriftIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ThriftIO', badge: 'Thrift', description: 'Write Thrift structs via TProtocol factory', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'HadoopFileSystem', type: 'SINK', iconName: 'HardDrive', beamTransform: 'HadoopFileSystem', badge: 'HDFS', description: 'Write to HDFS cluster paths', category: 'File Sinks' },
+  { label: 'GcsFileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'GcsFileSystem', badge: 'GCS', description: 'Write to Cloud Storage with request metrics', category: 'File Sinks' },
+  { label: 'LocalFileSystem', type: 'SINK', iconName: 'Folder', beamTransform: 'LocalFileSystem', badge: 'Local', description: 'Write to worker-local disk paths', category: 'File Sinks' },
+  { label: 'S3FileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'S3FileSystem', badge: 'S3', description: 'Write to Amazon S3 bucket paths', category: 'File Sinks' },
+  { label: 'AzureBlobStoreFileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'AzureBlobStoreFileSystem', badge: 'Azure', description: 'Write to Azure Blob Storage containers', category: 'File Sinks' },
+  { label: 'TikaIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TikaIO', badge: 'Tika', description: 'Persist extracted document content via FileIO.write()', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'Iceberg', type: 'SINK', iconName: 'Database', beamTransform: 'IcebergIO', badge: 'Iceberg', description: 'Write Apache Iceberg tables via Managed I/O', category: 'File Sinks' },
   { label: 'Log Message', type: 'SINK', iconName: 'Terminal', beamTransform: 'LogMessage', badge: 'Debug', description: 'Emit structured logs for elements', category: 'Logging Sinks' },
 ];
 

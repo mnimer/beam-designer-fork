@@ -16,12 +16,11 @@ import { MapProperties } from './Map';
 
 describe('MapProperties', () => {
   // Simple condition: renders all input fields with supplied properties
-  it('renders mappingFunction, outputType, static description, and system instructions', () => {
+  it('renders outputType select, static description, and system instructions', () => {
     const mockNode = {
       data: {
         label: 'Map',
         properties: {
-          mappingFunction: 'element -> element.toUpperCase()',
           outputType: 'String',
           system_instructions: 'Convert input string to upper case'
         }
@@ -32,32 +31,32 @@ describe('MapProperties', () => {
     const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
 
     // Check labels and inputs
-    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
-    expect(screen.getByText('Output Type Descriptor')).toBeInTheDocument();
+    expect(screen.getByText('Output Data Type')).toBeInTheDocument();
     expect(screen.getByText('Code Generation Instructions')).toBeInTheDocument();
 
-    const funcInput = container.querySelector('#mapFunctionInput') as HTMLInputElement;
-    const typeInput = container.querySelector('#mapOutputTypeInput') as HTMLInputElement;
+    const typeSelect = container.querySelector('#mapOutputTypeSelect') as HTMLSelectElement;
     const instructionsTextarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
 
-    expect(funcInput).toHaveValue('element -> element.toUpperCase()');
-    expect(typeInput).toHaveValue('String');
+    expect(typeSelect).toHaveValue('String');
     expect(instructionsTextarea).toHaveValue('Convert input string to upper case');
 
     // Informational description text
+    // NOTE: the hint deliberately stops at the one-line summary. An earlier design dropped the
+    // Mapping Function field and had the hint say the generator wrote it; that was reverted.
     expect(
-      screen.getByText('Apply a 1-to-1 transformation mapping function to each input element.')
+      screen.getByText('Apply a 1-to-1 transformation to each input element.')
     ).toBeInTheDocument();
   });
 
-  // Event handling: mapping function change propagates via onChange
-  it('calls onChange when mappingFunction changes', () => {
+  // Event handling: selecting an output type calls onChange with new outputType and preserves other properties
+  it('calls onChange when outputType changes and preserves other properties', () => {
     const mockNode = {
       data: {
         label: 'Map',
         properties: {
-          mappingFunction: 'element -> element',
-          outputType: 'Integer'
+          outputType: 'String',
+          customKey1: 123,
+          customKey2: { nested: true }
         }
       }
     };
@@ -65,36 +64,13 @@ describe('MapProperties', () => {
 
     const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const funcInput = container.querySelector('#mapFunctionInput') as HTMLInputElement;
-    fireEvent.change(funcInput, { target: { name: 'mappingFunction', value: 'element -> element * 2' } });
+    const typeSelect = container.querySelector('#mapOutputTypeSelect') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { name: 'outputType', value: 'TableRow' } });
 
     expect(mockOnChange).toHaveBeenCalledWith({
-      mappingFunction: 'element -> element * 2',
-      outputType: 'Integer'
-    });
-  });
-
-  // Event handling: output type change propagates via onChange
-  it('calls onChange when outputType changes', () => {
-    const mockNode = {
-      data: {
-        label: 'Map',
-        properties: {
-          mappingFunction: 'element -> element.length()',
-          outputType: ''
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
-
-    const typeInput = container.querySelector('#mapOutputTypeInput') as HTMLInputElement;
-    fireEvent.change(typeInput, { target: { name: 'outputType', value: 'KV<String, Integer>' } });
-
-    expect(mockOnChange).toHaveBeenCalledWith({
-      mappingFunction: 'element -> element.length()',
-      outputType: 'KV<String, Integer>'
+      outputType: 'TableRow',
+      customKey1: 123,
+      customKey2: { nested: true }
     });
   });
 
@@ -104,7 +80,7 @@ describe('MapProperties', () => {
       data: {
         label: 'Map',
         properties: {
-          mappingFunction: 'element -> element',
+          outputType: 'Integer',
           system_instructions: ''
         }
       }
@@ -117,13 +93,38 @@ describe('MapProperties', () => {
     fireEvent.change(textarea, { target: { value: 'Transform records to DTOs' } });
 
     expect(mockOnChange).toHaveBeenCalledWith({
-      mappingFunction: 'element -> element',
+      outputType: 'Integer',
       system_instructions: 'Transform records to DTOs'
     });
   });
 
-  // Extreme / Failure condition: handles missing or undefined properties gracefully
-  it('handles missing or undefined properties object without crashing', () => {
+  // Edge condition: custom class not in static list still renders as selected option (prevents silent data loss)
+  it('renders custom class outputType not in static list as selected option to prevent silent data loss', () => {
+    const mockNode = {
+      data: {
+        label: 'Map',
+        properties: {
+          outputType: 'ProcessedItemRecord'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
+
+    const typeSelect = container.querySelector('#mapOutputTypeSelect') as HTMLSelectElement;
+    expect(typeSelect).toBeInTheDocument();
+    expect(typeSelect.value).toBe('ProcessedItemRecord');
+
+    const options = Array.from(typeSelect.options);
+    expect(options[0].value).toBe('');
+    expect(options[0].textContent).toBe('Select output type…');
+    expect(options[1].value).toBe('ProcessedItemRecord');
+    expect(options[1].textContent).toBe('ProcessedItemRecord (custom)');
+  });
+
+  // Edge condition: handles empty or absent properties without crashing and renders placeholder selected
+  it('renders placeholder option selected and does not crash when properties are empty or absent', () => {
     const mockNode = {
       data: {
         label: 'Map'
@@ -133,29 +134,57 @@ describe('MapProperties', () => {
 
     const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const funcInput = container.querySelector('#mapFunctionInput') as HTMLInputElement;
-    const typeInput = container.querySelector('#mapOutputTypeInput') as HTMLInputElement;
+    const typeSelect = container.querySelector('#mapOutputTypeSelect') as HTMLSelectElement;
     const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
 
-    expect(funcInput).toHaveValue('');
-    expect(typeInput).toHaveValue('');
+    expect(typeSelect).toBeInTheDocument();
+    expect(typeSelect.value).toBe('');
     expect(textarea).toHaveValue('');
 
-    // Editing field on initially undefined properties builds the object correctly
-    fireEvent.change(funcInput, { target: { name: 'mappingFunction', value: 'elem -> elem' } });
+    // Changing selection on initially absent properties builds the object correctly
+    fireEvent.change(typeSelect, { target: { name: 'outputType', value: 'String' } });
     expect(mockOnChange).toHaveBeenCalledWith({
-      mappingFunction: 'elem -> elem'
+      outputType: 'String'
     });
   });
 
-  // Extreme condition: handles empty and whitespace-only input
-  it('handles empty and whitespace-only strings across all inputs', () => {
+  // Normal condition: the mapping expression is the node's specification, so it must
+  // render, show its worked example, and round-trip through onChange.
+  it('renders the mapping function field with a worked example and persists edits', () => {
+    const mockOnChange = vi.fn();
     const mockNode = {
       data: {
         label: 'Map',
         properties: {
-          mappingFunction: '   ',
-          outputType: '   ',
+          mappingFunction: 'line -> line.toUpperCase()',
+          outputType: 'String'
+        }
+      }
+    };
+    const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
+
+    const input = container.querySelector('#mapFunctionInput') as HTMLInputElement;
+    expect(input).toBeInTheDocument();
+    expect(input.value).toBe('line -> line.toUpperCase()');
+    expect(input.placeholder).toBe('e.g. element -> element.toUpperCase()');
+
+    fireEvent.change(input, { target: { name: 'mappingFunction', value: 'x -> x.trim()' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith({
+      mappingFunction: 'x -> x.trim()',
+      outputType: 'String'
+    });
+  });
+
+  // Extreme condition: handles empty and whitespace-only strings
+  it('handles empty and whitespace-only strings across inputs', () => {
+    const mockNode = {
+      data: {
+        label: 'Map',
+        properties: {
+          outputType: '',
           system_instructions: '   '
         }
       }
@@ -164,49 +193,17 @@ describe('MapProperties', () => {
 
     const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
 
-    const funcInput = container.querySelector('#mapFunctionInput') as HTMLInputElement;
-    const typeInput = container.querySelector('#mapOutputTypeInput') as HTMLInputElement;
+    const typeSelect = container.querySelector('#mapOutputTypeSelect') as HTMLSelectElement;
     const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
 
-    expect(funcInput).toHaveValue('   ');
-    expect(typeInput).toHaveValue('   ');
+    expect(typeSelect).toHaveValue('');
     expect(textarea).toHaveValue('   ');
 
-    fireEvent.change(funcInput, { target: { name: 'mappingFunction', value: '' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ mappingFunction: '' }));
-
-    fireEvent.change(typeInput, { target: { name: 'outputType', value: '' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ outputType: '' }));
+    fireEvent.change(typeSelect, { target: { name: 'outputType', value: 'Double' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ outputType: 'Double' }));
 
     fireEvent.change(textarea, { target: { value: '' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ system_instructions: '' }));
-  });
-
-  // Extreme condition: preserves other existing properties
-  it('preserves unrelated node properties when modifying map fields', () => {
-    const mockNode = {
-      data: {
-        label: 'Map',
-        properties: {
-          mappingFunction: 'oldFunc',
-          customKey1: 123,
-          customKey2: { nested: true }
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<MapProperties node={mockNode} onChange={mockOnChange} />);
-
-    const typeInput = container.querySelector('#mapOutputTypeInput') as HTMLInputElement;
-    fireEvent.change(typeInput, { target: { name: 'outputType', value: 'String' } });
-
-    expect(mockOnChange).toHaveBeenCalledWith({
-      mappingFunction: 'oldFunc',
-      customKey1: 123,
-      customKey2: { nested: true },
-      outputType: 'String'
-    });
   });
 
   // Instruction hierarchy: verifies fallback precedence

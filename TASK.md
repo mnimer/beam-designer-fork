@@ -90,15 +90,15 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO1](#io1) | 🔌 Connector | FileIO | `FileIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO2](#io2) | 🔌 Connector | AvroIO | `AvroIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO3](#io3) | 🔌 Connector | TextIO (metrics) | `TextIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO4](#io4) | 🔌 Connector | TFRecordIO | `TFRecordIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO5](#io5) | 🔌 Connector | XmlIO | `XmlIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO6](#io6) | 🔌 Connector | TikaIO | `TikaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO4](#io4) | 🔌 Connector | TFRecordIO | `TFRecordIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO5](#io5) | 🔌 Connector | XmlIO | `XmlIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO6](#io6) | 🔌 Connector | TikaIO | `TikaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO7](#io7) | 🔌 Connector | ParquetIO (guide) | `ParquetIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO8](#io8) | 🔌 Connector | ThriftIO | `ThriftIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO9](#io9) | 🔌 Connector | HadoopFileSystem | `HadoopFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO10](#io10) | 🔌 Connector | GcsFileSystem (metrics) | `GcsFileSystem (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO11](#io11) | 🔌 Connector | LocalFileSystem | `LocalFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO8](#io8) | 🔌 Connector | ThriftIO | `ThriftIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO9](#io9) | 🔌 Connector | HadoopFileSystem | `HadoopFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO10](#io10) | 🔌 Connector | GcsFileSystem (metrics) | `GcsFileSystem (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO11](#io11) | 🔌 Connector | LocalFileSystem | `LocalFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO13](#io13) | 🔌 Connector | In-memory | `In-memory`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO14](#io14) | 🔌 Connector | KinesisIO | `KinesisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
@@ -144,16 +144,16 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO56](#io56) | 🔌 Connector | GoogleAdsIO | `GoogleAdsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO57](#io57) | 🔌 Connector | Web APIs (guide) | `Web APIs (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
@@ -1030,7 +1030,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/TFRecordIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tfrecordio-pipeline.beam` and `src/test/integration/tfrecordio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io5"></a>**IO5 — `XmlIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1050,7 +1050,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/XmlIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/xmlio-pipeline.beam` and `src/test/integration/xmlio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io6"></a>**IO6 — `TikaIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1070,7 +1070,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/TikaIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tikaio-pipeline.beam` and `src/test/integration/tikaio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io7"></a>**IO7 — `ParquetIO (guide)`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1110,7 +1110,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ThriftIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/thriftio-pipeline.beam` and `src/test/integration/thriftio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io9"></a>**IO9 — `HadoopFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1130,7 +1130,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HadoopFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hadoopfilesystem-pipeline.beam` and `src/test/integration/hadoopfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io10"></a>**IO10 — `GcsFileSystem (metrics)`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1150,7 +1150,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/GcsFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/gcsfilesystem-pipeline.beam` and `src/test/integration/gcsfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io11"></a>**IO11 — `LocalFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1170,7 +1170,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/LocalFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/localfilesystem-pipeline.beam` and `src/test/integration/localfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io12"></a>**IO12 — `S3FileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1190,7 +1190,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/S3FileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/s3filesystem-pipeline.beam` and `src/test/integration/s3filesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io13"></a>**IO13 — `In-memory`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2110,7 +2110,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/IcebergIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/iceberg-pipeline.beam` and `src/test/integration/iceberg-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io59"></a>**IO59 — `CsvIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2130,7 +2130,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CsvIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/csvio-pipeline.beam` and `src/test/integration/csvio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io60"></a>**IO60 — `JsonIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2150,7 +2150,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/JsonIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/jsonio-pipeline.beam` and `src/test/integration/jsonio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io61"></a>**IO61 — `ContextualTextIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2170,7 +2170,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ContextualTextIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/contextualtextio-pipeline.beam` and `src/test/integration/contextualtextio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io62"></a>**IO62 — `PulsarIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -2270,7 +2270,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/AzureBlobStoreFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/azureblobstorefilesystem-pipeline.beam` and `src/test/integration/azureblobstorefilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io67"></a>**IO67 — `Delta Lake`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2290,7 +2290,13 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DeltaLakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/deltalake-pipeline.beam` and `src/test/integration/deltalake-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ⏭️ SKIPPED — no first-party Apache Beam Delta Lake connector could be
+    confirmed. Managed I/O officially covers **Iceberg, Kafka, and BigQuery** only; Delta Lake
+    appears in Beam's roadmap/"expanding ecosystem" language, but no `Managed.DELTA_LAKE`
+    constant or `"deltalake"` managed key was verified in the SDK. Both documentation links
+    above point at the generic `Managed` API rather than at a Delta Lake connector, which is
+    the tell. Shipping a palette node whose generated code cannot compile is worse than
+    omitting the connector. Revisit if/when Beam publishes a Delta Lake managed key.
 
 
 ---

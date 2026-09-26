@@ -106,7 +106,13 @@ noting that the operator must supply it.
   - Command-line arguments, `metadata.json`, and runner scripts MUST include:
     1. All variables explicitly declared under `runtimeVariables` in the YAML (e.g. `JOB_ID`, `NUM_OBJECTS_PER_ITERATION`).
     2. Any sensitive credentials (such as JDBC database passwords and usernames) present in node properties, parameterized as described in the Credential Handling Rules above.
-  - **HARDCODE NON-SENSITIVE NODE PROPERTIES**: Non-sensitive node configuration values (JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, file patterns, BigQuery tables, Pub/Sub topics) MUST be hardcoded directly into transform calls in Python. NEVER expose non-sensitive properties as CLI arguments. NEVER hardcode passwords or sensitive credentials directly in code.
+  - **DEPLOYMENT-VARYING PROPERTIES MUST BE RUNTIME OPTIONS**: A generated pipeline is packaged as a Dataflow Flex Template, so any property an operator would reasonably change between runs of the *same built artifact* MUST be exposed as an `argparse` argument with the YAML value as its `default=`, and MUST also appear as a parameter in `metadata.json`. This category is:
+    1. **Input locations** — `filePattern`, `from`, and any other source path or glob (`--input_pattern`).
+    2. **Output locations** — `to`, output path prefixes, and destination directories (`--output_prefix`).
+    3. Everything declared under `runtimeVariables` (see above).
+    4. Sensitive credentials (see the Credential Handling Rules above).
+    Requiring a rebuild to repoint a template at a different input or output path defeats the purpose of a template, so these are never hardcoded.
+  - **HARDCODE EVERYTHING ELSE**: All remaining non-sensitive node configuration — JDBC driverClassName, SQL queries, table names, fetch/batch sizes, delimiters, charsets, compression codecs, shard counts, window durations, BigQuery tables, Pub/Sub topics, Kafka topics and queue URLs — MUST be hardcoded directly into the transform calls. These describe what the pipeline *is*, not where a given run reads and writes, and exposing them as options bloats the template surface. NEVER hardcode passwords or sensitive credentials directly in code.
 - **Reserved Option Name Safety & Remapping**:
   - **NEVER use reserved Beam/Dataflow option names**: `job_name`, `job_id`, `project`, `region`, `runner`, `temp_location`, `staging_location`, `template_location`, `streaming`, `subnetwork` are reserved by Apache Beam / Dataflow.
   - If a runtime variable is named `JOB_ID` or `job_id`, map its identifier to `pipeline_job_id` consistently across ALL artifacts:
@@ -249,8 +255,9 @@ noting that the operator must supply it.
   - Sink: `fileio.WriteToFiles(path=..., file_name_suffix=...)`
 - **`ParquetIO`**:
   - Required Imports: `import pyarrow`, `from apache_beam.io.parquetio import ReadFromParquet, WriteToParquet`
-  - Source: `ReadFromParquet(file_pattern=...)`
-  - Sink: `WriteToParquet(file_path_prefix=..., schema=schema)`
+  - Source: `ReadFromParquet(file_pattern=..., min_bundle_size=..., validate=..., columns=[...])`
+  - Sink: `WriteToParquet(file_path_prefix=..., schema=schema, codec=..., file_name_suffix=..., num_shards=..., shard_name_template=..., row_group_buffer_size=...)`
+  - **Codec Vocabulary**: `codec` is passed straight through to `pyarrow`, which accepts ONLY `'none'`, `'snappy'`, `'gzip'`, `'lzo'`, `'brotli'`, `'lz4'`, `'zstd'`. A node property of `UNCOMPRESSED` maps to `codec='none'` — `'uncompressed'` is NOT a legal pyarrow value and raises `ArrowException: Unsupported compression`. The Beam default is `'none'`, so an explicitly configured `UNCOMPRESSED` still has to be passed rather than left implicit.
 - **`Create`**:
   - Source: `beam.Create([...])`
 - **`JdbcIO`**:
@@ -294,6 +301,39 @@ noting that the operator must supply it.
   - Required Imports: `from apache_beam.transforms.xlang.io import ReadFromMqtt, WriteToMqtt`
   - Source (Read): `ReadFromMqtt(server_uri=..., topic=...)` (produces `bytes`). If `qos` is specified in node properties, pass `qos=...`.
   - Sink (Write): `WriteToMqtt(server_uri=..., topic=...)` (consumes `bytes`). If `qos` or `retain`/`retained` is specified in node properties or instructions, pass them explicitly into `WriteToMqtt(server_uri=..., topic=..., qos=..., retain=...)`.
+- **`IcebergIO`** (Apache Iceberg tables) — reach it through **Managed I/O**:
+  - Required Imports: `from apache_beam.transforms import managed`
+  - There is **NO** `apache_beam.io.iceberg` module and **NO** `ReadFromIceberg` / `WriteToIceberg` class. Those names appear only as Beam YAML transform identifiers. Never import them.
+  - Source (Read): `pipeline | 'ReadIceberg' >> managed.Read(managed.ICEBERG, config={...})` → a `PCollection` of Beam `Row`s.
+  - Sink (Write): `rows | 'WriteIceberg' >> managed.Write(managed.ICEBERG, config={...})`. The input must be a schema'd `PCollection` (Beam `Row` or `NamedTuple`), not `dict`s — convert upstream if necessary.
+  - Managed I/O runs the Java expansion service under the hood: Docker (or a reachable expansion service) and **Dataflow Runner v2** are required.
+  - **Config keys are snake_case and are VALIDATED at construction**: an unrecognized key is a pipeline construction failure, not a silent no-op. Never invent one.
+    - Read keys: `table`, `catalog_name`, `catalog_properties`, `config_properties`, `keep`, `drop`, `filter`.
+    - Write keys: `table`, `catalog_name`, `catalog_properties`, `config_properties`, `triggering_frequency_seconds`, `keep`, `drop`, `only`, `partition_fields`, `table_properties`, `sort_fields`, `autosharding`, `direct_write_byte_limit`, `using_side_input_table_cache`, `polling_buckets`.
+  - **Node property → config key mapping** (panel properties are camelCase; the config dict is not): `table` → `table`; `catalogName` → `catalog_name`; `columnProjection` → `keep` (a list, splitting the comma-separated value); `partitionFields` → `partition_fields` (list); `triggeringFrequencySeconds` → `triggering_frequency_seconds` (int); `tableProperties` → `table_properties` (dict parsed from the `key=value` lines). `catalogType`, `warehouseLocation` and `catalogUri` are NOT top-level keys — they go **inside** `catalog_properties` as `type`, `warehouse` and `uri` respectively.
+  - **Keys that do NOT exist — never emit them**: there is no `write_mode` and no `create_table_if_not_exists`. Managed Iceberg writes are **append-only**, and a missing table is created from the incoming schema unconditionally. Do not attempt to simulate `overwrite` or `upsert`.
+- **`CsvIO`**:
+  - Required Imports: `from apache_beam.io.textio import ReadFromCsv, WriteToCsv`
+  - Source (Read): `pipeline | 'ReadCsv' >> ReadFromCsv(path=file_pattern, sep=..., names=..., splittable=...)`. Produces a schema'd `PCollection` of Beam `Row`s (NOT `dict`s).
+  - Sink (Write): `rows | 'WriteCsv' >> WriteToCsv(path=to, file_name_suffix=suffix, num_shards=...)`. Input must be a schema'd `PCollection` (`Row` or `NamedTuple`).
+  - **Compression Trap — do NOT pass `compression=`**: `ReadFromCsv` and `WriteToCsv` route through `ReadViaPandas` / `WriteViaPandas` (`apache_beam/dataframe/io.py`), which explicitly execute `if 'compression' in kwargs: raise NotImplementedError('compression')`. **Never pass `compression=`** to `ReadFromCsv` or `WriteToCsv`. Read decompression is automatic from file extension; if a non-default compression is configured on a CSV sink, emit a `# NOTE: compression = <val> is not configurable through WriteToCsv` comment per checklist #15. Also translate `numShards: 0` → `num_shards=None` (or omit `num_shards`).
+- **`JsonIO`**:
+  - Required Imports: `from apache_beam.io.textio import ReadFromJson, WriteToJson`
+  - Source (Read): `pipeline | 'ReadJson' >> ReadFromJson(path=file_pattern, lines=..., orient=...)`. Produces a schema'd `PCollection` of Beam `Row`s.
+  - Sink (Write): `rows | 'WriteJson' >> WriteToJson(path=to, lines=..., orient=..., file_name_suffix=suffix, num_shards=...)`. Input must be a schema'd `PCollection`.
+  - **Compression Trap — do NOT pass `compression=`**: Like `CsvIO`, `ReadFromJson` and `WriteToJson` raise `NotImplementedError('compression')` if `compression=` is passed. Never pass `compression=`; emit a `# NOTE:` comment if a non-default write compression was requested, and translate `numShards: 0` → `num_shards=None`.
+- **`TFRecordIO`**:
+  - Required Imports: `from apache_beam.io.tfrecordio import ReadFromTFRecord, WriteToTFRecord`, `from apache_beam.coders import BytesCoder, ProtoCoder`, `from apache_beam.io.filesystem import CompressionTypes`
+  - Source (Read): `ReadFromTFRecord(file_pattern=..., coder=..., compression_type=CompressionTypes.X, validate=...)`. Note: there is **no** `min_bundle_size` kwarg on `ReadFromTFRecord` (`_TFRecordSource` is hardcoded `splittable=False`), and there is **no** `ExampleProtoCoder` in Apache Beam — when `coder` is `ProtoCoder`, use `ProtoCoder(Example)` (or `BytesCoder()` for raw bytes).
+  - Sink (Write): `WriteToTFRecord(file_path_prefix=to, file_name_suffix=suffix, coder=..., num_shards=..., shard_name_template=..., compression_type=CompressionTypes.X)`.
+- **`ContextualTextIO`**, **`TikaIO`**, **`ThriftIO`**:
+  - These three connectors are Java-only in Apache Beam 2.76 and register **no** cross-language `ExternalTransformRegistrar` URN.
+  - For a `SINK` node with `beam_transform: ContextualTextIO` or `beam_transform: TikaIO`, emit native `beam.io.WriteToText(file_path_prefix=to, file_name_suffix=suffix, header=..., footer=..., num_shards=..., shard_name_template=..., compression_type=CompressionTypes.X)`.
+- **Filesystem Registrars (`S3FileSystem`, `AzureBlobStoreFileSystem`, `GcsFileSystem`, `LocalFileSystem`)**:
+  - None of these have bespoke read/write classes; read and write with the native transform named by the node's `format` property (`ReadFromText`/`WriteToText`, `ReadFromAvro`/`WriteToAvro`, `ReadFromParquet`/`WriteToParquet`, `apache_beam.io.fileio.MatchFiles` + `ReadMatches` / `WriteToFiles`) pointed at `s3://`, `azfs://`, `gs://`, or local path.
+  - **Per-Format Compression Vocabulary**: `ReadFromText`/`WriteToText` take `compression_type=CompressionTypes.X` (`CompressionTypes` has `AUTO, BZIP2, DEFLATE, ZSTD, GZIP, LZMA, UNCOMPRESSED` — **no** `XZ` or `TAR`). `WriteToAvro` takes `codec='deflate'|'snappy'|'null'`. `WriteToParquet` takes `codec='none'|'snappy'|'gzip'|'brotli'|'lz4'|'zstd'`.
+  - **`S3FileSystem` (`s3://` paths)**: Configure via `apache_beam.options.pipeline_options.S3Options` (`--s3_region_name`, `--s3_endpoint_url`, `--s3_access_key_id`, `--s3_secret_access_key`).
+  - **`AzureBlobStoreFileSystem` (`azfs://` paths ONLY)**: Native in Python via `apache_beam.io.azure.blobstoragefilesystem.BlobStorageFileSystem` (do **NOT** use cross-language `ExternalTransform`). Registers **ONLY `azfs://{account}/{container}/{blob}`** — never emit `abfss://`. Configure via `apache_beam.options.pipeline_options.AzureOptions` (`--azure_connection_string`, `--blob_service_endpoint`, `--azure_managed_identity_client_id`).
 
 ### 2. Element-Wise Transforms
 - **`WithTimestamps`**:
@@ -370,10 +410,10 @@ noting that the operator must supply it.
 ### A. Dependency Configuration (`requirements.txt`)
 Use the following baseline dependencies for `requirements.txt`:
 ```text
-apache-beam[gcp]>=2.55.0,<3.0.0
+apache-beam[gcp]>=2.76.0,<3.0.0
 pyarrow>=10.0.0
 ```
-- **Beam version alignment**: The `apache-beam[gcp]` dependency must be compatible with the Dockerfile base image (`apache/beam_python3.11_sdk:2.55.0`).
+- **Beam version alignment**: The `apache-beam[gcp]` dependency must be compatible with the Dockerfile base image (`apache/beam_python3.11_sdk:2.76.0`).
 - Only add extra packages (such as `kafka-python`, database drivers) if specific transforms require them. Do NOT include `pyspark`.
 
 ### B. `metadata.json` Flex Template Schema
@@ -461,7 +501,7 @@ Before outputting the final JSON `files` array, verify:
 2. `{{pipeline_name}}` is rendered in snake_case, and `src/<module>.py`, the Dockerfile `FLEX_TEMPLATE_PYTHON_PY_FILE`, `run_directrunner.sh`, and unit test imports all agree.
 3. Every runtime variable uses the identical snake_case name across CLI argument parser, `metadata.json`, and both runner scripts.
 4. No CLI option uses a reserved Beam name (`job_name`, `job_id`, `project`, `temp_location`, `staging_location`, `runner`, `region`).
-5. All imports are present; `requirements.txt` contains compatible package bounds (`apache-beam[gcp]>=2.55.0,<3.0.0`).
+5. All imports are present; `requirements.txt` contains compatible package bounds (`apache-beam[gcp]>=2.76.0,<3.0.0`).
 6. `src/__init__.py` is generated as an empty file.
 7. `src/<pipeline_name>.py` has `if __name__ == '__main__': run()` and never calls `unittest.main()`.
 8. Every `?` in a JDBC SQL statement matches the upstream tuple element count 1-to-1.
@@ -471,13 +511,13 @@ Before outputting the final JSON `files` array, verify:
 12. For streaming pipelines, `--streaming` is passed in `run_directrunner.sh`.
 13. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Python source code or as `default=` values in `parser.add_argument(...)`. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
 14. Container Hardening & Dockerfile Non-Root Guidance: Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. The generated `Dockerfile` MUST include non-root least-privilege guidance—either active `USER beam` or the documented commented non-root instructions (`# RUN groupadd ...` / `# USER beam:beam`) to prevent root privilege escalation.
-15. Transform Argument & Property Binding: When generating Beam IO transforms, you MUST pass all configured node properties directly into the transform constructors, kwargs, or configuration dictionaries in the pipeline graph:
+15. Transform Argument & Property Binding: **Walk the `properties` map of EVERY node in the input YAML and account for each key individually before emitting the file.** Each property MUST either (a) be passed into that node's transform constructor, kwargs, or configuration dictionary, (b) be structurally implied by the code you generated (for example `table` becoming the `table=` argument), or (c) if the Beam API genuinely offers no way to express it, be surfaced as a `# NOTE: <property> = <value> is not configurable through <Transform>` comment on the transform. **Silently dropping a configured property is a defect** — it is the single most common failure in generated pipelines. Parsing a property into `argparse` alone is NOT binding it; every CLI option derived from YAML properties must also reach the transform invocation. Frequently-missed examples:
     - In `ReadFromJdbc` and `WriteToJdbc`: map all operational and performance tuning properties specified on node YAML definitions (`outputParallelization: true` -> `output_parallelization=True`, `autosharding: true` -> `autosharding=True`, `fetchSize` -> `fetch_size=...`, `batchSize` -> `batch_size=...`).
     - In `WriteToKafka`: strictly map all serializer and semantic properties specified in the YAML properties. If `keySerializer` or `valueSerializer` is specified (e.g. `org.apache.kafka.common.serialization.StringSerializer`), bind them directly to `key.serializer` / `value.serializer` in `producer_config`. Never substitute default `ByteArraySerializer`. When `useEOS: true` is configured on Kafka sink nodes, ensure exactly-once semantics configuration (e.g. `'enable.idempotence': 'true'`) is explicitly configured in `producer_config`.
     - In `ReadFromMqtt` / `WriteToMqtt`: pass `qos`, `retain`/`retained`, `topic`, `server_uri`, etc.
-    - Parsing properties in `argparse` alone is insufficient; every CLI option derived from YAML properties must be bound to the respective Beam transform invocation.
+    - In `ReadFromParquet` / `WriteToParquet`: map `minBundleSize` -> `min_bundle_size=...`, `compression` -> `codec=...`, `numShards` -> `num_shards=...`, `shardTemplate` -> `shard_name_template=...`, `suffix` -> `file_name_suffix=...`.
 16. Deterministic Container Image Tagging: In `cloudbuild.yaml` and runner scripts (`run_dataflowrunner.sh`, `run_sparkrunner.sh`), avoid using bare mutable `:latest` tags alone. In `cloudbuild.yaml`, default substitution `_TAG` to `'${SHORT_SHA}'` (never `'latest'`). In runner scripts, default container image tags to a parameterized or deterministic tag variable (e.g., `:${IMAGE_TAG:-latest}`) to guarantee build reproducibility and artifact provenance.
-17. IO Parameterization via PipelineOptions: All IO source and sink endpoints (such as Pub/Sub topics/subscriptions, GCS paths, BigQuery tables, Kafka topics, and queues) defined in YAML node properties must be exposed as CLI flags in `argparse` with their YAML values provided as default arguments, rather than statically hardcoded in pipeline transforms.
+17. IO Parameterization via CLI Flags: Input locations (`filePattern`, `from`, source globs) and output locations (`to`, output prefixes, destination directories) MUST be exposed as `argparse` flags with their YAML values as `default=`, and MUST also be listed as parameters in `metadata.json` so a deployed Flex Template can be repointed without rebuilding. Every OTHER non-sensitive property — including BigQuery tables, Pub/Sub topics, Kafka topics, queue URLs, SQL queries, batch sizes and codecs — stays hardcoded in the transform call per §3A. Do not parameterize the whole property map.
 18. GroupIntoBatches Sharding: When preparing unkeyed data for `GroupIntoBatches`, distribute elements across shards using a keying function (e.g., `(random.randint(0, num_shards - 1), element)`) rather than using a single static key like `None` or `'batch_key'`, preventing worker partition hotspotting.
 19. Shell Script Variable Quoting: In all runner scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`, `run_sparkrunner.sh`), double-quote all variable references and command expansions (e.g. `"$PYTHON_CMD"`, `"$VENV_DIR"`, `"$PROJECT_ID"`, `"$IMAGE_TAG"`) to prevent word-splitting and execution errors on paths containing spaces.
 20. DLQ Logging vs Dead-Letter Storage: When routing failures to a Dead Letter Queue (DLQ), always route the complete original message (or error record containing the raw payload) to the DLQ sink for re-processing. However, when logging error details via application logging (e.g. `logging.warning()` / `LOG.error()`), log only the error message, exception, and record ID/metadata—never dump unredacted raw message payloads to standard log streams to prevent PII and credential leakage.
@@ -489,7 +529,7 @@ Before outputting the final JSON `files` array, verify:
 24. `.dockerignore` is generated to exclude `.git`, `venv`, `*.log`, and `__pycache__` from the Docker build context.
 
 ### Python Projects
-- **Python Compatibility**: In `requirements.txt`, specify valid PyPI release versions: `apache-beam[gcp]>=2.55.0,<3.0.0` (aligning with the Dockerfile base image `apache/beam_python3.11_sdk:2.55.0`). Do NOT include `pyspark`.
+- **Python Compatibility**: In `requirements.txt`, specify valid PyPI release versions: `apache-beam[gcp]>=2.76.0,<3.0.0` (aligning with the Dockerfile base image `apache/beam_python3.11_sdk:2.76.0`). Do NOT include `pyspark`.
 - **Package Marker**: Always generate `src/__init__.py`.
 - **Pipeline Options & Argument Parsing**: Always use standard `parser.add_argument(...)` when defining custom `PipelineOptions` or `argparse`. **NEVER** use `parser.add_value_provider_argument(...)` because `RuntimeValueProvider` is for legacy Classic templates and breaks Beam type checking on transforms like `fileio.MatchFiles` (causes `TypeCheckError`).
 - **FileIO Imports**: When using FileIO (`MatchFiles`, `ReadMatches`, `WriteToFiles`), always include `from apache_beam.io import fileio` because `apache_beam.io` does not automatically expose `fileio` as an attribute on `beam.io` without an explicit import.

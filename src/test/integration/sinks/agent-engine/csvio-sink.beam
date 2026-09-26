@@ -1,0 +1,83 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"order_id": "ord-1", "customer_id": "cust-1", "amount": 49.99,
+            "status": "COMPLETED", "timestamp": 1700000000}'
+          - '{"order_id": "ord-2", "customer_id": "cust-2", "amount": 125.0,
+            "status": "COMPLETED", "timestamp": 1700000060}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Parse each JSON string into a Beam Row (schema fields:
+        order_id STRING, customer_id STRING, amount DOUBLE, status STRING,
+        timestamp INT64) with setRowSchema applied for CsvIO output."
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: CsvIO Write Results
+      type: SINK
+      iconName: FileText
+      beam_transform: CsvIO
+      properties:
+        to: gs://my-bucket/orders/completed/results
+        suffix: .csv
+        csvFormat: RFC4180
+        delimiter: ","
+        writeHeader: true
+        header: order_id,customer_id,amount,status,timestamp
+        numShards: 2
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: csvio-sink-agent-engine
+  - key: filePattern
+    value: gs://my-bucket/orders/incoming-*.csv
+  - key: output
+    value: gs://my-bucket/orders/completed/results
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/csvio-sink-agent-engine
+  needsRebuild: false

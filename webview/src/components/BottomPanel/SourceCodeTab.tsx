@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Folder, RefreshCw, FileCode, FileText, Play, Sliders, CheckCircle2, Square, AlertCircle } from 'lucide-react';
 import { filterSourceFiles } from '../../utils/fileFilters';
+import { validateDiagramLanguageSupport } from '../../utils/nodeLanguageSupport';
 
 /**
  * SourceCodeTab Component
@@ -14,11 +15,11 @@ import { filterSourceFiles } from '../../utils/fileFilters';
  * Architectural Decisions:
  * - Displays generated files as horizontal scrollable tabs directly above the code preview block.
  * - Left column contains Generator Settings (Target Language, Output Folder, Generate Code, and Stop action).
- * - Gates the Generate Code button when DAG topology validation fails (e.g. cyclic dependencies).
+ * - Gates the Generate Code button when DAG topology validation fails (e.g. cyclic dependencies) or when the
+ *   diagram contains language-restricted nodes (e.g. Java-only TikaIO, ContextualTextIO, ThriftIO, XmlIO)
+ *   that do not support the selected target SDK language.
  * - Styled to match modern dark theme design with 8pt grid spacing system and tailwindcss styling.
  * - Code syntax highlighting supports Python, Java, XML, shell scripts, and configuration files.
-/**
- * Token usage metrics for model code generation.
  */
 export interface TokenUsage {
   inputTokens: number;
@@ -43,6 +44,7 @@ interface SourceCodeTabProps {
   isGenerating?: boolean;
   isGraphValid?: boolean;
   validationErrors?: string[];
+  nodes?: any[];
   highlighter?: (code: string, fileName: string | null, defaultLang: 'Python' | 'Java') => string;
   tokenUsage?: TokenUsage | null;
 }
@@ -147,9 +149,24 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
   isGenerating = false,
   isGraphValid = true,
   validationErrors = [],
+  nodes = [],
   highlighter = highlightCode,
   tokenUsage = null
 }) => {
+  // Validate whether all nodes in the diagram support the selected target SDK language
+  const languageValidation = useMemo(
+    () => validateDiagramLanguageSupport(nodes, language),
+    [nodes, language]
+  );
+
+  // Combine topological DAG errors with language compatibility errors (deduplicated)
+  const effectiveValidationErrors = useMemo(
+    () => Array.from(new Set([...(validationErrors || []), ...languageValidation.errors])),
+    [validationErrors, languageValidation.errors]
+  );
+
+  const effectiveIsGraphValid = isGraphValid !== false && languageValidation.isValid;
+
   // Filter files to only show visible .java and .py source files (ignoring venv, caches, dependencies)
   const sourceFiles = useMemo(() => filterSourceFiles(files), [files]);
 
@@ -291,8 +308,8 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
             </div>
           </div>
 
-          {/* Topological DAG Validation Error Callout */}
-          {isGraphValid === false && validationErrors && validationErrors.length > 0 && (
+          {/* Topological DAG & SDK Language Compatibility Validation Error Callout */}
+          {!effectiveIsGraphValid && effectiveValidationErrors.length > 0 && (
             <div
               className="mt-3 p-2.5 bg-rose-950/60 border border-rose-800/80 rounded-lg flex items-start gap-2 text-xs text-rose-200"
               data-testid="codegen-validation-error"
@@ -300,13 +317,13 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <span className="font-semibold block text-rose-300">Cannot Generate Code</span>
-                {validationErrors.length === 1 ? (
+                {effectiveValidationErrors.length === 1 ? (
                   <span className="text-[11px] text-rose-200/90 leading-relaxed block break-words mt-0.5">
-                    {validationErrors[0]}
+                    {effectiveValidationErrors[0]}
                   </span>
                 ) : (
                   <ul className="text-[11px] text-rose-200/90 leading-relaxed mt-1 list-disc list-inside space-y-0.5">
-                    {validationErrors.map((err, idx) => (
+                    {effectiveValidationErrors.map((err, idx) => (
                       <li key={idx} className="break-words">{err}</li>
                     ))}
                   </ul>
@@ -321,18 +338,18 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!isGenerating && isGraphValid !== false) {
+                  if (!isGenerating && effectiveIsGraphValid) {
                     onRegenerate();
                   }
                 }}
-                disabled={isGenerating || isGraphValid === false}
+                disabled={isGenerating || !effectiveIsGraphValid}
                 title={
-                  isGraphValid === false && validationErrors && validationErrors.length > 0
-                    ? `Cannot Generate Code:\n${validationErrors.join('\n')}`
+                  !effectiveIsGraphValid && effectiveValidationErrors.length > 0
+                    ? `Cannot Generate Code:\n${effectiveValidationErrors.join('\n')}`
                     : undefined
                 }
                 className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold flex-1 transition shadow-lg shadow-emerald-950/40 ${
-                  isGenerating || isGraphValid === false
+                  isGenerating || !effectiveIsGraphValid
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none opacity-80'
                     : 'bg-[#059669] hover:bg-[#10b981] active:bg-[#047857] text-white active:scale-[0.98] cursor-pointer'
                 }`}
@@ -360,7 +377,7 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
               </button>
             </div>
 
-            {isGraphValid === false && (
+            {!effectiveIsGraphValid && (
               <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1.5 font-medium">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
                 <span>Generation disabled: resolve diagram errors to continue</span>
@@ -391,6 +408,29 @@ export const SourceCodeTab: React.FC<SourceCodeTabProps> = ({
             <RefreshCw className="w-10 h-10 text-emerald-500 mb-3 animate-spin" />
             <p className="text-sm font-semibold mb-1 text-slate-300">Generating Pipeline Code...</p>
             <p className="text-xs max-w-sm text-slate-500">Gemini is building your Apache Beam source files. This will only take a moment...</p>
+          </div>
+        ) : !effectiveIsGraphValid && effectiveValidationErrors.length > 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-400" data-testid="codegen-preview-blocked">
+            <div className="p-3 bg-rose-950/40 rounded-full border border-rose-800/60 mb-3">
+              <AlertCircle className="w-8 h-8 text-rose-400" />
+            </div>
+            <p className="text-sm font-bold mb-1.5 text-rose-300">Cannot Generate {language} Code</p>
+            <div className="max-w-md bg-rose-950/30 border border-rose-900/60 rounded-lg p-3 text-left">
+              {effectiveValidationErrors.length === 1 ? (
+                <p className="text-xs text-rose-200/90 leading-relaxed">
+                  {effectiveValidationErrors[0]}
+                </p>
+              ) : (
+                <ul className="text-xs text-rose-200/90 leading-relaxed list-disc list-inside space-y-1">
+                  {effectiveValidationErrors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-3">
+              Switch the target language to <strong>Java</strong> or adjust diagram nodes to enable code generation.
+            </p>
           </div>
         ) : needsRebuild ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">

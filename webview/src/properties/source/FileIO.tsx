@@ -18,6 +18,10 @@ import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 
+/**
+ * Valid members of org.apache.beam.sdk.io.Compression for read operations.
+ * NOTE: TAR and XZ do not exist on Beam's Compression enum and were removed.
+ */
 export const BEAM_COMPRESSION_TYPES = [
   'AUTO',
   'UNCOMPRESSED',
@@ -25,8 +29,19 @@ export const BEAM_COMPRESSION_TYPES = [
   'GZIP',
   'ZIP',
   'DEFLATE',
-  'TAR',
-  'XZ',
+  'ZSTD'
+] as const;
+
+/**
+ * Valid members of org.apache.beam.sdk.io.Compression for write operations.
+ * NOTE: Compression.AUTO.writeCompressed() and Compression.ZIP.writeCompressed()
+ * both throw UnsupportedOperationException in Beam Java, so write panels must not offer them.
+ */
+export const BEAM_WRITE_COMPRESSION_TYPES = [
+  'UNCOMPRESSED',
+  'BZIP2',
+  'GZIP',
+  'DEFLATE',
   'ZSTD'
 ] as const;
 

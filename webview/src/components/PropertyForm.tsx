@@ -56,6 +56,32 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+import { TFRecordIOSourceProperties } from '../properties/source/TFRecordIO';
+import { TFRecordIOSinkProperties } from '../properties/sink/TFRecordIO';
+import { CsvIOSourceProperties } from '../properties/source/CsvIO';
+import { CsvIOSinkProperties } from '../properties/sink/CsvIO';
+import { XmlIOSourceProperties } from '../properties/source/XmlIO';
+import { XmlIOSinkProperties } from '../properties/sink/XmlIO';
+import { JsonIOSourceProperties } from '../properties/source/JsonIO';
+import { JsonIOSinkProperties } from '../properties/sink/JsonIO';
+import { ContextualTextIOSourceProperties } from '../properties/source/ContextualTextIO';
+import { ContextualTextIOSinkProperties } from '../properties/sink/ContextualTextIO';
+import { ThriftIOSourceProperties } from '../properties/source/ThriftIO';
+import { ThriftIOSinkProperties } from '../properties/sink/ThriftIO';
+import { HadoopFileSystemSourceProperties } from '../properties/source/HadoopFileSystem';
+import { HadoopFileSystemSinkProperties } from '../properties/sink/HadoopFileSystem';
+import { GcsFileSystemSourceProperties } from '../properties/source/GcsFileSystem';
+import { GcsFileSystemSinkProperties } from '../properties/sink/GcsFileSystem';
+import { LocalFileSystemSourceProperties } from '../properties/source/LocalFileSystem';
+import { LocalFileSystemSinkProperties } from '../properties/sink/LocalFileSystem';
+import { S3FileSystemSourceProperties } from '../properties/source/S3FileSystem';
+import { S3FileSystemSinkProperties } from '../properties/sink/S3FileSystem';
+import { AzureBlobStoreFileSystemSourceProperties } from '../properties/source/AzureBlobStoreFileSystem';
+import { AzureBlobStoreFileSystemSinkProperties } from '../properties/sink/AzureBlobStoreFileSystem';
+import { IcebergIOSourceProperties } from '../properties/source/IcebergIO';
+import { IcebergIOSinkProperties } from '../properties/sink/IcebergIO';
+import { TikaIOSourceProperties } from '../properties/source/TikaIO';
+import { TikaIOSinkProperties } from '../properties/sink/TikaIO';
 
 export interface PropertyFormProps {
   node: any;
@@ -84,6 +110,19 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:KinesisIO': KinesisIOSourceProperties,
   'SOURCE:ParquetIO': ParquetIOSourceProperties,
   'SOURCE:AvroIO': AvroIOSourceProperties,
+  'SOURCE:TFRecordIO': TFRecordIOSourceProperties,
+  'SOURCE:CsvIO': CsvIOSourceProperties,
+  'SOURCE:XmlIO': XmlIOSourceProperties,
+  'SOURCE:JsonIO': JsonIOSourceProperties,
+  'SOURCE:ContextualTextIO': ContextualTextIOSourceProperties,
+  'SOURCE:ThriftIO': ThriftIOSourceProperties,
+  'SOURCE:HadoopFileSystem': HadoopFileSystemSourceProperties,
+  'SOURCE:GcsFileSystem': GcsFileSystemSourceProperties,
+  'SOURCE:LocalFileSystem': LocalFileSystemSourceProperties,
+  'SOURCE:S3FileSystem': S3FileSystemSourceProperties,
+  'SOURCE:AzureBlobStoreFileSystem': AzureBlobStoreFileSystemSourceProperties,
+  'SOURCE:IcebergIO': IcebergIOSourceProperties,
+  'SOURCE:TikaIO': TikaIOSourceProperties,
   'SOURCE:SnsIO': SnsIOSourceProperties,
   'SOURCE:JmsIO': JmsIOSourceProperties,
   'SOURCE:SqsIO': SqsIOSourceProperties,
@@ -98,6 +137,9 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'ReadFromJms': JmsIOSourceProperties,
   'ReadDataFromKinesis': KinesisIOSourceProperties,
   'ReadFromParquet': ParquetIOSourceProperties,
+  'ReadFromTFRecord': TFRecordIOSourceProperties,
+  'ReadFromCsv': CsvIOSourceProperties,
+  'ReadFromJson': JsonIOSourceProperties,
   'ReadFromSqs': SqsIOSourceProperties,
   'ReadFromMqtt': MqttIOSourceProperties,
   'FileIO.match': FileIOSourceProperties,
@@ -117,6 +159,19 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:KinesisIO': KinesisIOSinkProperties,
   'SINK:ParquetIO': ParquetIOSinkProperties,
   'SINK:AvroIO': AvroIOSinkProperties,
+  'SINK:TFRecordIO': TFRecordIOSinkProperties,
+  'SINK:CsvIO': CsvIOSinkProperties,
+  'SINK:XmlIO': XmlIOSinkProperties,
+  'SINK:JsonIO': JsonIOSinkProperties,
+  'SINK:ContextualTextIO': ContextualTextIOSinkProperties,
+  'SINK:ThriftIO': ThriftIOSinkProperties,
+  'SINK:HadoopFileSystem': HadoopFileSystemSinkProperties,
+  'SINK:GcsFileSystem': GcsFileSystemSinkProperties,
+  'SINK:LocalFileSystem': LocalFileSystemSinkProperties,
+  'SINK:S3FileSystem': S3FileSystemSinkProperties,
+  'SINK:AzureBlobStoreFileSystem': AzureBlobStoreFileSystemSinkProperties,
+  'SINK:IcebergIO': IcebergIOSinkProperties,
+  'SINK:TikaIO': TikaIOSinkProperties,
   'SINK:SnsIO': SnsIOSinkProperties,
   'SINK:JmsIO': JmsIOSinkProperties,
   'SINK:SqsIO': SqsIOSinkProperties,
@@ -129,6 +184,9 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'WriteToJms': JmsIOSinkProperties,
   'WriteToKinesis': KinesisIOSinkProperties,
   'WriteToParquet': ParquetIOSinkProperties,
+  'WriteToTFRecord': TFRecordIOSinkProperties,
+  'WriteToCsv': CsvIOSinkProperties,
+  'WriteToJson': JsonIOSinkProperties,
   'WriteToSqs': SqsIOSinkProperties,
   'WriteToMqtt': MqttIOSinkProperties,
   'LogMessage': LogMessageProperties,

@@ -1,107 +1,102 @@
 nodes:
-- id: source-1
-  type: pipeline
-  position:
-    x: 100
-    y: 150
-  data:
-    label: Create
-    type: SOURCE
-    iconName: Box
-    beam_transform: Create
-    properties:
-      elements:
-      - '{"item": "widget", "price": 15.0}'
-      - '{"item": "gadget", "price": 25.0}'
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-parse
-  type: pipeline
-  position:
-    x: 320
-    y: 150
-  data:
-    label: Parse Message
-    type: STEP
-    iconName: FileCode
-    beam_transform: ParseMessage
-    properties:
-      format: JSON
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-combine
-  type: pipeline
-  position:
-    x: 540
-    y: 150
-  data:
-    label: Combine
-    type: STEP
-    iconName: BarChart
-    beam_transform: Combine
-    properties:
-      combineFn: SumDoubleFn
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-combine-context
-  type: pipeline
-  position:
-    x: 760
-    y: 150
-  data:
-    label: Combine With Context
-    type: STEP
-    iconName: BarChart
-    beam_transform: CombineWithContext
-    properties:
-      contextName: PipelineConfigContext
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: sink-log
-  type: pipeline
-  position:
-    x: 980
-    y: 150
-  data:
-    label: Log Message
-    type: SINK
-    iconName: Terminal
-    beam_transform: LogMessage
-    properties:
-      prefix: '[Combined-Output]'
-    system_instructions: ''
-  width: 180
-  height: 62
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"item": "widget", "price": 15.0}'
+          - '{"item": "gadget", "price": 25.0}'
+    width: 180
+    height: 62
+  - id: step-parse
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: Parse Message
+      type: STEP
+      iconName: FileCode
+      beam_transform: ParseMessage
+      properties:
+        format: JSON
+    width: 180
+    height: 62
+  - id: step-combine
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Combine
+      type: STEP
+      iconName: BarChart
+      beam_transform: Combine
+      properties:
+        combineFn: SumDoubleFn
+    width: 180
+    height: 62
+  - id: step-combine-context
+    type: pipeline
+    position:
+      x: 760
+      y: 150
+    data:
+      label: Combine With Context
+      type: STEP
+      iconName: BarChart
+      beam_transform: CombineWithContext
+      properties:
+        contextName: PipelineConfigContext
+    width: 180
+    height: 62
+  - id: sink-log
+    type: pipeline
+    position:
+      x: 980
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Combined-Output]"
+    width: 180
+    height: 62
 edges:
-- id: edge-source-1-to-step-parse
-  source: source-1
-  target: step-parse
-- id: edge-step-parse-to-step-combine
-  source: step-parse
-  target: step-combine
-- id: edge-step-combine-to-step-combine-context
-  source: step-combine
-  target: step-combine-context
-- id: edge-step-combine-context-to-sink-log
-  source: step-combine-context
-  target: sink-log
+  - id: edge-source-1-to-step-parse
+    source: source-1
+    target: step-parse
+  - id: edge-step-parse-to-step-combine
+    source: step-parse
+    target: step-combine
+  - id: edge-step-combine-to-step-combine-context
+    source: step-combine
+    target: step-combine-context
+  - id: edge-step-combine-context-to-sink-log
+    source: step-combine-context
+    target: sink-log
 runtimeVariables:
-- key: ENVIRONMENT
-  value: cloud-run
-- key: JOB_ID
-  value: combine-and-context-cloud-run
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: combine-and-context-cloud-run
 jobConfig:
   runner: DirectRunner
   machineType: n1-standard-1
   minInstances: 1
   maxInstances: 5
   gcsStagingPath: gs://my-bucket/staging/cloud-run
-  network: ''
-  subnetwork: ''
+  network: ""
+  subnetwork: ""
 pipelineConfig:
   language: Java
   outputFolder: pipelines/cloud-run/combine-and-context-cloud-run

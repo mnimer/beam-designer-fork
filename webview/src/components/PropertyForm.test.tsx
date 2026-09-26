@@ -893,6 +893,7 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
+    expect(screen.getByText('Output Data Type')).toBeInTheDocument();
   });
 
   it('renders ParDoProperties when beam_transform is ParDo', () => {

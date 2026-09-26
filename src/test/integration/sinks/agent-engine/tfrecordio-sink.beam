@@ -1,0 +1,77 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - feature_vector_1:0.5,0.8,0.1
+          - feature_vector_2:0.2,0.9,0.4
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Serialize each feature vector string into UTF-8 byte[]
+        (Java) or bytes (Python) for TFRecordIO write.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: TFRecordIO Write
+      type: SINK
+      iconName: FileCode
+      beam_transform: TFRecordIO
+      properties:
+        to: gs://my-bucket/tfrecords/processed/train
+        suffix: .tfrecord
+        compressionType: GZIP
+        coder: BytesCoder
+        numShards: "10"
+        shardTemplate: -SSSSS-of-NNNNN
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: tfrecordio-sink-agent-engine
+  - key: PROJECT_ID
+    value: my-project
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/tfrecordio-sink-agent-engine
+  needsRebuild: false

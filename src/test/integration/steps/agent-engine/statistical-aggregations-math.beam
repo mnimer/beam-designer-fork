@@ -1,128 +1,122 @@
 nodes:
-- id: source-1
-  type: pipeline
-  position:
-    x: 100
-    y: 150
-  data:
-    label: Create
-    type: SOURCE
-    iconName: Box
-    beam_transform: Create
-    properties:
-      elements:
-      - '12.5'
-      - '45.2'
-      - '88.7'
-      - '3.4'
-      - '99.1'
-      - '54.0'
-      - '72.8'
-      - '19.3'
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-min
-  type: pipeline
-  position:
-    x: 320
-    y: 150
-  data:
-    label: Min
-    type: STEP
-    iconName: BarChart
-    beam_transform: Min
-    properties: {}
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-max
-  type: pipeline
-  position:
-    x: 540
-    y: 150
-  data:
-    label: Max
-    type: STEP
-    iconName: BarChart
-    beam_transform: Max
-    properties: {}
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-mean
-  type: pipeline
-  position:
-    x: 760
-    y: 150
-  data:
-    label: Mean
-    type: STEP
-    iconName: BarChart
-    beam_transform: Mean
-    properties: {}
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: step-quantiles
-  type: pipeline
-  position:
-    x: 980
-    y: 150
-  data:
-    label: Approximate Quantiles
-    type: STEP
-    iconName: BarChart
-    beam_transform: ApproximateQuantiles
-    properties:
-      numQuantiles: 5
-    system_instructions: ''
-  width: 180
-  height: 62
-- id: sink-log
-  type: pipeline
-  position:
-    x: 1200
-    y: 150
-  data:
-    label: Log Message
-    type: SINK
-    iconName: Terminal
-    beam_transform: LogMessage
-    properties:
-      prefix: '[Stat-Agg]'
-    system_instructions: ''
-  width: 180
-  height: 62
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - "12.5"
+          - "45.2"
+          - "88.7"
+          - "3.4"
+          - "99.1"
+          - "54.0"
+          - "72.8"
+          - "19.3"
+    width: 180
+    height: 62
+  - id: step-min
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: Min
+      type: STEP
+      iconName: BarChart
+      beam_transform: Min
+      properties: {}
+    width: 180
+    height: 62
+  - id: step-max
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Max
+      type: STEP
+      iconName: BarChart
+      beam_transform: Max
+      properties: {}
+    width: 180
+    height: 62
+  - id: step-mean
+    type: pipeline
+    position:
+      x: 760
+      y: 150
+    data:
+      label: Mean
+      type: STEP
+      iconName: BarChart
+      beam_transform: Mean
+      properties: {}
+    width: 180
+    height: 62
+  - id: step-quantiles
+    type: pipeline
+    position:
+      x: 980
+      y: 150
+    data:
+      label: Approximate Quantiles
+      type: STEP
+      iconName: BarChart
+      beam_transform: ApproximateQuantiles
+      properties:
+        numQuantiles: 5
+    width: 180
+    height: 62
+  - id: sink-log
+    type: pipeline
+    position:
+      x: 1200
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Stat-Agg]"
+    width: 180
+    height: 62
 edges:
-- id: edge-source-1-to-step-min
-  source: source-1
-  target: step-min
-- id: edge-step-min-to-step-max
-  source: step-min
-  target: step-max
-- id: edge-step-max-to-step-mean
-  source: step-max
-  target: step-mean
-- id: edge-step-mean-to-step-quantiles
-  source: step-mean
-  target: step-quantiles
-- id: edge-step-quantiles-to-sink-log
-  source: step-quantiles
-  target: sink-log
+  - id: edge-source-1-to-step-min
+    source: source-1
+    target: step-min
+  - id: edge-step-min-to-step-max
+    source: step-min
+    target: step-max
+  - id: edge-step-max-to-step-mean
+    source: step-max
+    target: step-mean
+  - id: edge-step-mean-to-step-quantiles
+    source: step-mean
+    target: step-quantiles
+  - id: edge-step-quantiles-to-sink-log
+    source: step-quantiles
+    target: sink-log
 runtimeVariables:
-- key: ENVIRONMENT
-  value: agent-engine
-- key: JOB_ID
-  value: statistical-aggregations-math-agent-engine
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: statistical-aggregations-math-agent-engine
 jobConfig:
   runner: DirectRunner
   machineType: n1-standard-1
   minInstances: 1
   maxInstances: 5
   gcsStagingPath: gs://my-bucket/staging/agent-engine
-  network: ''
-  subnetwork: ''
+  network: ""
+  subnetwork: ""
 pipelineConfig:
   language: Java
   outputFolder: pipelines/agent-engine/statistical-aggregations-math-agent-engine

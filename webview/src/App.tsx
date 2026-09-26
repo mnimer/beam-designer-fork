@@ -33,6 +33,7 @@ import './App.css';
 import { PipelineNode, type PipelineNodeProps } from './components/PipelineNode';
 import { PropertyPane } from './components/PropertyPane';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { validateDiagramLanguageSupport } from './utils/nodeLanguageSupport';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 import { ThemeProvider } from './context/ThemeContext';
@@ -486,13 +487,24 @@ function App() {
     }
   }, []);
 
+  const languageValidation = useMemo(
+    () => validateDiagramLanguageSupport(nodes, pipelineConfig.language || 'Python'),
+    [nodes, pipelineConfig.language]
+  );
+
+  const isCodegenValid = dagValidation.isValid && languageValidation.isValid;
+  const combinedValidationErrors = useMemo(
+    () => Array.from(new Set([...dagValidation.errors, ...languageValidation.errors])),
+    [dagValidation.errors, languageValidation.errors]
+  );
+
   const handleRegenerate = useCallback(() => {
-    if (!dagValidation.isValid) {
-      console.warn('Blocked regenerateCode: DAG topology validation failed', dagValidation.errors);
+    if (!isCodegenValid) {
+      console.warn('Blocked regenerateCode: validation failed', combinedValidationErrors);
       return;
     }
     ipcRegenerate({ nodes, edges, runtimeVariables, jobConfig });
-  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, dagValidation]);
+  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, isCodegenValid, combinedValidationErrors]);
 
   // Resize state for Bottom Panel
   const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
@@ -751,8 +763,9 @@ function App() {
           onClearLogs={handleClearLogs}
           onOpenConsole={handleOpenConsole}
           projectId={projectId}
-          isGraphValid={dagValidation.isValid}
-          validationErrors={dagValidation.errors}
+          isGraphValid={isCodegenValid}
+          validationErrors={combinedValidationErrors}
+          nodes={nodes}
           tokenUsage={tokenUsage}
           onInteract={handleBottomPanelInteract}
         />

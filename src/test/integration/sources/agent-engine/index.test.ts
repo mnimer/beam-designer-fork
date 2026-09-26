@@ -18,6 +18,19 @@ import { runTextSourceTest } from './text-source.test';
 import { runCreateSourceTest } from './create-source.test';
 import { runGeneratesequenceSourceTest } from './generatesequence-source.test';
 import { runPeriodicimpulseSourceTest } from './periodicimpulse-source.test';
+import { runAzureblobstorefilesystemSourceTest } from './azureblobstorefilesystem-source.test';
+import { runContextualtextioSourceTest } from './contextualtextio-source.test';
+import { runCsvioSourceTest } from './csvio-source.test';
+import { runGcsfilesystemSourceTest } from './gcsfilesystem-source.test';
+import { runHadoopfilesystemSourceTest } from './hadoopfilesystem-source.test';
+import { runIcebergSourceTest } from './iceberg-source.test';
+import { runJsonioSourceTest } from './jsonio-source.test';
+import { runLocalfilesystemSourceTest } from './localfilesystem-source.test';
+import { runS3filesystemSourceTest } from './s3filesystem-source.test';
+import { runTfrecordioSourceTest } from './tfrecordio-source.test';
+import { runThriftioSourceTest } from './thriftio-source.test';
+import { runTikaioSourceTest } from './tikaio-source.test';
+import { runXmlioSourceTest } from './xmlio-source.test';
 
 export async function runAllSourcesAgentengineTests(): Promise<void> {
     console.log('Running all Source integration tests for agent-engine...');
@@ -37,6 +50,19 @@ export async function runAllSourcesAgentengineTests(): Promise<void> {
     await runCreateSourceTest();
     await runGeneratesequenceSourceTest();
     await runPeriodicimpulseSourceTest();
+    await runAzureblobstorefilesystemSourceTest();
+    await runContextualtextioSourceTest();
+    await runCsvioSourceTest();
+    await runGcsfilesystemSourceTest();
+    await runHadoopfilesystemSourceTest();
+    await runIcebergSourceTest();
+    await runJsonioSourceTest();
+    await runLocalfilesystemSourceTest();
+    await runS3filesystemSourceTest();
+    await runTfrecordioSourceTest();
+    await runThriftioSourceTest();
+    await runTikaioSourceTest();
+    await runXmlioSourceTest();
 }
 
 describe('Sources Suite (agent-engine)', () => {
