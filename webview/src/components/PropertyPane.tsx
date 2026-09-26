@@ -50,6 +50,7 @@ export interface PropertyPaneProps {
   onLabelChange?: (label: string) => void;
   runtimeVariables: { key: string; value: string }[];
   onAddKVMapper?: (windowNodeId: string) => void;
+  onAddPubSubSource?: (targetNodeId: string) => void;
   width?: number;
   onResizeStart?: (e: React.MouseEvent) => void;
   onClose?: () => void;
@@ -64,6 +65,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({
   onLabelChange,
   runtimeVariables,
   onAddKVMapper,
+  onAddPubSubSource,
   width,
   onResizeStart,
   onClose
@@ -144,7 +146,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({
       {/* Scrollable Form Area */}
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1">
         <ErrorBoundary fallbackTitle="Error loading node properties">
-          <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />
+          <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} onAddPubSubSource={onAddPubSubSource} />
         </ErrorBoundary>
       </div>
 

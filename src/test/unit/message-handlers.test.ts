@@ -61,6 +61,21 @@ vi.mock('vscode', () => {
     };
 });
 
+vi.mock('child_process', () => {
+    return {
+        execFile: vi.fn((_bin: string, _args: string[], _opts: any, cb: any) => {
+            const callback = typeof _opts === 'function' ? _opts : cb;
+            callback(
+                null,
+                JSON.stringify([
+                    { name: 'projects/test-project/locations/us-central1/datasets/fhir-dataset' }
+                ]),
+                ''
+            );
+        })
+    };
+});
+
 import * as vscode from 'vscode';
 import {
     MESSAGE_HANDLERS,
@@ -69,6 +84,7 @@ import {
     handleShowOutputChannel,
     handleOpenExternal,
     handleGetTables,
+    handleGetHealthcareDatasets,
     handleStopPipeline,
     handleStopCodeGeneration
 } from '../../extension';
@@ -78,6 +94,7 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
         'getAwsQueues',
         'getComputeInstances',
         'getDatasets',
+        'getHealthcareDatasets',
         'getNetworks',
         'getRunningJobs',
         'getSamples',
@@ -106,10 +123,10 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
     });
 
     describe('Registry completeness and structure', () => {
-        it('exposes exactly the 24 expected webview commands (simple case)', () => {
+        it('exposes exactly the 25 expected webview commands (simple case)', () => {
             const actualCommands = Object.keys(MESSAGE_HANDLERS).sort();
             expect(actualCommands).toEqual(EXPECTED_COMMANDS);
-            expect(actualCommands).toHaveLength(24);
+            expect(actualCommands).toHaveLength(25);
         });
 
         it('every registered entry is a callable handler function (extreme case)', () => {
@@ -315,6 +332,25 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
 
             await handleStopCodeGeneration(ctx, { command: 'stopCodeGeneration' });
             expect(postToWebviewMock).toHaveBeenCalledWith({ command: 'codeGenerationStopped' });
+        });
+    });
+
+    describe('Direct handler execution: handleGetHealthcareDatasets', () => {
+        it('executes gcloud healthcare datasets list and posts healthcareDatasetsLoaded (simple case)', async () => {
+            const postToWebviewMock = vi.fn();
+            const ctx: MessageContext = {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: postToWebviewMock
+            };
+
+            await handleGetHealthcareDatasets(ctx, { command: 'getHealthcareDatasets', location: 'us-central1' });
+            expect(postToWebviewMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    command: 'healthcareDatasetsLoaded',
+                    datasets: expect.any(Array)
+                })
+            );
         });
     });
 });

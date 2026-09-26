@@ -87,6 +87,9 @@ export const SECRET_REFERENCE_KEYS: ReadonlySet<string> = new Set([
   'tokensecret',
   'credentialssecret',
   'apikeysecret',
+  'developertokensecret',
+  'clientsecretsecret',
+  'refreshtokensecret',
 ]);
 
 /**

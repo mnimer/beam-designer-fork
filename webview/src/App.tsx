@@ -210,6 +210,7 @@ function App() {
     handleApplyProperties,
     handleNodeLabelChange,
     handleAddKVMapper,
+    handleAddPubSubSource,
     onLayout,
     onDrop,
     handleAddNode,
@@ -771,18 +772,19 @@ function App() {
         />
 
         {/* Property Pane taking full height of window, over tabs on bottom */}
-        {selectedNodeId && nodes.find((n) => n.id === selectedNodeId) && (
+        {selectedNodeId && displayNodes.find((n) => n.id === selectedNodeId) && (
           <div
             className="absolute right-0 top-0 bottom-0 z-40 shadow-2xl flex"
             style={{ width: `${propertyPanelWidth}px` }}
           >
             <ErrorBoundary fallbackTitle="Property Panel Error">
               <PropertyPane
-                node={nodes.find((n) => n.id === selectedNodeId)!}
+                node={displayNodes.find((n) => n.id === selectedNodeId)!}
                 onChange={(props) => handleApplyProperties(selectedNodeId, props)}
                 onLabelChange={(newLabel) => handleNodeLabelChange(selectedNodeId, newLabel)}
                 runtimeVariables={runtimeVariables}
                 onAddKVMapper={handleAddKVMapper}
+                onAddPubSubSource={handleAddPubSubSource}
                 width={propertyPanelWidth}
                 onResizeStart={handlePropertyPanelResizeStart}
                 onClose={() => setSelectedNodeId(null)}

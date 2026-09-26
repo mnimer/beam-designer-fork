@@ -27,6 +27,7 @@ export interface PipelineNodeData {
   system_instructions?: string;
   properties?: Record<string, any>;
   hasCycle?: boolean;
+  hasValidationError?: boolean;
   isOrphan?: boolean;
   validationError?: string;
   validationWarning?: string;
@@ -222,6 +223,55 @@ export function usePipelineGraph({
       // Update both nodes and edges states
       setNodes((nds) => nds.concat(newKVMapperNode));
       setEdges(updatedEdges);
+      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+    },
+    [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
+  );
+
+  /**
+   * Inserts a PubSubIO Source node in front of a target node (e.g. FhirIO with readResources()).
+   */
+  const handleAddPubSubSource = useCallback(
+    (targetNodeId: string) => {
+      const targetNode = nodes.find((n) => n.id === targetNodeId);
+      if (!targetNode) return;
+
+      // Avoid adding a duplicate upstream PubSubIO if one is already connected
+      const alreadyConnected = edges.some((e) => {
+        if (e.target !== targetNodeId) return false;
+        const src = nodes.find((n) => n.id === e.source);
+        return src?.data?.beam_transform === 'PubSubIO' || src?.data?.label?.includes('PubSub');
+      });
+      if (alreadyConnected) return;
+
+      const pubSubId = `pubsub_${Date.now()}`;
+      const newPubSubNode: PipelineNode = {
+        id: pubSubId,
+        type: 'pipeline',
+        position: {
+          x: targetNode.position.x - 250,
+          y: targetNode.position.y,
+        },
+        data: {
+          label: 'PubSub',
+          type: 'SOURCE',
+          iconName: 'Radio',
+          beam_transform: 'PubSubIO',
+          properties: {
+            readMode: 'subscription',
+          },
+        },
+      };
+
+      const connectorEdge: Edge = {
+        id: `e-${pubSubId}-${targetNodeId}`,
+        source: pubSubId,
+        target: targetNodeId,
+      };
+
+      takeSnapshot();
+      setNodes((nds) => nds.concat(newPubSubNode));
+      setEdges((eds) => eds.concat(connectorEdge));
       setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
     },
     [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
@@ -579,12 +629,34 @@ export function usePipelineGraph({
   const displayNodes = useMemo(() => {
     const cycleSet = new Set(dagValidation.cycleNodeIds);
     const orphanSet = new Set(dagValidation.orphanNodeIds);
+    const missingUpstreamSet = new Set(dagValidation.missingUpstreamNodeIds || []);
+    const invalidUpstreamSet = new Set(dagValidation.invalidUpstreamNodeIds || []);
 
     return nodes.map((node) => {
+      const isMissingUpstream = missingUpstreamSet.has(node.id);
+      const isInvalidUpstream = invalidUpstreamSet.has(node.id);
       const hasCycle = cycleSet.has(node.id);
+      const hasValidationError = isMissingUpstream || isInvalidUpstream;
       const isOrphan = orphanSet.has(node.id);
+      const isDicom =
+        node.data?.beam_transform === 'DicomIO' || node.data?.label?.includes('DicomIO');
+      const transformName = isDicom ? 'DicomIO' : 'FhirIO';
+      const requiredMode = isDicom ? 'readStudyMetadata' : 'readResources';
+      const readMode = node.data?.properties?.readMode || requiredMode;
+      const validationError = isMissingUpstream
+        ? `${transformName}.${requiredMode}() requires an upstream PubSubIO node connected in front of it.`
+        : isInvalidUpstream
+        ? `${transformName}.${readMode}() does not accept an upstream connection. Remove the connected upstream node or switch back to ${transformName}.${requiredMode}().`
+        : hasCycle
+        ? dagValidation.errors[0]
+        : undefined;
 
-      if (node.data.hasCycle === hasCycle && node.data.isOrphan === isOrphan) {
+      if (
+        node.data.hasCycle === hasCycle &&
+        node.data.hasValidationError === hasValidationError &&
+        node.data.isOrphan === isOrphan &&
+        node.data.validationError === validationError
+      ) {
         return node;
       }
 
@@ -593,23 +665,26 @@ export function usePipelineGraph({
         data: {
           ...node.data,
           hasCycle,
+          hasValidationError,
           isOrphan,
-          validationError: hasCycle ? dagValidation.errors[0] : undefined,
+          validationError,
           validationWarning: isOrphan ? 'Orphan node: disconnected from pipeline' : undefined,
         },
       };
     });
   }, [nodes, dagValidation]);
 
-  // Decorate edges participating in cycles with animated red styling
+  // Decorate edges participating in cycles or invalid upstream connections with red styling
   const displayEdges = useMemo(() => {
     const cycleEdgeSet = new Set(dagValidation.cycleEdgeIds);
     const cycleNodeSet = new Set(dagValidation.cycleNodeIds);
+    const invalidUpstreamSet = new Set(dagValidation.invalidUpstreamNodeIds || []);
 
     return edges.map((edge) => {
       const isCycleEdge =
         cycleEdgeSet.has(edge.id) ||
         (cycleNodeSet.has(edge.source) && cycleNodeSet.has(edge.target));
+      const isInvalidUpstreamEdge = invalidUpstreamSet.has(edge.target);
 
       if (isCycleEdge) {
         return {
@@ -619,6 +694,17 @@ export function usePipelineGraph({
             ...edge.style,
             stroke: '#f43f5e',
             strokeWidth: 2.5,
+          },
+        };
+      }
+      if (isInvalidUpstreamEdge) {
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: '#ef4444',
+            strokeDasharray: '5,5',
+            strokeWidth: 2,
           },
         };
       }
@@ -648,6 +734,7 @@ export function usePipelineGraph({
     handleApplyProperties,
     handleNodeLabelChange,
     handleAddKVMapper,
+    handleAddPubSubSource,
     onLayout,
     onDrop,
     handleAddNode,

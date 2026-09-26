@@ -23,6 +23,7 @@ export type AssetType =
   | 'topics'
   | 'subscriptions'
   | 'secrets'
+  | 'healthcareDatasets'
   | 'awsQueues'
   | 'queues'
   | 'storageBuckets'
@@ -67,6 +68,11 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
     requestCommand: 'getSecrets',
     responseCommand: 'secretsLoaded',
     responseKey: 'secrets'
+  },
+  healthcareDatasets: {
+    requestCommand: 'getHealthcareDatasets',
+    responseCommand: 'healthcareDatasetsLoaded',
+    responseKey: 'datasets'
   },
   awsQueues: {
     requestCommand: 'getAwsQueues',

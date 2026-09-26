@@ -57,6 +57,17 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+import { FhirIOSourceProperties } from '../properties/source/FhirIO';
+import { FhirIOSinkProperties } from '../properties/sink/FhirIO';
+import { HL7v2IOSourceProperties } from '../properties/source/HL7v2IO';
+import { HL7v2IOSinkProperties } from '../properties/sink/HL7v2IO';
+import { DicomIOSourceProperties } from '../properties/source/DicomIO';
+import { DicomIOSinkProperties } from '../properties/sink/DicomIO';
+import { SplunkIOSinkProperties } from '../properties/sink/SplunkIO';
+import { GoogleAdsIOSourceProperties } from '../properties/source/GoogleAdsIO';
+import { RequestResponseIOSourceProperties } from '../properties/source/RequestResponseIO';
+import { RequestResponseIOSinkProperties } from '../properties/sink/RequestResponseIO';
+import { DatadogIOSinkProperties } from '../properties/sink/DatadogIO';
 import { AmqpIOSourceProperties } from '../properties/source/AmqpIO';
 import { AmqpIOSinkProperties } from '../properties/sink/AmqpIO';
 import { RabbitMqIOSourceProperties } from '../properties/source/RabbitMqIO';
@@ -97,6 +108,7 @@ export interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
   onAddKVMapper?: (windowNodeId: string) => void;
+  onAddPubSubSource?: (targetNodeId: string) => void;
 }
 
 /**
@@ -137,6 +149,13 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:JmsIO': JmsIOSourceProperties,
   'SOURCE:SqsIO': SqsIOSourceProperties,
   'SOURCE:MqttIO': MqttIOSourceProperties,
+  'SOURCE:FhirIO': FhirIOSourceProperties,
+  'SOURCE:HL7v2IO': HL7v2IOSourceProperties,
+  'SOURCE:DicomIO': DicomIOSourceProperties,
+  'SOURCE:GoogleAdsIO': GoogleAdsIOSourceProperties,
+  'SOURCE:RequestResponseIO': RequestResponseIOSourceProperties,
+  'SOURCE:WebAPIs': RequestResponseIOSourceProperties,
+  'SOURCE:Web APIs (RequestResponseIO)': RequestResponseIOSourceProperties,
   'SOURCE:AmqpIO': AmqpIOSourceProperties,
   'SOURCE:RabbitMqIO': RabbitMqIOSourceProperties,
   'SOURCE:PulsarIO': PulsarIOSourceProperties,
@@ -157,6 +176,8 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'ReadFromJson': JsonIOSourceProperties,
   'ReadFromSqs': SqsIOSourceProperties,
   'ReadFromMqtt': MqttIOSourceProperties,
+  'DicomSearch': DicomIOSourceProperties,
+  'GoogleAdsIO': GoogleAdsIOSourceProperties,
   'FileIO.match': FileIOSourceProperties,
   'GenerateSequence': GenerateSequenceProperties,
   'PeriodicImpulse': PeriodicImpulseProperties,
@@ -191,6 +212,15 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:JmsIO': JmsIOSinkProperties,
   'SINK:SqsIO': SqsIOSinkProperties,
   'SINK:MqttIO': MqttIOSinkProperties,
+  'SINK:FhirIO': FhirIOSinkProperties,
+  'SINK:HL7v2IO': HL7v2IOSinkProperties,
+  'SINK:DicomIO': DicomIOSinkProperties,
+  'SINK:SplunkIO': SplunkIOSinkProperties,
+  'SINK:RequestResponseIO': RequestResponseIOSinkProperties,
+  'SINK:WebAPIs': RequestResponseIOSinkProperties,
+  'SINK:Web APIs (RequestResponseIO)': RequestResponseIOSinkProperties,
+  'SINK:DatadogIO': DatadogIOSinkProperties,
+  'SINK:DatadogWrite': DatadogIOSinkProperties,
   'SINK:AmqpIO': AmqpIOSinkProperties,
   'SINK:RabbitMqIO': RabbitMqIOSinkProperties,
   'SINK:PulsarIO': PulsarIOSinkProperties,
@@ -208,6 +238,10 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'WriteToJson': JsonIOSinkProperties,
   'WriteToSqs': SqsIOSinkProperties,
   'WriteToMqtt': MqttIOSinkProperties,
+  'UploadToDicomStore': DicomIOSinkProperties,
+  'SplunkIO': SplunkIOSinkProperties,
+  'DatadogIO': DatadogIOSinkProperties,
+  'DatadogWrite': DatadogIOSinkProperties,
   'LogMessage': LogMessageProperties,
 
   // Steps & Core Transforms (with and without STEP: prefix)
@@ -295,7 +329,8 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
  * 1. Type-qualified key: `${nodeType}:${transform}` (e.g. "SOURCE:PubSubIO", "SINK:BigQueryIO")
  * 2. Direct transform key: `${transform}` (e.g. "ParDo", "WindowInto", "ReadFromKafka")
  * 
- * NOTE: Does NOT fall back to label matching under any circumstances.
+ * NOTE: Does NOT fall back to label matching under any circumstances, nor does it allow
+ * a SOURCE node to fall back to a SINK-only transform (or vice versa).
  * 
  * @param node - React Flow node object
  * @returns Registered React component or undefined if unregistered
@@ -314,6 +349,11 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
     if (PROPERTY_FORM_REGISTRY[qualifiedKey]) {
       return PROPERTY_FORM_REGISTRY[qualifiedKey];
     }
+    // Prevent cross-direction fallback when an opposite direction is explicitly registered
+    const oppositeType = nodeType === 'SOURCE' ? 'SINK' : nodeType === 'SINK' ? 'SOURCE' : '';
+    if (oppositeType && PROPERTY_FORM_REGISTRY[`${oppositeType}:${transform}`]) {
+      return undefined;
+    }
   }
 
   // 2. Try direct transform key (e.g. "ParDo", "WindowInto", "ReadFromKafka")
@@ -328,7 +368,12 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
  * Container component that dispatches specific node property sheets based on immutable node metadata.
  * Renders an explicit unregistered message when no matching registry entry is found.
  */
-export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
+export const PropertyForm: React.FC<PropertyFormProps> = ({
+  node,
+  onChange,
+  onAddKVMapper,
+  onAddPubSubSource
+}) => {
   const Component = getPropertyFormComponent(node);
 
   if (!Component) {
@@ -341,5 +386,12 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     );
   }
 
-  return <Component node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
+  return (
+    <Component
+      node={node}
+      onChange={onChange}
+      onAddKVMapper={onAddKVMapper}
+      onAddPubSubSource={onAddPubSubSource}
+    />
+  );
 };

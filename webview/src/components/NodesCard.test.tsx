@@ -537,6 +537,7 @@ describe('NodesCard', () => {
       expect(screen.getByText('TikaIO')).toBeInTheDocument();
       expect(screen.getAllByText('Iceberg').length).toBeGreaterThan(0);
       expect(screen.getByText('Read records from Avro files')).toBeInTheDocument();
+      expect(screen.getByText('File Sources')).toBeInTheDocument();
 
       rerender(
         <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
@@ -546,7 +547,7 @@ describe('NodesCard', () => {
       expect(screen.getByText('TikaIO')).toBeInTheDocument();
       expect(screen.getAllByText('Iceberg').length).toBeGreaterThan(0);
       expect(screen.getByText('Write records to Avro files')).toBeInTheDocument();
-      expect(screen.queryByText('Data Services Sinks')).not.toBeInTheDocument();
+      expect(screen.getByText('File Sinks')).toBeInTheDocument();
     });
 
     it('collapses other groups when a user opens/expands a group in a panel', () => {
@@ -568,6 +569,49 @@ describe('NodesCard', () => {
       // The second group should now be open, and the first group must be collapsed
       expect(detailsList[1].open).toBe(true);
       expect(detailsList[0].open).toBe(false);
+    });
+
+    it('renders Healthcare, SaaS & Observability native Source and Sink nodes and omits unsupported directions', () => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      // Categories in SOURCES
+      expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
+      expect(screen.getByText('Database Sources')).toBeInTheDocument();
+      expect(screen.getByText('Data Services Sources')).toBeInTheDocument();
+
+      // Native Source nodes
+      expect(screen.getByText('FhirIO')).toBeInTheDocument();
+      expect(screen.getByText('HL7v2IO')).toBeInTheDocument();
+      expect(screen.getByText('DicomIO')).toBeInTheDocument();
+      expect(screen.getByText('GoogleAdsIO')).toBeInTheDocument();
+      expect(screen.getByText('Web APIs (RequestResponseIO)')).toBeInTheDocument();
+
+      // Unsupported Source directions must NOT appear in SOURCES
+      expect(screen.queryByText('SplunkIO')).not.toBeInTheDocument();
+      expect(screen.queryByText('DatadogIO')).not.toBeInTheDocument();
+
+      // Switch to SINKS tab
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      // Categories in SINKS
+      expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+      expect(screen.getByText('Data Services Sinks')).toBeInTheDocument();
+      expect(screen.getByText('Logging Sinks')).toBeInTheDocument();
+
+      // Native Sink nodes
+      expect(screen.getByText('FhirIO')).toBeInTheDocument();
+      expect(screen.getByText('HL7v2IO')).toBeInTheDocument();
+      expect(screen.getByText('DicomIO')).toBeInTheDocument();
+      expect(screen.getByText('Web APIs (RequestResponseIO)')).toBeInTheDocument();
+      expect(screen.getByText('SplunkIO')).toBeInTheDocument();
+      expect(screen.getByText('DatadogIO')).toBeInTheDocument();
+
+      // Unsupported Sink direction must NOT appear in SINKS
+      expect(screen.queryByText('GoogleAdsIO')).not.toBeInTheDocument();
     });
   });
 
@@ -615,7 +659,7 @@ describe('NodesCard', () => {
         <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
       );
 
-      expect(screen.queryByText('Data Services Sinks')).not.toBeInTheDocument();
+      expect(screen.getByText('Data Services Sinks')).toBeInTheDocument();
       expect(screen.queryByText('Configure Flink runner egress adapter for impulse pipelines (Python)')).not.toBeInTheDocument();
     });
 

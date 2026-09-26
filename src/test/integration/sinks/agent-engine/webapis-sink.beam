@@ -1,0 +1,81 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"orderId": "ord-1001", "sku": "item-alpha", "quantity": 2}'
+          - '{"orderId": "ord-1002", "sku": "item-beta", "quantity": 5}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Format mock order records into JSON fulfillment dispatch
+        envelopes with timestamp and correlation ID.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Web APIs (RequestResponseIO)
+      type: SINK
+      iconName: Cloud
+      beam_transform: RequestResponseIO
+      properties:
+        endpointUrl: https://api.fulfillment.internal/v1/dispatch
+        httpMethod: POST
+        requestCoder: JsonUtf8Coder
+        responseCoder: JsonUtf8Coder
+        authMode: secretManager
+        secretName: fulfillment-api-write-token
+        authHeaderName: Authorization
+        timeout: 30
+        enableRepeater: true
+        enableThrottler: true
+        overloadRatio: 2
+        enableCache: false
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: webapis-sink-agent-engine
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/webapis-sink-agent-engine
+  needsRebuild: false

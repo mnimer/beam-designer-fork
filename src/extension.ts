@@ -2554,6 +2554,54 @@ export async function handleGetSecrets(ctx: MessageContext, _message: any): Prom
 }
 
 /**
+ * Maps parsed JSON output from `gcloud healthcare datasets list --format=json`
+ * into an array of Cloud Healthcare dataset resource names
+ * (e.g. `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}`).
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param json Parsed JSON array from gcloud healthcare datasets list
+ * @returns Array of non-empty dataset resource name strings
+ */
+export function mapHealthcareDatasetItems(json: any): string[] {
+    if (!Array.isArray(json)) {
+        return [];
+    }
+    return json
+        .map((d: any) => (typeof d?.name === 'string' ? d.name.trim() : ''))
+        .filter((name: string) => name.length > 0);
+}
+
+/**
+ * Handler for 'getHealthcareDatasets' command.
+ * Fetches Google Cloud Healthcare API datasets via `gcloud healthcare datasets list --format=json`.
+ * Supports an optional validated `location` filter parameter.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param message Incoming IPC message containing optional `location`
+ */
+export async function handleGetHealthcareDatasets(ctx: MessageContext, message: any): Promise<void> {
+    const rawLocation = typeof message?.location === 'string' ? message.location.trim() : '';
+    const validLocation = /^[a-zA-Z0-9-]+$/.test(rawLocation) ? rawLocation : '';
+    await listAssets(
+        'gcloud',
+        [
+            'healthcare',
+            'datasets',
+            'list',
+            ...(validLocation ? [`--location=${validLocation}`] : []),
+            '--format=json'
+        ],
+        mapHealthcareDatasetItems,
+        'healthcareDatasetsLoaded',
+        'datasets',
+        ctx.postToWebview
+    );
+}
+
+/**
  * Handler for 'getAwsQueues' command.
  * Fetches AWS SQS queues via AWS CLI.
  *
@@ -3482,6 +3530,7 @@ export const MESSAGE_HANDLERS: Record<string, MessageHandler> = {
     getSubnetworks: handleGetSubnetworks,
     getStorageBuckets: handleGetStorageBuckets,
     getSecrets: handleGetSecrets,
+    getHealthcareDatasets: handleGetHealthcareDatasets,
     getAwsQueues: handleGetAwsQueues,
     getComputeInstances: handleGetComputeInstances,
     ready: handleReady,
