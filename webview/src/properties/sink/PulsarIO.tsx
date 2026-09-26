@@ -33,14 +33,14 @@ import { PulsarAuthFields } from '../../components/common/pulsar/PulsarAuthField
 import type { PulsarAuthMode, SecretItem } from '../../components/common/pulsar/PulsarAuthFields';
 
 export type { SecretItem, PulsarAuthMode };
-export type PulsarValueType = 'String' | 'ByteArray' | 'Avro' | 'JSON' | 'Custom';
+export type PulsarValueType = 'String' | 'UTF8String' | 'ByteArray' | 'Avro' | 'JSON' | 'Protobuf';
 
 export interface PulsarIOSinkPropertiesData {
   clientUrl?: string; topic?: string; authMode?: PulsarAuthMode;
   tokenSecretName?: string;
   oauthIssuerUrl?: string; oauthAudience?: string; oauthKeySecretName?: string;
   tlsCertSecretName?: string; tlsKeySecretName?: string; tlsTrustCertSecretName?: string;
-  valueType?: PulsarValueType; customValueType?: string;
+  valueType?: PulsarValueType;
   expansionServiceMode?: 'auto' | 'endpoint'; expansionServiceEndpoint?: string;
   system_instructions?: string; special_instructions?: string;
   codeGenerationPrompt?: string; prompt?: string;
@@ -77,7 +77,7 @@ export const PulsarIOSinkProperties: React.FC<PulsarIOSinkPropertiesProps> = ({ 
   const { clientUrl = '', topic = '', authMode = 'none' } = properties;
   const { tokenSecretName = '', oauthIssuerUrl = '', oauthAudience = '' } = properties;
   const { oauthKeySecretName = '', tlsCertSecretName = '', tlsKeySecretName = '', tlsTrustCertSecretName = '' } = properties;
-  const { valueType = 'String', customValueType = '' } = properties;
+  const { valueType = 'String' } = properties;
   const { expansionServiceMode = 'auto', expansionServiceEndpoint = '' } = properties;
 
   const [secrets, setSecrets] = useState<SecretItem[]>([]);
@@ -148,8 +148,6 @@ export const PulsarIOSinkProperties: React.FC<PulsarIOSinkPropertiesProps> = ({ 
     : isTopicFormatInvalid
       ? 'Topic must follow format (persistent|non-persistent)://tenant/namespace/topic (e.g. persistent://public/default/my-topic).'
       : null;
-
-  const isCustomValueTypeMissing = valueType === 'Custom' && !customValueType.trim();
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -231,27 +229,9 @@ export const PulsarIOSinkProperties: React.FC<PulsarIOSinkPropertiesProps> = ({ 
             <option value="ByteArray">Byte Array (byte[])</option>
             <option value="JSON">JSON Document</option>
             <option value="Avro">Apache Avro Schema</option>
-            <option value="Custom">Custom Coder / Formatter...</option>
+            <option value="Protobuf">Protocol Buffers (Protobuf)</option>
           </select>
         </div>
-
-        {valueType === 'Custom' && (
-          <PropertyField
-            id="pulsar-sink-custom-value-type"
-            name="customValueType"
-            label="Custom Formatter / Coder Class"
-            required="Custom formatter class is required."
-            tooltip="Fully qualified class name for the custom payload encoder or Beam Coder."
-            aria-required="true"
-            aria-invalid={isCustomValueTypeMissing}
-            value={customValueType}
-            onChange={handleChange}
-            placeholder="com.example.beam.pulsar.CustomMessageFormatter"
-            invalid={isCustomValueTypeMissing}
-            error={isCustomValueTypeMissing ? 'Custom formatter class is required.' : null}
-            mono={true}
-          />
-        )}
       </div>
 
       {/* 5. Python Cross-Language (x-lang) Expansion Service */}

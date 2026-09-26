@@ -350,20 +350,22 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
           mono={true}
         />
 
-        {/* Username */}
+        {/* Username via Secret Manager */}
         <PropertyField
           id="solace-sink-username"
           name="username"
-          label="Username"
+          label="Username (Secret Manager)"
           value={username}
           onChange={handleChange}
-          placeholder="e.g. solace-publisher-user"
+          placeholder="e.g. solace-username-secret"
           required="Username is required."
           aria-required="true"
           aria-invalid={isUsernameMissing}
           invalid={isUsernameMissing}
           error={isUsernameMissing ? 'Username is required.' : null}
-          tooltip="Client username for basic authentication to the Solace broker."
+          datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
+          loading={isLoadingSecrets}
+          tooltip="Google Cloud Secret Manager secret resource containing the client username for basic authentication to the Solace broker."
           mono={true}
         />
 
@@ -403,6 +405,8 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
             invalid={isPasswordSecretMissing}
             error={isPasswordSecretMissing ? 'Password secret is required.' : (secretError || null)}
             list="solace-sink-secrets-datalist"
+            datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
+            loading={isLoadingSecrets}
             helperText={
               <span>
                 Values auto-populated from{' '}
@@ -413,15 +417,7 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
               </span>
             }
             mono={true}
-          >
-            <datalist id="solace-sink-secrets-datalist">
-              {secrets.map((sec, idx) => (
-                <option key={`${sec.name}-${idx}`} value={sec.value || sec.name}>
-                  {sec.fullName ? `${sec.name} (${sec.fullName})` : sec.name}
-                </option>
-              ))}
-            </datalist>
-          </PropertyField>
+          />
           {/* NOTE: Generated code resolves the secret from Google Cloud Secret Manager at runtime. */}
           {secretError && (
             <span className="text-xs text-red-400 mt-1" role="alert">

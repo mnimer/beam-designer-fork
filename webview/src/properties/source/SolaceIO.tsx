@@ -100,7 +100,6 @@ export const SolaceIOSourceProperties: React.FC<SolaceIOSourcePropertiesProps> =
   const topic = properties.topic || '';
   const maxNumConnections = properties.maxNumConnections ?? '';
   const deduplicateRecords = properties.deduplicateRecords ?? false;
-  const timestampFn = properties.timestampFn || '';
   const expansionServiceMode = properties.expansionServiceMode || 'auto';
   const expansionServiceEndpoint = properties.expansionServiceEndpoint || '';
 
@@ -399,20 +398,22 @@ export const SolaceIOSourceProperties: React.FC<SolaceIOSourcePropertiesProps> =
           mono={true}
         />
 
-        {/* Username */}
+        {/* Username via Secret Manager */}
         <PropertyField
           id="solace-source-username"
           name="username"
-          label="Username"
+          label="Username (Secret Manager)"
           value={username}
           onChange={handleChange}
-          placeholder="e.g. solace-client-user"
+          placeholder="e.g. solace-username-secret"
           required="Username is required."
           aria-required="true"
           aria-invalid={isUsernameMissing}
           invalid={isUsernameMissing}
           error={isUsernameMissing ? 'Username is required.' : null}
-          tooltip="Client username for basic authentication to the Solace broker."
+          datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
+          loading={isLoadingSecrets}
+          tooltip="Google Cloud Secret Manager secret resource containing the client username for basic authentication to the Solace broker."
           mono={true}
         />
 
@@ -452,6 +453,8 @@ export const SolaceIOSourceProperties: React.FC<SolaceIOSourcePropertiesProps> =
             invalid={isPasswordSecretMissing}
             error={isPasswordSecretMissing ? 'Password secret is required.' : (secretError || null)}
             list="solace-source-secrets-datalist"
+            datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
+            loading={isLoadingSecrets}
             helperText={
               <span>
                 Values auto-populated from{' '}
@@ -462,15 +465,7 @@ export const SolaceIOSourceProperties: React.FC<SolaceIOSourcePropertiesProps> =
               </span>
             }
             mono={true}
-          >
-            <datalist id="solace-source-secrets-datalist">
-              {secrets.map((sec, idx) => (
-                <option key={`${sec.name}-${idx}`} value={sec.value || sec.name}>
-                  {sec.fullName ? `${sec.name} (${sec.fullName})` : sec.name}
-                </option>
-              ))}
-            </datalist>
-          </PropertyField>
+          />
           {/* NOTE: Generated code resolves the secret from Google Cloud Secret Manager at runtime. */}
           {secretError && (
             <span className="text-xs text-red-400 mt-1" role="alert">
@@ -558,34 +553,19 @@ export const SolaceIOSourceProperties: React.FC<SolaceIOSourcePropertiesProps> =
           <span>Stream Performance & Read Options</span>
         </span>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Max Connections */}
-          <PropertyField
-            id="solace-source-max-connections"
-            name="maxNumConnections"
-            label="Max Concurrent Connections"
-            type="number"
-            min={1}
-            value={maxNumConnections}
-            onChange={handleChange}
-            placeholder="1"
-            tooltip="Maximum number of concurrent client connections/consumers to establish (.withMaxNumConnections(int))."
-            mono={true}
-          />
-
-          {/* Timestamp Function */}
-          <PropertyField
-            id="solace-source-timestamp-fn"
-            name="timestampFn"
-            label="Timestamp Function"
-            value={timestampFn}
-            onChange={handleChange}
-            placeholder="e.g. record -> Instant.ofEpochMilli(...)"
-            tooltip="Custom timestamp extractor function to assign event timestamps to records (.withTimestampFn(SerializableFunction))."
-            helperText="Java lambda expression (e.g. record -> Instant.ofEpochMilli(...)). Applicable only to Java pipelines; not supported in Python cross-language pipelines."
-            mono={true}
-          />
-        </div>
+        {/* Max Connections */}
+        <PropertyField
+          id="solace-source-max-connections"
+          name="maxNumConnections"
+          label="Max Concurrent Connections"
+          type="number"
+          min={1}
+          value={maxNumConnections}
+          onChange={handleChange}
+          placeholder="1"
+          tooltip="Maximum number of concurrent client connections/consumers to establish (.withMaxNumConnections(int))."
+          mono={true}
+        />
 
         {/* Deduplicate Records Checkbox */}
         <div className="flex items-center gap-2 pt-1">

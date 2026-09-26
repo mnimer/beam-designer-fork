@@ -1,0 +1,97 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 1, "name": "alpha", "score": 99.5}'
+          - '{"id": 2, "name": "beta", "score": 88.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: shape_to_beam_row
+      system_instructions: 'Transform upstream JSON batch records into destination
+        records required by ClickHouseIO. Transform incoming ClickHouse records
+        into a PCollection<Row> with an explicit Beam Schema matching the
+        destination ClickHouse table columns (id: INT64, user_id: STRING,
+        action: STRING, event_time: STRING, metric_value: FLOAT64). In Java,
+        define Schema schema =
+        Schema.builder().addInt64Field("id").addStringField("user_id").addStringField("action").addStringField("event_time").addDoubleField("metric_value").build(),
+        and apply a ParDo converting input elements to Row.withSchema(schema)...
+        outputting PCollection<Row>.setRowSchema(schema). In Python, produce
+        dicts or named tuples matching the Beam schema for cross-language Row
+        serialization.'
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: ClickHouse
+      type: SINK
+      iconName: BarChart
+      beam_transform: ClickHouseIO
+      properties:
+        url: jdbc:clickhouse://localhost:8123/default
+        table: destination_events
+        maxInsertBlockSize: 100000
+        insertQuorum: 0
+        insertDistributedSync: false
+        insertDeduplicate: true
+        maxRetries: 3
+        initialBackoff: 1000
+        maxCumulativeBackoff: 300000
+        authMode: none
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: clickhouse-sink-cloud-run
+  - key: url
+    value: jdbc:clickhouse://localhost:8123/default
+  - key: sourceTable
+    value: source_events
+  - key: sinkTable
+    value: destination_events
+  - key: maxInsertBlockSize
+    value: 100000
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/clickhouse-sink-cloud-run
+  needsRebuild: false

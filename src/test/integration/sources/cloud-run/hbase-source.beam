@@ -1,0 +1,95 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: HBase
+      type: SOURCE
+      iconName: Database
+      beam_transform: HBaseIO
+      properties:
+        zkQuorum: zk1.example.com,zk2.example.com
+        zkClientPort: 2181
+        znodeParent: /hbase
+        tableId: sensor_readings
+        keyRangeStart: sensor-0001
+        keyRangeStop: sensor-9999
+        familyFilter: metrics
+        maxVersions: 1
+        scanCacheSize: 500
+        authMode: simple
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: process_metrics
+      system_instructions: Transform HBase Result rows into HBase Mutation Put
+        instances for table aggregation. In Java, process each
+        org.apache.hadoop.hbase.client.Result by extracting row key and column
+        values from family 'metrics' ('temperature' and 'humidity'), calculate
+        rolling averages, create an org.apache.hadoop.hbase.client.Put with row
+        key 'summary_' + originalRowKey, and add column cells to family
+        'daily_summary'. In Python, map Result records to a dictionary and
+        construct serialized Put mutations with row key, column family,
+        qualifier, and value. Output normalized JSON strings ready for
+        structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[HBaseIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: hbase-source-cloud-run
+  - key: zkQuorum
+    value: zk1.example.com,zk2.example.com
+  - key: zkClientPort
+    value: 2181
+  - key: sourceTableId
+    value: sensor_readings
+  - key: targetTableId
+    value: sensor_daily_summary
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/hbase-source-cloud-run
+  needsRebuild: false

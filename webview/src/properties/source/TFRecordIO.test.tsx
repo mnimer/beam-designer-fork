@@ -58,7 +58,6 @@ describe('TFRecordIOSourceProperties', () => {
         properties: {
           filePattern: 'gs://my-bucket/training/*.tfrecord',
           compressionType: 'GZIP',
-          coder: 'ProtoCoder',
           validate: false,
           system_instructions: 'Custom TFRecord reader instructions'
         }
@@ -69,18 +68,17 @@ describe('TFRecordIOSourceProperties', () => {
 
     const filePatternInput = container.querySelector('#tfrecordSourceFilePattern') as HTMLInputElement;
     const compressionSelect = container.querySelector('#tfrecordSourceCompressionType') as HTMLSelectElement;
-    const coderInput = container.querySelector('#tfrecordSourceCoder') as HTMLInputElement;
     const instructionsTextarea = container.querySelector('#tfrecordSourceInstructions') as HTMLTextAreaElement;
 
     expect(filePatternInput).toHaveValue('gs://my-bucket/training/*.tfrecord');
     expect(filePatternInput).toHaveAttribute('aria-invalid', 'false');
     expect(compressionSelect).toHaveValue('GZIP');
-    expect(coderInput).toHaveValue('ProtoCoder');
+    expect(container.querySelector('#tfrecordSourceCoder')).not.toBeInTheDocument();
     expect(instructionsTextarea).toHaveValue('Custom TFRecord reader instructions');
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
   });
 
-  it('handles field changes for filePattern, compressionType, and coder', () => {
+  it('handles field changes for filePattern and compressionType', () => {
     const mockNode: any = {
       data: {
         properties: {}
@@ -106,16 +104,6 @@ describe('TFRecordIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
         compressionType: 'DEFLATE'
-      })
-    );
-
-    const coderInput = container.querySelector('#tfrecordSourceCoder') as HTMLInputElement;
-    fireEvent.change(coderInput, {
-      target: { name: 'coder', value: 'ProtoCoder' }
-    });
-    expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        coder: 'ProtoCoder'
       })
     );
   });
@@ -262,16 +250,12 @@ describe('TFRecordIOSourceProperties', () => {
     expect(errorAlert).toHaveClass('text-red-400');
   });
 
-  /**
-   * Regression guard: TFRecord sources are hardcoded non-splittable in both Java and Python,
-   * `ExampleProtoCoder` is a tensorflow_transform symbol rather than a Beam coder (replaced by `ProtoCoder`),
-   * and `ZLIB` is replaced by `DEFLATE` (`Compression.DEFLATE` / `CompressionTypes.DEFLATE`).
-   */
-  it('never renders minBundleSize or invalid options (ExampleProtoCoder, ZLIB)', () => {
+  it('never renders coder, minBundleSize, or ZLIB compression option', () => {
     const mockNode: any = {
       data: {
         properties: {
           filePattern: 'gs://bucket/data/*.tfrecord',
+          coder: 'ProtoCoder',
           minBundleSize: 4096
         }
       }
@@ -279,7 +263,9 @@ describe('TFRecordIOSourceProperties', () => {
 
     const { container } = render(<TFRecordIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    // minBundleSize is never rendered
+    // coder and minBundleSize are never rendered
+    expect(container.querySelector('#tfrecordSourceCoder')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Record Coder/i)).not.toBeInTheDocument();
     expect(container.querySelector('#tfrecordSourceMinBundleSize')).not.toBeInTheDocument();
     expect(screen.queryByText(/Minimum Bundle Size/i)).not.toBeInTheDocument();
 
@@ -288,12 +274,5 @@ describe('TFRecordIOSourceProperties', () => {
     const compressionValues = Array.from(compressionSelect.options).map((o) => o.value);
     expect(compressionValues).toContain('DEFLATE');
     expect(compressionValues).not.toContain('ZLIB');
-
-    // Coder datalist exposes ProtoCoder and never ExampleProtoCoder
-    const coderDatalist = container.querySelector('#tfrecord-source-coder-options') as HTMLDataListElement;
-    expect(coderDatalist).toBeInTheDocument();
-    const coderValues = Array.from(coderDatalist.querySelectorAll('option')).map((o) => o.getAttribute('value'));
-    expect(coderValues).toContain('ProtoCoder');
-    expect(coderValues).not.toContain('ExampleProtoCoder');
   });
 });

@@ -117,7 +117,7 @@ describe('RabbitMqConnectionFields', () => {
     expect(datalist?.querySelector('option')).toHaveAttribute('value', '10.128.0.5');
   });
 
-  it('renders secret dropdown when secrets are provided and triggers onChange', () => {
+  it('renders secret input with datalist when secrets are provided and triggers onChange', () => {
     const onChange = vi.fn();
     const secrets = [
       { name: 'rmq-secret-prod', value: 'rmq-secret-prod' },
@@ -133,11 +133,15 @@ describe('RabbitMqConnectionFields', () => {
       />
     );
 
-    const secretSelect = screen.getByLabelText(/GCP Secret Manager Secret/i);
-    expect(secretSelect.tagName).toBe('SELECT');
-    expect(secretSelect).toHaveValue('rmq-secret-prod');
+    const secretInput = screen.getByLabelText(/GCP Secret Manager Secret/i);
+    expect(secretInput.tagName).toBe('INPUT');
+    expect(secretInput).toHaveValue('rmq-secret-prod');
 
-    fireEvent.change(secretSelect, { target: { name: 'secretName', value: 'rmq-secret-staging' } });
+    const datalist = document.getElementById('rabbitmq-test-secrets-list');
+    expect(datalist).toBeInTheDocument();
+    expect(datalist?.querySelectorAll('option').length).toBe(2);
+
+    fireEvent.change(secretInput, { target: { name: 'secretName', value: 'rmq-secret-staging' } });
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 

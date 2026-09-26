@@ -32,7 +32,6 @@ export default defineConfig({
         testTimeout: 180000, // 3 minutes timeout for Gemini LLM generation and evaluation
         hookTimeout: 60000,
         globals: true,
-        environment: 'node',
-        maxConcurrency: 10,
+        environment: 'node'
     },
 });

@@ -70,29 +70,44 @@ describe('KafkaIOSourceProperties', () => {
     }));
   });
 
-  it('supports custom key and value deserializers when custom preset is selected', () => {
+  it('selects standard key and value deserializers and does not offer Custom Class option or custom class inputs', () => {
     const mockNode = {
       data: {
         label: 'Kafka',
         properties: {
-          keyDeserializer: 'custom',
-          customKeyDeserializer: 'com.example.CustomKeyDec',
-          valueDeserializer: 'custom',
-          customValueDeserializer: 'com.example.CustomValDec'
+          keyDeserializer: 'org.apache.kafka.common.serialization.ByteArrayDeserializer',
+          valueDeserializer: 'org.apache.kafka.common.serialization.StringDeserializer'
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<KafkaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KafkaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('com.example.MyCustomKeyDeserializer')).toHaveValue('com.example.CustomKeyDec');
-    expect(screen.getByPlaceholderText('com.example.MyCustomValueDeserializer')).toHaveValue('com.example.CustomValDec');
+    const keySelect = container.querySelector('#kafkaKeyDeserializer') as HTMLSelectElement;
+    const valueSelect = container.querySelector('#kafkaValueDeserializer') as HTMLSelectElement;
 
-    const customKeyInput = screen.getByPlaceholderText('com.example.MyCustomKeyDeserializer');
-    fireEvent.change(customKeyInput, { target: { name: 'customKeyDeserializer', value: 'com.example.UpdatedKeyDec' } });
+    expect(keySelect).toHaveValue('org.apache.kafka.common.serialization.ByteArrayDeserializer');
+    expect(valueSelect).toHaveValue('org.apache.kafka.common.serialization.StringDeserializer');
+
+    const keyOptions = Array.from(keySelect.querySelectorAll('option')).map(o => o.textContent);
+    expect(keyOptions.some(t => t?.includes('Custom'))).toBe(false);
+
+    expect(container.querySelector('input[name="customKeyDeserializer"]')).not.toBeInTheDocument();
+    expect(container.querySelector('input[name="customValueDeserializer"]')).not.toBeInTheDocument();
+
+    fireEvent.change(keySelect, {
+      target: { value: 'org.apache.kafka.common.serialization.LongDeserializer' }
+    });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      customKeyDeserializer: 'com.example.UpdatedKeyDec'
+      keyDeserializer: 'org.apache.kafka.common.serialization.LongDeserializer'
+    }));
+
+    fireEvent.change(valueSelect, {
+      target: { value: 'org.apache.kafka.common.serialization.ByteArrayDeserializer' }
+    });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      valueDeserializer: 'org.apache.kafka.common.serialization.ByteArrayDeserializer'
     }));
   });
 
@@ -144,28 +159,6 @@ describe('KafkaIOSourceProperties', () => {
     const bootstrapInput = screen.getByPlaceholderText('localhost:9092');
     expect(bootstrapInput).toHaveAttribute('aria-invalid', 'true');
     expect(bootstrapInput).toHaveAttribute('aria-required', 'true');
-  });
-
-  it('displays required error when custom deserializer is selected but class name is empty', () => {
-    const mockNode = {
-      data: {
-        label: 'Kafka',
-        properties: {
-          bootstrapServers: 'localhost:9092',
-          topics: 'my-topic',
-          keyDeserializer: 'custom',
-          customKeyDeserializer: '',
-          valueDeserializer: 'custom',
-          customValueDeserializer: ''
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<KafkaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText('Custom Key Deserializer class is required.')).toBeInTheDocument();
-    expect(screen.getByText('Custom Value Deserializer class is required.')).toBeInTheDocument();
   });
 
   it('updates consumerProperties when textarea changes', () => {

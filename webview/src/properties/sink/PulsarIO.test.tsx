@@ -165,17 +165,16 @@ describe('PulsarIOSinkProperties', () => {
     expect(screen.getByText('Pulsar Client Service URL is required.')).toBeInTheDocument();
   });
 
-  it('supports custom value serializer class with required validation', () => {
+  it('omits Custom coder option and Custom Formatter class input from Message Payload Encoding', () => {
     const mockOnChange = vi.fn();
 
-    const { rerender } = render(
+    render(
       <PulsarIOSinkProperties
         node={{
           data: {
             label: 'Pulsar Sink',
             properties: {
-              valueType: 'Custom' as const,
-              customValueType: ''
+              valueType: 'String'
             }
           }
         }}
@@ -183,26 +182,11 @@ describe('PulsarIOSinkProperties', () => {
       />
     );
 
-    const customClassInput = screen.getByLabelText(/Custom Formatter \/ Coder Class/i);
-    expect(customClassInput).toBeInTheDocument();
-    expect(customClassInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Custom formatter class is required.')).toBeInTheDocument();
-
-    rerender(
-      <PulsarIOSinkProperties
-        node={{
-          data: {
-            label: 'Pulsar Sink',
-            properties: {
-              valueType: 'Custom' as const,
-              customValueType: 'com.example.CustomEncoder'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.queryByText('Custom formatter class is required.')).not.toBeInTheDocument();
+    const encodingSelect = screen.getByLabelText(/Message Payload Encoding/i) as HTMLSelectElement;
+    const optionValues = Array.from(encodingSelect.options).map((o) => o.value);
+    expect(optionValues).not.toContain('Custom');
+    expect(optionValues).toContain('Protobuf');
+    expect(screen.queryByLabelText(/Custom Formatter \/ Coder Class/i)).not.toBeInTheDocument();
   });
 
   it('handles extension message for Secret Manager secrets and allows selecting a secret in token mode', () => {
@@ -232,7 +216,7 @@ describe('PulsarIOSinkProperties', () => {
       }));
     });
 
-    const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i);
+    const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
 
     fireEvent.change(secretDropdown, { target: { name: 'tokenSecretName', value: 'pulsar-producer-token' } });

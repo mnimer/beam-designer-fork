@@ -19,7 +19,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { StoragePathField } from '../../components/common/StoragePathField';
+import { SchemaEditor, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
+import { FileCode, ChevronDown, ChevronRight } from 'lucide-react';
 
 export interface ParquetIOSourceNode {
   data: {
@@ -30,6 +32,8 @@ export interface ParquetIOSourceNode {
     properties?: {
       filePattern?: string;
       schema?: string;
+      schemaString?: string;
+      schemaFields?: SchemaField[];
       columns?: string;
       validate?: boolean;
       batched?: boolean;
@@ -46,26 +50,10 @@ export interface ParquetIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
-const SAMPLE_AVRO_SCHEMA = JSON.stringify(
-  {
-    type: 'record',
-    name: 'UserRecord',
-    namespace: 'com.example.beam',
-    fields: [
-      { name: 'id', type: 'string' },
-      { name: 'name', type: 'string' },
-      { name: 'email', type: ['null', 'string'], default: null },
-      { name: 'timestamp', type: 'long' }
-    ]
-  },
-  null,
-  2
-);
-
 export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
-  const schema = properties.schema || '';
+  const schemaFields: SchemaField[] = resolveSchemaFields(properties);
   const columns = properties.columns || '';
   const validate = properties.validate ?? true;
   const batched = properties.batched ?? false;
@@ -100,16 +88,6 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
   };
 
   /**
-   * Inserts a sample Avro schema snippet into the schema field
-   */
-  const handleInsertSampleSchema = () => {
-    onChange({
-      ...properties,
-      schema: SAMPLE_AVRO_SCHEMA
-    });
-  };
-
-  /**
    * Updates AI prompt / system instructions
    */
   const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -122,27 +100,16 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input */}
-      <PropertyField
+      <StoragePathField
         id="parquetSourceFilePattern"
         name="filePattern"
         label="File Pattern / Path (.from)"
-        required="File Pattern is required."
         tooltip="Target Parquet file path or glob pattern (e.g. gs://bucket/*.parquet, s3://bucket/*.parquet, hdfs://path/*.parquet, or /local/path/*.parquet). Required."
-        aria-required="true"
-        aria-invalid={isInvalid}
         value={filePattern}
         onChange={handleChange}
         placeholder="gs://bucket/data/*.parquet, s3://bucket/data/*.parquet, or /local/*.parquet"
-        invalid={isInvalid}
-        error={isInvalid ? 'File Pattern is required.' : null}
-        mono={true}
-        helperText={
-          !isInvalid ? (
-            <span className="text-xs text-[var(--vscode-text-muted)]">
-              Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage.
-            </span>
-          ) : null
-        }
+        errorMessage={isInvalid ? 'File Pattern is required.' : undefined}
+        helperText="Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage."
       />
 
       {/* Projected Columns (Python: columns=[...]) */}
@@ -178,32 +145,22 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
 
         {isSchemaOpen && (
           <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--vscode-border-light)] mt-2">
-            <div className="flex justify-between items-center mt-2">
-              <label htmlFor="parquetSourceSchema" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Avro Schema (Required for Java, Leave blank for Python)</span>
-                <InfoTooltip text="For Java pipelines: ParquetIO.read(schema) requires an Avro schema at compile time to define the PCollection<GenericRecord> coder and filter columns. For Python pipelines, leave this empty." />
-              </label>
-              <button
-                type="button"
-                onClick={handleInsertSampleSchema}
-                className="text-[11px] text-[var(--vscode-highlight)] hover:underline flex items-center gap-1 font-medium"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Insert Sample</span>
-              </button>
+            <div className="mt-2">
+              <SchemaEditor
+                fields={schemaFields}
+                schemaTitle="Avro Schema (Required for Java, Leave blank for Python)"
+                jsonTextareaId="parquetSourceSchema"
+                stringTextareaId="parquetSourceSchemaString"
+                onChange={({ schemaFields: nextFields, schema: nextSchema, schemaString: nextStr }) => {
+                  onChange({
+                    ...properties,
+                    schemaFields: nextFields,
+                    schema: nextSchema,
+                    schemaString: nextStr
+                  });
+                }}
+              />
             </div>
-            <textarea
-              id="parquetSourceSchema"
-              name="schema"
-              value={schema}
-              onChange={handleChange}
-              rows={4}
-              placeholder='{"type": "record", "name": "User", "fields": [...]} or gs://bucket/schema.avsc'
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono resize-y"
-            />
-            <span className="text-[11px] text-[var(--vscode-text-muted)]">
-              <strong>Java:</strong> Provide Avro JSON or path to <code>.avsc</code> to define GenericRecord coder and projected columns. (Leave blank for Python).
-            </span>
           </div>
         )}
       </div>

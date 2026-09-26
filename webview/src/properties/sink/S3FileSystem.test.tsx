@@ -7,20 +7,20 @@
  * Unit tests validating S3FileSystemSinkProperties component functionality,
  * form change callbacks, validation states for required fields, accordion toggling,
  * static datalist options, conditional credential branches (StaticCredentialsProvider,
- * ProfileCredentialsProvider, DefaultCredentialsProvider), secret masking, conditional
+ * ProfileCredentialsProvider, DefaultCredentialsProvider), Secret Manager secret pickers, conditional
  * SSE-KMS key id branch, and asserting that Cloud Storage bucket discovery IPC is
  * deliberately NOT dispatched.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
- * - Mocks window.vscode to verify no getStorageBuckets messages are dispatched.
+ * - Mocks window.vscode to verify getSecrets is dispatched while getStorageBuckets is NOT dispatched.
  * - Thoroughly tests all credential provider conditional render branches.
  * - Thoroughly tests SSE algorithm conditional render branches for ssekmsKeyId.
  * - Validates required field states, default fallbacks, instruction fallbacks, and accordion toggling.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   S3FileSystemSinkProperties,
@@ -294,47 +294,60 @@ describe('S3FileSystemSinkProperties', () => {
   });
 
   describe('Conditional credential branches', () => {
-    it('renders accessKeyId and masked secretAccessKey when credentialsProvider is StaticCredentialsProvider', () => {
+    it('renders accessKeyId and secretAccessKey Secret Manager pickers (no type="password") when credentialsProvider is StaticCredentialsProvider', () => {
       const mockNode: any = {
         data: {
           properties: {
             credentialsProvider: 'StaticCredentialsProvider',
-            accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
-            secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+            accessKeyId: 'aws-s3-access-key-id',
+            secretAccessKey: 'aws-s3-secret-access-key'
           }
         }
       };
 
       const { container } = render(<S3FileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
 
+      const credentialsSelect = container.querySelector('#s3SinkCredentialsProvider') as HTMLSelectElement;
+      const staticOption = Array.from(credentialsSelect.options).find(
+        (opt) => opt.value === 'StaticCredentialsProvider'
+      );
+      expect(staticOption?.textContent).toBe('Google Cloud Secret Manager (StaticCredentialsProvider)');
+
       const accessKeyInput = container.querySelector('#s3SinkAccessKeyId') as HTMLInputElement;
       const secretKeyInput = container.querySelector('#s3SinkSecretAccessKey') as HTMLInputElement;
       const profileNameInput = container.querySelector('#s3SinkProfileName');
 
       expect(accessKeyInput).toBeInTheDocument();
-      expect(accessKeyInput).toHaveValue('AKIAIOSFODNN7EXAMPLE');
+      expect(accessKeyInput).toHaveValue('aws-s3-access-key-id');
+      expect(accessKeyInput).toHaveAttribute('type', 'text');
+      expect(accessKeyInput).toHaveAttribute('placeholder', 'e.g. aws-s3-access-key-id');
+      expect(screen.getByText('AWS Access Key Secret (Secret Manager)')).toBeInTheDocument();
+
       expect(secretKeyInput).toBeInTheDocument();
-      expect(secretKeyInput).toHaveValue('wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY');
-      expect(secretKeyInput).toHaveAttribute('type', 'password');
+      expect(secretKeyInput).toHaveValue('aws-s3-secret-access-key');
+      expect(secretKeyInput).toHaveAttribute('type', 'text');
+      expect(secretKeyInput).not.toHaveAttribute('type', 'password');
+      expect(secretKeyInput).toHaveAttribute('placeholder', 'e.g. aws-s3-secret-access-key');
+      expect(screen.getByText('AWS Secret Access Key (Secret Manager)')).toBeInTheDocument();
       expect(profileNameInput).not.toBeInTheDocument();
 
       // Fire change on accessKeyId
       fireEvent.change(accessKeyInput, {
-        target: { name: 'accessKeyId', value: 'AKIA9999999999EXAMPLE' }
+        target: { name: 'accessKeyId', value: 'new-aws-access-key-secret' }
       });
       expect(mockOnChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          accessKeyId: 'AKIA9999999999EXAMPLE'
+          accessKeyId: 'new-aws-access-key-secret'
         })
       );
 
       // Fire change on secretAccessKey
       fireEvent.change(secretKeyInput, {
-        target: { name: 'secretAccessKey', value: 'superSecretSinkKey456' }
+        target: { name: 'secretAccessKey', value: 'new-aws-secret-key-secret' }
       });
       expect(mockOnChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          secretAccessKey: 'superSecretSinkKey456'
+          secretAccessKey: 'new-aws-secret-key-secret'
         })
       );
     });
@@ -583,21 +596,48 @@ describe('S3FileSystemSinkProperties', () => {
     expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
   });
 
-  it('does NOT request storage buckets via vscode.postMessage (no GCS bucket discovery for S3)', () => {
+  it('requests GCP Secret Manager secrets via getSecrets and does NOT request storage buckets', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
 
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          credentialsProvider: 'StaticCredentialsProvider'
+        }
       }
     };
 
-    render(<S3FileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<S3FileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(mockPostMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getStorageBuckets' })
     );
-    expect(mockPostMessage).not.toHaveBeenCalled();
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ command: 'getSecrets' })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            secrets: [
+              { id: 'aws-s3-access-key-id', name: 'aws-s3-access-key-id', fullName: 'projects/p/secrets/aws-s3-access-key-id' },
+              'projects/p/secrets/aws-s3-secret-access-key'
+            ]
+          }
+        })
+      );
+    });
+
+    const accessKeyInput = container.querySelector('#s3SinkAccessKeyId') as HTMLInputElement;
+    fireEvent.focus(accessKeyInput);
+    const option = screen.getByRole('option', { name: 'aws-s3-access-key-id' });
+    expect(option).toBeInTheDocument();
+    fireEvent.mouseDown(option);
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({ accessKeyId: 'aws-s3-access-key-id' })
+    );
   });
 });

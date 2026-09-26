@@ -45,7 +45,7 @@ describe('SolaceIOSinkProperties', () => {
 
     expect(screen.getByLabelText(/JCSMP Host \(SMF Messaging\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Message VPN Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Username \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Password \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Destination Type/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Topic Name/i)).toBeInTheDocument();

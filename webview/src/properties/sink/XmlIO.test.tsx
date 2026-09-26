@@ -62,7 +62,12 @@ describe('XmlIOSinkProperties', () => {
     expect(rootElementInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Root Element is required.')).toBeInTheDocument();
 
-    // Charset select
+    // Charset select and mappingStrategy
+    expect(container.querySelector('#xmlSinkRecordClass')).not.toBeInTheDocument();
+    const strategySelect = container.querySelector('#xmlSinkMappingStrategy') as HTMLSelectElement;
+    expect(strategySelect).toBeInTheDocument();
+    expect(strategySelect).toHaveValue('infer');
+    expect(Array.from(strategySelect.options).map((o) => o.value)).toEqual(['infer', 'schema']);
     expect(container.querySelector('#xmlSinkCharset')).toHaveValue('UTF-8');
     expect(container.querySelector('#xmlSinkInstructions')).toBeInTheDocument();
   });
@@ -76,7 +81,8 @@ describe('XmlIOSinkProperties', () => {
           to: 'gs://my-bucket/output/items',
           suffix: '.xml.gz',
           rootElement: 'inventory',
-          recordClass: 'com.example.inventory.ItemRecord',
+          mappingStrategy: 'schema',
+          schemaString: 'sku:STRING:REQUIRED, price:DOUBLE',
           charset: 'ISO-8859-1',
           numShards: 5,
           shardTemplate: '-SSSSS-of-NNNNN',
@@ -91,7 +97,7 @@ describe('XmlIOSinkProperties', () => {
     const toInput = container.querySelector('#xmlSinkTo') as HTMLInputElement;
     const suffixInput = container.querySelector('#xmlSinkSuffix') as HTMLInputElement;
     const rootElementInput = container.querySelector('#xmlSinkRootElement') as HTMLInputElement;
-    const recordClassInput = container.querySelector('#xmlSinkRecordClass') as HTMLInputElement;
+    const strategySelect = container.querySelector('#xmlSinkMappingStrategy') as HTMLSelectElement;
     const charsetSelect = container.querySelector('#xmlSinkCharset') as HTMLSelectElement;
     const numShardsInput = container.querySelector('#xmlSinkNumShards') as HTMLInputElement;
     const shardTemplateInput = container.querySelector('#xmlSinkShardTemplate') as HTMLInputElement;
@@ -103,7 +109,8 @@ describe('XmlIOSinkProperties', () => {
     expect(suffixInput).toHaveValue('.xml.gz');
     expect(rootElementInput).toHaveValue('inventory');
     expect(rootElementInput).toHaveAttribute('aria-invalid', 'false');
-    expect(recordClassInput).toHaveValue('com.example.inventory.ItemRecord');
+    expect(strategySelect).toHaveValue('schema');
+    expect(screen.getByText('2 FIELDS')).toBeInTheDocument();
     expect(charsetSelect).toHaveValue('ISO-8859-1');
     expect(numShardsInput).toHaveValue(5);
     expect(shardTemplateInput).toHaveValue('-SSSSS-of-NNNNN');
@@ -114,10 +121,12 @@ describe('XmlIOSinkProperties', () => {
     expect(screen.queryByText('Root Element is required.')).not.toBeInTheDocument();
   });
 
-  it('handles field changes for to, suffix, rootElement, recordClass, numShards, shardTemplate, and expansionService', () => {
+  it('handles field changes for to, suffix, rootElement, mappingStrategy, schemaFields, numShards, shardTemplate, and expansionService', () => {
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          mappingStrategy: 'schema'
+        }
       }
     };
 
@@ -150,13 +159,29 @@ describe('XmlIOSinkProperties', () => {
       expect.objectContaining({ rootElement: 'orderBatch' })
     );
 
-    // Record Class edit
-    const recordClassInput = container.querySelector('#xmlSinkRecordClass') as HTMLInputElement;
-    fireEvent.change(recordClassInput, {
-      target: { name: 'recordClass', value: 'com.example.orders.OrderRecord' }
+    // Mapping Strategy edit
+    const strategySelect = container.querySelector('#xmlSinkMappingStrategy') as HTMLSelectElement;
+    fireEvent.change(strategySelect, {
+      target: { name: 'mappingStrategy', value: 'infer' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ recordClass: 'com.example.orders.OrderRecord' })
+      expect.objectContaining({ mappingStrategy: 'infer' })
+    );
+
+    // SchemaEditor string tab edit
+    fireEvent.click(screen.getByText('Schema String'));
+    const stringTextarea = container.querySelector('#xmlSinkMappingStrategySchemaString') as HTMLTextAreaElement;
+    fireEvent.change(stringTextarea, {
+      target: { value: 'order_id:STRING:REQUIRED, total:DOUBLE' }
+    });
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaString: 'order_id:STRING:REQUIRED, total:DOUBLE',
+        schemaFields: [
+          { name: 'order_id', type: 'STRING', mode: 'REQUIRED', description: '' },
+          { name: 'total', type: 'DOUBLE', mode: 'NULLABLE', description: '' }
+        ]
+      })
     );
 
     // NumShards edit

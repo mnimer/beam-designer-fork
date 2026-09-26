@@ -60,7 +60,7 @@ describe('JsonIOSourceProperties', () => {
           filePattern: 'gs://my-bucket/data/*.json',
           lines: true,
           compression: 'GZIP',
-          schema: '{"fields": []}',
+          schema: '[{"name": "eventId", "type": "STRING", "mode": "REQUIRED"}]',
           system_instructions: 'Parse timestamps using ISO format'
         }
       }
@@ -71,7 +71,7 @@ describe('JsonIOSourceProperties', () => {
     const filePatternInput = container.querySelector('#jsonSourceFilePattern') as HTMLInputElement;
     const linesCheckbox = container.querySelector('#jsonSourceLines') as HTMLInputElement;
     const compressionSelect = container.querySelector('#jsonSourceCompression') as HTMLSelectElement;
-    const schemaTextarea = container.querySelector('#jsonSourceSchema') as HTMLTextAreaElement;
+    const strategySelect = container.querySelector('#jsonSourceMappingStrategy') as HTMLSelectElement;
     const instructionsTextarea = container.querySelector('#jsonSourceInstructions') as HTMLTextAreaElement;
 
     expect(filePatternInput).toHaveValue('gs://my-bucket/data/*.json');
@@ -79,7 +79,8 @@ describe('JsonIOSourceProperties', () => {
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
     expect(linesCheckbox).toBeChecked();
     expect(compressionSelect).toHaveValue('GZIP');
-    expect(schemaTextarea).toHaveValue('{"fields": []}');
+    expect(strategySelect).toHaveValue('schema');
+    expect(screen.getByText('1 FIELD')).toBeInTheDocument();
     expect(instructionsTextarea).toHaveValue('Parse timestamps using ISO format');
   });
 
@@ -125,29 +126,37 @@ describe('JsonIOSourceProperties', () => {
     );
   });
 
-  it('inserts sample Beam Schema when Insert Sample button is clicked', () => {
+  it('defaults mappingStrategy to infer when schema is empty and switches to schema mode', () => {
     const mockNode: any = {
       data: {
         properties: {}
       }
     };
 
-    render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const insertSampleBtn = screen.getByText('Insert Sample');
-    fireEvent.click(insertSampleBtn);
+    const strategySelect = container.querySelector('#jsonSourceMappingStrategy') as HTMLSelectElement;
+    expect(strategySelect).toBeInTheDocument();
+    expect(strategySelect).toHaveValue('infer');
+    expect(Array.from(strategySelect.options).map((o) => o.value)).toEqual(['infer', 'schema']);
+
+    fireEvent.change(strategySelect, {
+      target: { name: 'mappingStrategy', value: 'schema' }
+    });
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: expect.stringContaining('"fields"')
+        mappingStrategy: 'schema'
       })
     );
   });
 
-  it('toggles schema accordion visibility and handles custom schema input', () => {
+  it('toggles schema accordion visibility and handles SchemaEditor updates when in schema mode', () => {
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          mappingStrategy: 'schema'
+        }
       }
     };
 
@@ -161,20 +170,27 @@ describe('JsonIOSourceProperties', () => {
     fireEvent.click(schemaAccordionButton!);
 
     // Content should be collapsed
-    expect(container.querySelector('#jsonSourceSchema')).not.toBeInTheDocument();
+    expect(container.querySelector('#jsonSourceMappingStrategy')).not.toBeInTheDocument();
 
     // Reopen accordion
     fireEvent.click(schemaAccordionButton!);
-    const schemaTextarea = container.querySelector('#jsonSourceSchema') as HTMLTextAreaElement;
-    expect(schemaTextarea).toBeInTheDocument();
+    expect(container.querySelector('#jsonSourceMappingStrategy')).toBeInTheDocument();
 
-    // Type custom schema
-    fireEvent.change(schemaTextarea, {
-      target: { name: 'schema', value: '{"fields": [{"name": "eventId", "type": "STRING"}]}' }
+    // Switch to Schema String tab in SchemaEditor and update schema
+    fireEvent.click(screen.getByText('Schema String'));
+    const stringTextarea = container.querySelector('#jsonSourceMappingStrategySchemaString') as HTMLTextAreaElement;
+    expect(stringTextarea).toBeInTheDocument();
+
+    fireEvent.change(stringTextarea, {
+      target: { value: 'eventId:STRING:REQUIRED, payload:STRING' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: '{"fields": [{"name": "eventId", "type": "STRING"}]}'
+        schemaString: 'eventId:STRING:REQUIRED, payload:STRING',
+        schemaFields: [
+          { name: 'eventId', type: 'STRING', mode: 'REQUIRED', description: '' },
+          { name: 'payload', type: 'STRING', mode: 'NULLABLE', description: '' }
+        ]
       })
     );
   });

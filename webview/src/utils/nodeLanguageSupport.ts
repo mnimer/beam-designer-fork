@@ -229,6 +229,136 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
     displayName: 'JdbcIO',
     supportedLanguages: ['Java', 'Python', 'Go'],
   },
+  CassandraIO: {
+    beamTransform: 'CassandraIO',
+    displayName: 'Cassandra',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  HBaseIO: {
+    beamTransform: 'HBaseIO',
+    displayName: 'HBase',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  KuduIO: {
+    beamTransform: 'KuduIO',
+    displayName: 'Kudu',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  MongoDbIO: {
+    beamTransform: 'MongoDbIO',
+    displayName: 'MongoDB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  RedisIO: {
+    beamTransform: 'RedisIO',
+    displayName: 'Redis',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  ClickHouseIO: {
+    beamTransform: 'ClickHouseIO',
+    displayName: 'ClickHouse',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DatastoreIO: {
+    beamTransform: 'DatastoreIO',
+    displayName: 'Cloud Datastore',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DynamoDBIO: {
+    beamTransform: 'DynamoDBIO',
+    displayName: 'DynamoDB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  FirestoreIO: {
+    beamTransform: 'FirestoreIO',
+    displayName: 'Firestore',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  InfluxDbIO: {
+    beamTransform: 'InfluxDbIO',
+    displayName: 'InfluxDB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  Neo4jIO: {
+    beamTransform: 'Neo4jIO',
+    displayName: 'Neo4j',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SingleStoreDBIO: {
+    beamTransform: 'SingleStoreDBIO',
+    displayName: 'SingleStoreDB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SnowflakeIO: {
+    beamTransform: 'SnowflakeIO',
+    displayName: 'Snowflake',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SpannerIO: {
+    beamTransform: 'SpannerIO',
+    displayName: 'Cloud Spanner',
+    supportedLanguages: ['Java', 'Python', 'Go'],
+  },
+  BigTableIO: {
+    beamTransform: 'BigTableIO',
+    displayName: 'Cloud Bigtable',
+    supportedLanguages: ['Java', 'Python', 'Go'],
+  },
+  MongoDbGridFSIO: {
+    beamTransform: 'MongoDbGridFSIO',
+    displayName: 'MongoDB GridFS',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DatabaseIO: {
+    beamTransform: 'DatabaseIO',
+    displayName: 'Database',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  ElasticsearchIO: {
+    beamTransform: 'ElasticsearchIO',
+    displayName: 'Elasticsearch',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SolrIO: {
+    beamTransform: 'SolrIO',
+    displayName: 'Solr',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  HadoopFormatIO: {
+    beamTransform: 'HadoopFormatIO',
+    displayName: 'Hadoop Format',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  HCatalogIO: {
+    beamTransform: 'HCatalogIO',
+    displayName: 'HCatalog',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DebeziumIO: {
+    beamTransform: 'DebeziumIO',
+    displayName: 'Debezium CDC',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  CdapIO: {
+    beamTransform: 'CdapIO',
+    displayName: 'CDAP',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  ArrowFlightIO: {
+    beamTransform: 'ArrowFlightIO',
+    displayName: 'Arrow Flight',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  CosmosIO: {
+    beamTransform: 'CosmosIO',
+    displayName: 'Azure Cosmos DB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SparkReceiverIO: {
+    beamTransform: 'SparkReceiverIO',
+    displayName: 'Spark Receiver',
+    supportedLanguages: ['Java', 'Python'],
+  },
   Create: {
     beamTransform: 'Create',
     displayName: 'Create',
@@ -441,6 +571,7 @@ export function normalizeTransformName(raw?: string): string {
   if (lower.includes('avro')) return 'AvroIO';
   if (lower.includes('fileio')) return 'FileIO';
   if (lower.includes('textio')) return 'TextIO';
+  if (lower.includes('hadoopformat') || lower.includes('hadoop format')) return 'HadoopFormatIO';
   if (lower.includes('hadoop') || lower.includes('hdfs')) return 'HadoopFileSystem';
   if (lower.includes('azure') || lower.includes('blobstorage') || lower.includes('azfs')) return 'AzureBlobStoreFileSystem';
   if (lower.includes('s3') || lower.includes('s3filesystem')) return 'S3FileSystem';

@@ -39,7 +39,7 @@ describe('ThriftIOSourceProperties', () => {
     (window as any).vscode = originalVscode;
   });
 
-  it('renders with empty properties and flags validation error for missing filePattern and recordClass', () => {
+  it('renders with empty properties and flags validation error only for missing filePattern (not recordClass)', () => {
     const mockNode: any = {
       data: {
         label: 'ThriftIO',
@@ -56,11 +56,13 @@ describe('ThriftIOSourceProperties', () => {
     expect(filePatternInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
 
-    const recordClassInput = container.querySelector('#thriftSourceRecordClass') as HTMLInputElement;
-    expect(recordClassInput).toBeInTheDocument();
-    expect(recordClassInput).toHaveValue('');
-    expect(recordClassInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Record Class is required.')).toBeInTheDocument();
+    expect(container.querySelector('#thriftSourceRecordClass')).not.toBeInTheDocument();
+    expect(screen.queryByText('Record Class is required.')).not.toBeInTheDocument();
+
+    const strategySelect = container.querySelector('#thriftSourceMappingStrategy') as HTMLSelectElement;
+    expect(strategySelect).toBeInTheDocument();
+    expect(strategySelect).toHaveValue('infer');
+    expect(Array.from(strategySelect.options).map((o) => o.value)).toEqual(['infer', 'schema']);
   });
 
   it('renders with populated properties and no validation error', () => {
@@ -70,7 +72,8 @@ describe('ThriftIOSourceProperties', () => {
         beam_transform: 'ThriftIO',
         properties: {
           filePattern: 'gs://thrift-bucket/orders/*.thrift',
-          recordClass: 'com.example.thrift.OrderRecord',
+          mappingStrategy: 'schema',
+          schemaString: 'order_id:STRING:REQUIRED, amount:DOUBLE',
           protocolFactory: 'TCompactProtocol',
           compression: 'GZIP',
           validate: false,
@@ -82,25 +85,23 @@ describe('ThriftIOSourceProperties', () => {
     const { container } = render(<ThriftIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
     const filePatternInput = container.querySelector('#thriftSourceFilePattern') as HTMLInputElement;
-    const recordClassInput = container.querySelector('#thriftSourceRecordClass') as HTMLInputElement;
+    const strategySelect = container.querySelector('#thriftSourceMappingStrategy') as HTMLSelectElement;
     const protocolSelect = container.querySelector('#thriftSourceProtocolFactory') as HTMLSelectElement;
     const compressionSelect = container.querySelector('#thriftSourceCompression') as HTMLSelectElement;
     const instructionsTextarea = container.querySelector('#thriftSourceInstructions') as HTMLTextAreaElement;
 
     expect(filePatternInput).toHaveValue('gs://thrift-bucket/orders/*.thrift');
     expect(filePatternInput).toHaveAttribute('aria-invalid', 'false');
-    expect(recordClassInput).toHaveValue('com.example.thrift.OrderRecord');
-    expect(recordClassInput).toHaveAttribute('aria-invalid', 'false');
+    expect(strategySelect).toHaveValue('schema');
+    expect(screen.getByText('2 FIELDS')).toBeInTheDocument();
     expect(protocolSelect).toHaveValue('TCompactProtocol');
     expect(compressionSelect).toHaveValue('GZIP');
     expect(instructionsTextarea).toHaveValue('Custom Thrift reader instructions');
 
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
-    expect(screen.queryByText('Record Class is required.')).not.toBeInTheDocument();
   });
 
-  it('validates on/off for filePattern and recordClass independently', () => {
-    // Only filePattern provided
+  it('validates on/off for filePattern without requiring recordClass', () => {
     const mockNodeWithPattern: any = {
       data: {
         properties: {
@@ -110,25 +111,22 @@ describe('ThriftIOSourceProperties', () => {
     };
     const { rerender } = render(<ThriftIOSourceProperties node={mockNodeWithPattern} onChange={mockOnChange} />);
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
-    expect(screen.getByText('Record Class is required.')).toBeInTheDocument();
 
-    // Only recordClass provided
-    const mockNodeWithRecordClass: any = {
-      data: {
-        properties: {
-          recordClass: 'com.example.thrift.InvoiceRecord'
-        }
-      }
-    };
-    rerender(<ThriftIOSourceProperties node={mockNodeWithRecordClass} onChange={mockOnChange} />);
-    expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
-    expect(screen.queryByText('Record Class is required.')).not.toBeInTheDocument();
-  });
-
-  it('handles field changes for filePattern, recordClass, protocolFactory, and compression', () => {
-    const mockNode: any = {
+    const mockNodeWithoutPattern: any = {
       data: {
         properties: {}
+      }
+    };
+    rerender(<ThriftIOSourceProperties node={mockNodeWithoutPattern} onChange={mockOnChange} />);
+    expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
+  });
+
+  it('handles field changes for filePattern, mappingStrategy, schemaFields, protocolFactory, and compression', () => {
+    const mockNode: any = {
+      data: {
+        properties: {
+          mappingStrategy: 'schema'
+        }
       }
     };
 
@@ -145,14 +143,30 @@ describe('ThriftIOSourceProperties', () => {
       })
     );
 
-    // recordClass change
-    const recordClassInput = container.querySelector('#thriftSourceRecordClass') as HTMLInputElement;
-    fireEvent.change(recordClassInput, {
-      target: { name: 'recordClass', value: 'com.example.thrift.OrderRecord' }
+    // mappingStrategy change
+    const strategySelect = container.querySelector('#thriftSourceMappingStrategy') as HTMLSelectElement;
+    fireEvent.change(strategySelect, {
+      target: { name: 'mappingStrategy', value: 'infer' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        recordClass: 'com.example.thrift.OrderRecord'
+        mappingStrategy: 'infer'
+      })
+    );
+
+    // SchemaEditor string tab change
+    fireEvent.click(screen.getByText('Schema String'));
+    const stringTextarea = container.querySelector('#thriftSourceMappingStrategySchemaString') as HTMLTextAreaElement;
+    fireEvent.change(stringTextarea, {
+      target: { value: 'order_id:STRING:REQUIRED, total:DOUBLE' }
+    });
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaString: 'order_id:STRING:REQUIRED, total:DOUBLE',
+        schemaFields: [
+          { name: 'order_id', type: 'STRING', mode: 'REQUIRED', description: '' },
+          { name: 'total', type: 'DOUBLE', mode: 'NULLABLE', description: '' }
+        ]
       })
     );
 
@@ -333,7 +347,7 @@ describe('ThriftIOSourceProperties', () => {
     expect(errorAlert).toHaveClass('text-red-400');
   });
 
-  it('never renders minBundleSize, expansionService, TSimpleJSONProtocol on read, or XZ compression', () => {
+  it('never renders recordClass, minBundleSize, expansionService, TSimpleJSONProtocol on read, or XZ compression', () => {
     const mockLegacyNode: any = {
       data: {
         properties: {
@@ -350,6 +364,7 @@ describe('ThriftIOSourceProperties', () => {
     // Open accordion to ensure minBundleSize is not inside it
     fireEvent.click(screen.getByText('Read Tuning & Options'));
 
+    expect(container.querySelector('#thriftSourceRecordClass')).not.toBeInTheDocument();
     expect(container.querySelector('#thriftSourceMinBundleSize')).not.toBeInTheDocument();
     expect(container.querySelector('#thriftSourceExpansionService')).not.toBeInTheDocument();
     expect(screen.queryByText(/Expansion Service/i)).not.toBeInTheDocument();

@@ -66,7 +66,7 @@ describe('CsvIOSourceProperties', () => {
           skipHeaderLines: 1,
           nullString: 'NA',
           commentMarker: '#',
-          schema: '{"fields": []}',
+          schema: '[{"name": "id", "type": "STRING", "mode": "REQUIRED"}]',
           splittable: true,
           system_instructions: 'Parse timestamps using ISO format'
         }
@@ -84,7 +84,7 @@ describe('CsvIOSourceProperties', () => {
     const skipHeaderInput = container.querySelector('#csvSourceSkipHeaderLines') as HTMLInputElement;
     const nullInput = container.querySelector('#csvSourceNullString') as HTMLInputElement;
     const commentInput = container.querySelector('#csvSourceCommentMarker') as HTMLInputElement;
-    const schemaTextarea = container.querySelector('#csvSourceSchema') as HTMLTextAreaElement;
+    const strategySelect = container.querySelector('#csvSourceMappingStrategy') as HTMLSelectElement;
     const instructionsTextarea = container.querySelector('#csvSourceInstructions') as HTMLTextAreaElement;
 
     expect(filePatternInput).toHaveValue('gs://my-bucket/data/*.csv');
@@ -98,7 +98,8 @@ describe('CsvIOSourceProperties', () => {
     expect(skipHeaderInput).toHaveValue(1);
     expect(nullInput).toHaveValue('NA');
     expect(commentInput).toHaveValue('#');
-    expect(schemaTextarea).toHaveValue('{"fields": []}');
+    expect(strategySelect).toHaveValue('schema');
+    expect(screen.getByText('1 FIELD')).toBeInTheDocument();
     expect(instructionsTextarea).toHaveValue('Parse timestamps using ISO format');
   });
 
@@ -219,29 +220,37 @@ describe('CsvIOSourceProperties', () => {
     );
   });
 
-  it('inserts sample Beam Schema when Insert Sample button is clicked', () => {
+  it('defaults mappingStrategy to infer when schema is empty and switches to schema mode', () => {
     const mockNode: any = {
       data: {
         properties: {}
       }
     };
 
-    render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const insertSampleBtn = screen.getByText('Insert Sample');
-    fireEvent.click(insertSampleBtn);
+    const strategySelect = container.querySelector('#csvSourceMappingStrategy') as HTMLSelectElement;
+    expect(strategySelect).toBeInTheDocument();
+    expect(strategySelect).toHaveValue('infer');
+    expect(Array.from(strategySelect.options).map((o) => o.value)).toEqual(['infer', 'schema']);
+
+    fireEvent.change(strategySelect, {
+      target: { name: 'mappingStrategy', value: 'schema' }
+    });
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: expect.stringContaining('"fields"')
+        mappingStrategy: 'schema'
       })
     );
   });
 
-  it('toggles schema accordion visibility and handles custom schema input', () => {
+  it('toggles schema accordion visibility and handles SchemaEditor updates when in schema mode', () => {
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          mappingStrategy: 'schema'
+        }
       }
     };
 
@@ -253,20 +262,27 @@ describe('CsvIOSourceProperties', () => {
     fireEvent.click(schemaAccordionButton!);
 
     // Content should be collapsed
-    expect(container.querySelector('#csvSourceSchema')).not.toBeInTheDocument();
+    expect(container.querySelector('#csvSourceMappingStrategy')).not.toBeInTheDocument();
 
     // Reopen accordion
     fireEvent.click(schemaAccordionButton!);
-    const schemaTextarea = container.querySelector('#csvSourceSchema') as HTMLTextAreaElement;
-    expect(schemaTextarea).toBeInTheDocument();
+    expect(container.querySelector('#csvSourceMappingStrategy')).toBeInTheDocument();
 
-    // Type custom schema
-    fireEvent.change(schemaTextarea, {
-      target: { name: 'schema', value: '{"fields": [{"name": "userId", "type": "STRING"}]}' }
+    // Switch to Schema String tab in SchemaEditor and update schema
+    fireEvent.click(screen.getByText('Schema String'));
+    const stringTextarea = container.querySelector('#csvSourceMappingStrategySchemaString') as HTMLTextAreaElement;
+    expect(stringTextarea).toBeInTheDocument();
+
+    fireEvent.change(stringTextarea, {
+      target: { value: 'userId:STRING:REQUIRED, amount:DOUBLE' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: '{"fields": [{"name": "userId", "type": "STRING"}]}'
+        schemaString: 'userId:STRING:REQUIRED, amount:DOUBLE',
+        schemaFields: [
+          { name: 'userId', type: 'STRING', mode: 'REQUIRED', description: '' },
+          { name: 'amount', type: 'DOUBLE', mode: 'NULLABLE', description: '' }
+        ]
       })
     );
   });

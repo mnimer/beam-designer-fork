@@ -7,17 +7,17 @@
  * Unit tests validating AzureBlobStoreFileSystemSourceProperties component functionality,
  * form change callbacks, validation states for required fields, accordion toggling,
  * static datalist suggestions for Azure URI shapes, conditional authentication rendering branches,
- * password masking for secrets, and asserting that Cloud Storage bucket discovery IPC is deliberately NOT dispatched.
+ * Secret Manager secret pickers for credentials, and asserting that Cloud Storage bucket discovery IPC is deliberately NOT dispatched.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
- * - Mocks window.vscode to verify no getStorageBuckets messages are dispatched.
+ * - Mocks window.vscode to verify getSecrets is dispatched while getStorageBuckets is NOT dispatched.
  * - Verifies conditional rendering across all 5 auth methods (ConnectionString, SasToken, AccessKey, ClientSecret, ManagedIdentity).
- * - Verifies password masking (type="password") on all sensitive credential fields.
+ * - Verifies Secret Manager datalist pickers (type="text", no type="password") on all sensitive credential fields.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   AzureBlobStoreFileSystemSourceProperties,
@@ -68,7 +68,7 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
           filePattern: 'azfs://account/container/data/*.parquet',
           storageAccount: 'mystorageaccount',
           authMethod: 'ConnectionString',
-          connectionString: 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=abc;EndpointSuffix=core.windows.net',
+          connectionString: 'azure-blob-connection-string-secret',
           format: 'ParquetIO',
           validate: false,
           minBundleSize: 8192,
@@ -97,8 +97,10 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
       expect(authMethodSelect.options[idx].value).toBe(method.value);
     });
 
-    expect(connectionStringInput).toHaveValue('DefaultEndpointsProtocol=https;AccountName=test;AccountKey=abc;EndpointSuffix=core.windows.net');
-    expect(connectionStringInput).toHaveAttribute('type', 'password');
+    expect(connectionStringInput).toHaveValue('azure-blob-connection-string-secret');
+    expect(connectionStringInput).toHaveAttribute('type', 'text');
+    expect(connectionStringInput).not.toHaveAttribute('type', 'password');
+    expect(screen.getByText('Connection String Secret (Secret Manager)')).toBeInTheDocument();
     expect(formatSelect).toHaveValue('ParquetIO');
     expect(formatSelect.options.length).toBe(AZURE_SOURCE_FORMATS.length);
     AZURE_SOURCE_FORMATS.forEach((fmt, idx) => {
@@ -211,7 +213,7 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
       data: {
         properties: {
           authMethod: 'ConnectionString',
-          connectionString: 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=key;'
+          connectionString: 'azure-blob-conn-secret'
         }
       }
     };
@@ -221,12 +223,14 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
 
     const connInput = container.querySelector('#azureSourceConnectionString') as HTMLInputElement;
     expect(connInput).toBeInTheDocument();
-    expect(connInput).toHaveAttribute('type', 'password');
+    expect(connInput).toHaveAttribute('type', 'text');
+    expect(connInput).toHaveAttribute('placeholder', 'e.g. azure-blob-connection-string-secret');
+    expect(screen.getByText('Connection String Secret (Secret Manager)')).toBeInTheDocument();
     fireEvent.change(connInput, {
-      target: { name: 'connectionString', value: 'DefaultEndpointsProtocol=https;Updated;' }
+      target: { name: 'connectionString', value: 'updated-azure-conn-secret' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionString: 'DefaultEndpointsProtocol=https;Updated;' })
+      expect.objectContaining({ connectionString: 'updated-azure-conn-secret' })
     );
 
     // 2. SasToken branch
@@ -234,7 +238,7 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
       data: {
         properties: {
           authMethod: 'SasToken',
-          sasToken: 'sp=r&st=2026-01-01'
+          sasToken: 'azure-sas-secret'
         }
       }
     };
@@ -242,12 +246,14 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
     expect(container.querySelector('#azureSourceConnectionString')).not.toBeInTheDocument();
     const sasInput = container.querySelector('#azureSourceSasToken') as HTMLInputElement;
     expect(sasInput).toBeInTheDocument();
-    expect(sasInput).toHaveAttribute('type', 'password');
+    expect(sasInput).toHaveAttribute('type', 'text');
+    expect(sasInput).toHaveAttribute('placeholder', 'e.g. azure-blob-sas-token-secret');
+    expect(screen.getByText('SAS Token Secret (Secret Manager)')).toBeInTheDocument();
     fireEvent.change(sasInput, {
-      target: { name: 'sasToken', value: 'sp=r&st=2026-02-01' }
+      target: { name: 'sasToken', value: 'updated-sas-secret' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ sasToken: 'sp=r&st=2026-02-01' })
+      expect.objectContaining({ sasToken: 'updated-sas-secret' })
     );
 
     // 3. AccessKey branch (requires storageAccount to be non-empty)
@@ -257,7 +263,7 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
           filePattern: 'azfs://account/container/input/*.parquet',
           authMethod: 'AccessKey',
           storageAccount: '',
-          accountKey: 'mysecretkey123=='
+          accountKey: 'azure-account-key-secret'
         }
       }
     };
@@ -269,13 +275,15 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
 
     const keyInput = container.querySelector('#azureSourceAccountKey') as HTMLInputElement;
     expect(keyInput).toBeInTheDocument();
-    expect(keyInput).toHaveAttribute('type', 'password');
+    expect(keyInput).toHaveAttribute('type', 'text');
+    expect(keyInput).toHaveAttribute('placeholder', 'e.g. azure-storage-account-key-secret');
+    expect(screen.getByText('Account Key Secret (Secret Manager)')).toBeInTheDocument();
     expect(screen.getByText(/BlobstoreOptions\.setAccessKey\(String\)/i)).toBeInTheDocument();
     fireEvent.change(keyInput, {
-      target: { name: 'accountKey', value: 'updatedkey456==' }
+      target: { name: 'accountKey', value: 'updated-account-key-secret' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ accountKey: 'updatedkey456==' })
+      expect.objectContaining({ accountKey: 'updated-account-key-secret' })
     );
 
     // 4. ClientSecret branch
@@ -285,7 +293,7 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
           authMethod: 'ClientSecret',
           clientId: 'app-id-123',
           tenantId: 'tenant-id-456',
-          clientSecret: 'secret-val-789'
+          clientSecret: 'azure-client-secret'
         }
       }
     };
@@ -297,7 +305,9 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
     expect(clientIdInput).toBeInTheDocument();
     expect(tenantIdInput).toBeInTheDocument();
     expect(clientSecretInput).toBeInTheDocument();
-    expect(clientSecretInput).toHaveAttribute('type', 'password');
+    expect(clientSecretInput).toHaveAttribute('type', 'text');
+    expect(clientSecretInput).toHaveAttribute('placeholder', 'e.g. azure-ad-client-secret');
+    expect(screen.getByText('Client Secret (Secret Manager)')).toBeInTheDocument();
 
     fireEvent.change(clientIdInput, { target: { name: 'clientId', value: 'new-app-id' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'new-app-id' }));
@@ -430,22 +440,50 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
     expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
   });
 
-  it('does NOT request storage buckets via vscode.postMessage (no bucket discovery for Azure Blob Storage)', () => {
+  it('requests GCP Secret Manager secrets via getSecrets and does NOT request storage buckets', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
 
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          authMethod: 'ConnectionString'
+        }
       }
     };
 
-    render(<AzureBlobStoreFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<AzureBlobStoreFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(mockPostMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getStorageBuckets' })
     );
-    expect(mockPostMessage).not.toHaveBeenCalled();
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ command: 'getSecrets' })
+    );
+
+    // Simulate secretsLoaded message from extension host and verify datalist options populate
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'secretsLoaded',
+            secrets: [
+              { id: 'azure-conn-secret', name: 'azure-conn-secret', fullName: 'projects/p/secrets/azure-conn-secret' },
+              'projects/p/secrets/azure-sas-secret'
+            ]
+          }
+        })
+      );
+    });
+
+    const connInput = container.querySelector('#azureSourceConnectionString') as HTMLInputElement;
+    fireEvent.focus(connInput);
+    const option = screen.getByRole('option', { name: 'azure-conn-secret' });
+    expect(option).toBeInTheDocument();
+    fireEvent.mouseDown(option);
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({ connectionString: 'azure-conn-secret' })
+    );
   });
 
   /**

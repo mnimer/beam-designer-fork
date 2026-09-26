@@ -52,7 +52,7 @@ describe('AmqpIOSinkProperties', () => {
     expect(screen.getByLabelText(/Durable Messages/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Message Priority/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/TTL \(ms\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username Secret \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/GCP Secret Manager Secret/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Expansion Service Mode/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();

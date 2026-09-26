@@ -47,7 +47,7 @@ describe('RabbitMqIOSourceProperties', () => {
     expect(screen.getByLabelText(/^Port$/i, { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Virtual Host/i, { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Use TLS \/ SSL/i, { selector: 'input' })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Username/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username \(Secret Manager\)/i, { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByText(/RabbitMQ broker credentials are authenticated via Google Cloud Secret Manager/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/GCP Secret Manager Secret/i, { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Queue Name/i, { selector: 'input' })).toBeInTheDocument();
@@ -455,8 +455,11 @@ describe('RabbitMqIOSourceProperties', () => {
       }));
     });
 
-    const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i);
+    const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
+
+    const usernameDropdown = screen.getByLabelText(/Username \(Secret Manager\)/i, { selector: 'input' });
+    expect(usernameDropdown).toBeInTheDocument();
 
     fireEvent.change(secretDropdown, { target: { name: 'secretName', value: 'rabbitmq-admin-pass' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

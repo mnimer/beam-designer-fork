@@ -72,7 +72,6 @@ export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProp
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
   const compressionType = properties.compressionType || 'AUTO';
-  const coder = properties.coder || '';
   const validate = properties.validate ?? true;
 
   // Validation: filePattern is required for reading TFRecord files.
@@ -141,25 +140,6 @@ export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProp
         value={compressionType}
         options={TFRECORD_COMPRESSION_TYPES}
         onChange={handleChange}
-      />
-
-      {/* Record Coder */}
-      <PropertyField
-        id="tfrecordSourceCoder"
-        name="coder"
-        label="Record Coder (Optional)"
-        tooltip="Coder used to deserialize binary records. In Python, coder= maps to beam.coders.BytesCoder() or beam.coders.ProtoCoder(tf.train.Example). In Java, TFRecordIO.read() always emits PCollection<byte[]> and uses a downstream MapElements / ParDo when a non-bytes coder is chosen."
-        value={coder}
-        onChange={handleChange}
-        placeholder="BytesCoder"
-        mono={true}
-        list="tfrecord-source-coder-options"
-        datalist={TFRECORD_CODER_OPTIONS}
-        helperText={
-          <span className="text-[11px] text-[var(--vscode-text-muted)]">
-            In Python, <code>coder=</code> maps to <code>beam.coders.BytesCoder()</code> / <code>beam.coders.ProtoCoder(tf.train.Example)</code>. In Java, <code>TFRecordIO.read()</code> always emits <code>PCollection&lt;byte[]&gt;</code> and uses a downstream <code>MapElements</code> / <code>ParDo</code> when a non-bytes coder is chosen.
-          </span>
-        }
       />
 
       {/* Validate Checkbox */}

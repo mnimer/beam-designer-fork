@@ -1,0 +1,90 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 1, "name": "alpha", "score": 99.5}'
+          - '{"id": 2, "name": "beta", "score": 88.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: map_documents
+      system_instructions: Transform upstream JSON batch records into destination
+        records required by SolrIO. Transform
+        org.apache.solr.common.SolrDocument instances into
+        org.apache.solr.common.SolrInputDocument instances for indexing. In
+        Java, create a DoFn extracting fields (e.g. 'id', 'title', 'price',
+        'category') from each input SolrDocument, apply business logic
+        enrichments (e.g. 'indexed_at', 'searchable_text'), create a new
+        SolrInputDocument, and call doc.addField(k, v) before emitting. In
+        Python, convert Solr input maps to transformed dictionaries with
+        required Solr schema fields.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Solr
+      type: SINK
+      iconName: Grid
+      beam_transform: SolrIO
+      properties:
+        zkHost: zk1.internal:2181,zk2.internal:2181/solr
+        collection: catalog_search
+        maxBatchSize: 1000
+        retryMaxAttempts: 5
+        retryMaxDuration: 1m
+        authMode: none
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: solr-sink-agent-engine
+  - key: zkHost
+    value: zk1.internal:2181,zk2.internal:2181/solr
+  - key: sourceCollection
+    value: catalog_raw
+  - key: destinationCollection
+    value: catalog_search
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/solr-sink-agent-engine
+  needsRebuild: false

@@ -25,6 +25,8 @@ import { PropertyField } from '../../components/common/PropertyField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
+import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
+import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
 export interface XmlIOSourceNode {
   data: {
@@ -36,7 +38,10 @@ export interface XmlIOSourceNode {
       filePattern?: string;
       rootElement?: string;
       recordElement?: string;
-      recordClass?: string;
+      mappingStrategy?: MappingStrategy | string;
+      schemaString?: string;
+      schema?: string;
+      schemaFields?: SchemaField[];
       charset?: string;
       compression?: string;
       minBundleSize?: string | number;
@@ -87,7 +92,12 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
   const filePattern = properties.filePattern || '';
   const rootElement = properties.rootElement || '';
   const recordElement = properties.recordElement || '';
-  const recordClass = properties.recordClass || '';
+  const schemaFields = React.useMemo(
+    () => resolveSchemaFields(properties),
+    [properties.schemaFields, properties.schema, properties.schemaString]
+  );
+  const mappingStrategy =
+    properties.mappingStrategy || (schemaFields.length > 0 ? 'schema' : 'infer');
   const charset = properties.charset || 'UTF-8';
   const compression = properties.compression || 'AUTO';
   const minBundleSize = properties.minBundleSize ?? '';
@@ -121,6 +131,18 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
+    });
+  };
+
+  /**
+   * Updates schema fields from SchemaEditor.
+   */
+  const handleSchemaChange = (data: { schemaFields: SchemaField[]; schema: string; schemaString: string }) => {
+    onChange({
+      ...properties,
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
     });
   };
 
@@ -214,22 +236,37 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
         }
       />
 
-      {/* Record Class Input */}
-      <PropertyField
-        id="xmlSourceRecordClass"
-        name="recordClass"
-        label="Record Class (.withRecordClass)"
-        tooltip="Fully qualified Java class name annotated with JAXB (@XmlRootElement) representing the record (e.g. 'com.example.ItemRecord')."
-        value={recordClass}
-        onChange={handleChange}
-        placeholder="e.g. com.example.model.ItemRecord"
-        mono={true}
-        helperText={
-          <span className="text-[11px] text-[var(--vscode-text-muted)]">
-            <strong>Java:</strong> JAXB-annotated class FQN used to unmarshal XML records.
-          </span>
-        }
-      />
+      {/* XML Record & Schema Mapping */}
+      <div className="flex flex-col gap-3 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+        <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
+          <span>XML Record &amp; Schema Mapping</span>
+          <InfoTooltip text="Configures how XML record elements map to Beam PCollection elements. Gemini automatically synthesizes the JAXB-annotated POJO (@XmlRootElement) and Beam Row mapping from rootElement + recordElement or from a defined schema." />
+        </label>
+
+        <MappingStrategyField
+          id="xmlSourceMappingStrategy"
+          strategyName="mappingStrategy"
+          strategy={mappingStrategy}
+          options={['infer', 'schema']}
+          optionLabels={{
+            infer: 'Auto-Infer JAXB Record / Row (Recommended)',
+            schema: 'Define Schema (Fields & Types)'
+          }}
+          label="Record Mapping Strategy"
+          tooltip="Select how XML records are mapped. 'Auto-Infer' lets Gemini synthesize the JAXB-annotated POJO (@XmlRootElement) and Beam Row from rootElement + recordElement. 'Define Schema' lets you specify exact fields & types."
+          inferDescription={
+            <>
+              Gemini will automatically synthesize a JAXB{' '}
+              <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">@XmlRootElement</code>-annotated POJO and{' '}
+              <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">XmlIO.read()</code> mapping from your root and record elements.
+            </>
+          }
+          schemaFields={schemaFields}
+          schemaStringPlaceholder="sku:STRING:REQUIRED, name:STRING, price:DOUBLE, quantity:INTEGER"
+          onSchemaChange={handleSchemaChange}
+          onChange={handleChange}
+        />
+      </div>
 
       {/* Charset Select */}
       <SelectField

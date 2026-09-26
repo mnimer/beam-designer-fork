@@ -37,6 +37,8 @@ export interface ComputeInstanceItem {
   status: string;
   internalIp: string;
   externalIp: string;
+  host?: string;
+  region?: string;
 }
 
 export interface RabbitMqConnectionFieldsProps {
@@ -102,8 +104,10 @@ export const RabbitMqConnectionFields: React.FC<RabbitMqConnectionFieldsProps> =
   const tlsId = `${idPrefix}-tls`;
   const usernameId = `${idPrefix}-username`;
   const secretNameId = `${idPrefix}-secret-name`;
+  const secretsListId = `${idPrefix}-secrets-list`;
 
   const isHostMissing = !host.trim();
+  const secretOptions = secrets.map((s) => ({ value: s.name, label: s.name }));
 
   return (
     <>
@@ -124,6 +128,10 @@ export const RabbitMqConnectionFields: React.FC<RabbitMqConnectionFieldsProps> =
           invalid={isHostMissing || !!instanceError}
           mono={true}
           list={instancesListId}
+          datalist={instances.map((inst) => ({
+            value: inst.host || inst.internalIp || inst.externalIp || inst.name,
+            label: inst.region ? `${inst.name} (${inst.region})` : inst.status ? `${inst.name} (${inst.status})` : inst.name
+          }))}
         />
 
         {/* Compute Engine Instance Suggestions */}
@@ -152,13 +160,6 @@ export const RabbitMqConnectionFields: React.FC<RabbitMqConnectionFieldsProps> =
             </div>
           </div>
         )}
-
-        <datalist id={instancesListId}>
-          {instances.map((inst) => {
-            const ip = inst.internalIp || inst.externalIp;
-            return ip ? <option key={inst.name} value={ip}>{`${inst.name} (${inst.status})`}</option> : null;
-          })}
-        </datalist>
 
         <div className="grid grid-cols-2 gap-2">
           <PropertyField
@@ -225,15 +226,17 @@ export const RabbitMqConnectionFields: React.FC<RabbitMqConnectionFieldsProps> =
           RabbitMQ broker credentials are authenticated via Google Cloud Secret Manager. Generated pipeline code resolves the username and secret to construct connection URIs without storing passwords in the pipeline definition.
         </p>
 
-        {/* Username */}
+        {/* Username via Secret Manager */}
         <PropertyField
           id={usernameId}
           name="username"
-          label="Username"
-          tooltip="RabbitMQ user account for authentication (e.g. guest or application service account)."
+          label="Username (Secret Manager)"
+          tooltip="Select a secret from Google Cloud Secret Manager containing the RabbitMQ user account for authentication."
           value={username}
           onChange={onChange}
-          placeholder="Broker username (optional)"
+          placeholder="e.g. rabbitmq-broker-username"
+          datalist={secretOptions}
+          loading={isLoadingSecrets}
           mono={true}
         />
 
@@ -260,41 +263,24 @@ export const RabbitMqConnectionFields: React.FC<RabbitMqConnectionFieldsProps> =
             </button>
           </div>
 
-          {secrets.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <select
-                id={secretNameId}
-                name="secretName"
-                value={secretName}
-                onChange={onChange}
-                className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="">-- Select a Secret --</option>
-                {secrets.map((sec) => (
-                  <option key={sec.name} value={sec.name}>
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-              {secretError && (
-                <span className="text-xs text-red-400 mt-1" role="alert">
-                  {secretError}
-                </span>
-              )}
-            </div>
-          ) : (
-            <PropertyField
-              id={secretNameId}
-              name="secretName"
-              value={secretName}
-              onChange={onChange}
-              placeholder="e.g. rabbitmq-broker-password"
-              error={secretError}
-              invalid={!!secretError}
-              helperText="No secrets automatically loaded. Enter secret resource name directly."
-              mono={true}
-            />
-          )}
+          <PropertyField
+            id={secretNameId}
+            name="secretName"
+            value={secretName}
+            onChange={onChange}
+            placeholder="e.g. rabbitmq-broker-password"
+            list={secretsListId}
+            datalist={secretOptions}
+            loading={isLoadingSecrets}
+            error={secretError}
+            invalid={!!secretError}
+            helperText={
+              secrets.length > 0
+                ? 'Select from discovered secrets or type a custom secret ID.'
+                : 'No secrets automatically loaded. Enter secret resource name directly.'
+            }
+            mono={true}
+          />
         </div>
       </div>
     </>

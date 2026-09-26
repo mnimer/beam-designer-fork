@@ -36,6 +36,8 @@ import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 import { SelectField } from '../../components/common/SelectField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export interface AzureBlobStoreFileSystemSourceNode {
   data: {
@@ -114,8 +116,15 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
 
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
 
+  // Load secrets from Google Cloud Secret Manager via extension host IPC
   // NOTE: Deliberately no useAssetLoader('storageBuckets') call here, as Azure Blob Storage
   // paths resolve against Azure Blob containers rather than Google Cloud Storage buckets.
+  const { items: loadedSecrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
+  const secretOptions = (loadedSecrets || []).map((s) => {
+    const normalized = normalizeSecretItem(s);
+    return { value: normalized.id, label: normalized.name };
+  });
+
   // Validation: filePattern is required for reading files from Azure Blob Storage
   const isFilePatternInvalid = !filePattern.trim();
 
@@ -238,15 +247,16 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
           <PropertyField
             id="azureSourceConnectionString"
             name="connectionString"
-            type="password"
-            label="Azure Connection String"
-            tooltip="Azure Blob Storage connection string (e.g. DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net)."
+            label="Connection String Secret (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the Azure Blob Storage connection string (e.g. DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net)."
             value={connectionString}
             onChange={handleChange}
-            placeholder="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+            placeholder="e.g. azure-blob-connection-string-secret"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             autoComplete="off"
-            helperText="Maps to BlobstoreOptions.setAzureConnectionString() (Java) / --azure_connection_string (Python). Masked for security."
+            helperText="References a GCP Secret Manager secret resolved at runtime for BlobstoreOptions.setAzureConnectionString() (Java) / --azure_connection_string (Python)."
           />
         </div>
       )}
@@ -259,15 +269,16 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
           <PropertyField
             id="azureSourceSasToken"
             name="sasToken"
-            type="password"
-            label="SAS Token"
-            tooltip="Azure Blob Storage Shared Access Signature (SAS) token."
+            label="SAS Token Secret (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the Azure Blob Storage Shared Access Signature (SAS) token."
             value={sasToken}
             onChange={handleChange}
-            placeholder="sp=r&st=2026-01-01T00:00:00Z&se=..."
+            placeholder="e.g. azure-blob-sas-token-secret"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             autoComplete="off"
-            helperText="Maps to BlobstoreOptions.setSasToken() (--sasToken in Java). Masked for security."
+            helperText="References a GCP Secret Manager secret resolved at runtime for BlobstoreOptions.setSasToken() (--sasToken in Java)."
           />
         </div>
       )}
@@ -280,15 +291,16 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
           <PropertyField
             id="azureSourceAccountKey"
             name="accountKey"
-            type="password"
-            label="Account Key"
-            tooltip="Primary or secondary secret access key for the Azure Storage account. Maps to BlobstoreOptions.setAccessKey(String) (--accessKey) in Java."
+            label="Account Key Secret (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the primary or secondary secret access key for the Azure Storage account. Maps to BlobstoreOptions.setAccessKey(String) (--accessKey) in Java."
             value={accountKey}
             onChange={handleChange}
-            placeholder="Base64 encoded storage account access key"
+            placeholder="e.g. azure-storage-account-key-secret"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             autoComplete="off"
-            helperText="Maps to BlobstoreOptions.setAccessKey(String) (--accessKey). Requires Storage Account Name (accountName) to be non-empty or DefaultBlobstoreClientBuilderFactory silently drops the key. Masked for security."
+            helperText="References a GCP Secret Manager secret resolved at runtime for BlobstoreOptions.setAccessKey(String) (--accessKey). Requires Storage Account Name (accountName) to be non-empty or DefaultBlobstoreClientBuilderFactory silently drops the key."
           />
         </div>
       )}
@@ -321,15 +333,16 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
           <PropertyField
             id="azureSourceClientSecret"
             name="clientSecret"
-            type="password"
-            label="Client Secret"
-            tooltip="Secret key for the Microsoft Entra application service principal."
+            label="Client Secret (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the secret key for the Microsoft Entra application service principal."
             value={clientSecret}
             onChange={handleChange}
-            placeholder="Client secret value"
+            placeholder="e.g. azure-ad-client-secret"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             autoComplete="off"
-            helperText="Service principal secret key. Masked for security."
+            helperText="References a GCP Secret Manager secret containing the service principal secret key resolved at runtime."
           />
         </div>
       )}

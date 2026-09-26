@@ -24,16 +24,19 @@ import { useEffect, useRef } from 'react';
  * @param command Single command string or array of command strings to filter for
  * @param handler Callback invoked when a message with a matching command is received
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useExtensionMessage<T = any>(
   command: string | string[],
   handler: (message: T) => void
 ): void {
-  // NOTE: Store the latest handler in a mutable ref updated on every render.
+  // NOTE: Store the latest handler in a mutable ref updated on every render via effect.
   // This guarantees that even if the consumer provides an inline arrow function capturing
   // fast-changing state/props, invocations always execute the freshest closure without
   // needing to re-bind window event listeners.
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   // Derive a stable dependency key so array references don't re-trigger effect needlessly
   const commandKey = Array.isArray(command) ? [...command].sort().join(',') : command;
@@ -53,9 +56,10 @@ export function useExtensionMessage<T = any>(
         return;
       }
 
+      const msgCommand = data.command || data.type;
       const isMatch = Array.isArray(command)
-        ? command.includes(data.command)
-        : data.command === command;
+        ? command.includes(msgCommand)
+        : msgCommand === command;
 
       if (isMatch) {
         handlerRef.current(data as T);
@@ -68,5 +72,6 @@ export function useExtensionMessage<T = any>(
     return () => {
       window.removeEventListener('message', handleMessage);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commandKey]);
 }

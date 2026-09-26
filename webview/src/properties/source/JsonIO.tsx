@@ -31,7 +31,9 @@ import { PropertyField } from '../../components/common/PropertyField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
-import { FileCode, Sparkles } from 'lucide-react';
+import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
+import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
+import { FileCode } from 'lucide-react';
 
 export interface JsonIOSourceNode {
   data: {
@@ -43,7 +45,10 @@ export interface JsonIOSourceNode {
       filePattern?: string;
       lines?: boolean;
       compression?: string;
+      mappingStrategy?: MappingStrategy | string;
+      schemaString?: string;
       schema?: string;
+      schemaFields?: SchemaField[];
       system_instructions?: string;
       special_instructions?: string;
       [key: string]: any;
@@ -68,23 +73,6 @@ export const JSON_SOURCE_COMPRESSION_TYPES = [
   { value: 'DEFLATE', label: 'DEFLATE' },
   { value: 'ZSTD', label: 'ZSTD' }
 ] as const;
-
-/**
- * Sample Beam Schema representing structured typed records parsed from JSON objects.
- */
-const SAMPLE_JSON_SCHEMA = JSON.stringify(
-  {
-    fields: [
-      { name: 'id', type: 'STRING' },
-      { name: 'name', type: 'STRING' },
-      { name: 'email', type: 'STRING' },
-      { name: 'amount', type: 'DOUBLE' },
-      { name: 'timestamp', type: 'INT64' }
-    ]
-  },
-  null,
-  2
-);
 
 /**
  * Sub-component for JSON parsing controls (lines toggle and compression dropdown).
@@ -152,7 +140,26 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
   const filePattern = properties.filePattern || '';
   const lines = properties.lines ?? true;
   const compression = properties.compression || 'AUTO';
-  const schema = properties.schema || '';
+  const schemaFields = React.useMemo(() => {
+    const resolved = resolveSchemaFields(properties);
+    if (resolved.length > 0) return resolved;
+    if (typeof properties.schema === 'string' && properties.schema.trim()) {
+      try {
+        const parsed = JSON.parse(properties.schema);
+        if (parsed && Array.isArray(parsed.fields)) {
+          return resolveSchemaFields({ schema: JSON.stringify(parsed.fields) });
+        }
+      } catch {
+        // ignore invalid legacy JSON
+      }
+    }
+    return [];
+  }, [properties.schemaFields, properties.schema, properties.schemaString]);
+  const mappingStrategy =
+    properties.mappingStrategy ||
+    (schemaFields.length > 0 || Boolean(properties.schema?.trim()) || Boolean(properties.schemaString?.trim())
+      ? 'schema'
+      : 'infer');
 
   const [isSchemaOpen, setIsSchemaOpen] = useState<boolean>(true);
 
@@ -185,12 +192,14 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
   };
 
   /**
-   * Inserts a sample Beam Schema definition into the schema field.
+   * Updates schema fields from SchemaEditor.
    */
-  const handleInsertSampleSchema = () => {
+  const handleSchemaChange = (data: { schemaFields: SchemaField[]; schema: string; schemaString: string }) => {
     onChange({
       ...properties,
-      schema: SAMPLE_JSON_SCHEMA
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
     });
   };
 
@@ -244,32 +253,32 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
         <p className="text-[11px] text-[var(--vscode-text-muted)] mt-1">
           <code>JsonIO</code> is write-only in Beam Java; Java reads via <code>TextIO.read().from(...)</code> + <code>JsonToRow.withSchema(schema)</code>, while Python uses <code>apache_beam.io.textio.ReadFromJson</code>.
         </p>
-        <div className="flex justify-between items-center mt-2">
-          <label htmlFor="jsonSourceSchema" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>Beam Schema Definition (Field names and types)</span>
-            <InfoTooltip text="In Java, TextIO.read().from(...) + JsonToRow.withSchema(schema) requires a Beam Schema to parse JSON lines into PCollection<Row>. In Python, ReadFromJson(dtype=...) maps field types via pandas." />
-          </label>
-          <button
-            type="button"
-            onClick={handleInsertSampleSchema}
-            className="text-[11px] text-[var(--vscode-highlight)] hover:underline flex items-center gap-1 font-medium"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>Insert Sample</span>
-          </button>
+        <div className="mt-2">
+          <MappingStrategyField
+            id="jsonSourceMappingStrategy"
+            strategyName="mappingStrategy"
+            strategy={mappingStrategy}
+            options={['infer', 'schema']}
+            optionLabels={{
+              infer: 'Auto-Infer from JSON Context (Recommended)',
+              schema: 'Define Schema (Fields & Types)'
+            }}
+            label="JSON Row / Schema Strategy"
+            tooltip="In Java, TextIO.read().from(...) + JsonToRow.withSchema(schema) requires a Beam Schema to parse JSON lines into PCollection<Row>. In Python, ReadFromJson(dtype=...) maps field types via pandas."
+            inferDescription={
+              <>
+                Gemini will automatically synthesize the Beam{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">Schema</code> for{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">JsonToRow.withSchema(schema)</code> (Java) or field types for{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">ReadFromJson</code> (Python) from your pipeline context.
+              </>
+            }
+            schemaFields={schemaFields}
+            schemaStringPlaceholder="id:STRING:REQUIRED, name:STRING, email:STRING, amount:DOUBLE, timestamp:TIMESTAMP"
+            onSchemaChange={handleSchemaChange}
+            onChange={handleChange}
+          />
         </div>
-        <textarea
-          id="jsonSourceSchema"
-          name="schema"
-          value={schema}
-          onChange={handleChange}
-          rows={4}
-          placeholder='{"fields": [{"name": "id", "type": "STRING"}, ...]}'
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono resize-y"
-        />
-        <span className="text-[11px] text-[var(--vscode-text-muted)]">
-          Specify Beam Schema JSON or field type definitions for schema-aware row decoding.
-        </span>
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}

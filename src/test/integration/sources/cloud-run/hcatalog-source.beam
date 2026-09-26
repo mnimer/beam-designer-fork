@@ -1,0 +1,89 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: HCatalog
+      type: SOURCE
+      iconName: Layers
+      beam_transform: HCatalogIO
+      properties:
+        metastoreUri: thrift://127.0.0.1:9083
+        database: default
+        table: raw_events
+        filter: ds = '2026-09-23'
+        partitionCols: ds
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Transform each incoming HCatRecord from the raw events
+        table into an aggregated HCatRecord matching the destination
+        'daily_rollups' schema. CRITICAL ELEMENT-TYPE CONTRACT: The output
+        HCatRecord field values must match the destination table column order
+        exactly: [event_type: String, event_count: Long, total_amount: Double,
+        process_time: String]. Construct each new HCatRecord using
+        DefaultHCatRecord with the exact column sequence. Output normalized JSON
+        strings ready for structured downstream logging."
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[HCatalogIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: hcatalog-source-cloud-run
+  - key: metastoreUri
+    value: thrift://127.0.0.1:9083
+  - key: database
+    value: default
+  - key: sourceTable
+    value: raw_events
+  - key: destTable
+    value: daily_rollups
+  - key: batchSize
+    value: 1024
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/hcatalog-source-cloud-run
+  needsRebuild: false

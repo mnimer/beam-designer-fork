@@ -66,6 +66,11 @@ describe('XmlIOSourceProperties', () => {
     expect(screen.getByText('Record Element is required.')).toBeInTheDocument();
 
     // Selects and textareas
+    expect(container.querySelector('#xmlSourceRecordClass')).not.toBeInTheDocument();
+    const strategySelect = container.querySelector('#xmlSourceMappingStrategy') as HTMLSelectElement;
+    expect(strategySelect).toBeInTheDocument();
+    expect(strategySelect).toHaveValue('infer');
+    expect(Array.from(strategySelect.options).map((o) => o.value)).toEqual(['infer', 'schema']);
     expect(container.querySelector('#xmlSourceCharset')).toHaveValue('UTF-8');
     expect(container.querySelector('#xmlSourceCompression')).toHaveValue('AUTO');
     expect(container.querySelector('#xmlSourceInstructions')).toBeInTheDocument();
@@ -80,7 +85,8 @@ describe('XmlIOSourceProperties', () => {
           filePattern: 'gs://my-bucket/inventory/*.xml',
           rootElement: 'inventory',
           recordElement: 'item',
-          recordClass: 'com.example.inventory.ItemRecord',
+          mappingStrategy: 'schema',
+          schemaString: 'sku:STRING:REQUIRED, price:DOUBLE',
           charset: 'ISO-8859-1',
           compression: 'GZIP',
           validate: false,
@@ -96,7 +102,7 @@ describe('XmlIOSourceProperties', () => {
     const filePatternInput = container.querySelector('#xmlSourceFilePattern') as HTMLInputElement;
     const rootElementInput = container.querySelector('#xmlSourceRootElement') as HTMLInputElement;
     const recordElementInput = container.querySelector('#xmlSourceRecordElement') as HTMLInputElement;
-    const recordClassInput = container.querySelector('#xmlSourceRecordClass') as HTMLInputElement;
+    const strategySelect = container.querySelector('#xmlSourceMappingStrategy') as HTMLSelectElement;
     const charsetSelect = container.querySelector('#xmlSourceCharset') as HTMLSelectElement;
     const compressionSelect = container.querySelector('#xmlSourceCompression') as HTMLSelectElement;
     const expansionServiceInput = container.querySelector('#xmlSourceExpansionService') as HTMLInputElement;
@@ -108,7 +114,8 @@ describe('XmlIOSourceProperties', () => {
     expect(rootElementInput).toHaveAttribute('aria-invalid', 'false');
     expect(recordElementInput).toHaveValue('item');
     expect(recordElementInput).toHaveAttribute('aria-invalid', 'false');
-    expect(recordClassInput).toHaveValue('com.example.inventory.ItemRecord');
+    expect(strategySelect).toHaveValue('schema');
+    expect(screen.getByText('2 FIELDS')).toBeInTheDocument();
     expect(charsetSelect).toHaveValue('ISO-8859-1');
     expect(compressionSelect).toHaveValue('GZIP');
     expect(expansionServiceInput).toHaveValue('localhost:8097');
@@ -119,10 +126,12 @@ describe('XmlIOSourceProperties', () => {
     expect(screen.queryByText('Record Element is required.')).not.toBeInTheDocument();
   });
 
-  it('handles field changes for filePattern, rootElement, recordElement, recordClass, and expansionService', () => {
+  it('handles field changes for filePattern, rootElement, recordElement, mappingStrategy, schemaFields, and expansionService', () => {
     const mockNode: any = {
       data: {
-        properties: {}
+        properties: {
+          mappingStrategy: 'schema'
+        }
       }
     };
 
@@ -155,13 +164,29 @@ describe('XmlIOSourceProperties', () => {
       expect.objectContaining({ recordElement: 'product' })
     );
 
-    // Record Class edit
-    const recordClassInput = container.querySelector('#xmlSourceRecordClass') as HTMLInputElement;
-    fireEvent.change(recordClassInput, {
-      target: { name: 'recordClass', value: 'com.example.catalog.ProductRecord' }
+    // Mapping Strategy edit
+    const strategySelect = container.querySelector('#xmlSourceMappingStrategy') as HTMLSelectElement;
+    fireEvent.change(strategySelect, {
+      target: { name: 'mappingStrategy', value: 'infer' }
     });
     expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ recordClass: 'com.example.catalog.ProductRecord' })
+      expect.objectContaining({ mappingStrategy: 'infer' })
+    );
+
+    // SchemaEditor string tab edit
+    fireEvent.click(screen.getByText('Schema String'));
+    const stringTextarea = container.querySelector('#xmlSourceMappingStrategySchemaString') as HTMLTextAreaElement;
+    fireEvent.change(stringTextarea, {
+      target: { value: 'product_id:STRING:REQUIRED, price:DOUBLE' }
+    });
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaString: 'product_id:STRING:REQUIRED, price:DOUBLE',
+        schemaFields: [
+          { name: 'product_id', type: 'STRING', mode: 'REQUIRED', description: '' },
+          { name: 'price', type: 'DOUBLE', mode: 'NULLABLE', description: '' }
+        ]
+      })
     );
 
     // Expansion Service edit

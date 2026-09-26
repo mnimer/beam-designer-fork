@@ -22,10 +22,12 @@
  *   Instead, PropertyField is used directly with static datalist suggestions of canonical S3 URI formats
  *   (s3://my-bucket/data/, s3://my-bucket/year=2024/*.parquet, etc.). Future maintainers MUST NOT replace
  *   this with StoragePathField or dispatch getStorageBuckets IPC messages.
- * - Security & Credentials: AWS credential secrets (secretAccessKey) are rendered strictly with type='password'
- *   and are never echoed, logged, or exposed in plaintext. Conditional rendering displays accessKeyId and
- *   secretAccessKey only when StaticCredentialsProvider is selected, and profileName only when
- *   ProfileCredentialsProvider is selected. DefaultCredentialsProvider renders no secret input fields.
+ * - Security & Credentials: AWS credential secrets (accessKeyId and secretAccessKey) are configured as
+ *   Google Cloud Secret Manager secret pickers (using useAssetLoader('secrets') and normalizeSecretItem)
+ *   so raw credentials are never stored in the pipeline definition. Conditional rendering displays
+ *   accessKeyId and secretAccessKey secret pickers only when StaticCredentialsProvider is selected, and
+ *   profileName only when ProfileCredentialsProvider is selected. DefaultCredentialsProvider renders no
+ *   secret input fields.
  *   (WebIdentityTokenCredentialsProvider was removed as it is not a supported @type in Beam's AwsOptions.)
  * - Reusable UI Primitives: Uses common primitives CollapsibleSection, SelectField, and PropertyField
  *   rather than local reimplementations, adhering strictly to the 8pt grid, VS Code theme variables,
@@ -39,6 +41,8 @@ import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
+import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export interface S3FileSystemSourceNode {
   data: {
@@ -94,7 +98,7 @@ export const AWS_REGIONS = [
 /** Supported AWS credentials providers in Beam AwsOptions */
 export const S3_CREDENTIALS_PROVIDERS = [
   { value: 'DefaultCredentialsProvider', label: 'DefaultCredentialsProvider (Environment / IAM role / Instance metadata)' },
-  { value: 'StaticCredentialsProvider', label: 'StaticCredentialsProvider (Explicit Access Key ID & Secret Access Key)' },
+  { value: 'StaticCredentialsProvider', label: 'Google Cloud Secret Manager (StaticCredentialsProvider)' },
   { value: 'ProfileCredentialsProvider', label: 'ProfileCredentialsProvider (Named AWS profile from ~/.aws/credentials)' }
 ];
 
@@ -137,8 +141,15 @@ export const S3FileSystemSourceProperties: React.FC<S3FileSystemSourceProperties
 
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
 
+  // Load secrets from Google Cloud Secret Manager via extension host IPC
   // NOTE: Deliberately no useAssetLoader('storageBuckets') call here, as S3 paths
   // resolve against Amazon S3 rather than Google Cloud Storage buckets.
+  const { items: loadedSecrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
+  const secretOptions = (loadedSecrets || []).map((s) => {
+    const normalized = normalizeSecretItem(s);
+    return { value: normalized.id, label: normalized.name };
+  });
+
   // Validation: filePattern is required for reading S3 files
   const isFilePatternInvalid = !filePattern.trim();
 
@@ -228,44 +239,47 @@ export const S3FileSystemSourceProperties: React.FC<S3FileSystemSourceProperties
         id="s3SourceCredentialsProvider"
         name="credentialsProvider"
         label="AWS Credentials Provider"
-        tooltip="AWS credentials provider used to authenticate requests (configured on AwsOptions via --awsCredentialsProvider in Java). StaticCredentialsProvider allows explicit key pairs, ProfileCredentialsProvider reads ~/.aws/credentials, and DefaultCredentialsProvider uses the standard AWS credential chain."
+        tooltip="AWS credentials provider used to authenticate requests (configured on AwsOptions via --awsCredentialsProvider in Java). StaticCredentialsProvider resolves key pairs from GCP Secret Manager, ProfileCredentialsProvider reads ~/.aws/credentials, and DefaultCredentialsProvider uses the standard AWS credential chain."
         value={credentialsProvider}
         options={S3_CREDENTIALS_PROVIDERS}
         onChange={handleChange}
         helperText="Authentication strategy for S3 access (AwsOptions in Java)."
       />
 
-      {/* Conditional: StaticCredentialsProvider (accessKeyId + secretAccessKey) */}
+      {/* Conditional: StaticCredentialsProvider (accessKeyId + secretAccessKey via GCP Secret Manager) */}
       {credentialsProvider === 'StaticCredentialsProvider' && (
         <div className="flex flex-col gap-3 p-3 rounded-md border border-[var(--vscode-border)] bg-[var(--vscode-subcard-bg)]">
           <PropertyField
             id="s3SourceAccessKeyId"
             name="accessKeyId"
-            label="AWS Access Key ID"
-            tooltip="AWS Access Key ID for static credential authentication."
+            label="AWS Access Key Secret (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the AWS Access Key ID for static credential authentication."
             value={accessKeyId}
             onChange={handleChange}
-            placeholder="AKIAIOSFODNN7EXAMPLE"
+            placeholder="e.g. aws-s3-access-key-id"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             helperText={
               <span className="text-xs text-[var(--vscode-text-muted)]">
-                20-character alphanumeric AWS Access Key ID.
+                GCP Secret Manager secret containing the AWS Access Key ID resolved at runtime.
               </span>
             }
           />
           <PropertyField
             id="s3SourceSecretAccessKey"
             name="secretAccessKey"
-            type="password"
-            label="AWS Secret Access Key"
-            tooltip="AWS Secret Access Key paired with the Access Key ID. Never echoed or logged in plaintext."
+            label="AWS Secret Access Key (Secret Manager)"
+            tooltip="GCP Secret Manager secret name containing the AWS Secret Access Key paired with the Access Key ID."
             value={secretAccessKey}
             onChange={handleChange}
-            placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            placeholder="e.g. aws-s3-secret-access-key"
+            datalist={secretOptions}
+            loading={secretsLoading}
             mono={true}
             helperText={
               <span className="text-xs text-[var(--vscode-text-muted)]">
-                Secret key is masked and securely provided to worker AwsOptions (Java) / S3Options (Python) at runtime.
+                GCP Secret Manager secret containing the AWS Secret Access Key resolved to worker AwsOptions (Java) / S3Options (Python) at runtime.
               </span>
             }
           />

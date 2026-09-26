@@ -280,12 +280,15 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
         <PropertyField
           id="jdbcUsername"
           name="username"
-          label="Username"
-          tooltip="Database user for JDBC authentication."
+          label="Username Secret"
+          tooltip="Select or enter the Google Cloud Secret Manager secret containing the database username."
           value={username}
           onChange={handleChange}
-          placeholder="dbuser"
-          mono={false}
+          placeholder="e.g. my-database-username"
+          list="jdbc-source-username-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
+          mono={true}
         />
 
         <PropertyField

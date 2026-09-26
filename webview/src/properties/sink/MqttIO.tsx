@@ -20,7 +20,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Server, Key, Lock, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Server, Key, Lock, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 
@@ -49,7 +49,7 @@ export interface MqttIOSinkNode {
       clientId?: string;
       username?: string;
       password?: string;
-      passwordSource?: 'secretManager' | 'direct';
+      passwordSource?: 'secretManager';
       secretName?: string;
       retain?: boolean;
       connectionTimeout?: number | string;
@@ -82,15 +82,12 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
   const topic = properties.topic || '';
   const clientId = properties.clientId || '';
   const username = properties.username || '';
-  const password = properties.password || '';
-  const passwordSource = properties.passwordSource || 'secretManager';
   const secretName = properties.secretName || '';
   const retain = properties.retain ?? false;
   const connectionTimeout = properties.connectionTimeout ?? '30';
   const keepAlive = properties.keepAlive ?? '60';
 
   // Local UI states
-  const [showPassword, setShowPassword] = useState(false);
   const [secrets, setSecrets] = useState<SecretItem[]>([]);
   const [secretError, setSecretError] = useState<string | null>(null);
   const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
@@ -164,6 +161,9 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
       ...properties,
       [name]: isCheckbox ? checked : value
     };
+
+    delete newProperties.password;
+    newProperties.passwordSource = 'secretManager';
 
     onChange(newProperties);
   };
@@ -333,128 +333,59 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
             <Lock size={12} className="text-blue-400" />
             <span>Authentication & Credentials</span>
           </span>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
-              <input
-                type="radio"
-                name="passwordSource"
-                value="secretManager"
-                checked={passwordSource === 'secretManager'}
-                onChange={handleChange}
-                className="accent-blue-500"
-              />
-              <span>Secret Manager</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
-              <input
-                type="radio"
-                name="passwordSource"
-                value="direct"
-                checked={passwordSource === 'direct'}
-                onChange={handleChange}
-                className="accent-blue-500"
-              />
-              <span>Direct Entry</span>
-            </label>
-          </div>
         </div>
 
-        {/* Username */}
+        {/* Username Secret */}
         <PropertyField
           id="mqtt-sink-username"
           name="username"
-          label="Username"
+          label="Username Secret"
           value={username}
           onChange={handleChange}
-          placeholder="Broker username (optional)"
+          placeholder="e.g. mqtt-broker-username"
+          list="mqtt-sink-username-secret-options"
+          datalist={secrets.map((sec) => ({ value: sec.name, label: sec.name }))}
+          loading={isLoadingSecrets}
           containerClassName="flex flex-col gap-1.5"
         />
 
-        {/* Password or Secret Manager Selector */}
-        {passwordSource === 'secretManager' ? (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="mqtt-sink-secret-name" className="flex items-center text-xs font-bold uppercase text-slate-500 gap-1">
-                <Key size={12} />
-                <span>GCP Secret Manager Secret</span>
-                <InfoTooltip
-                  text="Select a secret from Google Cloud Secret Manager to provide broker credentials securely without hardcoding secrets."
-                  position="auto"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleRefreshSecrets}
-                disabled={isLoadingSecrets}
-                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-                title="Refresh secrets from Secret Manager"
-              >
-                <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
-                <span>Refresh</span>
-              </button>
-            </div>
-
-            {secrets.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                <select
-                  id="mqtt-sink-secret-name"
-                  name="secretName"
-                  value={secretName}
-                  onChange={handleChange}
-                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- Select a Secret --</option>
-                  {secrets.map((sec) => (
-                    <option key={sec.name} value={sec.name}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-                {secretError && (
-                  <span className="text-xs text-red-400 mt-1" role="alert">
-                    {secretError}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <PropertyField
-                id="mqtt-sink-secret-name"
-                name="secretName"
-                value={secretName}
-                onChange={handleChange}
-                placeholder="e.g. mqtt-broker-password"
-                helperText="No secrets automatically loaded. Enter secret resource name directly."
-                error={secretError}
-                containerClassName="flex flex-col gap-1"
+        {/* Secret Manager Selector */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label htmlFor="mqtt-sink-secret-name" className="flex items-center text-xs font-bold uppercase text-slate-500 gap-1">
+              <Key size={12} />
+              <span>GCP Secret Manager Secret</span>
+              <InfoTooltip
+                text="Select a secret from Google Cloud Secret Manager to provide broker credentials securely without hardcoding secrets."
+                position="auto"
               />
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="mqtt-sink-password" className="text-xs font-bold uppercase text-slate-500">
-              Password
             </label>
-            <div className="relative">
-              <input
-                id="mqtt-sink-password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={password}
-                onChange={handleChange}
-                placeholder="Broker password (optional)"
-                className="w-full bg-[#252836] text-white p-2 pr-9 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleRefreshSecrets}
+              disabled={isLoadingSecrets}
+              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+              title="Refresh secrets from Secret Manager"
+            >
+              <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
           </div>
-        )}
+
+          <PropertyField
+            id="mqtt-sink-secret-name"
+            name="secretName"
+            value={secretName}
+            onChange={handleChange}
+            placeholder="e.g. mqtt-broker-password"
+            list="mqtt-sink-secret-options"
+            datalist={secrets.map((sec) => ({ value: sec.name, label: sec.name }))}
+            loading={isLoadingSecrets}
+            error={secretError}
+            invalid={!!secretError}
+            containerClassName="flex flex-col gap-1"
+          />
+        </div>
       </div>
 
       {/* 5. Publishing Options & Retain Flag */}

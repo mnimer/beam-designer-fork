@@ -1,0 +1,99 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 1, "name": "alpha", "score": 99.5}'
+          - '{"id": 2, "name": "beta", "score": 88.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformFn: EnrichTransactionFn
+      system_instructions: Transform upstream JSON batch records into destination
+        records required by SnowflakeIO. Process Transaction records by
+        computing fee tiers and customer aggregates. In Java, implement as a
+        DoFn<Transaction, TransactionSummary> outputting enriched records. In
+        Python, implement as a beam.DoFn yielding enriched dictionary records
+        formatted for user data mapping.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Snowflake
+      type: SINK
+      iconName: Cloud
+      beam_transform: SnowflakeIO
+      properties:
+        serverName: xy12345.us-central1.gcp.snowflakecomputing.com
+        database: FINANCE_DB
+        schema: PUBLIC
+        warehouse: ANALYTICS_WH
+        role: ACCOUNTADMIN
+        table: TRANSACTION_SUMMARIES
+        stagingBucketName: gs://snowflake-dataflow-staging-bucket/sink/
+        storageIntegrationName: GCS_STORAGE_INTEGRATION
+        writeDisposition: APPEND
+        createDisposition: CREATE_IF_NEEDED
+        tableSchema: TransactionSummarySchema
+        userDataMapper: TransactionSummaryUserDataMapper
+        quotationMark: '"'
+        authMode: username_password
+        username: DATAFLOW_ETL
+        passwordSecret: snowflake-etl-password
+        flushRowLimit: 10000
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: cloud-run
+  - key: JOB_ID
+    value: snowflake-sink-cloud-run
+  - key: serverName
+    value: xy12345.us-central1.gcp.snowflakecomputing.com
+  - key: database
+    value: FINANCE_DB
+  - key: warehouse
+    value: ANALYTICS_WH
+  - key: stagingBucket
+    value: gs://snowflake-dataflow-staging-bucket/
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/cloud-run
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/cloud-run/snowflake-sink-cloud-run
+  needsRebuild: false

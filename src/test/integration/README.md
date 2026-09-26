@@ -14,11 +14,11 @@ The integration test suite is partitioned into modular pipeline domains, each su
 ```
 src/test/integration/
 ├── sources/
-│   ├── agent-engine/     # 39 Source IO connector tests (Agent Engine runtime)
-│   └── cloud-run/        # 39 Source IO connector tests (Cloud Run runtime)
+│   ├── agent-engine/     # 65 Source IO connector tests (Agent Engine runtime)
+│   └── cloud-run/        # 65 Source IO connector tests (Cloud Run runtime)
 ├── sinks/
-│   ├── agent-engine/     # 37 Sink IO connector tests (Agent Engine runtime)
-│   └── cloud-run/        # 37 Sink IO connector tests (Cloud Run runtime)
+│   ├── agent-engine/     # 60 Sink IO connector tests (Agent Engine runtime)
+│   └── cloud-run/        # 60 Sink IO connector tests (Cloud Run runtime)
 ├── steps/
 │   ├── agent-engine/     # 9 Modular Step suites covering all 31 Step Types (Agent Engine)
 │   └── cloud-run/        # 9 Modular Step suites covering all 31 Step Types (Cloud Run)

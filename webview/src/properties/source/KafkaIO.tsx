@@ -32,7 +32,6 @@ export const KAFKA_DESERIALIZER_PRESETS: KafkaDeserializerPreset[] = [
   { label: 'Long (LongDeserializer)', className: 'org.apache.kafka.common.serialization.LongDeserializer' },
   { label: 'Integer (IntegerDeserializer)', className: 'org.apache.kafka.common.serialization.IntegerDeserializer' },
   { label: 'Double (DoubleDeserializer)', className: 'org.apache.kafka.common.serialization.DoubleDeserializer' },
-  { label: 'Custom Class...', className: 'custom' },
 ];
 
 interface KafkaIOSourceNode {
@@ -47,9 +46,7 @@ interface KafkaIOSourceNode {
       groupId?: string;
       autoOffsetReset?: 'latest' | 'earliest' | 'none';
       keyDeserializer?: string;
-      customKeyDeserializer?: string;
       valueDeserializer?: string;
-      customValueDeserializer?: string;
       commitOffsetsInFinalize?: boolean;
       timestampPolicy?: string;
       maxNumRecords?: string | number;
@@ -84,9 +81,7 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
   const groupId = properties.groupId || '';
   const autoOffsetReset = properties.autoOffsetReset || 'latest';
   const keyDeserializer = properties.keyDeserializer || 'org.apache.kafka.common.serialization.ByteArrayDeserializer';
-  const customKeyDeserializer = properties.customKeyDeserializer || '';
   const valueDeserializer = properties.valueDeserializer || 'org.apache.kafka.common.serialization.StringDeserializer';
-  const customValueDeserializer = properties.customValueDeserializer || '';
   const commitOffsetsInFinalize = properties.commitOffsetsInFinalize ?? true;
   const timestampPolicy = properties.timestampPolicy || 'ProcessingTime';
   const maxNumRecords = properties.maxNumRecords ?? '';
@@ -132,72 +127,30 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
     });
   };
 
-  const isKeyPreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === keyDeserializer && p.className !== 'custom');
-  const selectedKeyPreset = isKeyPreset ? keyDeserializer : 'custom';
-  const customKeyValue = isKeyPreset ? customKeyDeserializer : (customKeyDeserializer || (keyDeserializer !== 'custom' ? keyDeserializer : ''));
+  const isKeyPreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === keyDeserializer);
+  const selectedKeyPreset = isKeyPreset ? keyDeserializer : 'org.apache.kafka.common.serialization.ByteArrayDeserializer';
 
-  const isValuePreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === valueDeserializer && p.className !== 'custom');
-  const selectedValuePreset = isValuePreset ? valueDeserializer : 'custom';
-  const customValueValue = isValuePreset ? customValueDeserializer : (customValueDeserializer || (valueDeserializer !== 'custom' ? valueDeserializer : ''));
+  const isValuePreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === valueDeserializer);
+  const selectedValuePreset = isValuePreset ? valueDeserializer : 'org.apache.kafka.common.serialization.StringDeserializer';
 
   // Validation states according to Apache Beam KafkaIO documentation
   const isBootstrapServersInvalid = !bootstrapServers.trim();
   const isTopicsInvalid = !topics.trim();
-  const isCustomKeyInvalid = selectedKeyPreset === 'custom' && !customKeyValue.trim();
-  const isCustomValueInvalid = selectedValuePreset === 'custom' && !customValueValue.trim();
 
   /**
    * Handles deserializer dropdown changes.
    */
   const handleKeySelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        keyDeserializer: customKeyValue || 'custom',
-        customKeyDeserializer: customKeyValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        keyDeserializer: val,
-        customKeyDeserializer: ''
-      });
-    }
-  };
-
-  const handleCustomKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      keyDeserializer: val,
-      customKeyDeserializer: val
+      keyDeserializer: e.target.value
     });
   };
 
   const handleValueSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        valueDeserializer: customValueValue || 'custom',
-        customValueDeserializer: customValueValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        valueDeserializer: val,
-        customValueDeserializer: ''
-      });
-    }
-  };
-
-  const handleCustomValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      valueDeserializer: val,
-      customValueDeserializer: val
+      valueDeserializer: e.target.value
     });
   };
 
@@ -286,28 +239,6 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
             </option>
           ))}
         </select>
-        {selectedKeyPreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customKeyDeserializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomKeyInvalid}
-              value={customKeyValue}
-              onChange={handleCustomKeyChange}
-              placeholder="com.example.MyCustomKeyDeserializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomKeyInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomKeyInvalid && (
-              <span className="text-xs text-red-400">Custom Key Deserializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Value Deserializer (Required) */}
@@ -330,28 +261,6 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
             </option>
           ))}
         </select>
-        {selectedValuePreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customValueDeserializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomValueInvalid}
-              value={customValueValue}
-              onChange={handleCustomValueChange}
-              placeholder="com.example.MyCustomValueDeserializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomValueInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomValueInvalid && (
-              <span className="text-xs text-red-400">Custom Value Deserializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Commit Offsets in Finalize Checkbox */}

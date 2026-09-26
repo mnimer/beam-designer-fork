@@ -86,12 +86,15 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
 }) => {
   const authModeId = `${idPrefix}-auth-mode`;
   const tokenSecretId = `${idPrefix}-token-secret`;
+  const secretsListId = `${idPrefix}-secrets-list`;
   const oauthIssuerId = `${idPrefix}-oauth-issuer`;
   const oauthAudienceId = `${idPrefix}-oauth-audience`;
   const oauthKeySecretId = `${idPrefix}-oauth-key-secret`;
   const tlsCertSecretId = `${idPrefix}-tls-cert-secret`;
   const tlsKeySecretId = `${idPrefix}-tls-key-secret`;
   const tlsTrustSecretId = `${idPrefix}-tls-trust-secret`;
+
+  const secretOptions = secrets.map((s) => ({ value: s.name, label: s.name }));
 
   return (
     <div className="p-3 bg-[#252836]/60 rounded border border-slate-700 flex flex-col gap-3">
@@ -148,41 +151,24 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
               )}
             </div>
 
-            {secrets.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                <select
-                  id={tokenSecretId}
-                  name="tokenSecretName"
-                  value={tokenSecretName}
-                  onChange={onChange}
-                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-                >
-                  <option value="">-- Select a Secret --</option>
-                  {secrets.map((sec) => (
-                    <option key={sec.name} value={sec.name}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-                {secretError && (
-                  <span className="text-xs text-red-400 mt-1" role="alert">
-                    {secretError}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <PropertyField
-                id={tokenSecretId}
-                name="tokenSecretName"
-                value={tokenSecretName}
-                onChange={onChange}
-                placeholder="e.g. pulsar-jwt-token"
-                error={secretError}
-                invalid={!!secretError}
-                helperText="No secrets automatically loaded. Enter secret resource name directly."
-                mono={true}
-              />
-            )}
+            <PropertyField
+              id={tokenSecretId}
+              name="tokenSecretName"
+              value={tokenSecretName}
+              onChange={onChange}
+              placeholder="e.g. pulsar-jwt-token"
+              list={secretsListId}
+              datalist={secretOptions}
+              loading={isLoadingSecrets}
+              error={secretError}
+              invalid={!!secretError}
+              helperText={
+                secrets.length > 0
+                  ? 'Select from discovered secrets or type a custom secret ID.'
+                  : 'No secrets automatically loaded. Enter secret resource name directly.'
+              }
+              mono={true}
+            />
           </div>
         </div>
       )}
@@ -218,6 +204,8 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
             value={oauthKeySecretName}
             onChange={onChange}
             placeholder="pulsar-oauth2-private-key"
+            datalist={secretOptions}
+            loading={isLoadingSecrets}
             mono={true}
           />
         </div>
@@ -234,6 +222,8 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
             value={tlsCertSecretName}
             onChange={onChange}
             placeholder="pulsar-client-cert"
+            datalist={secretOptions}
+            loading={isLoadingSecrets}
             mono={true}
           />
           <PropertyField
@@ -244,6 +234,8 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
             value={tlsKeySecretName}
             onChange={onChange}
             placeholder="pulsar-client-key"
+            datalist={secretOptions}
+            loading={isLoadingSecrets}
             mono={true}
           />
           <PropertyField
@@ -254,6 +246,8 @@ export const PulsarAuthFields: React.FC<PulsarAuthFieldsProps> = ({
             value={tlsTrustCertSecretName}
             onChange={onChange}
             placeholder="pulsar-ca-cert"
+            datalist={secretOptions}
+            loading={isLoadingSecrets}
             mono={true}
           />
         </div>

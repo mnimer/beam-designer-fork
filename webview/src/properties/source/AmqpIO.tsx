@@ -268,14 +268,16 @@ export const AmqpIOSourceProperties: React.FC<AmqpIOSourcePropertiesProps> = ({ 
           AMQP 1.0 broker credentials are authenticated via Google Cloud Secret Manager. Generated pipeline code resolves the username and secret to construct connection URIs without storing passwords in the pipeline definition.
         </p>
 
-        {/* Username */}
+        {/* Username Secret (Secret Manager) */}
         <PropertyField
           id="amqp-source-username"
           name="username"
-          label="Username"
+          label="Username Secret (Secret Manager)"
           value={username}
           onChange={handleChange}
-          placeholder="Broker username (optional)"
+          placeholder="e.g. amqp-username"
+          datalist={secrets.map((sec) => ({ value: sec.id || sec.name, label: sec.name }))}
+          loading={isLoadingSecrets}
           mono={true}
         />
 
@@ -308,7 +310,8 @@ export const AmqpIOSourceProperties: React.FC<AmqpIOSourcePropertiesProps> = ({ 
             value={secretName}
             onChange={handleChange}
             placeholder="e.g. amqp-broker-password"
-            datalist={secrets.map((sec) => ({ value: sec.name, label: sec.name }))}
+            datalist={secrets.map((sec) => ({ value: sec.id || sec.name, label: sec.name }))}
+            loading={isLoadingSecrets}
             error={secretError}
             invalid={!!secretError}
             helperText={

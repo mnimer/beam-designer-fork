@@ -15,6 +15,10 @@
  * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO, AmqpIO, RabbitMqIO,
  *   PulsarIO, SolaceIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO, AmqpIO, RabbitMqIO, PulsarIO, SolaceIO),
  *   Data Services (FlinkStreamingImpulseSource), Database, File, Aggregations, and Transform steps.
+ * - Database and Data Services connector family registered under type-qualified keys (`SOURCE:`/`SINK:`): CassandraIO,
+ *   HBaseIO, KuduIO, MongoDbIO, RedisIO, BigTableIO, ClickHouseIO, DatabaseIO, DatastoreIO, DynamoDBIO,
+ *   ElasticsearchIO, FirestoreIO, HadoopFormatIO, InfluxDbIO, MongoDbGridFSIO, Neo4jIO, SingleStoreDBIO,
+ *   SnowflakeIO, SolrIO, SpannerIO, CdapIO, CosmosIO, DebeziumIO, HCatalogIO, ArrowFlightIO, SparkReceiverIO.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -57,6 +61,55 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+import { CassandraIOSourceProperties } from '../properties/source/CassandraIO';
+import { CassandraIOSinkProperties } from '../properties/sink/CassandraIO';
+import { HBaseIOSourceProperties } from '../properties/source/HBaseIO';
+import { HBaseIOSinkProperties } from '../properties/sink/HBaseIO';
+import { KuduIOSourceProperties } from '../properties/source/KuduIO';
+import { KuduIOSinkProperties } from '../properties/sink/KuduIO';
+import { MongoDbIOSourceProperties } from '../properties/source/MongoDbIO';
+import { MongoDbIOSinkProperties } from '../properties/sink/MongoDbIO';
+import { RedisIOSourceProperties } from '../properties/source/RedisIO';
+import { RedisIOSinkProperties } from '../properties/sink/RedisIO';
+import { BigTableIOSourceProperties } from '../properties/source/BigTableIO';
+import { BigTableIOSinkProperties } from '../properties/sink/BigTableIO';
+import { ClickHouseIOSourceProperties } from '../properties/source/ClickHouseIO';
+import { ClickHouseIOSinkProperties } from '../properties/sink/ClickHouseIO';
+import { DatabaseIOSourceProperties } from '../properties/source/DatabaseIO';
+import { DatabaseIOSinkProperties } from '../properties/sink/DatabaseIO';
+import { DatastoreIOSourceProperties } from '../properties/source/DatastoreIO';
+import { DatastoreIOSinkProperties } from '../properties/sink/DatastoreIO';
+import { DynamoDBIOSourceProperties } from '../properties/source/DynamoDBIO';
+import { DynamoDBIOSinkProperties } from '../properties/sink/DynamoDBIO';
+import { ElasticsearchIOSourceProperties } from '../properties/source/ElasticsearchIO';
+import { ElasticsearchIOSinkProperties } from '../properties/sink/ElasticsearchIO';
+import { FirestoreIOSourceProperties } from '../properties/source/FirestoreIO';
+import { FirestoreIOSinkProperties } from '../properties/sink/FirestoreIO';
+import { HadoopFormatIOSourceProperties } from '../properties/source/HadoopFormatIO';
+import { HadoopFormatIOSinkProperties } from '../properties/sink/HadoopFormatIO';
+import { InfluxDbIOSourceProperties } from '../properties/source/InfluxDbIO';
+import { InfluxDbIOSinkProperties } from '../properties/sink/InfluxDbIO';
+import { MongoDbGridFSIOSourceProperties } from '../properties/source/MongoDbGridFSIO';
+import { MongoDbGridFSIOSinkProperties } from '../properties/sink/MongoDbGridFSIO';
+import { Neo4jIOSourceProperties } from '../properties/source/Neo4jIO';
+import { Neo4jIOSinkProperties } from '../properties/sink/Neo4jIO';
+import { SingleStoreDBIOSourceProperties } from '../properties/source/SingleStoreDBIO';
+import { SingleStoreDBIOSinkProperties } from '../properties/sink/SingleStoreDBIO';
+import { SnowflakeIOSourceProperties } from '../properties/source/SnowflakeIO';
+import { SnowflakeIOSinkProperties } from '../properties/sink/SnowflakeIO';
+import { SolrIOSourceProperties } from '../properties/source/SolrIO';
+import { SolrIOSinkProperties } from '../properties/sink/SolrIO';
+import { SpannerIOSourceProperties } from '../properties/source/SpannerIO';
+import { SpannerIOSinkProperties } from '../properties/sink/SpannerIO';
+import { CdapIOSourceProperties } from '../properties/source/CdapIO';
+import { CdapIOSinkProperties } from '../properties/sink/CdapIO';
+import { CosmosIOSourceProperties } from '../properties/source/CosmosIO';
+import { DebeziumIOSourceProperties } from '../properties/source/DebeziumIO';
+import { HCatalogIOSourceProperties } from '../properties/source/HCatalogIO';
+import { HCatalogIOSinkProperties } from '../properties/sink/HCatalogIO';
+import { ArrowFlightIOSourceProperties } from '../properties/source/ArrowFlightIO';
+import { ArrowFlightIOSinkProperties } from '../properties/sink/ArrowFlightIO';
+import { SparkReceiverIOSourceProperties } from '../properties/source/SparkReceiverIO';
 import { FhirIOSourceProperties } from '../properties/source/FhirIO';
 import { FhirIOSinkProperties } from '../properties/sink/FhirIO';
 import { HL7v2IOSourceProperties } from '../properties/source/HL7v2IO';
@@ -149,6 +202,34 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:JmsIO': JmsIOSourceProperties,
   'SOURCE:SqsIO': SqsIOSourceProperties,
   'SOURCE:MqttIO': MqttIOSourceProperties,
+  'SOURCE:CassandraIO': CassandraIOSourceProperties,
+  'SOURCE:HBaseIO': HBaseIOSourceProperties,
+  'SOURCE:KuduIO': KuduIOSourceProperties,
+  'SOURCE:MongoDbIO': MongoDbIOSourceProperties,
+  'SOURCE:RedisIO': RedisIOSourceProperties,
+  'SOURCE:BigTableIO': BigTableIOSourceProperties,
+  'SOURCE:BigtableIO': BigTableIOSourceProperties,
+  'SOURCE:ClickHouseIO': ClickHouseIOSourceProperties,
+  'SOURCE:DatabaseIO': DatabaseIOSourceProperties,
+  'SOURCE:DatastoreIO': DatastoreIOSourceProperties,
+  'SOURCE:DynamoDBIO': DynamoDBIOSourceProperties,
+  'SOURCE:ElasticsearchIO': ElasticsearchIOSourceProperties,
+  'SOURCE:FirestoreIO': FirestoreIOSourceProperties,
+  'SOURCE:HadoopFormatIO': HadoopFormatIOSourceProperties,
+  'SOURCE:InfluxDbIO': InfluxDbIOSourceProperties,
+  'SOURCE:MongoDbGridFSIO': MongoDbGridFSIOSourceProperties,
+  'SOURCE:Neo4jIO': Neo4jIOSourceProperties,
+  'SOURCE:SingleStoreDBIO': SingleStoreDBIOSourceProperties,
+  'SOURCE:SingleStoreIO': SingleStoreDBIOSourceProperties,
+  'SOURCE:SnowflakeIO': SnowflakeIOSourceProperties,
+  'SOURCE:SolrIO': SolrIOSourceProperties,
+  'SOURCE:SpannerIO': SpannerIOSourceProperties,
+  'SOURCE:CdapIO': CdapIOSourceProperties,
+  'SOURCE:CosmosIO': CosmosIOSourceProperties,
+  'SOURCE:DebeziumIO': DebeziumIOSourceProperties,
+  'SOURCE:HCatalogIO': HCatalogIOSourceProperties,
+  'SOURCE:ArrowFlightIO': ArrowFlightIOSourceProperties,
+  'SOURCE:SparkReceiverIO': SparkReceiverIOSourceProperties,
   'SOURCE:FhirIO': FhirIOSourceProperties,
   'SOURCE:HL7v2IO': HL7v2IOSourceProperties,
   'SOURCE:DicomIO': DicomIOSourceProperties,
@@ -212,6 +293,31 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:JmsIO': JmsIOSinkProperties,
   'SINK:SqsIO': SqsIOSinkProperties,
   'SINK:MqttIO': MqttIOSinkProperties,
+  'SINK:CassandraIO': CassandraIOSinkProperties,
+  'SINK:HBaseIO': HBaseIOSinkProperties,
+  'SINK:KuduIO': KuduIOSinkProperties,
+  'SINK:MongoDbIO': MongoDbIOSinkProperties,
+  'SINK:RedisIO': RedisIOSinkProperties,
+  'SINK:BigTableIO': BigTableIOSinkProperties,
+  'SINK:BigtableIO': BigTableIOSinkProperties,
+  'SINK:ClickHouseIO': ClickHouseIOSinkProperties,
+  'SINK:DatabaseIO': DatabaseIOSinkProperties,
+  'SINK:DatastoreIO': DatastoreIOSinkProperties,
+  'SINK:DynamoDBIO': DynamoDBIOSinkProperties,
+  'SINK:ElasticsearchIO': ElasticsearchIOSinkProperties,
+  'SINK:FirestoreIO': FirestoreIOSinkProperties,
+  'SINK:HadoopFormatIO': HadoopFormatIOSinkProperties,
+  'SINK:InfluxDbIO': InfluxDbIOSinkProperties,
+  'SINK:MongoDbGridFSIO': MongoDbGridFSIOSinkProperties,
+  'SINK:Neo4jIO': Neo4jIOSinkProperties,
+  'SINK:SingleStoreDBIO': SingleStoreDBIOSinkProperties,
+  'SINK:SingleStoreIO': SingleStoreDBIOSinkProperties,
+  'SINK:SnowflakeIO': SnowflakeIOSinkProperties,
+  'SINK:SolrIO': SolrIOSinkProperties,
+  'SINK:SpannerIO': SpannerIOSinkProperties,
+  'SINK:CdapIO': CdapIOSinkProperties,
+  'SINK:HCatalogIO': HCatalogIOSinkProperties,
+  'SINK:ArrowFlightIO': ArrowFlightIOSinkProperties,
   'SINK:FhirIO': FhirIOSinkProperties,
   'SINK:HL7v2IO': HL7v2IOSinkProperties,
   'SINK:DicomIO': DicomIOSinkProperties,

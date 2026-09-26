@@ -46,20 +46,19 @@ describe('SolaceIOSourceProperties', () => {
     expect(screen.getByLabelText(/JCSMP Host \(SMF Messaging\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/SEMP Host \(Management HTTPS\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Message VPN Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Username \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Password \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Destination Type/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Queue Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Max Concurrent Connections/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Timestamp Function/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Timestamp Function/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Deduplicate Records/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Expansion Service Mode/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
 
-    // Verify host formatting and timestampFn guidance helper texts
+    // Verify host formatting guidance helper texts
     expect(screen.getByText('Format: Host[:Port] (e.g. localhost:55555)')).toBeInTheDocument();
     expect(screen.getByText('Format: [Protocol://]Host[:Port] (e.g. https://localhost:943)')).toBeInTheDocument();
-    expect(screen.getByText(/Java lambda expression \(e\.g\. record -> Instant\.ofEpochMilli\(\.\.\.\)\)\. Applicable only to Java pipelines; not supported in Python cross-language pipelines\./i)).toBeInTheDocument();
   });
 
   it('populates fields with provided properties and triggers onChange on inputs', () => {
@@ -76,7 +75,6 @@ describe('SolaceIOSourceProperties', () => {
           topic: 'events/telemetry/>',
           maxNumConnections: 4,
           deduplicateRecords: true,
-          timestampFn: 'msg -> Instant.now()',
           expansionServiceMode: 'endpoint' as const,
           expansionServiceEndpoint: '10.0.0.5:8097'
         }
@@ -89,15 +87,14 @@ describe('SolaceIOSourceProperties', () => {
     expect(screen.getByLabelText(/JCSMP Host \(SMF Messaging\)/i)).toHaveValue('solace.prod.internal:55555');
     expect(screen.getByLabelText(/SEMP Host \(Management HTTPS\)/i)).toHaveValue('https://solace.prod.internal:943');
     expect(screen.getByLabelText(/^Message VPN Name/i)).toHaveValue('analytics-vpn');
-    expect(screen.getByLabelText(/^Username/i)).toHaveValue('solace-consumer');
+    expect(screen.getByLabelText(/^Username \(Secret Manager\)/i)).toHaveValue('solace-consumer');
     expect(screen.getByLabelText(/^Password \(Secret Manager\)/i)).toHaveValue('solace-client-secret');
     expect(screen.getByLabelText(/^Topic Name/i)).toHaveValue('events/telemetry/>');
     expect(screen.getByLabelText(/Max Concurrent Connections/i)).toHaveValue(4);
     expect(screen.getByLabelText(/Deduplicate Records/i)).toBeChecked();
-    expect(screen.getByLabelText(/Timestamp Function/i)).toHaveValue('msg -> Instant.now()');
     expect(screen.getByLabelText(/Expansion Service Endpoint/i)).toHaveValue('10.0.0.5:8097');
 
-    const usernameInput = screen.getByLabelText(/^Username/i);
+    const usernameInput = screen.getByLabelText(/^Username \(Secret Manager\)/i);
     fireEvent.change(usernameInput, { target: { name: 'username', value: 'new-user' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       username: 'new-user'

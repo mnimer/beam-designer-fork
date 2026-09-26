@@ -59,7 +59,6 @@ describe('TFRecordIOSinkProperties', () => {
           to: 'gs://my-bucket/output/records',
           suffix: '.gz.tfrecord',
           compressionType: 'GZIP',
-          coder: 'ProtoCoder',
           numShards: 8,
           shardTemplate: '-SSSSS-of-NNNNN',
           system_instructions: 'Sink LLM instructions'
@@ -72,19 +71,18 @@ describe('TFRecordIOSinkProperties', () => {
     const toInput = container.querySelector('#tfrecordSinkTo') as HTMLInputElement;
     const suffixInput = container.querySelector('#tfrecordSinkSuffix') as HTMLInputElement;
     const compressionSelect = container.querySelector('#tfrecordSinkCompressionType') as HTMLSelectElement;
-    const coderInput = container.querySelector('#tfrecordSinkCoder') as HTMLInputElement;
     const instructionsTextarea = container.querySelector('#tfrecordSinkInstructions') as HTMLTextAreaElement;
 
     expect(toInput).toHaveValue('gs://my-bucket/output/records');
     expect(toInput).toHaveAttribute('aria-invalid', 'false');
     expect(suffixInput).toHaveValue('.gz.tfrecord');
     expect(compressionSelect).toHaveValue('GZIP');
-    expect(coderInput).toHaveValue('ProtoCoder');
+    expect(container.querySelector('#tfrecordSinkCoder')).not.toBeInTheDocument();
     expect(instructionsTextarea).toHaveValue('Sink LLM instructions');
     expect(screen.queryByText('Destination Directory is required.')).not.toBeInTheDocument();
   });
 
-  it('handles field changes for destination path, suffix, compressionType, and coder', () => {
+  it('handles field changes for destination path, suffix, and compressionType', () => {
     const mockNode: any = {
       data: {
         properties: {}
@@ -120,16 +118,6 @@ describe('TFRecordIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
         compressionType: 'DEFLATE'
-      })
-    );
-
-    const coderInput = container.querySelector('#tfrecordSinkCoder') as HTMLInputElement;
-    fireEvent.change(coderInput, {
-      target: { name: 'coder', value: 'ProtoCoder' }
-    });
-    expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        coder: 'ProtoCoder'
       })
     );
   });
@@ -295,16 +283,12 @@ describe('TFRecordIOSinkProperties', () => {
     expect(errorAlert).toHaveClass('text-red-400');
   });
 
-  /**
-   * Regression guard: `Compression.AUTO.writeCompressed()` throws
-   * `UnsupportedOperationException("AUTO is applicable only to reading files")` in Java,
-   * `ZLIB` is replaced by `DEFLATE`, and `ExampleProtoCoder` is replaced by `ProtoCoder`.
-   */
-  it('never offers AUTO or ZLIB compression on sink, defaults AUTO to UNCOMPRESSED, and replaces ExampleProtoCoder with ProtoCoder', () => {
+  it('never renders coder or offers AUTO or ZLIB compression on sink, and defaults AUTO to UNCOMPRESSED', () => {
     const mockLegacyNode: any = {
       data: {
         properties: {
           to: 'gs://bucket/output/records',
+          coder: 'ProtoCoder',
           compressionType: 'AUTO'
         }
       }
@@ -312,17 +296,14 @@ describe('TFRecordIOSinkProperties', () => {
 
     const { container } = render(<TFRecordIOSinkProperties node={mockLegacyNode} onChange={mockOnChange} />);
 
+    expect(container.querySelector('#tfrecordSinkCoder')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Record Coder/i)).not.toBeInTheDocument();
+
     const compressionSelect = container.querySelector('#tfrecordSinkCompressionType') as HTMLSelectElement;
     expect(compressionSelect).toHaveValue('UNCOMPRESSED');
     const compressionValues = Array.from(compressionSelect.options).map((o) => o.value);
     expect(compressionValues).toEqual(['UNCOMPRESSED', 'GZIP', 'DEFLATE']);
     expect(compressionValues).not.toContain('AUTO');
     expect(compressionValues).not.toContain('ZLIB');
-
-    const coderDatalist = container.querySelector('#tfrecord-sink-coder-options') as HTMLDataListElement;
-    expect(coderDatalist).toBeInTheDocument();
-    const coderValues = Array.from(coderDatalist.querySelectorAll('option')).map((o) => o.getAttribute('value'));
-    expect(coderValues).toContain('ProtoCoder');
-    expect(coderValues).not.toContain('ExampleProtoCoder');
   });
 });

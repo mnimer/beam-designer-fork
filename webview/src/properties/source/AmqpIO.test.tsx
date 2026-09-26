@@ -44,7 +44,7 @@ describe('AmqpIOSourceProperties', () => {
     render(<AmqpIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByLabelText(/Broker Addresses/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username Secret \(Secret Manager\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/GCP Secret Manager Secret/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Max Records/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Max Read Time \(s\)/i)).toBeInTheDocument();

@@ -125,7 +125,6 @@ export interface SecretManagerAuthFieldsProps {
 const DEFAULT_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'default', label: 'Default Credentials Chain (IAM Role / AwsOptions)' },
   { value: 'secretManager', label: 'Google Cloud Secret Manager' },
-  { value: 'static', label: 'Static Credentials (Env / Local testing)' }
 ];
 
 /**
@@ -225,15 +224,7 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
               </code>
             </span>
           }
-        >
-          <datalist id={effectiveDatalistId}>
-            {normalizedSecrets.map((s, idx) => (
-              <option key={`${s.id}-${idx}`} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </datalist>
-        </PropertyField>
+        />
       )}
     </>
   );

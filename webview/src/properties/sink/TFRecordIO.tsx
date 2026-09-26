@@ -77,7 +77,6 @@ export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> =
     properties.compressionType && properties.compressionType !== 'AUTO'
       ? properties.compressionType
       : 'UNCOMPRESSED';
-  const coder = properties.coder || '';
   const numShards = properties.numShards ?? '';
   const shardTemplate = properties.shardTemplate || '';
 
@@ -168,25 +167,6 @@ export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> =
         value={compressionType}
         options={TFRECORD_SINK_COMPRESSION_TYPES}
         onChange={handleChange}
-      />
-
-      {/* Record Coder */}
-      <PropertyField
-        id="tfrecordSinkCoder"
-        name="coder"
-        label="Record Coder (Optional)"
-        tooltip="Coder used to serialize elements to bytes. In Python, coder= maps to beam.coders.BytesCoder() or beam.coders.ProtoCoder(tf.train.Example). In Java, TFRecordIO.write() accepts PCollection<byte[]> and requires upstream serialization (e.g. MapElements via Example::toByteArray)."
-        value={coder}
-        onChange={handleChange}
-        placeholder="BytesCoder"
-        mono={true}
-        list="tfrecord-sink-coder-options"
-        datalist={TFRECORD_SINK_CODER_OPTIONS}
-        helperText={
-          <span className="text-[11px] text-[var(--vscode-text-muted)]">
-            In Python, <code>coder=</code> maps to <code>beam.coders.BytesCoder()</code> / <code>beam.coders.ProtoCoder(tf.train.Example)</code>. In Java, <code>TFRecordIO.write()</code> accepts <code>PCollection&lt;byte[]&gt;</code> (upstream serialization).
-          </span>
-        }
       />
 
       {/* Sharding & Output Options Accordion */}

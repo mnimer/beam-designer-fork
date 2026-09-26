@@ -1,0 +1,84 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: HadoopFormat
+      type: SOURCE
+      iconName: HardDrive
+      beam_transform: HadoopFormatIO
+      properties:
+        inputFormatClass: org.apache.hadoop.mapreduce.lib.input.TextInputFormat
+        keyClass: org.apache.hadoop.io.LongWritable
+        valueClass: org.apache.hadoop.io.Text
+        inputLocation: hdfs://namenode:8020/data/raw_logs
+        authMode: simple
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: reshape_kv
+      system_instructions: Transform incoming KV<LongWritable, Text> pairs into output
+        KV<Text, Text> pairs suitable for Hadoop TextOutputFormat. In Java,
+        extract the log line Text from element.getValue(), parse the
+        timestamp/service header as a new Text key (e.g. service name), and emit
+        KV.of(new Text(serviceName), new Text(sanitizedLogLine)). In Python,
+        parse the tuple (key, value) and output a reshaped key-value tuple
+        (new_key, new_value). Output normalized JSON strings ready for
+        structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[HadoopFormatIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: agent-engine
+  - key: JOB_ID
+    value: hadoopformat-source-agent-engine
+  - key: inputLocation
+    value: hdfs://namenode:8020/data/raw_logs
+  - key: outputDir
+    value: hdfs://namenode:8020/output/processed_logs
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/agent-engine
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/agent-engine/hadoopformat-source-agent-engine
+  needsRebuild: false

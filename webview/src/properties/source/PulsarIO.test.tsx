@@ -233,7 +233,7 @@ describe('PulsarIOSourceProperties', () => {
       }));
     });
 
-    const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i);
+    const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
 
     fireEvent.change(secretDropdown, { target: { name: 'tokenSecretName', value: 'pulsar-token-prod' } });

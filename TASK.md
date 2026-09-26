@@ -109,39 +109,39 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO21](#io21) | 🔌 Connector | SqsIO | `SqsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO22](#io22) | 🔌 Connector | SnsIO | `SnsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO24](#io24) | 🔌 Connector | HadoopFormatIO (guide) | `HadoopFormatIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO25](#io25) | 🔌 Connector | HBaseIO | `HBaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO26](#io26) | 🔌 Connector | HCatalogIO (guide) | `HCatalogIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO27](#io27) | 🔌 Connector | KuduIO | `KuduIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO28](#io28) | 🔌 Connector | SolrIO | `SolrIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO29](#io29) | 🔌 Connector | ElasticsearchIO | `ElasticsearchIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO24](#io24) | 🔌 Connector | HadoopFormatIO (guide) | `HadoopFormatIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO25](#io25) | 🔌 Connector | HBaseIO | `HBaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO26](#io26) | 🔌 Connector | HCatalogIO (guide) | `HCatalogIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO27](#io27) | 🔌 Connector | KuduIO | `KuduIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO28](#io28) | 🔌 Connector | SolrIO | `SolrIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO29](#io29) | 🔌 Connector | ElasticsearchIO | `ElasticsearchIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO30](#io30) | 🔌 Connector | BigQueryIO (guide) (metrics) | `BigQueryIO (guide) (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO31](#io31) | 🔌 Connector | BigTableIO (metrics) | `BigTableIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO32](#io32) | 🔌 Connector | DatastoreIO | `DatastoreIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO33](#io33) | 🔌 Connector | SnowflakeIO (guide) | `SnowflakeIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO34](#io34) | 🔌 Connector | SpannerIO | `SpannerIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO31](#io31) | 🔌 Connector | BigTableIO (metrics) | `BigTableIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO32](#io32) | 🔌 Connector | DatastoreIO | `DatastoreIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO33](#io33) | 🔌 Connector | SnowflakeIO (guide) | `SnowflakeIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO34](#io34) | 🔌 Connector | SpannerIO | `SpannerIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO35](#io35) | 🔌 Connector | JdbcIO | `JdbcIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO36](#io36) | 🔌 Connector | DebeziumIO | `DebeziumIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO37](#io37) | 🔌 Connector | MongoDbIO | `MongoDbIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO38](#io38) | 🔌 Connector | MongoDbGridFSIO | `MongoDbGridFSIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO39](#io39) | 🔌 Connector | RedisIO | `RedisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO40](#io40) | 🔌 Connector | DynamoDBIO | `DynamoDBIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO41](#io41) | 🔌 Connector | ClickHouseIO | `ClickHouseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO42](#io42) | 🔌 Connector | ArrowFlightIO | `ArrowFlightIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO43](#io43) | 🔌 Connector | DatabaseIO | `DatabaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO36](#io36) | 🔌 Connector | DebeziumIO | `DebeziumIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO37](#io37) | 🔌 Connector | MongoDbIO | `MongoDbIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO38](#io38) | 🔌 Connector | MongoDbGridFSIO | `MongoDbGridFSIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO39](#io39) | 🔌 Connector | RedisIO | `RedisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO40](#io40) | 🔌 Connector | DynamoDBIO | `DynamoDBIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO41](#io41) | 🔌 Connector | ClickHouseIO | `ClickHouseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO42](#io42) | 🔌 Connector | ArrowFlightIO | `ArrowFlightIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO43](#io43) | 🔌 Connector | DatabaseIO | `DatabaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO44](#io44) | 🔌 Connector | GenerateSequence | `GenerateSequence`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO45](#io45) | 🔌 Connector | SplunkIO | `SplunkIO`: 1 Sink (writer) node + property panel + integration test (`SOURCE:SplunkIO` skipped — native `SplunkIO.Write` HEC sink only). || ✅ Done |
 | [IO46](#io46) | 🔌 Connector | FhirIO | `FhirIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO47](#io47) | 🔌 Connector | HL7v2IO | `HL7v2IO`: 1 Source (reader) node + 1 Sink (writer) node (`BATCH_IMPORT` excluded per Beam JavaDoc) + property panels + integration test. || ✅ Done |
 | [IO48](#io48) | 🔌 Connector | DicomIO | `DicomIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node (no native writer support) + property panel + integration test. || ✅ Done |
-| [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO53](#io53) | 🔌 Connector | SparkReceiverIO (guide) | `SparkReceiverIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO54](#io54) | 🔌 Connector | CdapIO (guide) | `CdapIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO53](#io53) | 🔌 Connector | SparkReceiverIO (guide) | `SparkReceiverIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO54](#io54) | 🔌 Connector | CdapIO (guide) | `CdapIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO56](#io56) | 🔌 Connector | GoogleAdsIO | `GoogleAdsIO`: 1 Source (reader) node + property panel + integration test (`SINK:GoogleAdsIO` skipped — native `Read`/`ReadAll` GAQL source only). || ✅ Done |
 | [IO57](#io57) | 🔌 Connector | Web APIs (guide) | `Web APIs (guide)` (`RequestResponseIO`): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
@@ -151,7 +151,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Sink (writer) node + property panel + integration test (`SOURCE:DatadogIO` skipped — native `DatadogIO.Write`/`DatadogWrite` sink only). || ✅ Done |
-| [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
@@ -1410,7 +1410,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CassandraIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cassandraio-pipeline.beam` and `src/test/integration/cassandraio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io24"></a>**IO24 — `HadoopFormatIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1430,7 +1430,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HadoopFormatIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hadoopformatio-pipeline.beam` and `src/test/integration/hadoopformatio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io25"></a>**IO25 — `HBaseIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1450,7 +1450,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HBaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hbaseio-pipeline.beam` and `src/test/integration/hbaseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io26"></a>**IO26 — `HCatalogIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1470,7 +1470,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HCatalogIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hcatalogio-pipeline.beam` and `src/test/integration/hcatalogio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io27"></a>**IO27 — `KuduIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1490,7 +1490,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/KuduIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/kuduio-pipeline.beam` and `src/test/integration/kuduio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io28"></a>**IO28 — `SolrIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1510,7 +1510,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SolrIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/solrio-pipeline.beam` and `src/test/integration/solrio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io29"></a>**IO29 — `ElasticsearchIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1530,7 +1530,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ElasticsearchIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/elasticsearchio-pipeline.beam` and `src/test/integration/elasticsearchio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io30"></a>**IO30 — `BigQueryIO (guide) (metrics)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1570,7 +1570,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/BigTableIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/bigtableio-pipeline.beam` and `src/test/integration/bigtableio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io32"></a>**IO32 — `DatastoreIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1590,7 +1590,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DatastoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/datastoreio-pipeline.beam` and `src/test/integration/datastoreio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io33"></a>**IO33 — `SnowflakeIO (guide)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1610,7 +1610,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SnowflakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/snowflakeio-pipeline.beam` and `src/test/integration/snowflakeio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io34"></a>**IO34 — `SpannerIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1630,7 +1630,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SpannerIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/spannerio-pipeline.beam` and `src/test/integration/spannerio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io35"></a>**IO35 — `JdbcIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1670,7 +1670,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DebeziumIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/debeziumio-pipeline.beam` and `src/test/integration/debeziumio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io37"></a>**IO37 — `MongoDbIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1690,7 +1690,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/MongoDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mongodbio-pipeline.beam` and `src/test/integration/mongodbio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io38"></a>**IO38 — `MongoDbGridFSIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1710,7 +1710,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/MongoDbGridFSIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mongodbgridfsio-pipeline.beam` and `src/test/integration/mongodbgridfsio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io39"></a>**IO39 — `RedisIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1730,7 +1730,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/RedisIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/redisio-pipeline.beam` and `src/test/integration/redisio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io40"></a>**IO40 — `DynamoDBIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1750,7 +1750,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DynamoDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/dynamodbio-pipeline.beam` and `src/test/integration/dynamodbio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io41"></a>**IO41 — `ClickHouseIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1770,7 +1770,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ClickHouseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/clickhouseio-pipeline.beam` and `src/test/integration/clickhouseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io42"></a>**IO42 — `ArrowFlightIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1790,7 +1790,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ArrowFlightIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/arrowflightio-pipeline.beam` and `src/test/integration/arrowflightio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io43"></a>**IO43 — `DatabaseIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1810,7 +1810,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DatabaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/databaseio-pipeline.beam` and `src/test/integration/databaseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io44"></a>**IO44 — `GenerateSequence`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1946,7 +1946,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/FirestoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/firestoreio-pipeline.beam` and `src/test/integration/firestoreio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io51"></a>**IO51 — `Neo4j`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1966,7 +1966,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/Neo4jIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/neo4j-pipeline.beam` and `src/test/integration/neo4j-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io52"></a>**IO52 — `InfluxDB`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1986,7 +1986,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/InfluxDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/influxdb-pipeline.beam` and `src/test/integration/influxdb-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io53"></a>**IO53 — `SparkReceiverIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2006,7 +2006,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SparkReceiverIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/sparkreceiverio-pipeline.beam` and `src/test/integration/sparkreceiverio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io54"></a>**IO54 — `CdapIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2026,7 +2026,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CdapIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cdapio-pipeline.beam` and `src/test/integration/cdapio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io55"></a>**IO55 — `SingleStoreDB (guide)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -2046,7 +2046,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SingleStoreDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/singlestoredb-pipeline.beam` and `src/test/integration/singlestoredb-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io56"></a>**IO56 — `GoogleAdsIO`**
   - **Category Alignment:** `Data Services Sources` (Source ONLY).
@@ -2242,7 +2242,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CosmosIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cosmosio-pipeline.beam` and `src/test/integration/cosmosio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io66"></a>**IO66 — `AzureBlobStoreFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).

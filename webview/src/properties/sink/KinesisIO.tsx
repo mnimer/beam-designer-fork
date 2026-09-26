@@ -27,7 +27,7 @@
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio, SplitSquareVertical } from 'lucide-react';
+import { RefreshCw, ShieldCheck, KeyRound, Radio, SplitSquareVertical } from 'lucide-react';
 import { AWS_REGION_PRESETS } from '../source/KinesisIO';
 
 export interface KinesisIOSinkNode {
@@ -40,7 +40,7 @@ export interface KinesisIOSinkNode {
       streamName?: string;
       region?: string;
       customRegion?: string;
-      authMode?: 'secretManager' | 'direct' | 'iam';
+      authMode?: 'secretManager' | 'iam' | string;
       awsAccessKey?: string;
       awsSecretKey?: string;
       accessKeySecretName?: string;
@@ -48,8 +48,7 @@ export interface KinesisIOSinkNode {
       roleArn?: string;
       partitionKeyMode?: 'static' | 'recordKey' | 'hash' | 'custom';
       partitionKey?: string;
-      dataSerialization?: 'stringUtf8' | 'rawBytes' | 'json' | 'custom';
-      customDataSerializer?: string;
+      dataSerialization?: 'stringUtf8' | 'rawBytes' | 'json';
       collectionMaxCount?: string | number;
       connectTimeout?: string | number;
       requestTimeout?: string | number;
@@ -83,16 +82,13 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
   const streamName = properties.streamName || '';
   const region = properties.region || 'us-east-1';
   const customRegion = properties.customRegion || '';
-  const authMode = properties.authMode || 'secretManager';
-  const awsAccessKey = properties.awsAccessKey || '';
-  const awsSecretKey = properties.awsSecretKey || '';
+  const authMode = properties.authMode === 'iam' ? 'iam' : 'secretManager';
   const accessKeySecretName = properties.accessKeySecretName || '';
   const secretKeySecretName = properties.secretKeySecretName || '';
   const roleArn = properties.roleArn || '';
   const partitionKeyMode = properties.partitionKeyMode || 'recordKey';
   const partitionKey = properties.partitionKey || '';
   const dataSerialization = properties.dataSerialization || 'stringUtf8';
-  const customDataSerializer = properties.customDataSerializer || '';
   const collectionMaxCount = properties.collectionMaxCount ?? '';
   const connectTimeout = properties.connectTimeout ?? '';
   const requestTimeout = properties.requestTimeout ?? '';
@@ -102,11 +98,10 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
   const verifyCertificate = properties.verifyCertificate ?? true;
   const expansionService = properties.expansionService || '';
 
-  // Local state for secret fetching and visibility toggling
+  // Local state for secret fetching
   const [secrets, setSecrets] = useState<string[]>([]);
   const [secretError, setSecretError] = useState<string | null>(null);
   const [isLoadingSecrets, setIsLoadingSecrets] = useState<boolean>(false);
-  const [showSecretKey, setShowSecretKey] = useState<boolean>(false);
 
   // System instructions text with fallback
   const systemInstructions =
@@ -164,6 +159,9 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
       ...properties,
       [name]: isCheckbox ? checked : value
     };
+
+    delete newProperties.awsAccessKey;
+    delete newProperties.awsSecretKey;
 
     onChange(newProperties);
   };
@@ -268,10 +266,15 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
 
         {/* Auth Mode Radio Selector */}
-        <div className="grid grid-cols-3 gap-2 p-1 bg-[var(--vscode-subcard-bg)] rounded border border-[var(--vscode-border)]">
+        <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--vscode-subcard-bg)] rounded border border-[var(--vscode-border)]">
           <button
             type="button"
-            onClick={() => onChange({ ...properties, authMode: 'secretManager' })}
+            onClick={() => {
+              const next = { ...properties, authMode: 'secretManager' };
+              delete next.awsAccessKey;
+              delete next.awsSecretKey;
+              onChange(next);
+            }}
             className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
               authMode === 'secretManager'
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-sm'
@@ -282,18 +285,12 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
           </button>
           <button
             type="button"
-            onClick={() => onChange({ ...properties, authMode: 'direct' })}
-            className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
-              authMode === 'direct'
-                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-sm'
-                : 'bg-[var(--vscode-button-secondary)] text-[var(--vscode-text-secondary)] border border-[var(--vscode-border)] hover:bg-[var(--vscode-hover)]'
-            }`}
-          >
-            Direct Keys
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ ...properties, authMode: 'iam' })}
+            onClick={() => {
+              const next = { ...properties, authMode: 'iam' };
+              delete next.awsAccessKey;
+              delete next.awsSecretKey;
+              onChange(next);
+            }}
             className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
               authMode === 'iam'
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-sm'
@@ -333,6 +330,7 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
               onChange={handleChange}
               placeholder="e.g. aws-access-key-id"
               list="kinesis-sink-secrets-list"
+              datalist={secrets}
               error={secretError}
             />
 
@@ -346,56 +344,9 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
               onChange={handleChange}
               placeholder="e.g. aws-secret-access-key"
               list="kinesis-sink-secrets-list"
+              datalist={secrets}
               error={secretError}
             />
-
-            {/* Datalist of Secrets fetched via gcloud */}
-            <datalist id="kinesis-sink-secrets-list">
-              {secrets.map((sec) => (
-                <option key={sec} value={sec} />
-              ))}
-            </datalist>
-          </div>
-        )}
-
-        {/* Auth Mode: Direct Keys */}
-        {authMode === 'direct' && (
-          <div className="flex flex-col gap-2.5 pt-1">
-            <PropertyField
-              id="kinesisSinkAwsAccessKey"
-              name="awsAccessKey"
-              label="AWS Access Key ID"
-              tooltip="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS."
-              value={awsAccessKey}
-              onChange={handleChange}
-              placeholder="AKIAIOSFODNN7EXAMPLE"
-            />
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="kinesisSinkAwsSecretKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Secret Access Key</span>
-                <InfoTooltip text="Private token used alongside the key ID to sign and authenticate AWS requests. Masked by default." />
-              </label>
-              <div className="relative">
-                <input
-                  id="kinesisSinkAwsSecretKey"
-                  type={showSecretKey ? 'text' : 'password'}
-                  name="awsSecretKey"
-                  value={awsSecretKey}
-                  onChange={handleChange}
-                  placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                  className="w-full bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 pr-8 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-rose-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSecretKey(!showSecretKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]"
-                  title={showSecretKey ? 'Hide key' : 'Show key'}
-                >
-                  {showSecretKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -493,21 +444,8 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
             <option value="stringUtf8">String (UTF-8 Bytes)</option>
             <option value="rawBytes">Raw Byte Array / Pass-through</option>
             <option value="json">JSON String (json.dumps / Jackson)</option>
-            <option value="custom">Custom Serializer Function</option>
           </select>
         </div>
-
-        {dataSerialization === 'custom' && (
-          <PropertyField
-            id="customDataSerializer"
-            name="customDataSerializer"
-            label="Custom Serializer Function / Class"
-            tooltip="Fully-qualified class name or lambda for custom serialization."
-            value={customDataSerializer}
-            onChange={handleChange}
-            placeholder="e.g. com.example.AvroToBytesFunction"
-          />
-        )}
       </div>
 
       {/* SECTION 5: PRODUCER TUNING & BATCHING */}

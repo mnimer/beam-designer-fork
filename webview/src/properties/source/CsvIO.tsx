@@ -33,7 +33,9 @@ import { PropertyField } from '../../components/common/PropertyField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
-import { FileCode, Sparkles } from 'lucide-react';
+import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
+import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
+import { FileCode } from 'lucide-react';
 
 export interface CsvIOSourceNode {
   data: {
@@ -51,7 +53,10 @@ export interface CsvIOSourceNode {
       skipHeaderLines?: string | number;
       nullString?: string;
       commentMarker?: string;
+      mappingStrategy?: MappingStrategy | string;
+      schemaString?: string;
       schema?: string;
+      schemaFields?: SchemaField[];
       splittable?: boolean;
       system_instructions?: string;
       special_instructions?: string;
@@ -77,23 +82,6 @@ export const CSV_FORMATS = [
   { value: 'POSTGRESQL_CSV', label: 'POSTGRESQL_CSV (PostgreSQL CSV format)' },
   { value: 'TDF', label: 'TDF (Tab-Delimited format)' }
 ] as const;
-
-/**
- * Sample Beam Schema representing structured typed records parsed from CSV rows.
- */
-const SAMPLE_CSV_SCHEMA = JSON.stringify(
-  {
-    fields: [
-      { name: 'id', type: 'STRING' },
-      { name: 'name', type: 'STRING' },
-      { name: 'email', type: 'STRING' },
-      { name: 'amount', type: 'DOUBLE' },
-      { name: 'timestamp', type: 'INT64' }
-    ]
-  },
-  null,
-  2
-);
 
 /**
  * Sub-component for CSV dialect controls (delimiter, quote character, null string, comment marker).
@@ -180,7 +168,26 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
   const skipHeaderLines = properties.skipHeaderLines ?? '';
   const nullString = properties.nullString || '';
   const commentMarker = properties.commentMarker || '';
-  const schema = properties.schema || '';
+  const schemaFields = React.useMemo(() => {
+    const resolved = resolveSchemaFields(properties);
+    if (resolved.length > 0) return resolved;
+    if (typeof properties.schema === 'string' && properties.schema.trim()) {
+      try {
+        const parsed = JSON.parse(properties.schema);
+        if (parsed && Array.isArray(parsed.fields)) {
+          return resolveSchemaFields({ schema: JSON.stringify(parsed.fields) });
+        }
+      } catch {
+        // ignore invalid legacy JSON
+      }
+    }
+    return [];
+  }, [properties.schemaFields, properties.schema, properties.schemaString]);
+  const mappingStrategy =
+    properties.mappingStrategy ||
+    (schemaFields.length > 0 || Boolean(properties.schema?.trim()) || Boolean(properties.schemaString?.trim())
+      ? 'schema'
+      : 'infer');
   const splittable = properties.splittable ?? true;
 
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
@@ -215,12 +222,14 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
   };
 
   /**
-   * Inserts a sample Beam Schema definition into the schema field.
+   * Updates schema fields from SchemaEditor.
    */
-  const handleInsertSampleSchema = () => {
+  const handleSchemaChange = (data: { schemaFields: SchemaField[]; schema: string; schemaString: string }) => {
     onChange({
       ...properties,
-      schema: SAMPLE_CSV_SCHEMA
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
     });
   };
 
@@ -332,32 +341,32 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
         isOpen={isSchemaOpen}
         onToggle={() => setIsSchemaOpen(!isSchemaOpen)}
       >
-        <div className="flex justify-between items-center mt-2">
-          <label htmlFor="csvSourceSchema" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>Beam Schema Definition (Field names and types)</span>
-            <InfoTooltip text="In Java, CsvIO.parseRows requires a Beam Schema to parse records into PCollection<Row>. In Python, pandas/NamedTuple type annotations map to these types." />
-          </label>
-          <button
-            type="button"
-            onClick={handleInsertSampleSchema}
-            className="text-[11px] text-[var(--vscode-highlight)] hover:underline flex items-center gap-1 font-medium"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>Insert Sample</span>
-          </button>
+        <div className="mt-2">
+          <MappingStrategyField
+            id="csvSourceMappingStrategy"
+            strategyName="mappingStrategy"
+            strategy={mappingStrategy}
+            options={['infer', 'schema']}
+            optionLabels={{
+              infer: 'Auto-Infer from CSV Headers / Context (Recommended)',
+              schema: 'Define Schema (Fields & Types)'
+            }}
+            label="CSV Row / Schema Strategy"
+            tooltip="In Java, CsvIO.parseRows requires a Beam Schema to parse records into PCollection<Row>. In Python, pandas/NamedTuple type annotations map to these types."
+            inferDescription={
+              <>
+                Gemini will automatically synthesize the Beam{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">Schema</code> for{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">CsvIO.parseRows(schema, csvFormat)</code> (Java) or column types for{' '}
+                <code className="text-slate-200 bg-slate-800/80 px-1 py-0.5 rounded">ReadFromCsv</code> (Python) from your header columns and pipeline context.
+              </>
+            }
+            schemaFields={schemaFields}
+            schemaStringPlaceholder="id:STRING:REQUIRED, name:STRING, email:STRING, amount:DOUBLE, timestamp:TIMESTAMP"
+            onSchemaChange={handleSchemaChange}
+            onChange={handleChange}
+          />
         </div>
-        <textarea
-          id="csvSourceSchema"
-          name="schema"
-          value={schema}
-          onChange={handleChange}
-          rows={4}
-          placeholder='{"fields": [{"name": "id", "type": "STRING"}, ...]}'
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono resize-y"
-        />
-        <span className="text-[11px] text-[var(--vscode-text-muted)]">
-          Specify Beam Schema JSON or column definitions for type conversions.
-        </span>
       </CollapsibleSection>
 
       {/* Advanced Settings Accordion */}
