@@ -101,12 +101,12 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO13](#io13) | 🔌 Connector | In-memory | `In-memory`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO14](#io14) | 🔌 Connector | KinesisIO | `KinesisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO16](#io16) | 🔌 Connector | KafkaIO | `KafkaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO17](#io17) | 🔌 Connector | PubSubIO | `PubSubIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO18](#io18) | 🔌 Connector | JmsIO | `JmsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO19](#io19) | 🔌 Connector | MqttIO | `MqttIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO21](#io21) | 🔌 Connector | SqsIO | `SqsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO22](#io22) | 🔌 Connector | SnsIO | `SnsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
@@ -135,7 +135,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO46](#io46) | 🔌 Connector | FhirIO | `FhirIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO47](#io47) | 🔌 Connector | HL7v2IO | `HL7v2IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO48](#io48) | 🔌 Connector | DicomIO | `DicomIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node (no native writer support) + property panel + integration test. || ✅ Done |
 | [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
@@ -148,8 +148,8 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
 | [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
@@ -1249,8 +1249,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/AmqpIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:AmqpIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/AmqpIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/amqpio-pipeline.beam` and `src/test/integration/amqpio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/amqp-source.{beam,test.ts}` following `AmqpIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/amqp-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> AmqpIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 40 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: `handleApplyProtocol` rewrites each address line independently (port-boundary swap 5672↔5671) because the newline-separated multi-address list was previously corrupted by a single non-multiline regex; `handleSelectInstanceIp` is append-only to avoid destroying an existing address list.
 
 - <a id="io16"></a>**IO16 — `KafkaIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -1349,8 +1349,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/RabbitMqIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RabbitMqIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/RabbitMqIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/rabbitmqio-pipeline.beam` and `src/test/integration/rabbitmqio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/rabbitmq-source.{beam,test.ts}` following `RabbitMqIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/rabbitmq-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> RabbitMqIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 51 unit tests, fixture + integration spec). NOTE: RabbitMQ's URI embeds credentials, so the panel deliberately splits host/port/vhost/username fields from a Secret Manager password reference — the generated code assembles the URI from the secret at runtime and the password is never persisted in the `.beam` file. Panels were decomposed into `components/common/rabbitmq/RabbitMqConnectionFields.tsx` and `RabbitMqDestinationFields.tsx` to stay within repo file-size norms.
 
 - <a id="io21"></a>**IO21 — `SqsIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -1913,24 +1913,22 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Status:** ⬜ Not Started.
 
 - <a id="io49"></a>**IO49 — `FlinkStreamingImpulseSource`**
-  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Category Alignment:** `Data Services Sources` (Source only; no native Beam writer).
   - **Documentation Links:**
     - **Java SDK:** Not available natively in Java SDK (Not available)
     - **Python SDK:** [FlinkStreamingImpulseSource PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.flink.flink_streaming_impulse_source.html)
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
     - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FlinkStreamingImpulseSource`.
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the source node for `FlinkStreamingImpulseSource`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `FlinkStreamingImpulseSource` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/FlinkStreamingImpulseSource.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/FlinkStreamingImpulseSource.tsx` with dedicated controls for read targets, limits, Flink JobManager endpoint, and system prompt override. Registered as `'SOURCE:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FlinkStreamingImpulseSource.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `FlinkStreamingImpulseSource` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/FlinkStreamingImpulseSource.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Omitted:** Apache Beam has no native Writer or Sink support for `FlinkStreamingImpulseSource` (it is an unbounded synthetic source). No sink node or property panel is registered.
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/flinkstreamingimpulsesource-pipeline.beam` and `src/test/integration/flinkstreamingimpulsesource-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/flinkstreamingimpulse-source.{beam,test.ts}` following `FlinkStreamingImpulseSource -> ParDo -> LogMessage`).
+  - **Status:** ✅ Completed (Source panel, unit tests, fixture + integration spec). NOTE: `FlinkStreamingImpulseSource` is Python-only and has no native Beam writer support. The integration fixture is Python-only with `runner: FlinkRunner`.
 
 - <a id="io50"></a>**IO50 — `Firestore IO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -2189,8 +2187,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/PulsarIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:PulsarIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/PulsarIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/pulsario-pipeline.beam` and `src/test/integration/pulsario-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/pulsar-source.{beam,test.ts}` following `PulsarIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/pulsar-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> PulsarIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 35 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: panels were decomposed into `components/common/pulsar/PulsarConnectionFields.tsx` and `PulsarAuthFields.tsx` to stay within repo file-size norms; the client URL (`pulsar://`) and admin URL (`http://`) are separate fields because Beam's `PulsarIO` requires both.
 
 - <a id="io63"></a>**IO63 — `SolaceIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -2209,8 +2207,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/SolaceIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SolaceIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/SolaceIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/solaceio-pipeline.beam` and `src/test/integration/solaceio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/solace-source.{beam,test.ts}` following `SolaceIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/solace-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> SolaceIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 32 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: the connection block was intentionally NOT extracted into a shared component — the Source needs both a SEMP management host (HTTPS :943) and a JCSMP messaging host (SMF :55555) while the Sink needs only JCSMP, so sharing would require internal branching for no real reuse benefit.
 
 - <a id="io64"></a>**IO64 — `DatadogIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Logging Sinks` (Sink).

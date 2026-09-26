@@ -1009,3 +1009,85 @@ describe('Real Sample Pipelines Acceptance Tests', () => {
     }
   });
 });
+
+// =========================================================================
+// Messaging & Streaming Connector Dispatch (IO15, IO20, IO49, IO62, IO63)
+// =========================================================================
+
+/**
+ * NOTE: These tests guard the registry wiring for the messaging/streaming connector batch.
+ * They assert dispatch by immutable metadata only (type + beam_transform) and deliberately avoid
+ * asserting on connector-specific field labels, so that panel refactors cannot silently break the
+ * registration contract (or vice versa).
+ */
+describe('PropertyForm dispatch for messaging & streaming connectors', () => {
+  const ALL_CONNECTORS = [
+    { transform: 'AmqpIO', label: 'AMQP', task: 'IO15' },
+    { transform: 'RabbitMqIO', label: 'RabbitMQ', task: 'IO20' },
+    { transform: 'FlinkStreamingImpulseSource', label: 'Flink Streaming Impulse', task: 'IO49' },
+    { transform: 'PulsarIO', label: 'Pulsar', task: 'IO62' },
+    { transform: 'SolaceIO', label: 'Solace', task: 'IO63' }
+  ];
+
+  const BIDIRECTIONAL_CONNECTORS = [
+    { transform: 'AmqpIO', label: 'AMQP', task: 'IO15' },
+    { transform: 'RabbitMqIO', label: 'RabbitMQ', task: 'IO20' },
+    { transform: 'PulsarIO', label: 'Pulsar', task: 'IO62' },
+    { transform: 'SolaceIO', label: 'Solace', task: 'IO63' }
+  ];
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('registers SOURCE:$transform and SINK:$transform ($task)', ({ transform }) => {
+    expect(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]).toBeDefined();
+    expect(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]).toBeDefined();
+    // Source and sink must resolve to distinct components, never the same panel.
+    expect(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]).not.toBe(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]);
+  });
+
+  it('registers SOURCE:FlinkStreamingImpulseSource without a sink panel (IO49 - source only)', () => {
+    expect(PROPERTY_FORM_REGISTRY['SOURCE:FlinkStreamingImpulseSource']).toBeDefined();
+    expect(PROPERTY_FORM_REGISTRY['SINK:FlinkStreamingImpulseSource']).toBeUndefined();
+  });
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('resolves $transform by node metadata for both directions ($task)', ({ transform, label }) => {
+    const sourceNode = { data: { label, type: 'SOURCE', beam_transform: transform, properties: {} } };
+    const sinkNode = { data: { label, type: 'SINK', beam_transform: transform, properties: {} } };
+
+    expect(getPropertyFormComponent(sourceNode)).toBe(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]);
+    expect(getPropertyFormComponent(sinkNode)).toBe(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]);
+  });
+
+  it('resolves FlinkStreamingImpulseSource by node metadata for SOURCE only (IO49)', () => {
+    const sourceNode = { data: { label: 'Flink Streaming Impulse', type: 'SOURCE', beam_transform: 'FlinkStreamingImpulseSource', properties: {} } };
+    expect(getPropertyFormComponent(sourceNode)).toBe(PROPERTY_FORM_REGISTRY['SOURCE:FlinkStreamingImpulseSource']);
+  });
+
+  it.each(ALL_CONNECTORS)('renders a real $transform source panel, not the unregistered fallback ($task)', ({ transform, label }) => {
+    const mockNode = { data: { label, type: 'SOURCE', beam_transform: transform, properties: {} } };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    // Every connector panel must expose the LLM prompt override contract.
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
+  });
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('renders a real $transform sink panel, not the unregistered fallback ($task)', ({ transform, label }) => {
+    const mockNode = { data: { label, type: 'SINK', beam_transform: transform, properties: {} } };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
+  });
+
+  it.each(ALL_CONNECTORS)('never resolves $transform from a renamed user label alone ($task)', ({ transform }) => {
+    // Regression guard for M14: dispatch must ignore the user-editable label.
+    const renamedNode = { data: { label: transform, type: 'SOURCE', properties: {} } };
+    expect(getPropertyFormComponent(renamedNode)).toBeUndefined();
+  });
+});
+

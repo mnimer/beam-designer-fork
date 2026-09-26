@@ -19,6 +19,11 @@
  *   automatically collapse to prevent the slide-out panel from overflowing vertically.
  * - Step and Sink menu items are disabled when nodesCount is 0 to enforce pipeline validity.
  * - Added MqttIO nodes to Streaming Sources and Streaming Sinks categories for IoT message broker streaming.
+ * - Added AmqpIO, RabbitMqIO, PulsarIO, and SolaceIO nodes to Streaming Sources and Streaming Sinks
+ *   (IO15, IO20, IO62, IO63). All four are Java-native connectors reached from Python via a cross-language
+ *   expansion service, which the property panels configure.
+ * - Added FlinkStreamingImpulseSource (IO49) under the new Data Services Sources / Data Services Sinks groups
+ *   rather than Streaming, because it is Python-only and executes exclusively on the Flink runner.
  * - Adheres strictly to the 8pt grid spacing system, VS Code semantic tokens, and Tailwind CSS styling.
  */
 import React, { useState, useMemo } from 'react';
@@ -79,6 +84,7 @@ export const defaultGroupOpenState: Record<string, boolean> = {
   sources_streaming_sources: true,
   sources_database_sources: false,
   sources_file_sources: false,
+  sources_data_services_sources: false,
   sources_other_sources: false,
   steps_core_transforms: true,
   steps_message_parsers: false,
@@ -190,6 +196,10 @@ export const SOURCE_NODES: NodeDefinition[] = [
   { label: 'JMS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Consume streaming messages from JMS queue or topic', category: 'Streaming Sources' },
   { label: 'SQS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Read streaming messages from Amazon SQS queue', category: 'Streaming Sources' },
   { label: 'MQTT', type: 'SOURCE', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Consume streaming messages from MQTT broker topic', category: 'Streaming Sources' },
+  { label: 'AMQP', type: 'SOURCE', iconName: 'Cable', beamTransform: 'AmqpIO', badge: 'Queue', description: 'Consume streaming messages from AMQP 1.0 broker addresses', category: 'Streaming Sources' },
+  { label: 'RabbitMQ', type: 'SOURCE', iconName: 'Cable', beamTransform: 'RabbitMqIO', badge: 'Queue', description: 'Consume streaming messages from RabbitMQ queue or exchange', category: 'Streaming Sources' },
+  { label: 'Pulsar', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PulsarIO', badge: 'Streaming', description: 'Consume streaming messages from Apache Pulsar topic', category: 'Streaming Sources' },
+  { label: 'Solace', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SolaceIO', badge: 'Queue', description: 'Consume streaming messages from Solace queue or topic', category: 'Streaming Sources' },
   { label: 'Generate Sequence', type: 'SOURCE', iconName: 'ListOrdered', beamTransform: 'GenerateSequence', badge: 'Synthetic', description: 'Generate periodic integer sequence', category: 'Streaming Sources' },
   { label: 'Periodic Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'PeriodicImpulse', badge: 'Trigger', description: 'Emit elements periodically on interval', category: 'Streaming Sources' },
   { label: 'BigQuery', type: 'SOURCE', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Read records from BigQuery table or SQL query', category: 'Database Sources' },
@@ -211,6 +221,9 @@ export const SOURCE_NODES: NodeDefinition[] = [
   { label: 'AzureBlobStoreFileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'AzureBlobStoreFileSystem', badge: 'Azure', description: 'Read from Azure Blob Storage containers', category: 'File Sources' },
   { label: 'TikaIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TikaIO', badge: 'Tika', description: 'Extract text and metadata from documents via Apache Tika', category: 'File Sources', supportedLanguages: ['Java'] },
   { label: 'Iceberg', type: 'SOURCE', iconName: 'Database', beamTransform: 'IcebergIO', badge: 'Iceberg', description: 'Read Apache Iceberg tables via Managed I/O', category: 'File Sources' },
+  // NOTE: FlinkStreamingImpulseSource is a Python-only synthetic impulse source that requires the Flink runner,
+  // so it is grouped under Data Services rather than the runner-agnostic Streaming Sources category.
+  { label: 'Flink Streaming Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'FlinkStreamingImpulseSource', badge: 'Flink', description: 'Generate synthetic impulses on the Flink runner (Python)', category: 'Data Services Sources', supportedLanguages: ['Python'] },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
 ];
 
@@ -258,6 +271,10 @@ export const SINK_NODES: NodeDefinition[] = [
   { label: 'JMS', type: 'SINK', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Publish messages to JMS queue or topic', category: 'Streaming Sinks' },
   { label: 'SQS', type: 'SINK', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Publish messages to Amazon SQS queue', category: 'Streaming Sinks' },
   { label: 'MQTT', type: 'SINK', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Publish streaming messages to MQTT broker topic', category: 'Streaming Sinks' },
+  { label: 'AMQP', type: 'SINK', iconName: 'Cable', beamTransform: 'AmqpIO', badge: 'Queue', description: 'Publish messages to AMQP 1.0 broker address', category: 'Streaming Sinks' },
+  { label: 'RabbitMQ', type: 'SINK', iconName: 'Cable', beamTransform: 'RabbitMqIO', badge: 'Queue', description: 'Publish messages to RabbitMQ queue or exchange', category: 'Streaming Sinks' },
+  { label: 'Pulsar', type: 'SINK', iconName: 'Radio', beamTransform: 'PulsarIO', badge: 'Streaming', description: 'Publish messages to Apache Pulsar topic', category: 'Streaming Sinks' },
+  { label: 'Solace', type: 'SINK', iconName: 'Cable', beamTransform: 'SolaceIO', badge: 'Queue', description: 'Publish messages to Solace topic or queue', category: 'Streaming Sinks' },
   { label: 'BigQuery', type: 'SINK', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Write or stream rows into BigQuery table', category: 'Database Sinks' },
   { label: 'JdbcIO', type: 'SINK', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Write rows to SQL database via JDBC', category: 'Database Sinks' },
   { label: 'FileIO', type: 'SINK', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Write dynamic files to Cloud Storage/Disk', category: 'File Sinks' },

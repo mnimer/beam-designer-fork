@@ -22,14 +22,14 @@ describe('nodeLanguageSupport registry & diagram validation', () => {
     }
   });
 
-  it('identifies the exact 4 Java-only file connectors and 0 Python-only connectors', () => {
+  it('identifies the exact 4 Java-only file connectors and 1 Python-only connector (FlinkStreamingImpulseSource)', () => {
     expect(getJavaOnlyTransforms()).toEqual([
       'ContextualTextIO',
       'ThriftIO',
       'TikaIO',
       'XmlIO',
     ]);
-    expect(getPythonOnlyTransforms()).toEqual([]);
+    expect(getPythonOnlyTransforms()).toEqual(['FlinkStreamingImpulseSource']);
 
     expect(isJavaOnlyTransform('TikaIO')).toBe(true);
     expect(isJavaOnlyTransform('ContextualTextIO')).toBe(true);
@@ -38,6 +38,7 @@ describe('nodeLanguageSupport registry & diagram validation', () => {
     expect(isJavaOnlyTransform('IcebergIO')).toBe(false);
     expect(isJavaOnlyTransform('ParquetIO')).toBe(false);
     expect(isPythonOnlyTransform('TikaIO')).toBe(false);
+    expect(isPythonOnlyTransform('FlinkStreamingImpulseSource')).toBe(true);
   });
 
   it('validates a diagram with Java-only nodes as invalid when Python is selected', () => {

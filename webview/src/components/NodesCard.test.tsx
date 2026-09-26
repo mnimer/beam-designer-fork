@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { NodesCard } from './NodesCard';
+import { NodesCard, defaultGroupOpenState } from './NodesCard';
 
 describe('NodesCard', () => {
   const mockOnDragStart = vi.fn();
@@ -537,7 +537,6 @@ describe('NodesCard', () => {
       expect(screen.getByText('TikaIO')).toBeInTheDocument();
       expect(screen.getAllByText('Iceberg').length).toBeGreaterThan(0);
       expect(screen.getByText('Read records from Avro files')).toBeInTheDocument();
-      expect(screen.queryByText('Data Services Sources')).not.toBeInTheDocument();
 
       rerender(
         <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} />
@@ -571,5 +570,71 @@ describe('NodesCard', () => {
       expect(detailsList[0].open).toBe(false);
     });
   });
+
+  // =======================================================================
+  // Messaging & Streaming Connector Palette (IO15, IO20, IO49, IO62, IO63)
+  // =======================================================================
+  describe('Messaging & Streaming connector palette entries', () => {
+    const STREAMING_CONNECTORS = [
+      { label: 'AMQP', sourceDescription: 'Consume streaming messages from AMQP 1.0 broker addresses', sinkDescription: 'Publish messages to AMQP 1.0 broker address' },
+      { label: 'RabbitMQ', sourceDescription: 'Consume streaming messages from RabbitMQ queue or exchange', sinkDescription: 'Publish messages to RabbitMQ queue or exchange' },
+      { label: 'Pulsar', sourceDescription: 'Consume streaming messages from Apache Pulsar topic', sinkDescription: 'Publish messages to Apache Pulsar topic' },
+      { label: 'Solace', sourceDescription: 'Consume streaming messages from Solace queue or topic', sinkDescription: 'Publish messages to Solace topic or queue' }
+    ];
+
+    it.each(STREAMING_CONNECTORS)('renders $label in Streaming Sources and Streaming Sinks', ({ label, sourceDescription, sinkDescription }) => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.getByText(sourceDescription)).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sources')).toBeInTheDocument();
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.getByText(sinkDescription)).toBeInTheDocument();
+      expect(screen.getByText('Streaming Sinks')).toBeInTheDocument();
+    });
+
+    it('renders Flink Streaming Impulse under Data Services Sources rather than Streaming', () => {
+      // NOTE: FlinkStreamingImpulseSource is Python-only and Flink-runner-only, so it is deliberately
+      // categorised under Data Services instead of the runner-agnostic Streaming categories.
+      // There is no native Beam writer support, so it only exists as a source.
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.getByText('Data Services Sources')).toBeInTheDocument();
+      expect(screen.getByText('Generate synthetic impulses on the Flink runner (Python)')).toBeInTheDocument();
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      expect(screen.queryByText('Data Services Sinks')).not.toBeInTheDocument();
+      expect(screen.queryByText('Configure Flink runner egress adapter for impulse pipelines (Python)')).not.toBeInTheDocument();
+    });
+
+    it('persists collapsed state for the Data Services sources group', () => {
+      expect(defaultGroupOpenState.sources_data_services_sources).toBe(false);
+    });
+
+    it('keeps the new connector nodes discoverable through palette search', () => {
+      render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      fireEvent.change(searchInput, { target: { value: 'pulsar' } });
+
+      expect(screen.getByText('Pulsar')).toBeInTheDocument();
+      expect(screen.queryByText('RabbitMQ')).not.toBeInTheDocument();
+    });
+  });
 });
+
 

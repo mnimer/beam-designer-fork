@@ -47,8 +47,8 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         ...getBeamFiles(path.join(integrationDir, 'steps')),
     ];
 
-    it('contains all expected 130 integration .beam files across sources, sinks, and steps', () => {
-        expect(splitBeamFiles.length).toBe(130);
+    it('contains all expected 148 integration .beam files across sources, sinks, and steps', () => {
+        expect(splitBeamFiles.length).toBe(148);
     });
 
     it('validates every .beam file passes Kahn algorithm with 0 cycles and 0 orphans', () => {
@@ -85,7 +85,7 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         ];
         for (const dir of sourceDirs) {
             const files = getBeamFiles(dir);
-            expect(files.length).toBe(29);
+            expect(files.length).toBe(34);
             for (const file of files) {
                 const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
                 expect(parsed.nodes.length, `Expected 3 nodes in ${file}`).toBe(3);
@@ -110,7 +110,7 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         ];
         for (const dir of sinkDirs) {
             const files = getBeamFiles(dir);
-            expect(files.length).toBe(27);
+            expect(files.length).toBe(31);
             for (const file of files) {
                 const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
                 expect(parsed.nodes.length, `Expected 3 nodes in ${file}`).toBe(3);

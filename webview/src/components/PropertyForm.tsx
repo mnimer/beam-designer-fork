@@ -12,8 +12,9 @@
  * - Resolves keys using type-qualified keys (`${type}:${transform}`) and direct transform names.
  * - Fails fast: Displays an explicit "No property form registered for type <type>" message if no registry entry matches.
  * - Never inspects or falls back to user-editable display labels, preventing property sheet corruption on node renaming.
- * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO),
- *   Database, File, Aggregations, and Transform steps.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO, AmqpIO, RabbitMqIO,
+ *   PulsarIO, SolaceIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO, AmqpIO, RabbitMqIO, PulsarIO, SolaceIO),
+ *   Data Services (FlinkStreamingImpulseSource), Database, File, Aggregations, and Transform steps.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -56,6 +57,15 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+import { AmqpIOSourceProperties } from '../properties/source/AmqpIO';
+import { AmqpIOSinkProperties } from '../properties/sink/AmqpIO';
+import { RabbitMqIOSourceProperties } from '../properties/source/RabbitMqIO';
+import { RabbitMqIOSinkProperties } from '../properties/sink/RabbitMqIO';
+import { PulsarIOSourceProperties } from '../properties/source/PulsarIO';
+import { PulsarIOSinkProperties } from '../properties/sink/PulsarIO';
+import { SolaceIOSourceProperties } from '../properties/source/SolaceIO';
+import { SolaceIOSinkProperties } from '../properties/sink/SolaceIO';
+import { FlinkStreamingImpulseSourceProperties } from '../properties/source/FlinkStreamingImpulseSource';
 import { TFRecordIOSourceProperties } from '../properties/source/TFRecordIO';
 import { TFRecordIOSinkProperties } from '../properties/sink/TFRecordIO';
 import { CsvIOSourceProperties } from '../properties/source/CsvIO';
@@ -127,6 +137,11 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:JmsIO': JmsIOSourceProperties,
   'SOURCE:SqsIO': SqsIOSourceProperties,
   'SOURCE:MqttIO': MqttIOSourceProperties,
+  'SOURCE:AmqpIO': AmqpIOSourceProperties,
+  'SOURCE:RabbitMqIO': RabbitMqIOSourceProperties,
+  'SOURCE:PulsarIO': PulsarIOSourceProperties,
+  'SOURCE:SolaceIO': SolaceIOSourceProperties,
+  'SOURCE:FlinkStreamingImpulseSource': FlinkStreamingImpulseSourceProperties,
   'SOURCE:GenerateSequence': GenerateSequenceProperties,
   'SOURCE:PeriodicImpulse': PeriodicImpulseProperties,
   'SOURCE:Create': CreateProperties,
@@ -176,6 +191,10 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:JmsIO': JmsIOSinkProperties,
   'SINK:SqsIO': SqsIOSinkProperties,
   'SINK:MqttIO': MqttIOSinkProperties,
+  'SINK:AmqpIO': AmqpIOSinkProperties,
+  'SINK:RabbitMqIO': RabbitMqIOSinkProperties,
+  'SINK:PulsarIO': PulsarIOSinkProperties,
+  'SINK:SolaceIO': SolaceIOSinkProperties,
   'SINK:LogMessage': LogMessageProperties,
 
   // Direct Sink transforms (Python Beam transforms / unique names)

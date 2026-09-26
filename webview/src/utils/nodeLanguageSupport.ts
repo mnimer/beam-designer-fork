@@ -184,6 +184,31 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
     displayName: 'MQTT',
     supportedLanguages: ['Java', 'Python'],
   },
+  AmqpIO: {
+    beamTransform: 'AmqpIO',
+    displayName: 'AMQP',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  RabbitMqIO: {
+    beamTransform: 'RabbitMqIO',
+    displayName: 'RabbitMQ',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  PulsarIO: {
+    beamTransform: 'PulsarIO',
+    displayName: 'Pulsar',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  SolaceIO: {
+    beamTransform: 'SolaceIO',
+    displayName: 'Solace',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  FlinkStreamingImpulseSource: {
+    beamTransform: 'FlinkStreamingImpulseSource',
+    displayName: 'Flink Streaming Impulse',
+    supportedLanguages: ['Python'],
+  },
   GenerateSequence: {
     beamTransform: 'GenerateSequence',
     displayName: 'Generate Sequence',
@@ -431,6 +456,11 @@ export function normalizeTransformName(raw?: string): string {
   if (lower.includes('mqtt')) return 'MqttIO';
   if (lower.includes('jdbc')) return 'JdbcIO';
   if (lower.includes('pardo')) return 'ParDo';
+  if (lower.includes('amqp')) return 'AmqpIO';
+  if (lower.includes('rabbitmq')) return 'RabbitMqIO';
+  if (lower.includes('pulsar')) return 'PulsarIO';
+  if (lower.includes('solace')) return 'SolaceIO';
+  if (lower.includes('flinkstreamingimpulse') || lower.includes('flink streaming impulse') || lower.includes('flink impulse')) return 'FlinkStreamingImpulseSource';
   if (lower.includes('log message') || lower === 'logmessage') return 'LogMessage';
 
   return trimmed;

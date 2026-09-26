@@ -221,7 +221,7 @@ describe('PropertyField', () => {
       />
     );
 
-    const input = screen.getByRole('textbox');
+    const input = screen.getByRole('combobox');
 
     // Focus opens dropdown
     fireEvent.focus(input);
