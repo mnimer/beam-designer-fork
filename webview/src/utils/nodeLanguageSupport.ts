@@ -371,6 +371,53 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   },
 
   // ============================================================================
+  // HEALTHCARE CONNECTORS (CLOUD HEALTHCARE API)
+  // ============================================================================
+  FhirIO: {
+    beamTransform: 'FhirIO',
+    displayName: 'FhirIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  HL7v2IO: {
+    beamTransform: 'HL7v2IO',
+    displayName: 'HL7v2IO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DicomIO: {
+    beamTransform: 'DicomIO',
+    displayName: 'DicomIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+
+  // ============================================================================
+  // SAAS & HTTP/RPC CONNECTORS
+  // ============================================================================
+  GoogleAdsIO: {
+    beamTransform: 'GoogleAdsIO',
+    displayName: 'GoogleAdsIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  RequestResponseIO: {
+    beamTransform: 'RequestResponseIO',
+    displayName: 'Web APIs (RequestResponseIO)',
+    supportedLanguages: ['Java', 'Python'],
+  },
+
+  // ============================================================================
+  // OBSERVABILITY & LOGGING SINKS
+  // ============================================================================
+  SplunkIO: {
+    beamTransform: 'SplunkIO',
+    displayName: 'SplunkIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  DatadogIO: {
+    beamTransform: 'DatadogIO',
+    displayName: 'DatadogIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+
+  // ============================================================================
   // STEP / CORE PTRANSFORM NODES
   // ============================================================================
   ParDo: {

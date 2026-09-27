@@ -111,3 +111,77 @@ describe('Package.json Scripts', () => {
         expect(pkg.scripts.lint).not.toContain('--ext');
     });
 });
+
+interface LaunchConfigEntry {
+    name?: string;
+    request?: string;
+    preLaunchTask?: string;
+    noDebug?: boolean;
+    port?: number;
+}
+
+interface CompoundConfigEntry {
+    name?: string;
+}
+
+interface TaskConfigEntry {
+    label?: string;
+    script?: string;
+    problemMatcher?: unknown;
+}
+
+describe('VS Code Launch and Task Configuration (Timeout Prevention)', () => {
+    const rootDir = path.resolve(__dirname, '../../../');
+    const launchConfigPath = path.join(rootDir, '.vscode', 'launch.json');
+    const tasksConfigPath = path.join(rootDir, '.vscode', 'tasks.json');
+
+    it('launch.json exists and uses npm: compile preLaunchTask to avoid heavy webview build timeouts (simple case)', () => {
+        expect(fs.existsSync(launchConfigPath)).toBe(true);
+        const launchConfig = JSON.parse(fs.readFileSync(launchConfigPath, 'utf-8')) as {
+            configurations: LaunchConfigEntry[];
+        };
+        expect(Array.isArray(launchConfig.configurations)).toBe(true);
+
+        const runConfig = launchConfig.configurations.find((c: LaunchConfigEntry) => c.name === 'Run Extension');
+        expect(runConfig).toBeDefined();
+        // preLaunchTask MUST be npm: compile, never npm: build which triggers Vite production bundling
+        expect(runConfig?.preLaunchTask).toBe('npm: compile');
+    });
+
+    it('launch.json sets noDebug: true and provides attach configuration to prevent macOS debug socket timeouts (extreme case)', () => {
+        const launchConfig = JSON.parse(fs.readFileSync(launchConfigPath, 'utf-8')) as {
+            configurations: LaunchConfigEntry[];
+            compounds?: CompoundConfigEntry[];
+        };
+        const runConfig = launchConfig.configurations.find((c: LaunchConfigEntry) => c.name === 'Run Extension');
+        expect(runConfig?.noDebug).toBe(true);
+
+        // Debug attach configuration must exist for port 9229
+        const attachConfig = launchConfig.configurations.find((c: LaunchConfigEntry) => c.request === 'attach');
+        expect(attachConfig).toBeDefined();
+        expect(attachConfig?.port).toBe(9229);
+
+        // Compound launch configuration should be available
+        const compounds = launchConfig.compounds ?? [];
+        const launchAndDebug = compounds.find((cp: CompoundConfigEntry) => cp.name === 'Launch & Debug Extension');
+        expect(launchAndDebug).toBeDefined();
+    });
+
+    it('tasks.json configures npm: compile and uses empty problemMatcher for composite npm: build (failure case)', () => {
+        expect(fs.existsSync(tasksConfigPath)).toBe(true);
+        const tasksConfig = JSON.parse(fs.readFileSync(tasksConfigPath, 'utf-8')) as {
+            tasks: TaskConfigEntry[];
+        };
+        expect(Array.isArray(tasksConfig.tasks)).toBe(true);
+
+        const compileTask = tasksConfig.tasks.find((t: TaskConfigEntry) => t.label === 'npm: compile');
+        expect(compileTask).toBeDefined();
+        expect(compileTask?.script).toBe('compile');
+
+        const buildTask = tasksConfig.tasks.find((t: TaskConfigEntry) => t.label === 'npm: build');
+        expect(buildTask).toBeDefined();
+        // problemMatcher must be empty array so non-tsc output from Vite does not stall task completion
+        expect(buildTask?.problemMatcher).toEqual([]);
+    });
+});
+

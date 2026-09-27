@@ -889,6 +889,62 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
             expect(prompt).not.toContain('NEVER expose non-sensitive properties');
         });
     });
+
+    /**
+     * Integration test report remediation directives regression suite.
+     * Validates Directives P1-P3 (Python), J1-J2 (Java), and runner scaling propagation rules.
+     */
+    describe('prompt remediation directives from integration test report (regression)', () => {
+        // Directives P1 & P2: Python GenerateSequence rate-limiting
+        it('Python prompt enforces rate-limited sequence generation and forbids silent property drops', () => {
+            // NOTE: Must specify PeriodicImpulse with counter DoFn or explicit # NOTE: comment
+            expect(PYTHON_PROMPT).toContain('Rate-Limited Sequences (`ratePerSec`, `elementsPerPeriod`) (Directives P1, P2)');
+            expect(PYTHON_PROMPT).toContain('PeriodicImpulse');
+            expect(PYTHON_PROMPT).toContain('BoundedSequenceCounterDoFn');
+            expect(PYTHON_PROMPT).toContain('# NOTE: ratePerSec = <val> is not supported directly in in-memory beam.Create batch execution');
+            expect(PYTHON_PROMPT).toMatch(/NEVER silently drop or omit `ratePerSec`/);
+        });
+
+        // Directive P3: Python entrypoint quote consistency
+        it('Python prompt mandates matching quotes in entrypoint guard to prevent SyntaxError', () => {
+            // NOTE: Mismatched quotes like "__main__' trigger fatal SyntaxError: unterminated string literal
+            expect(PYTHON_PROMPT).toContain("either `if __name__ == '__main__': run()` or `if __name__ == \"__main__\": run()`");
+            expect(PYTHON_PROMPT).toContain('never mix quotation styles');
+        });
+
+        // Python Cloud Build tag pinning
+        it('Python prompt pins docker builder image tag in cloudbuild.yaml', () => {
+            // NOTE: Builders without tag trigger fatal container image pull failures in Cloud Build
+            expect(PYTHON_PROMPT).toContain("'gcr.io/cloud-builders/docker:latest'");
+        });
+
+        // Directive J1: Java KafkaIO Exactly-Once Semantics (withEOS)
+        it('Java prompt enforces withEOS on KafkaIO sink when useEOS: true is specified', () => {
+            // NOTE: KafkaIO sink must configure withEOS or idempotent producer properties
+            expect(JAVA_PROMPT).toContain('Exactly-Once Semantics (`useEOS`) (Directive J1)');
+            expect(JAVA_PROMPT).toContain('.withEOS(numShards > 0 ? numShards : 1, sinkGroupId != null ? sinkGroupId : "eos-sink-group")');
+            expect(JAVA_PROMPT).toMatch(/NEVER silently omit EOS when specified in YAML/);
+        });
+
+        // Directive J2: Java Combiner Optimizations after GroupByKey
+        it('Java prompt recommends Combine.groupedValues or Combine.perKey after GroupByKey', () => {
+            // NOTE: GroupByKey followed by reduction should use Combine.groupedValues rather than manual loop
+            expect(JAVA_PROMPT).toContain('Combiner Optimizations after `GroupByKey` (Directive J2)');
+            expect(JAVA_PROMPT).toContain('Combine.groupedValues');
+        });
+
+        // Worker Scaling Propagation (Both languages)
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt checklist enforces propagating jobConfig machineType, minInstances, and maxInstances', (_lang, prompt) => {
+            // NOTE: Runner script must propagate scaling parameters to Dataflow Flex Template execution
+            expect(prompt).toContain('Job Configuration & Scaling Propagation');
+            expect(prompt).toContain('--worker-machine-type="${MACHINE_TYPE:-<machineType>}"');
+            expect(prompt).toContain('--num-workers="${MIN_INSTANCES:-<minInstances>}"');
+            expect(prompt).toContain('--max-workers="${MAX_INSTANCES:-<maxInstances>}"');
+        });
+    });
 });
 
 

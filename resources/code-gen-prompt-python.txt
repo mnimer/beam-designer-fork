@@ -186,7 +186,35 @@ noting that the operator must supply it.
   - Sink: `beam.io.WriteToPubSub(topic=...)` (consumes `bytes`)
 - **`GenerateSequence`**:
   - **CRITICAL — PREFER `PeriodicImpulse` FOR PERIODIC TRIGGERS**: `GenerateSequence` has **no native Python implementation**. It is a Java transform reached over cross-language expansion, which means it requires (a) downloading an ~800MB Java expansion-service JAR and (b) **a running Docker daemon** to host the Java SDK harness that actually executes it. On a developer machine without Docker the pipeline starts, logs unrelated JVM noise from every connector bundled in the shadowJar (e.g. `Running JvmInitializer#beforeProcessing for ...KafkaIOInitializer`), and **produces no elements**.
-    - Therefore, when the node is only being used as a **periodic trigger / tick source** (i.e. the emitted numbers are discarded and downstream only needs "fire every N seconds"), you **MUST** generate `PeriodicImpulse` instead. It is pure Python, needs no JVM and no Docker:
+    - **Rate-Limited Sequences (`ratePerSec`, `elementsPerPeriod`) (Directives P1, P2)**: When a `GenerateSequence` node specifies rate limiting properties (such as `ratePerSec` or `elementsPerPeriod`) alongside bounded `from`/`to` (or `start`/`stop`) ranges in Python pipelines, you **MUST** either:
+      1. Generate a rate-controlled stream using native `PeriodicImpulse` with an incrementing sequence counter `DoFn` bounded to the configured range (calculating `fire_interval = 1.0 / rate_per_sec` or `period_seconds / elements_per_period`):
+         ```python
+         import time
+         from apache_beam.transforms.periodicsequence import PeriodicImpulse
+
+         class BoundedSequenceCounterDoFn(beam.DoFn):
+             def __init__(self, start, stop):
+                 self.start = start
+                 self.stop = stop
+                 self.current = start
+
+             def process(self, timestamp):
+                 if self.current <= self.stop:
+                     yield self.current
+                     self.current += 1
+
+         sequence_stream = (
+             p
+             | 'PeriodicImpulse' >> PeriodicImpulse(
+                 start_timestamp=time.time(),
+                 fire_interval=1.0 / rate_per_sec,
+             )
+             | 'GenerateBoundedNumbers' >> beam.ParDo(BoundedSequenceCounterDoFn(start, stop))
+         )
+         ```
+      2. OR, if executing as a pure batch `beam.Create` in DirectRunner, explicitly account for the property with a comment: `# NOTE: ratePerSec = <val> is not supported directly in in-memory beam.Create batch execution`.
+      - **CRITICAL**: NEVER silently drop or omit `ratePerSec` or `elementsPerPeriod`. Falling back to an unthrottled static `beam.Create(range(...))` that discards configured rate limiting violates specification fidelity and triggers a hard veto.
+    - **Periodic Triggers**: When the node is only being used as a **periodic trigger / tick source** (i.e. the emitted numbers are discarded and downstream only needs "fire every N seconds"), generate `PeriodicImpulse`:
       ```python
       import time
       from apache_beam.transforms.periodicsequence import PeriodicImpulse
@@ -482,7 +510,7 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 Generate `cloudbuild.yaml` using deterministic image tagging with Cloud Build built-in substitutions:
 ```yaml
 steps:
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: 'gcr.io/cloud-builders/docker:latest'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}', '.']
 images:
   - 'gcr.io/$PROJECT_ID/{{pipeline_name}}:${_TAG}'
@@ -491,7 +519,7 @@ substitutions:
 options:
   logging: CLOUD_LOGGING_ONLY
 ```
-- **Tag Determinism**: Default `_TAG` to `'${SHORT_SHA}'`. NEVER default `_TAG` to `'latest'`, as mutable tags break build reproducibility and trigger security vetos.
+- **Tag Determinism & Builder Pinning**: Default `_TAG` to `'${SHORT_SHA}'`. NEVER default `_TAG` to `'latest'`, as mutable tags break build reproducibility and trigger security vetos. Always use an explicit tag on Cloud Build builder steps (e.g. `'gcr.io/cloud-builders/docker:latest'` or a pinned digest), never an untagged builder image.
 
 ---
 
@@ -503,7 +531,7 @@ Before outputting the final JSON `files` array, verify:
 4. No CLI option uses a reserved Beam name (`job_name`, `job_id`, `project`, `temp_location`, `staging_location`, `runner`, `region`).
 5. All imports are present; `requirements.txt` contains compatible package bounds (`apache-beam[gcp]>=2.76.0,<3.0.0`).
 6. `src/__init__.py` is generated as an empty file.
-7. `src/<pipeline_name>.py` has `if __name__ == '__main__': run()` and never calls `unittest.main()`.
+7. `src/<pipeline_name>.py` has the standard entrypoint guard strictly using matching quotation marks: either `if __name__ == '__main__': run()` or `if __name__ == "__main__": run()` (never mix quotation styles such as `"__main__'` or `'__main__"` as this triggers a fatal SyntaxError), and never calls `unittest.main()`.
 8. Every `?` in a JDBC SQL statement matches the upstream tuple element count 1-to-1.
 9. Every transform step name in `p | '<step_name>' >> ...` is globally unique.
 10. Sinks receive their required type (e.g. `bytes` for Pub/Sub and MQTT, `dict` for BigQuery, `(k, v)` tuples for Kafka), with bridging steps where needed.
@@ -512,6 +540,7 @@ Before outputting the final JSON `files` array, verify:
 13. No hardcoded credentials: No database passwords, tokens, or sensitive credentials appear as string literals in Python source code or as `default=` values in `parser.add_argument(...)`. Runner scripts must NOT use hardcoded fallback strings for secrets (use `: "${DB_PASSWORD:?Error: ...}"`).
 14. Container Hardening & Dockerfile Non-Root Guidance: Dockerfile base images use explicit pinned version tags (e.g. `:1.1`), never mutable `:latest`. The generated `Dockerfile` MUST include non-root least-privilege guidance—either active `USER beam` or the documented commented non-root instructions (`# RUN groupadd ...` / `# USER beam:beam`) to prevent root privilege escalation.
 15. Transform Argument & Property Binding: **Walk the `properties` map of EVERY node in the input YAML and account for each key individually before emitting the file.** Each property MUST either (a) be passed into that node's transform constructor, kwargs, or configuration dictionary, (b) be structurally implied by the code you generated (for example `table` becoming the `table=` argument), or (c) if the Beam API genuinely offers no way to express it, be surfaced as a `# NOTE: <property> = <value> is not configurable through <Transform>` comment on the transform. **Silently dropping a configured property is a defect** — it is the single most common failure in generated pipelines. Parsing a property into `argparse` alone is NOT binding it; every CLI option derived from YAML properties must also reach the transform invocation. Frequently-missed examples:
+    - In `GenerateSequence`: map all rate-limiting and sequence properties (`ratePerSec`, `elementsPerPeriod`, `periodSeconds`). When bounded with rate limiting, implement rate-paced generation via `PeriodicImpulse` with a counter `DoFn`, or explicitly account for it with `# NOTE: ratePerSec = <val> is not supported directly in in-memory beam.Create batch execution`. NEVER silently drop or omit `ratePerSec`.
     - In `ReadFromJdbc` and `WriteToJdbc`: map all operational and performance tuning properties specified on node YAML definitions (`outputParallelization: true` -> `output_parallelization=True`, `autosharding: true` -> `autosharding=True`, `fetchSize` -> `fetch_size=...`, `batchSize` -> `batch_size=...`).
     - In `WriteToKafka`: strictly map all serializer and semantic properties specified in the YAML properties. If `keySerializer` or `valueSerializer` is specified (e.g. `org.apache.kafka.common.serialization.StringSerializer`), bind them directly to `key.serializer` / `value.serializer` in `producer_config`. Never substitute default `ByteArraySerializer`. When `useEOS: true` is configured on Kafka sink nodes, ensure exactly-once semantics configuration (e.g. `'enable.idempotence': 'true'`) is explicitly configured in `producer_config`.
     - In `ReadFromMqtt` / `WriteToMqtt`: pass `qos`, `retain`/`retained`, `topic`, `server_uri`, etc.
@@ -527,6 +556,7 @@ Before outputting the final JSON `files` array, verify:
     - Verify that test assertions (e.g. `assert_that(..., equal_to([...]))`) strictly match the exact data values, keys, and types produced by the transforms under test given the test input fixtures. Never alter mock keys or values (such as prefixing key names like `'sensor_id-'` instead of `'sensor-'`) between input fixtures and expected assertion matchers.
     - When testing custom DoFn classes or element parsers, ensure the test actually applies the transform (`beam.ParDo(...)` or invoking the processing method) to synthetic input data in `TestPipeline` instead of trivially asserting identity on `beam.Create(expected)` without executing the transformation logic.
 24. `.dockerignore` is generated to exclude `.git`, `venv`, `*.log`, and `__pycache__` from the Docker build context.
+25. Job Configuration & Scaling Propagation: Inspect the YAML `jobConfig` block. If `jobConfig.machineType`, `minInstances`, or `maxInstances` are specified, propagate them into `run_dataflowrunner.sh` as execution flags on `gcloud dataflow flex-template run`: `--worker-machine-type="${MACHINE_TYPE:-<machineType>}"`, `--num-workers="${MIN_INSTANCES:-<minInstances>}"`, and `--max-workers="${MAX_INSTANCES:-<maxInstances>}"`. Never omit specified worker scaling properties from deployment scripts.
 
 ### Python Projects
 - **Python Compatibility**: In `requirements.txt`, specify valid PyPI release versions: `apache-beam[gcp]>=2.76.0,<3.0.0` (aligning with the Dockerfile base image `apache/beam_python3.11_sdk:2.76.0`). Do NOT include `pyspark`.
@@ -557,7 +587,7 @@ Before outputting the final JSON `files` array, verify:
     yield TaggedOutput('valid', record)   # WRONG: silently dropped, produces zero output
     ```
   - The `main=` keyword only sets the *attribute name* used to read the main output off the result (`results['valid']`). Inside `process`, the main output is always the untagged one.
-- **Synthetic Sequence Generation (GenerateSequence)**: When implementing synthetic sequence generation in Python, **NEVER** use `ExternalTransform` with Java expansion services (e.g. `'beam:external:java:generate_sequence:v1'`). ALWAYS use native Python stream generation, such as `apache_beam.transforms.periodicsequence.PeriodicImpulse` or `PeriodicSequence` paired with an element counter `DoFn` (e.g., generating incrementing integer sequences at the specified rate limit).
+- **Synthetic Sequence Generation (GenerateSequence)**: When implementing synthetic sequence generation in Python, **NEVER** use `ExternalTransform` with Java expansion services (e.g. `'beam:external:java:generate_sequence:v1'`). ALWAYS use native Python stream generation, such as `apache_beam.transforms.periodicsequence.PeriodicImpulse` or `PeriodicSequence` paired with an element counter `DoFn` (e.g., generating incrementing integer sequences at the specified rate limit). When rate limiting (such as `ratePerSec` or `elementsPerPeriod`) is configured, NEVER fall back to an unthrottled static `beam.Create(range(...))` that silently discards the rate-limiting configuration without an explicit explanatory `# NOTE:` comment.
 - **Event-Time Timestamps (WithTimestamps)**: For `WithTimestamps` transforms, use `beam.transforms.util.WithTimestamps(timestamp_fn)` or yield `beam.transforms.window.TimestampedValue(element, timestamp)` from a `DoFn` rather than applying plain `beam.Map`.
 - **Runner Scripts & Shell Automation Rules**: Ensure all generated bash scripts (`run_directrunner.sh`, `run_dataflowrunner.sh`) follow strict bash syntax conventions with `set -euo pipefail`. In conditional blocks detecting Python interpreters, ensure every `if` and `elif` statement is explicitly terminated with `then` (e.g., `if command -v python3.12 &>/dev/null; then ... elif command -v python3.11 &>/dev/null; then ... else ... fi`).
 - **FileIO Sinks with Dynamic Destinations**: When using `apache_beam.io.fileio.WriteToFiles` with dynamic destinations (e.g. partitioned by key or record attribute), ensure that elements entering `WriteToFiles` retain their partition metadata for destination routing (`destination=lambda record: record.get('country', ...)`). If the record payload is a structured object or dictionary, do NOT strip the partition key with an intermediate `beam.Map` before `WriteToFiles`. Instead, define a custom `fileio.FileSink` subclass (implementing `open`, `write`, `flush`) that extracts and serializes each record's payload (e.g. writing `record.get('line', str(record))` to the file handle) so both destination routing and payload serialization work seamlessly.

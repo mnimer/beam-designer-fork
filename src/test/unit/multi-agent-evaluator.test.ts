@@ -297,6 +297,130 @@ public class WordCountPipelineTest {
         });
     });
 
+    describe('checkBashSyntax', () => {
+        it('passes valid bash script (simple condition)', async () => {
+            const validBash = `#!/bin/bash\nset -euo pipefail\necho "Running pipeline"\n`;
+            const error = await checkBashSyntax('run_directrunner.sh', validBash);
+            expect(error).toBeNull();
+        });
+
+        it('catches bash syntax error (failure condition)', async () => {
+            const brokenBash = `#!/bin/bash\nif [ $foo == 1; then\necho "missing bracket"\n`;
+            const error = await checkBashSyntax('broken.sh', brokenBash);
+            expect(error).not.toBeNull();
+            expect(error).toContain('broken.sh');
+        });
+    });
+
+    describe('checkJsonSyntax', () => {
+        it('validates correct JSON structure (simple condition)', () => {
+            const validJson = JSON.stringify({ image: "gcr.io/my-proj/img", parameters: [] });
+            expect(checkJsonSyntax('metadata.json', validJson)).toBeNull();
+        });
+
+        it('flags invalid JSON (failure condition)', () => {
+            const invalidJson = `{ "image": "missing-quote, }`;
+            const err = checkJsonSyntax('metadata.json', invalidJson);
+            expect(err).not.toBeNull();
+            expect(err).toContain('JSON parse error');
+        });
+    });
+
+    describe('checkXmlStructure', () => {
+        it('validates well-formed XML (simple condition)', () => {
+            const validXml = `<project><modelVersion>4.0.0</modelVersion><dependencies><dependency><groupId>org.apache.beam</groupId></dependency></dependencies></project>`;
+            expect(checkXmlStructure('pom.xml', validXml)).toBeNull();
+        });
+
+        it('detects mismatched XML tags (failure condition)', () => {
+            const brokenXml = `<project><dependencies></project></dependencies>`;
+            const err = checkXmlStructure('pom.xml', brokenXml);
+            expect(err).not.toBeNull();
+            expect(err).toContain('Mismatched XML tag');
+        });
+
+        it('detects unclosed XML tags (failure condition)', () => {
+            const unclosedXml = `<project><dependencies>`;
+            const err = checkXmlStructure('pom.xml', unclosedXml);
+            expect(err).not.toBeNull();
+            expect(err).toContain('Unclosed XML tag');
+        });
+    });
+
+    describe('scanForUnreplacedPlaceholders', () => {
+        it('detects template placeholders and redaction tokens (failure condition)', () => {
+            const files = [
+                { filename: 'pipeline.py', content: 'pipeline_name = "{{pipeline_name}}"' },
+                { filename: 'run.sh', content: 'SECRET=__REDACTED_BY_BEAM_DESIGNER__' }
+            ];
+            const findings = scanForUnreplacedPlaceholders(files);
+            expect(findings.length).toBe(2);
+            expect(findings[0].description).toContain('{{pipeline_name}}');
+            expect(findings[1].description).toContain('__REDACTED_BY_BEAM_DESIGNER__');
+        });
+
+        it('passes clean files without placeholders (simple condition)', () => {
+            const files = [{ filename: 'pipeline.py', content: 'x = 10\ny = 20' }];
+            expect(scanForUnreplacedPlaceholders(files).length).toBe(0);
+        });
+    });
+
+    describe('checkShellPermissionsAndShebang', () => {
+        it('flags scripts lacking executable flag or valid shebang (failure condition)', () => {
+            const files = [
+                {
+                    filename: 'run_directrunner.sh',
+                    content: 'echo "No shebang"',
+                    executable: false
+                }
+            ];
+            const findings = checkShellPermissionsAndShebang(files);
+            expect(findings.length).toBe(2);
+            expect(findings.some(f => f.id.includes('SHELL-EXEC-FLAG'))).toBe(true);
+            expect(findings.some(f => f.id.includes('SHELL-SHEBANG'))).toBe(true);
+        });
+
+        it('accepts valid shebang and executable flag (simple condition)', () => {
+            const files = [
+                {
+                    filename: 'run_directrunner.sh',
+                    content: '#!/usr/bin/env bash\necho "Good"',
+                    executable: true
+                }
+            ];
+            const findings = checkShellPermissionsAndShebang(files);
+            expect(findings.length).toBe(0);
+        });
+    });
+
+    describe('checkDeliverableCompleteness', () => {
+        it('flags missing deliverables for Python (failure condition)', () => {
+            const files = [
+                { filename: 'metadata.json', content: '{}' },
+                { filename: 'Dockerfile', content: 'FROM python' }
+            ];
+            const missing = checkDeliverableCompleteness(files, 'Python');
+            expect(missing.some(m => m.includes('requirements.txt'))).toBe(true);
+            expect(missing.some(m => m.includes('run_directrunner.sh'))).toBe(true);
+        });
+
+        it('verifies complete deliverable set for Python (simple condition)', () => {
+            const files = [
+                { filename: 'metadata.json', content: '{}' },
+                { filename: 'Dockerfile', content: 'FROM python' },
+                { filename: 'run_directrunner.sh', content: '#!/bin/bash' },
+                { filename: 'run_dataflowrunner.sh', content: '#!/bin/bash' },
+                { filename: 'cloudbuild.yaml', content: 'steps: []' },
+                { filename: 'README.md', content: '# Doc' },
+                { filename: 'requirements.txt', content: 'apache-beam' },
+                { filename: 'src/pipeline.py', content: 'import beam' },
+                { filename: 'src/pipeline_test.py', content: 'def test(): pass' }
+            ];
+            const missing = checkDeliverableCompleteness(files, 'Python');
+            expect(missing.length).toBe(0);
+        });
+    });
+
     describe('scanForPlaintextSecrets', () => {
         it('flags hardcoded AWS access key IDs (failure condition)', () => {
             const files = [

@@ -13,7 +13,6 @@ All files MUST be output directly in the designated root or Maven package layout
 | `metadata.json` | Dataflow Flex Template parameter definitions for runtime variables | false |
 | `Dockerfile` | Multi-stage Dockerfile for Dataflow Flex Template runtime | false |
 | `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
-| `.dockerignore` | Build context exclusions (.git, target, *.log) | false |
 | `run_directrunner.sh` | Bash script to execute the pipeline locally with DirectRunner | true |
 | `run_dataflowrunner.sh` | Bash script to build and launch the Flex Template on GCP Dataflow | true |
 | `run_sparkrunner.sh` | Bash script to package and submit to GCP Serverless Spark (Dataproc) | true |
@@ -255,7 +254,8 @@ and add a brief comment noting that the operator must supply it.
   - Required Imports: `org.apache.beam.sdk.io.kafka.KafkaIO`, `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.beam.sdk.values.KV`
   - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-kafka` and `org.apache.kafka:kafka-clients:3.6.1`.
   - Source (Read): `KafkaIO.<String, String>read().withBootstrapServers(bootstrapServers).withTopic(topic).withKeyDeserializer(StringDeserializer.class).withValueDeserializer(StringDeserializer.class).withoutMetadata()` (produces `PCollection<KV<String, String>>`). If `groupId` or `kafkaGroupId` is specified in node properties, configure it with `.withConsumerConfigUpdates(ImmutableMap.of(ConsumerConfig.GROUP_ID_CONFIG, groupId))` or `.updateConsumerProperties(Map.of("group.id", groupId))`.
-  - Sink (Write): `KafkaIO.<String, String>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(StringSerializer.class).withValueSerializer(StringSerializer.class)`. If `useEOS: true` is specified in node properties, configure exactly-once semantics via `.withEOS(numShards, sinkGroupId)`.
+  - Sink (Write): `KafkaIO.<String, String>write().withBootstrapServers(bootstrapServers).withTopic(topic).withKeySerializer(StringSerializer.class).withValueSerializer(StringSerializer.class)`.
+    - **Exactly-Once Semantics (`useEOS`) (Directive J1)**: When `useEOS: true` (or `eos: true`) is specified on a `KafkaIO` sink node, you **MUST** enable Exactly-Once Semantics on `KafkaIO.write()`. Never omit EOS configuration when specified in the node properties. Call `.withEOS(numShards > 0 ? numShards : 1, sinkGroupId != null ? sinkGroupId : "eos-sink-group")` or configure transactional/idempotent producer properties via `.withProducerConfigUpdates(Map.of(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true"))`.
 - **`SnsIO`**:
   - Required Imports: `org.apache.beam.sdk.io.aws2.sns.SnsIO`, `software.amazon.awssdk.services.sns.model.PublishRequest`
   - Maven Dependencies: Add `org.apache.beam:beam-sdks-java-io-amazon-web-services2` and `software.amazon.awssdk:sns:2.25.16`.
@@ -362,6 +362,7 @@ and add a brief comment noting that the operator must supply it.
 - **`GroupIntoBatches`**: `GroupIntoBatches.ofSize(batchSize)`
 - **`CoGroupByKey`**: `CoGroupByKey.create()`
 - **`Combine`**: `Combine.globally(...)` or `Combine.perKey(...)`
+  - **Combiner Optimizations after `GroupByKey` (Directive J2)**: When an explicit `GroupByKey` transform is directly followed by a reduction or aggregation transform (such as `Sum`, `Mean`, `Min`, `Max`), prefer using `Combine.groupedValues(...)` (e.g. `Combine.groupedValues(Sum.ofDoubles())` or `Combine.groupedValues(Sum.ofIntegers())`) or `Combine.perKey(...)` to leverage combiner optimizations rather than manual iteration over `Iterable` values in `MapElements`.
 - **`Distinct`**: `Distinct.create()`
 - **`Max`**: `Max.integersPerKey()`, `Max.doublesPerKey()`, `Max.globally(...)`
 - **`Min`**: `Min.integersPerKey()`, `Min.doublesPerKey()`, `Min.globally(...)`
@@ -595,8 +596,8 @@ Use the following static baselines to generate Dockerfile and runner scripts:
 {{dockerfile_template}}
 ```
 - **Container Hardening**: Maintain least-privilege permissions across the template directory (`RUN chmod -R a+rx /template`) ensuring compatibility with Dataflow worker execution contracts.
-- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template.
-- **Container Hardening & Least Privilege**: The generated `Dockerfile` MUST include non-root least-privilege guidance. Provide the documented commented instructions demonstrating non-root execution (`# RUN chown -R 1000:1000 /template` and `# USER 1000:1000`) so operators in hardened environments have actionable guidance to enforce least privilege. Never emit a Dockerfile lacking non-root guidance.
+- **Base Launcher Image**: Maintain the canonical Dataflow Flex Template base launcher image `gcr.io/dataflow-templates-base/java17-template-launcher-base:1.1` as specified in the Dockerfile template. Note that Dataflow flex template launcher images are preconfigured by GCP and must not have active custom USER overrides that interfere with the launcher entrypoint.
+- **Container Hardening & Least Privilege**: The generated `Dockerfile` MUST include non-root least-privilege guidance. Provide the documented commented instructions demonstrating non-root execution (`# RUN chown -R 1000:1000 /template` and `# USER 1000:1000`) so operators in hardened environments have actionable guidance to enforce least privilege without breaking launcher entrypoint contracts. Never emit a Dockerfile lacking non-root guidance.
 
 ### 'run_directrunner.sh' Template
 ```
@@ -665,7 +666,7 @@ Before outputting the final JSON `files` array, verify:
     - If `batchSize` is specified on sink nodes (such as SqsIO, PubsubIO, or JdbcIO), call `.withBatchSize(...)` or appropriate batching method.
     - If `outputParallelization: true` (or `false`) is configured on a `JdbcIO` source node, call `.withOutputParallelization(true/false)`.
     - If `autosharding: true` is configured on a `JdbcIO` sink node, call `.withAutoSharding()`.
-    - If `useEOS: true` is configured on a `KafkaIO` sink node, call `.withEOS(numShards, sinkGroupId)`.
+    - If `useEOS: true` is configured on a `KafkaIO` sink node, enable exactly-once semantics by calling `.withEOS(numShards > 0 ? numShards : 1, sinkGroupId != null ? sinkGroupId : "eos-sink-group")` or configuring idempotent producer properties. NEVER silently omit EOS when specified in YAML.
     - If `maxNumRecords` or `maxReadTime` is configured on an `SqsIO` source node, call `.withMaxNumRecords(...)` / `.withMaxReadTime(...)`.
     - If `minBundleSize`, `compression`, `numShards`, `shardTemplate`, `charset` or `suffix` is configured on a file-based source or sink, chain the corresponding builder method.
 16. Deterministic Container Image Tagging: In `cloudbuild.yaml` and runner scripts (`run_dataflowrunner.sh`, `run_sparkrunner.sh`), avoid using bare mutable `:latest` tags alone. In `cloudbuild.yaml`, default substitution `_TAG` to `'${SHORT_SHA}'` (never `'latest'`). In runner scripts, default container image tags to a parameterized or deterministic tag variable (e.g., `:${IMAGE_TAG:-latest}`) to guarantee build reproducibility and artifact provenance.
@@ -680,6 +681,7 @@ Before outputting the final JSON `files` array, verify:
     - When testing custom DoFn classes or element parsers, ensure the test actually applies the transform (`ParDo.of(new CustomDoFn())` or calls the parsing method) to synthetic input data in the `TestPipeline` instead of trivially asserting identity on `Create.of(expectedRecords)` without executing the transformation logic.
 24. `.dockerignore` is generated to exclude `.git`, `target`, and `*.log` from the Docker build context.
 25. Syntactic Completeness: Every generated Java file must be brace-balanced and complete. Before emitting a file, confirm each `{` has a matching `}` — including the **closing brace of the outer class**, which is the one most often truncated when a file ends with a long nested `DoFn` or anonymous class. A file that is short by even one brace fails the build outright, regardless of how correct the pipeline logic is. The same applies to unclosed parentheses in long builder chains and unterminated string literals.
+26. Job Configuration & Scaling Propagation: Inspect the YAML `jobConfig` block. If `jobConfig.machineType`, `minInstances`, or `maxInstances` are specified, propagate them into `run_dataflowrunner.sh` as execution flags on `gcloud dataflow flex-template run`: `--worker-machine-type="${MACHINE_TYPE:-<machineType>}"`, `--num-workers="${MIN_INSTANCES:-<minInstances>}"`, and `--max-workers="${MAX_INSTANCES:-<maxInstances>}"`. Never omit specified worker scaling properties from deployment scripts.
 
 ---
 
