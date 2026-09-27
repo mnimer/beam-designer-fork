@@ -1,0 +1,141 @@
+# ==============================================================================
+# IO72: TREP WebSocket Mid-Price Contribution (Java)
+# Java Generation & Evaluation: (not yet run -- update after first unsandboxed run)
+# Explanation: (fill in from test-report.md)
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: IO72 - TrepWsIO Source -> ParDo -> TrepWsIO Sink (WebSocket API Post bridge)
+# DAG: TrepWsIO.read() (ERT token auth + service discovery; password from Secret Manager)
+#      -> Compute Mid Price (ParDo)
+#      -> TrepWsIO Sink bridge: DoFn posting Update messages to an internal ADS contribution service
+#         via the documented Refinitiv WebSocket API (tr_json2 Login + off-stream Post with Ack).
+# Credentials: passwordSecret is a Secret Manager SHORT ID, never the password.
+nodes:
+  - id: "source-trepws-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: "Read TREP FX Quotes"
+      type: SOURCE
+      iconName: Radio
+      beam_transform: TrepWsIO
+      properties:
+        username: "GE-A-01103867-3-1234"
+        ertAuthEnabled: true
+        passwordSecret: "trep-ert-password"
+        ertAuthStoreLocation: "gs://acme-dataflow-temp/trep-token-store"
+        serviceDiscovery: true
+        region: "eu"
+        instrumentTuples:
+          - service: "ELEKTRON_DD"
+            rics: "EUR=, JPY=, GBP="
+            fields: "BID, ASK"
+        cachedFields: "PROD_PERM"
+        maxMounts: 1
+        timeout: 60000
+      system_instructions: >-
+        Use the community Refinitiv TrepWsIO connector: Maven com.refinitiv.beamio:trepws-io:1.2.0 (this artifact is NOT
+        on Maven Central; add an XML comment in pom.xml and a README Prerequisites step saying it must first be installed
+        into the local Maven repository with "mvn install -DskipTests" from https://github.com/Refinitiv/trep-websockets-beam-io).
+        In pom.xml add an exclusion of com.google.cloud.dataflow:google-cloud-dataflow-java-sdk-all on that dependency so the
+        baseline beam.version is the only Beam on the classpath.
+        Imports: com.refinitiv.beamio.trepwebsockets.TrepWsIO, com.refinitiv.beamio.trepwebsockets.TrepWsIO.InstrumentTuple,
+        com.refinitiv.beamio.trepwebsockets.MarketPriceMessage. TrepWsIO.read() returns PCollection<MarketPriceMessage> and is an
+        UNBOUNDED streaming source: call options.setStreaming(true) and pass --streaming=true in the runner scripts.
+        Property mapping: username -> .withUsername(username); ertAuthEnabled true -> .withTokenAuth(true);
+        passwordSecret is a Google Cloud Secret Manager secret ID -> resolve it once in main with the accessSecret helper
+        (projectId from options.getProject()) and pass it to .withPassword(...); ertAuthStoreLocation -> .withTokenStore(...);
+        serviceDiscovery true -> .withServiceDiscovery(true) (no hostname is needed); region -> .withRegion(region);
+        instrumentTuples -> .withInstrumentTuples(java.util.List.of(InstrumentTuple.of(service, list of trimmed RICs split on
+        commas, list of trimmed fields split on commas))); cachedFields -> .withCachedFields(java.util.Set.of("PROD_PERM"));
+        maxMounts -> .withMaxMounts(1); timeout -> .withTimeout(60000) (upstream requires at least 60000 ms).
+        NEVER call .withAuthServer(...): upstream TrepWsIO.withAuthServer() overwrites the username (bug); keep the connector's
+        default auth server. Build lists and sets with java.util.List.of / java.util.Set.of, not Guava.
+    width: 190
+    height: 64
+  - id: "step-pardo-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: "Compute Mid Price"
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        bidField: "BID"
+        askField: "ASK"
+        outputField: "MID"
+      system_instructions: >-
+        Implement a static nested DoFn<MarketPriceMessage, MarketPriceMessage> named ComputeMidFn. For each message whose
+        getFields() map contains parseable bidField and askField values, emit a new MarketPriceMessage(getId(), "Update",
+        getUpdateType(), getSeqNumber(), getName(), getService(), fields map containing only outputField = (bid + ask) / 2 as a
+        String, getJsonString(), getTimestamp()). Drop messages missing either field and count them with a Beam Counter
+        (Metrics.counter). In the unit test use TestPipeline, Create.of(...) with MarketPriceMessage instances (constructor
+        arguments: long id, String type, String updateType, long seqNumber, String name, String service, Map<String,String>
+        fields, String jsonString, org.joda.time.Instant timestamp) and .withCoder(SerializableCoder.of(MarketPriceMessage.class)),
+        and PAssert the MID values.
+    width: 190
+    height: 64
+  - id: "sink-trepws-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: "Post Mid to ADS Contribution"
+      type: SINK
+      iconName: Radio
+      beam_transform: TrepWsIO
+      properties:
+        hostname: "ads-contrib.acme.internal"
+        port: 15000
+        username: "beam-poster"
+        appId: "256"
+        serviceName: "DDS_TRCE"
+        postMode: "offStream"
+        ricMode: "fromElement"
+        ricField: "name"
+        fieldNames: "MID"
+        ackRequired: true
+        nakHandling: "log"
+      system_instructions: >-
+        Upstream TrepWsIO is read-only, so implement this sink as a custom static nested DoFn<MarketPriceMessage, Void> named
+        TrepWebSocketPostFn over the documented Refinitiv WebSocket API, using only the JDK java.net.http WebSocket client
+        (HttpClient.newHttpClient().newWebSocketBuilder().subprotocols("tr_json2")) and Jackson for JSON; add no other
+        WebSocket library. Keep the WebSocket in a transient field; open it in @Setup to ws://hostname:port/WebSocket and send
+        the Login request {"ID":1,"Domain":"Login","Key":{"Name":username,"Elements":{"ApplicationId":appId,"Position":<local
+        host IP>}}}; close it in @Teardown. Reply to every {"Type":"Ping"} with {"Type":"Pong"}. postMode offStream means each
+        element is posted on the Login stream: {"ID":1,"Type":"Post","Ack":true,"PostID":<incrementing>,"Key":{"Service":
+        serviceName,"Name":<RIC>},"Message":{"ID":0,"Type":"Update","Domain":"MarketPrice","Fields":{...}}}. ricMode fromElement
+        with ricField "name" means the RIC is MarketPriceMessage.getName(); fieldNames "MID" means only the MID field is posted.
+        ackRequired true means track each PostID until its Ack; nakHandling "log" means log an Ack carrying a NakCode with
+        LOG.warn and continue. This ADS login uses a DACS user name only, so no credential is required for this node.
+    width: 190
+    height: 64
+edges:
+  - id: "e-trep-source-to-mid"
+    source: "source-trepws-1"
+    target: "step-pardo-2"
+  - id: "e-mid-to-trep-sink"
+    source: "step-pardo-2"
+    target: "sink-trepws-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: "trep-mid-price-contribution"
+jobConfig:
+  runner: "DirectRunner"
+  machineType: "n1-standard-2"
+  minInstances: 1
+  maxInstances: 2
+  gcsStagingPath: "gs://acme-dataflow-temp/staging"
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: "Java"
+  outputFolder: "test/trepwsio"
+  needsRebuild: false

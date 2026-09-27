@@ -106,7 +106,7 @@ export const StoragePathField: React.FC<StoragePathFieldProps> = ({
   bucketErrorPrefix = DEFAULT_BUCKET_ERROR_PREFIX
 }) => {
   // NOTE: Request Cloud Storage buckets via useAssetLoader for datalist autocompletion
-  const { items: buckets, error: bucketError } = useAssetLoader<string>('storageBuckets');
+  const { items: buckets, loading: bucketsLoading, error: bucketError } = useAssetLoader<string>('storageBuckets');
 
   const bucketSuggestions = toBucketSuggestions(buckets);
 
@@ -130,6 +130,7 @@ export const StoragePathField: React.FC<StoragePathFieldProps> = ({
         error={isInvalid && errorMessage ? errorMessage : null}
         mono={true}
         datalist={bucketSuggestions}
+        loading={bucketsLoading}
         helperText={helperText}
       />
 

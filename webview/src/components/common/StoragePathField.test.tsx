@@ -163,7 +163,7 @@ describe('StoragePathField', () => {
     emitBucketsLoaded(['lakehouse-data', 'analytics-raw']);
 
     const input = container.querySelector('#csvSourceFilePattern') as HTMLInputElement;
-    const datalistId = input.getAttribute('list');
+    const datalistId = input.getAttribute('data-list') || input.getAttribute('list');
     expect(datalistId).toBeTruthy();
 
     const datalist = document.getElementById(datalistId!);
@@ -188,7 +188,7 @@ describe('StoragePathField', () => {
     emitBucketsLoaded(['gs://archive-records', 'lakehouse-data']);
 
     const input = container.querySelector('#csvSourceFilePattern') as HTMLInputElement;
-    const datalist = document.getElementById(input.getAttribute('list')!);
+    const datalist = document.getElementById((input.getAttribute('data-list') || input.getAttribute('list'))!);
     expect(datalist?.children[0]).toHaveAttribute('value', 'gs://archive-records');
     expect(datalist?.children[1]).toHaveAttribute('value', 'gs://lakehouse-data/');
   });

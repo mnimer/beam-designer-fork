@@ -1,0 +1,132 @@
+# ==============================================================================
+# IO69: Cognite Data Fusion Events Curation (Java)
+# Java Generation & Evaluation: (not yet run -- update after first unsandboxed run)
+# Explanation: (fill in from test-report.md)
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: IO69 - CogniteDataFusion Source -> ParDo -> CogniteDataFusion Sink
+# DAG: CDF Events (source project, OIDC client credentials via Secret Manager)
+#      -> Curate Events (ParDo: re-key + tag metadata)
+#      -> CDF Events upsert (target project, OIDC client credentials via Secret Manager)
+# Credentials: clientSecretSecret values are Secret Manager SHORT IDs, never credentials.
+nodes:
+  - id: "source-cdf-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: "Read CDF Maintenance Events"
+      type: SOURCE
+      iconName: Cloud
+      beam_transform: CogniteDataFusion
+      properties:
+        resourceType: "events"
+        project: "acme-operations"
+        baseUrl: "https://westeurope-1.cognitedata.com"
+        authType: "clientCredentials"
+        clientId: "5f1c2a7e-3b4d-4e8f-9a01-23456789abcd"
+        clientSecretSecret: "cdf-ops-client-secret"
+        authServerUrl: "https://login.microsoftonline.com/acme-tenant.onmicrosoft.com/oauth2/v2.0/token"
+        authScopes: "https://westeurope-1.cognitedata.com/.default"
+        filterParameters: "type=maintenance"
+        appIdentifier: "beam-designer-cdf-curation"
+        readShardsPerWorker: 4
+      system_instructions: >-
+        Use the community Cognite Beam connector (Maven com.cognite:beam-connector-java:0.9.46; add it to pom.xml
+        next to the Beam baseline, keep beam.version from the baseline, and add
+        org.apache.beam:beam-sdks-java-extensions-protobuf at the same Beam version as the baseline, because CDF DTOs
+        such as Event are protobuf messages).
+        resourceType "events" means CogniteIO.readEvents(), producing PCollection<com.cognite.client.dto.Event>.
+        Build com.cognite.beam.io.config.ProjectConfig with ProjectConfig.create().withProject(project).withBaseUrl(baseUrl)
+        .withClientId(clientId).withClientSecretFromGcpSecret(GcpSecretConfig.of(options.getProject(), clientSecretSecret))
+        .withTokenUrl(authServerUrl).withAuthScopes(authScopes). authType "clientCredentials" means this OAuth2
+        client-credentials flow; authServerUrl is the OAuth token endpoint passed to withTokenUrl (it is not a secret).
+        clientSecretSecret is a Google Cloud Secret Manager secret ID: resolve it ONLY through the connector's native
+        GcpSecretConfig (com.cognite.beam.io.config.GcpSecretConfig), which reads Secret Manager at runtime on the
+        workers; do NOT call the accessSecret helper for this node and never put the secret value in code.
+        Apply .withProjectConfig(config), .withRequestParameters(com.cognite.beam.io.RequestParameters.create()
+        .withFilterParameter("type", "maintenance")) for each key=value line in filterParameters,
+        .withReaderConfig(com.cognite.beam.io.config.ReaderConfig.create().withAppIdentifier(appIdentifier)) and
+        .withHints(com.cognite.beam.io.config.Hints.create().withReadShardsPerWorker(readShardsPerWorker)).
+        Do not use withProjectConfigFile.
+    width: 190
+    height: 64
+  - id: "step-pardo-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: "Curate Events"
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        externalIdPrefix: "curated:"
+        targetDataSetId: 4521987465213
+      system_instructions: >-
+        Implement a static nested DoFn<Event, Event> named CurateEventsFn. For each com.cognite.client.dto.Event build a
+        copy with event.toBuilder(): clear the internal id (clearId()) so the sink upserts by externalId, set externalId to
+        externalIdPrefix + the original externalId (skip and count with a Beam Counter any event without an externalId),
+        set dataSetId to targetDataSetId, and put metadata entry "curatedBy" = "beam-designer-cdf-curation".
+        In the unit test use TestPipeline, Create.of(...) of Event messages built with Event.newBuilder() and
+        .withCoder(ProtoCoder.of(Event.class)), and PAssert to check the curated externalId and dataSetId.
+    width: 190
+    height: 64
+  - id: "sink-cdf-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: "Upsert CDF Curated Events"
+      type: SINK
+      iconName: Cloud
+      beam_transform: CogniteDataFusion
+      properties:
+        resourceType: "events"
+        project: "acme-analytics"
+        baseUrl: "https://westeurope-1.cognitedata.com"
+        authType: "clientCredentials"
+        clientId: "9e8d7c6b-5a49-4382-a1b0-fedcba987654"
+        clientSecretSecret: "cdf-analytics-client-secret"
+        authServerUrl: "https://login.microsoftonline.com/acme-tenant.onmicrosoft.com/oauth2/v2.0/token"
+        authScopes: "https://westeurope-1.cognitedata.com/.default"
+        upsertMode: "REPLACE"
+        extractionPipelineExtId: "ep-cdf-events-curation"
+        appIdentifier: "beam-designer-cdf-curation"
+      system_instructions: >-
+        resourceType "events" means CogniteIO.writeEvents() consuming PCollection<com.cognite.client.dto.Event>.
+        Build a second ProjectConfig exactly like the source node (withProject, withBaseUrl, withClientId,
+        withClientSecretFromGcpSecret(GcpSecretConfig.of(options.getProject(), clientSecretSecret)), withTokenUrl(authServerUrl),
+        withAuthScopes(authScopes)) using this node's values; resolve clientSecretSecret ONLY via the connector's native
+        GcpSecretConfig, never via accessSecret or a literal. Apply .withProjectConfig(config) and
+        .withWriterConfig(com.cognite.beam.io.config.WriterConfig.create().withUpsertMode(com.cognite.client.config.UpsertMode.REPLACE)
+        .withExtractionPipeline(extractionPipelineExtId).withAppIdentifier(appIdentifier)). The write output is terminal;
+        log the number of written events with a Beam Counter or a Logger step.
+    width: 190
+    height: 64
+edges:
+  - id: "e-cdf-source-to-curate"
+    source: "source-cdf-1"
+    target: "step-pardo-2"
+  - id: "e-curate-to-cdf-sink"
+    source: "step-pardo-2"
+    target: "sink-cdf-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: "cognite-events-curation"
+jobConfig:
+  runner: "DirectRunner"
+  machineType: "n1-standard-2"
+  minInstances: 1
+  maxInstances: 3
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: "Java"
+  outputFolder: "test/cognitedatafusion"
+  needsRebuild: false

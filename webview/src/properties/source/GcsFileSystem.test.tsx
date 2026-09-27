@@ -326,7 +326,7 @@ describe('GcsFileSystemSourceProperties', () => {
     });
 
     const filePatternInput = container.querySelector('#gcsSourceFilePattern') as HTMLInputElement;
-    const datalistId = filePatternInput.getAttribute('list');
+    const datalistId = filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list');
     expect(datalistId).toBeTruthy();
     const datalist = container.querySelector(`datalist#${datalistId}`);
     expect(datalist).toBeInTheDocument();

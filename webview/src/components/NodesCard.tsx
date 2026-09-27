@@ -261,6 +261,15 @@ export const SOURCE_NODES: NodeDefinition[] = [
   // so it is grouped under Data Services rather than the runner-agnostic Streaming Sources category.
   { label: 'Flink Streaming Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'FlinkStreamingImpulseSource', badge: 'Flink', description: 'Generate synthetic impulses on the Flink runner (Python)', category: 'Data Services Sources', supportedLanguages: ['Python'] },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
+  { label: 'Cloud Bigtable (HBase based)', type: 'SOURCE', iconName: 'Database', beamTransform: 'CloudBigtable', badge: 'HBase', description: 'Read rows from Cloud Bigtable via the HBase API', category: 'Data Services Sources' },
+  { label: 'Cognite Data Fusion', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'CogniteDataFusion', badge: 'Cognite', description: 'Read industrial data from Cognite Data Fusion', category: 'Data Services Sources' },
+  { label: 'KineticaDB', type: 'SOURCE', iconName: 'Database', beamTransform: 'KineticaDB', badge: 'Kinetica', description: 'Read records from a KineticaDB table', category: 'Data Services Sources' },
+  { label: 'TrepWsIO', type: 'SOURCE', iconName: 'Radio', beamTransform: 'TrepWsIO', badge: 'Refinitiv', description: 'Stream market data from Refinitiv TREP over WebSocket', category: 'Data Services Sources' },
+  { label: 'Cloud SQL', type: 'SOURCE', iconName: 'Database', beamTransform: 'CloudSQL', badge: 'Cloud SQL', description: 'Query a Cloud SQL database instance', category: 'Data Services Sources' },
+  { label: 'MySQL', type: 'SOURCE', iconName: 'Database', beamTransform: 'MySQL', badge: 'MySQL', description: 'Query rows from a MySQL database', category: 'Data Services Sources' },
+  { label: 'Pyodbc', type: 'SOURCE', iconName: 'Cable', beamTransform: 'Pyodbc', badge: 'ODBC', description: 'Query an ODBC data source via pyodbc', category: 'Data Services Sources' },
+  { label: 'Tinybird', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'Tinybird', badge: 'Tinybird', description: 'Read data from Tinybird', category: 'Data Services Sources' },
+  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'MySQLPostgreSQLOracleSQLServer', badge: 'YAML', description: 'Read from MySQL, PostgreSQL, Oracle or SQL Server (Beam YAML)', category: 'Data Services Sources' },
 ];
 
 // Step node definitions
@@ -360,6 +369,15 @@ export const SINK_NODES: NodeDefinition[] = [
   { label: 'Log Message', type: 'SINK', iconName: 'Terminal', beamTransform: 'LogMessage', badge: 'Debug', description: 'Emit structured logs for elements', category: 'Logging Sinks' },
   { label: 'SplunkIO', type: 'SINK', iconName: 'Terminal', beamTransform: 'SplunkIO', badge: 'HEC', description: 'Write SplunkEvent batches to Splunk HTTP Event Collector (HEC)', category: 'Logging Sinks' },
   { label: 'DatadogIO', type: 'SINK', iconName: 'Terminal', beamTransform: 'DatadogIO', badge: 'Logs', description: 'Write DatadogEvent batches to Datadog HTTP Logs Intake API', category: 'Logging Sinks' },
+  { label: 'Cloud Bigtable (HBase based)', type: 'SINK', iconName: 'Database', beamTransform: 'CloudBigtable', badge: 'HBase', description: 'Write mutations to Cloud Bigtable via the HBase API', category: 'Data Services Sinks' },
+  { label: 'Cognite Data Fusion', type: 'SINK', iconName: 'Cloud', beamTransform: 'CogniteDataFusion', badge: 'Cognite', description: 'Write industrial data to Cognite Data Fusion', category: 'Data Services Sinks' },
+  { label: 'KineticaDB', type: 'SINK', iconName: 'Database', beamTransform: 'KineticaDB', badge: 'Kinetica', description: 'Insert records into a KineticaDB table', category: 'Data Services Sinks' },
+  { label: 'TrepWsIO', type: 'SINK', iconName: 'Radio', beamTransform: 'TrepWsIO', badge: 'Refinitiv', description: 'Publish messages to Refinitiv TREP over WebSocket', category: 'Data Services Sinks' },
+  { label: 'Cloud SQL', type: 'SINK', iconName: 'Database', beamTransform: 'CloudSQL', badge: 'Cloud SQL', description: 'Write rows to a Cloud SQL database instance', category: 'Data Services Sinks' },
+  { label: 'MySQL', type: 'SINK', iconName: 'Database', beamTransform: 'MySQL', badge: 'MySQL', description: 'Write rows to a MySQL table', category: 'Data Services Sinks' },
+  { label: 'Pyodbc', type: 'SINK', iconName: 'Cable', beamTransform: 'Pyodbc', badge: 'ODBC', description: 'Write rows to an ODBC data source via pyodbc', category: 'Data Services Sinks' },
+  { label: 'Tinybird', type: 'SINK', iconName: 'Cloud', beamTransform: 'Tinybird', badge: 'Tinybird', description: 'Ingest events into a Tinybird data source', category: 'Data Services Sinks' },
+  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', type: 'SINK', iconName: 'FileCode', beamTransform: 'MySQLPostgreSQLOracleSQLServer', badge: 'YAML', description: 'Write to MySQL, PostgreSQL, Oracle or SQL Server (Beam YAML)', category: 'Data Services Sinks' },
 ];
 
 /**

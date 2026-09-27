@@ -365,7 +365,7 @@ describe('GcsFileSystemSinkProperties', () => {
     });
 
     const toInput = container.querySelector('#gcsSinkTo') as HTMLInputElement;
-    const datalistId = toInput.getAttribute('list');
+    const datalistId = toInput.getAttribute('data-list') || toInput.getAttribute('list');
     expect(datalistId).toBeTruthy();
     const datalist = container.querySelector(`datalist#${datalistId}`);
     expect(datalist).toBeInTheDocument();

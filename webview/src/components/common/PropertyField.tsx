@@ -98,6 +98,8 @@ export interface PropertyFieldProps {
   'aria-invalid'?: boolean | 'true' | 'false';
   /** ARIA required override */
   'aria-required'?: boolean | 'true' | 'false';
+  /** ARIA label override when visible label is omitted */
+  'aria-label'?: string;
 }
 
 /**
@@ -315,7 +317,7 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
             disabled={disabled}
             readOnly={readOnly}
             data-list={datalistId}
-            list={datalistId}
+            list={showCombobox ? undefined : datalistId}
             min={min}
             max={max}
             step={step}

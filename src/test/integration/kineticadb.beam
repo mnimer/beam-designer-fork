@@ -1,0 +1,117 @@
+# ==============================================================================
+# IO70: KineticaDB -> ParDo -> KineticaDB (Java)
+# Java Generation & Evaluation: (pending first unsandboxed run)
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Batch IoT cleanup: KineticaIO bounded read of raw sensor readings -> ParDo that
+# normalizes Fahrenheit readings to Celsius -> KineticaIO write into a curated table.
+# The Kinetica password is a Google Cloud Secret Manager short ID (passwordSecret);
+# no plaintext credential appears anywhere in this pipeline definition.
+
+nodes:
+  - id: "source-kinetica-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: KineticaDB
+      type: SOURCE
+      iconName: Database
+      beam_transform: KineticaDB
+      properties:
+        headNodeURL: "http://kinetica-head.internal.example.com:9191"
+        username: "beam_etl"
+        passwordSecret: "kinetica-etl-password"
+        table: "sensor_readings_raw"
+        entityClassName: "SensorReading"
+        entityColumns:
+          - name: "sensorId"
+            javaType: "String"
+            columnProperties: "char32"
+          - name: "readingTime"
+            javaType: "Long"
+            columnProperties: "timestamp"
+          - name: "temperature"
+            javaType: "Double"
+            columnProperties: ""
+          - name: "unit"
+            javaType: "String"
+            columnProperties: "char4"
+      system_instructions: "Read all rows of the existing Kinetica table 'sensor_readings_raw' with the Kinetica Beam connector: KineticaIO.<SensorReading>read().withHeadNodeURL(\"http://kinetica-head.internal.example.com:9191\").withUsername(kineticaUsername).withPassword(kineticaPassword).withTable(\"sensor_readings_raw\").withEntity(SensorReading.class).withCoder(SerializableCoder.of(SensorReading.class)) (import com.kinetica.beam.io.KineticaIO and org.apache.beam.sdk.coders.SerializableCoder). headNodeURL and table are hardcoded from the node properties; kineticaUsername carries the username property 'beam_etl' and is handled like other connection credentials per the Credential Handling Rules. kineticaPassword is the payload of Secret Manager secret 'kinetica-etl-password', resolved once in main via accessSecret(projectId, \"kinetica-etl-password\"). From entityClassName ('SensorReading') and entityColumns, define SensorReading as a public static nested class that extends com.gpudb.RecordObject and implements java.io.Serializable, with a public no-arg constructor, equals() and hashCode(), and exactly these public fields: @RecordObject.Column(order = 0, properties = {\"char32\"}) public String sensorId; @RecordObject.Column(order = 1, properties = {\"timestamp\"}) public Long readingTime; @RecordObject.Column(order = 2) public Double temperature; @RecordObject.Column(order = 3, properties = {\"char4\"}) public String unit. In pom.xml add the dependencies com.kinetica:apache-beam-kineticaio:7.2.0.0 and com.gpudb:gpudb-api:7.2.3.22, and add the Kinetica Maven repository https://nexus.kinetica.com/repository/releases/ (id kinetica-releases) under <repositories>."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-pardo-normalize-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Normalize each SensorReading: if unit is 'F', convert temperature to Celsius with (temperature - 32) * 5 / 9 and set unit to 'C'; readings already in 'C' pass through unchanged. Copy sensorId and readingTime unchanged into a new SensorReading instance (do not mutate the input element). Increment a Beam Metrics counter 'converted_readings' for every converted element. Output type stays SensorReading with SerializableCoder."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-kinetica-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 150
+    data:
+      label: KineticaDB
+      type: SINK
+      iconName: Database
+      beam_transform: KineticaDB
+      properties:
+        headNodeURL: "http://kinetica-head.internal.example.com:9191"
+        username: "beam_etl"
+        passwordSecret: "kinetica-etl-password"
+        table: "sensor_readings_clean"
+        entityClassName: "SensorReading"
+        entityColumns:
+          - name: "sensorId"
+            javaType: "String"
+            columnProperties: "char32"
+          - name: "readingTime"
+            javaType: "Long"
+            columnProperties: "timestamp"
+          - name: "temperature"
+            javaType: "Double"
+            columnProperties: ""
+          - name: "unit"
+            javaType: "String"
+            columnProperties: "char4"
+      system_instructions: "Write the normalized SensorReading elements into the existing Kinetica table 'sensor_readings_clean' with KineticaIO.<SensorReading>write().withHeadNodeURL(\"http://kinetica-head.internal.example.com:9191\").withUsername(kineticaUsername).withPassword(kineticaPassword).withTable(\"sensor_readings_clean\").withEntity(SensorReading.class), reusing the same SensorReading class (entityClassName 'SensorReading' and entityColumns), the same kineticaUsername ('beam_etl') and the same kineticaPassword resolved once from Secret Manager secret 'kinetica-etl-password'. The connector batches inserts internally (BulkInserter); do not add custom batching. The target table must already exist; do not create it from the pipeline."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+edges:
+  - id: "edge-kinetica-to-pardo"
+    source: "source-kinetica-1"
+    target: "step-pardo-normalize-2"
+  - id: "edge-pardo-to-kinetica"
+    source: "step-pardo-normalize-2"
+    target: "sink-kinetica-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: kineticadb-sensor-cleanup
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: "test/kineticadb"
+  needsRebuild: false

@@ -243,7 +243,7 @@ describe('TFRecordIOSinkProperties', () => {
 
     // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
     const toInput = container.querySelector('#tfrecordSinkTo') as HTMLInputElement;
-    const datalist = document.getElementById(toInput.getAttribute('list')!);
+    const datalist = document.getElementById((toInput.getAttribute('data-list') || toInput.getAttribute('list'))!);
     expect(datalist).toBeInTheDocument();
     expect(datalist?.children.length).toBe(2);
     expect(datalist?.children[0]).toHaveAttribute('value', 'gs://export-lakehouse/');

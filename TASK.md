@@ -154,18 +154,18 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
-| [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO71](#io71) | 🔌 Connector | SAP Hana to Google BigQuery | `SAP Hana to Google BigQuery` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO72](#io72) | 🔌 Connector | TrepWsIO | `TrepWsIO` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO73](#io73) | 🔌 Connector | Beam PyIO (Collection of Python IO connectors) | `Beam PyIO (Collection of Python IO connectors)` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO74](#io74) | 🔌 Connector | Cloud SQL | `Cloud SQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO75](#io75) | 🔌 Connector | MySQL | `MySQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO76](#io76) | 🔌 Connector | Pyodbc | `Pyodbc` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO71](#io71) | 🔌 Connector | SAP Hana to Google BigQuery | `SAP Hana to Google BigQuery` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO72](#io72) | 🔌 Connector | TrepWsIO | `TrepWsIO` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO73](#io73) | 🔌 Connector | Beam PyIO (Collection of Python IO connectors) | `Beam PyIO (Collection of Python IO connectors)` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO74](#io74) | 🔌 Connector | Cloud SQL | `Cloud SQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO75](#io75) | 🔌 Connector | MySQL | `MySQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO76](#io76) | 🔌 Connector | Pyodbc | `Pyodbc` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 
 ---
 
@@ -2301,7 +2301,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Primary Documentation / Repository:** [Cloud Bigtable (HBase based) Repository / Documentation](https://cloud.google.com/bigtable/docs/hbase-dataflow-java)
     - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getBigtableInstances` (`gcloud bigtable instances list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+    - `getProjects` (`gcloud projects list`); `getBigtableInstances` (`gcloud bigtable instances list`); `getBigtableTables` (`gcloud bigtable instances tables list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud Bigtable (HBase based)`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cloud Bigtable (HBase based)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudBigtable', type: 'SOURCE'`).
@@ -2312,28 +2312,32 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CloudBigtable.tsx` registered as `'SINK:CloudBigtable'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CloudBigtable.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cloudbigtable-hbase.beam` and `src/test/integration/cloudbigtable-hbase.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cloudbigtable-hbase.beam` and `src/test/integration/cloudbigtable-hbase.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Notes:**
+    - **Credential file-path / class-name keys (`google.bigtable.auth.json.keyfile`, `google.bigtable.auth.service.account.email`, `google.bigtable.auth.service.account.keyfile`, `google.bigtable.auth.custom.credentials.class`, `google.bigtable.auth.service.account.enable`, `google.bigtable.auth.null.credential.enable`):** Omitted per R3/D3 because file paths, P12 keyfiles, custom credential classes, and unit-test-only null credentials cannot be sourced from GCP Secret Manager. Service account JSON credentials are instead supported via the Secret Manager picker (`credentialsSecret`, resolved at runtime and passed to `google.bigtable.auth.json.value`), while leaving `credentialsSecret` empty uses Application Default Credentials (ADC), the upstream-recommended default. All `google.bigtable.auth.*` keys are rejected in the `configuration` key/value list.
+    - **`CloudBigtableScanConfiguration.Builder.withRequest(ReadRowsRequest)`:** Omitted because it is `@Deprecated` upstream in favor of `withScan(Scan)`.
+    - **Unsupported / no-op HBase `Scan` methods (`setCacheBlocks`, `setCaching`, `setBatch`, `setMaxResultSize`, `setMaxResultsPerColumnFamily`, `setLimit`, `setReversed`):** Omitted from the UI because `ScanAdapter` either ignores them, throws `UnsupportedOperationException` (`maxResultsPerColumnFamily`), or has per-bundle semantics incompatible with `CloudBigtableIO.Source` key-range splitting (`limit`, `reversed`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CloudBigtable.tsx`, `webview/src/properties/source/CloudBigtable.test.tsx`, `webview/src/properties/sink/CloudBigtable.tsx`, `webview/src/properties/sink/CloudBigtable.test.tsx`, `src/test/integration/cloudbigtable-hbase.beam`, `src/test/integration/cloudbigtable-hbase.test.ts`).
 
 - <a id="io69"></a>**IO69 — `Cognite Data Fusion`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
   - **Documentation Links:**
     - **Primary Documentation / Repository:** [Cognite Data Fusion Repository / Documentation](https://github.com/cognitedata/cdf-beam-connector-java)
-    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Target Language:** `Java` (Native `com.cognite.beam:cdf-beam-connector` SDK; Python and Go are not supported).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `clientSecretSecret` and `apiKeySecret`); `getProjects` (`gcloud projects list` via `useAssetLoader('projects')` for `secretProject` targeting `GcpSecretConfig.of(projectId, secretId)`).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cognite Data Fusion`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cognite Data Fusion` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CogniteDataFusion', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CogniteDataFusion.tsx` registered as `'SOURCE:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes all documented `CogniteIO.read*` / `readAll*` / `readAggregates*` / `readDirect*` resource types (`assets`, `events`, `files`, `filesMetadata`, `timeseriesMetadata`, `timeseriesPoints`, `sequencesMetadata`, `sequenceRows`, `rawDatabases`, `rawTables`, `rawRows`, `dataSets`, `relationships`, `labels`), `ProjectConfig` (`project`, `baseUrl`, `authType` = `clientCredentials` | `apiKey`, `clientId`, `clientSecretSecret`, `azureTenantId`, `authServerUrl`, `authScopes`, `apiKeySecret`, `secretProject`, `secretVersion`), `RequestParameters` (`filterParameters`, `metadataFilterParameters`, `rootParameters`, `itemExternalIds`, `itemInternalIds`, `requestJson` with a non-blocking amber warning when `resourceType === 'timeseriesPoints'` has no item IDs), `ReaderConfig` (`appIdentifier`, `sessionIdentifier`, `enableMetrics`, `deltaReadTable`, `deltaIdentifier`, `deltaOffset`, `watchForNewItems`, `pollInterval`, `pollOffset`), and `Hints` (`readShardsPerWorker`, `maxRetries`, `readFileBinaryBatchSize`). Intentionally omits `CogniteIO.Read.withProjectConfigFile(String)` because loading a plaintext TOML credentials file from disk violates `C2` / `R3` (all credentials use GCP Secret Manager via `GcpSecretConfig`). Implemented in `webview/src/properties/source/CogniteDataFusion.tsx` and registered as `'SOURCE:CogniteDataFusion'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/CogniteDataFusion.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Cognite Data Fusion` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CogniteDataFusion', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CogniteDataFusion.tsx` registered as `'SINK:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes all documented `CogniteIO.write*` / `writeDirect*` / `delete*` / `writeMultipleAssetHierarchies` / `synchronizeAssetHierarchies` transforms across the 12 writable CDF resource types, `ProjectConfig` (same OAuth2 client credentials and legacy API key Secret Manager configuration as Source, intentionally omitting `withProjectConfigFile` per `C2`/`R3`), `WriterConfig` (`upsertMode`, `appIdentifier`, `sessionIdentifier`, `extractionPipelineExtId`, `extractionPipelineRunStatus`, `enableMetrics`), and `Hints` (`writeShards`, `writeMaxBatchLatency`, `maxRetries`, `writeFileBatchSize`, `writeRawMaxBatchSize`, `writeTsPointsUpdateFrequency`). Note: `referenceUpsertTarget` is omitted as non-existent in upstream `WriterConfig`. Implemented in `webview/src/properties/sink/CogniteDataFusion.tsx` and registered as `'SINK:CogniteDataFusion'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CogniteDataFusion.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cognitedatafusion.beam` and `src/test/integration/cognitedatafusion.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cognitedatafusion.beam` and `src/test/integration/cognitedatafusion.test.ts` (Java-only pipeline: `CogniteIO.readEvents()` ➔ `ParDo` ➔ `CogniteIO.writeEvents()`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CogniteDataFusion.tsx`, `webview/src/properties/source/CogniteDataFusion.test.tsx`, `webview/src/properties/sink/CogniteDataFusion.tsx`, `webview/src/properties/sink/CogniteDataFusion.test.tsx`, `src/test/integration/cognitedatafusion.beam`, `src/test/integration/cognitedatafusion.test.ts`).
 
 - <a id="io70"></a>**IO70 — `KineticaDB`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
@@ -2352,8 +2356,12 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/KineticaDB.tsx` registered as `'SINK:KineticaDB'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/KineticaDB.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/kineticadb.beam` and `src/test/integration/kineticadb.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/kineticadb.beam` and `src/test/integration/kineticadb.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Language Notes:**
+    - **Credentials (R3/D3):** Plaintext `withPassword(String)` input is omitted; credentials are supplied exclusively via the Secret Manager picker (`passwordSecret`, discovered via `gcloud secrets list`) and resolved at runtime via Secret Manager before calling `withPassword(...)`.
+    - **Upstream Non-User / Non-Configurable Options Omitted:** `withCoder(Coder<T>)` (always synthesized in generated code as `SerializableCoder.of(<Entity>.class)`), `withKineticaService(KineticaService)` (programmatic test hook taking a Java object), `minNumberOfSplits` (no public setter on `KineticaIO.Read`; reader always uses 1 split), writer `batchSize` (100000) and `flushTimerFrequency` (3000 ms) (`private final static` in `KineticaServiceImpl`), read filters/expressions/limits (not supported by `KineticaServiceImpl`, which issues a single `GetRecordsRequest` with empty options), automatic table creation on write (target table must already exist), and `@RecordObject.Column(name = ...)` override (`KineticaServiceImpl` looks up by `name()` and reflects via `getDeclaredField(name())`, so column name must equal field name).
+    - **Target Language & Python Fallback Note:** Upstream `com.kinetica:apache-beam-kineticaio:7.2.0.0` supports Java Beam pipelines only and provides no Python SDK or registered Beam cross-language expansion service. The integration test (`kineticadb.test.ts`) therefore targets Java (`languages: ['Java']`); if used in a Python pipeline, codegen falls back to a custom `beam.DoFn` bridge using the official `gpudb` Python client library.
+  - **Status:** ✅ Done (`webview/src/properties/source/KineticaDB.tsx`, `webview/src/properties/source/KineticaDB.test.tsx`, `webview/src/properties/sink/KineticaDB.tsx`, `webview/src/properties/sink/KineticaDB.test.tsx`, `src/test/integration/kineticadb.beam`, `src/test/integration/kineticadb.test.ts`).
 
 - <a id="io71"></a>**IO71 — `SAP Hana to Google BigQuery`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
@@ -2372,68 +2380,76 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/SAPHanatoGoogleBigQuery.tsx` registered as `'SINK:SAPHanatoGoogleBigQuery'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/SAPHanatoGoogleBigQuery.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/saphana-to-bigquery.beam` and `src/test/integration/saphana-to-bigquery.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/saphana-to-bigquery.beam` and `src/test/integration/saphana-to-bigquery.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Notes:**
+    - **Source / Sink split (`HanaToBQ.Options`):** Upstream `google/hana-bq-beam-connector` is a single-pipeline proof-of-concept (`HanaToBQ.java`) that reads SAP HANA via `JdbcIO.readAll()` (`HanaToDBRow`) and writes to Google BigQuery (`BigQueryIO.writeTableRows()`). The Source panel exposes the 9 SAP HANA reader options from `HanaToBQ.Options` (`connectionString`, `username`, `passwordSecret`, `driver`, `tableName`, `timestampColumn`, `startTime`, `endTime`, `chunkSize`), and the Sink panel exposes `destDataset` plus an optional `destTable` override (when blank, defaults to the source HANA `tableName`, matching upstream `destDataset + "." + tableName`).
+    - **Plaintext `--password` option:** Replaced by `passwordSecret` (`SecretManagerSecretField`) per R3/D3 so the SAP HANA password is resolved from GCP Secret Manager at runtime and never stored in plaintext or embedded in `connectionString`.
+    - **`endTime` upstream behavior:** Declared on `HanaToBQ.Options` (`@Description("End time, inclusive")`) although ignored by the upstream PoC (which hard-codes `"2000000000"` at `HanaToBQ.java:166`); kept as an optional field with transparent helper/tooltip text so generated code applies it as the upper bound when provided.
+    - **Fixed BigQuery dispositions & schema:** Upstream hard-codes `WriteDisposition.WRITE_APPEND`, `CreateDisposition.CREATE_IF_NEEDED`, and derives the `TableSchema` from SAP HANA `SYS.TABLE_COLUMNS` (`hanaToBqTypeMap`); these are displayed in a read-only info block on the Sink panel rather than as editable fields.
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io72"></a>**IO72 — `TrepWsIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [TrepWsIO Repository / Documentation](https://github.com/Refinitiv/trep-websockets-beam-io)
-    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [TrepWsIO Repository / Documentation](https://github.com/Refinitiv/trep-websockets-beam-io) and [Refinitiv / LSEG WebSocket API Specification](https://github.com/Refinitiv/websocket-api)
+    - **Target Language:** `Java` (`com.refinitiv.beamio:trepws-io:1.2.0`; Python and Go are not supported).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `passwordSecret`).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TrepWsIO`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `TrepWsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'TrepWsIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/TrepWsIO.tsx` registered as `'SOURCE:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes all documented `TrepWsIO.Read.with*` builder options (`hostname`, `port`, `serviceDiscovery`, `region`, `username`, `ertAuthEnabled`, `passwordSecret` via `SecretManagerSecretField`, `ertAuthStoreLocation`, repeatable `instrumentTuples` rows `{service, rics, fields}`, and advanced settings `cachedFields`, `maxMounts`, `position`, `appId`, `timeout`, `maxNumRecords`, `authPort`, `ertAuthPath`, `discoveryPath`). Displays `authServer` (`api.edp.thomsonreuters.com`) read-only and never persists or emits it because upstream `TrepWsIO.Read.withAuthServer(String)` contains a bug (`TrepWsIO.java:301`) that calls `setUsername(authServer)` and overwrites `username`. Implemented in `webview/src/properties/source/TrepWsIO.tsx` and registered as `'SOURCE:TrepWsIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/TrepWsIO.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `TrepWsIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'TrepWsIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/TrepWsIO.tsx` registered as `'SINK:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Upstream `TrepWsIO` is source-only (`TrepWsIO.read()`). Per `PROJECT.md` Decision D2 and `SnsIO` precedent, implements the `TrepWsIO` Sink panel for a custom Beam `DoFn` that contributes `MarketPrice` updates over the documented LSEG/Refinitiv WebSocket API (`tr_json2` sub-protocol Login, off-stream or on-stream `Post` messages with `Ack`/`PostID`, and `Ping`/`Pong` keepalive), exposing `hostname`, `port`, `username`, `ertAuthEnabled`, `passwordSecret` (`SecretManagerSecretField`), `clientId`, `serviceDiscovery`, `region`, `serviceName`, `postMode` (`offStream` | `onStream`), `ricMode` (`fromElement` | `fixed`), `ricField`, `ricName`, `fieldNames`, `ackRequired`, `nakHandling` (`log` | `fail`), and advanced settings `position`, `appId`, `authServer`, `authPort`, `ertAuthPath`, `takeExclusiveSignOnControl`, `discoveryPath` (omitting `includePostUserInfo` per `MILESTONE_DECISIONS.md`). Implemented in `webview/src/properties/sink/TrepWsIO.tsx` and registered as `'SINK:TrepWsIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/TrepWsIO.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/trepwsio.beam` and `src/test/integration/trepwsio.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/trepwsio.beam` and `src/test/integration/trepwsio.test.ts` (Java-only pipeline: `TrepWsIO.read()` ➔ `Filter` ➔ `ParDo(TrepWsPostDoFn)`).
+  - **Status:** ✅ Done (`webview/src/properties/source/TrepWsIO.tsx`, `webview/src/properties/source/TrepWsIO.test.tsx`, `webview/src/properties/sink/TrepWsIO.tsx`, `webview/src/properties/sink/TrepWsIO.test.tsx`, `src/test/integration/trepwsio.beam`, `src/test/integration/trepwsio.test.ts`).
 
 - <a id="io73"></a>**IO73 — `Beam PyIO (Collection of Python IO connectors)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Beam PyIO (Collection of Python IO connectors) Repository / Documentation](https://github.com/beam-pyio)
-    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [Beam PyIO Organization](https://github.com/beam-pyio) · [firehose_pyio (`WriteToFirehose`)](https://beam-pyio.github.io/firehose_pyio/) · [sqs_pyio (`WriteToSqs`)](https://beam-pyio.github.io/sqs_pyio/) · [dynamodb_pyio (`WriteToDynamoDB`)](https://beam-pyio.github.io/dynamodb_pyio/)
+    - **AWS Boto3 Bridge References (Source):** [SQS `receive_message` / `delete_message_batch` / `get_queue_url`](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html) · [DynamoDB `Scan` / `Query` Paginators](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html) · [Boto3 `Session.client` Options](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html#boto3.session.Session.client)
+    - **Target Language:** `Python` (`firehose_pyio`, `sqs_pyio`, `dynamodb_pyio` are native Python sink-only packages; `SOURCE:BeamPyIO` follows the IO22 `SnsIO` D2 bridge precedent over boto3 SQS `ReceiveMessage`/`DeleteMessageBatch` and DynamoDB `Scan`/`Query`).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Beam PyIO (Collection of Python IO connectors)`.
+    - `getAwsQueues` (`aws sqs list-queues` normalized to queue short names for `queueName` datalist); `getSecrets` (`gcloud secrets list` for Secret Manager AWS credential references `accessKeySecret`, `secretKeySecret`, `sessionTokenSecret`).
+  - **Scope Isolation:** Strictly isolated to `BeamPyIO` Source/Sink panels, unit tests, and integration test suite.
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BeamPyIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/BeamPyIO.tsx` registered as `'SOURCE:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Beam PyIO (Collection of Python IO connectors)` Source in `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BeamPyIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Implemented in `webview/src/properties/source/BeamPyIO.tsx` (`BeamPyIOSourceProperties`, registered as `'SOURCE:BeamPyIO'` in `PropertyForm.tsx`). Includes D2 bridge `role="note"` banner explaining that `beam-pyio` is sink-only and Firehose has no read API, service selector (`sqs` | `dynamodb`), SQS bridge controls (`queueName` with `awsQueues` datalist, `ownerAccId`, `maxNumberOfMessages`, `visibilityTimeout`, `waitTimeSeconds`, `messageSystemAttributeNames` 10-attribute checkbox group, `messageAttributeNames`, `deleteAfterRead`, `maxNumRecords`, `maxReadTime`), DynamoDB bridge controls (`tableName`, `dynamoOperation` Scan/Query, `indexName`, `keyConditionExpression`, `scanIndexForward`, `totalSegments`, `filterExpression`, `projectionExpression`, `expressionAttributeNames`, `expressionAttributeValues`, `select`, `consistentRead`, `limit`, `maxItems`), shared `BeamPyIOAwsClientSection` (`authMode`, `accessKeySecret`, `secretKeySecret`, `sessionTokenSecret`, `regionName`, `customRegion`, collapsible `endpointUrl`, `apiVersion`, `verify`, `verifyCaBundle`, `disableSsl`), header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/BeamPyIO.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BeamPyIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/BeamPyIO.tsx` registered as `'SINK:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Beam PyIO (Collection of Python IO connectors)` Sink in `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BeamPyIO', type: 'SINK'`).
+    - **Property Panel Plan:** Implemented in `webview/src/properties/sink/BeamPyIO.tsx` (`BeamPyIOSinkProperties`, registered as `'SINK:BeamPyIO'` in `PropertyForm.tsx`). Supports all three official `beam-pyio` sink transforms (`firehose` -> `firehose_pyio.io.WriteToFirehose`, `sqs` -> `sqs_pyio.io.WriteToSqs`, `dynamodb` -> `dynamodb_pyio.io.WriteToDynamoDB`), upstream batching (`batchElements` with service-specific max batch size limits of 500 for Firehose and 10 for SQS, `groupIntoBatches`, or `none`), shared `BeamPyIOAwsClientSection`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/BeamPyIO.test.tsx` (100% test coverage).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/beampyio.beam` and `src/test/integration/beampyio.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, `SecretManagerSecretField`, collapsible advanced client options, and LLM prompt override textarea (`system_instructions`).
+  - **Integration Test Suite:** `src/test/integration/beampyio.beam` and `src/test/integration/beampyio.test.ts` (exercises both `SOURCE:BeamPyIO` SQS bridge and `SINK:BeamPyIO` `WriteToFirehose` in a 6-node Python pipeline DAG).
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io74"></a>**IO74 — `Cloud SQL`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Cloud SQL Repository / Documentation](https://github.com/jccatrinck/dataflow-cloud-sql-python)
+    - **Primary Documentation / Repository:** [Cloud SQL Repository / Documentation](https://github.com/jccatrinck/dataflow-cloud-sql-python) · [Google Cloud SQL Python Connector](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector)
     - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSqlInstances` (`gcloud sql instances list`); `getSqlDatabases` (`gcloud sql databases list --instance=<instance>`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud SQL`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cloud SQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudSQL', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CloudSQL.tsx` registered as `'SOURCE:CloudSQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes `cloudSqlInstance` with dynamic instance datalist, `dbDriver` (`postgresql+pg8000`, `mysql+pymysql`, `mssql+pytds`), `database` with dynamic database datalist, `username`, `passwordSecret` (`SecretManagerSecretField`), `query`, `queryParams` (JSON object), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/source/CloudSQL.tsx` registered as `'SOURCE:CloudSQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/CloudSQL.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Cloud SQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CloudSQL', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CloudSQL.tsx` registered as `'SINK:CloudSQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes `cloudSqlInstance`, `dbDriver`, `database`, `username`, `passwordSecret`, `table`, `updateIgnores` (comma-separated column names for ON CONFLICT DO UPDATE), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/sink/CloudSQL.tsx` registered as `'SINK:CloudSQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CloudSQL.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cloudsql.beam` and `src/test/integration/cloudsql.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cloudsql.beam` and `src/test/integration/cloudsql.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Security Architecture:**
+    - **Explicit Omission of `GCP_SERVICE_ACCOUNT_FILE`:** Upstream `jccatrinck/dataflow-cloud-sql-python` references baking a local service account JSON key into container images or passing a filesystem path (`GCP_SERVICE_ACCOUNT_FILE`). This pattern is explicitly omitted because hardcoding or baking JSON private keys violates security invariant R3 and Secret Manager best practices. Under Google Cloud ADC and Dataflow execution, worker credentials are automatically sourced from the Dataflow worker service account identity without requiring local private key files. Database passwords are provided exclusively via GCP Secret Manager references (`passwordSecret`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CloudSQL.tsx`, `webview/src/properties/source/CloudSQL.test.tsx`, `webview/src/properties/sink/CloudSQL.tsx`, `webview/src/properties/sink/CloudSQL.test.tsx`, `src/test/integration/cloudsql.beam`, `src/test/integration/cloudsql.test.ts`).
 
 - <a id="io75"></a>**IO75 — `MySQL`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
@@ -2445,15 +2461,15 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MySQL`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `MySQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'MySQL', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/MySQL.tsx` registered as `'SOURCE:MySQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes `host`, `port` (default 3306), `database`, `user`, `passwordSecret` (`SecretManagerSecretField`), `query` (validated SELECT statement), `splitter` (`NoSplitter`, `LimitOffsetSplitter`, `IdsSplitter`, `DateSplitter`), dynamic `splitterBatchSize`, `generateIdsFn` (for `IdsSplitter`), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/source/MySQL.tsx` registered as `'SOURCE:MySQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/MySQL.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `MySQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'MySQL', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/MySQL.tsx` registered as `'SINK:MySQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Exposes `host`, `port` (default 3306), `database`, `user`, `passwordSecret`, `table`, `batchSize` (default 100), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/sink/MySQL.tsx` registered as `'SINK:MySQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/MySQL.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mysql.beam` and `src/test/integration/mysql.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/mysql.beam` and `src/test/integration/mysql.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Status:** ✅ Done (`webview/src/properties/source/MySQL.tsx`, `webview/src/properties/source/MySQL.test.tsx`, `webview/src/properties/sink/MySQL.tsx`, `webview/src/properties/sink/MySQL.test.tsx`, `src/test/integration/mysql.beam`, `src/test/integration/mysql.test.ts`).
 
 - <a id="io76"></a>**IO76 — `Pyodbc`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
@@ -2465,35 +2481,38 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Pyodbc`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Pyodbc` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Pyodbc', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/Pyodbc.tsx` registered as `'SOURCE:Pyodbc'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Implemented in `webview/src/properties/source/Pyodbc.tsx` registered as `'SOURCE:Pyodbc'` in `PropertyForm.tsx`. Exposes ODBC `driver`, `host`, `port`, `database`, `user`, `passwordSecret` (`SecretManagerSecretField`), `extraAttributes`, `query`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/Pyodbc.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Pyodbc` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Pyodbc', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/Pyodbc.tsx` registered as `'SINK:Pyodbc'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Implemented in `webview/src/properties/sink/Pyodbc.tsx` registered as `'SINK:Pyodbc'` in `PropertyForm.tsx`. Exposes ODBC `driver`, `host`, `port`, `database`, `table`, `user`, `passwordSecret`, `extraAttributes`, `batchSize`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/Pyodbc.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/pyodbc.beam` and `src/test/integration/pyodbc.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/pyodbc.beam` and `src/test/integration/pyodbc.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Architecture & System Integration Notes:**
+    - **Custom Python DoFn unixODBC/FreeTDS Bridge Architecture:** The Pyodbc connector operates via a custom Python `beam.DoFn` architecture bridging system unixODBC/FreeTDS drivers to Beam Python pipelines. Workers establish pooled ODBC connection handles inside `setup()` / `start_bundle()`, bind database credentials dynamically resolved from Secret Manager (`passwordSecret`), and execute cursor operations (`fetchall()` for reading and `executemany()` for batched sink writes). System driver dependencies (`unixodbc`, `freetds-dev`, `tdsodbc`) are provisioned in worker container images without exposing credentials on disk.
+  - **Status:** ✅ Done (`webview/src/properties/source/Pyodbc.tsx`, `webview/src/properties/source/Pyodbc.test.tsx`, `webview/src/properties/sink/Pyodbc.tsx`, `webview/src/properties/sink/Pyodbc.test.tsx`, `src/test/integration/pyodbc.beam`, `src/test/integration/pyodbc.test.ts`).
 
 - <a id="io77"></a>**IO77 — `Tinybird`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Tinybird Repository / Documentation](https://github.com/tinybirdco/tinybird-beam)
-    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [Tinybird Beam Repository (`tinybirdco/tinybird-beam`)](https://github.com/tinybirdco/tinybird-beam) · [`tinybird/beam.py` (`WriteToTinybird` / `_WriteToTinybirdFn`)](https://github.com/tinybirdco/tinybird-beam/blob/main/tinybird/beam.py)
+    - **Tinybird HTTP API Documentation:** [Events API (`/v0/events`)](https://www.tinybird.co/docs/api-reference/events-api) · [Query API (`/v0/sql`)](https://www.tinybird.co/docs/api-reference/query-api) · [Pipe API (`/v0/pipes/{name}.{ext}`)](https://www.tinybird.co/docs/api-reference/pipe-api) · [Tinybird Regions & API Hosts](https://www.tinybird.co/docs/concepts/regions-and-cloud-providers) · [Auth Tokens (`Authorization: Bearer`)](https://www.tinybird.co/docs/Order-and-Access/tokens)
+    - **Target Language:** `Python` (`tinybird-beam` is a native Python ingest-only library; `SOURCE:Tinybird` follows the IO22 `SnsIO` D2 bridge precedent over the Tinybird Pipes `/v0/pipes/{pipeName}.{ext}` and Query `/v0/sql` HTTP APIs).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Tinybird`.
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `tokenSecret`); 7-region Tinybird API host datalist (`https://api.tinybird.co`, `https://api.us-east.tinybird.co`, `https://api.europe-west2.gcp.tinybird.co`, `https://api.northamerica-northeast2.gcp.tinybird.co`, `https://api.us-east.aws.tinybird.co`, `https://api.us-west-2.aws.tinybird.co`, `https://api.eu-central-1.aws.tinybird.co`).
+  - **Scope Isolation:** Strictly isolated to `Tinybird` Source/Sink panels, unit tests, and integration test suite.
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `Tinybird` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Tinybird', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/Tinybird.tsx` registered as `'SOURCE:Tinybird'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Tinybird` Source in `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Tinybird', type: 'SOURCE'`).
+    - **Property Panel Plan:** Implemented in `webview/src/properties/source/Tinybird.tsx` (`TinybirdSourceProperties`, registered as `'SOURCE:Tinybird'` in `PropertyForm.tsx`). Includes D2 bridge `role="note"` banner, `host` with 7-region datalist, `tokenSecret` (`SecretManagerSecretField`), `queryMode` (`pipe` | `sql`), `pipeName`, `pipeQuery`, `sqlQuery`, `sqlPipeline`, `queryParams`, `format` (`json` | `ndjson` | `csv` | `parquet`), `quote64BitIntegers` (`output_format_json_quote_64bit_integers`), collapsible pagination section (`enablePagination`, `pageSize`, `maxPages`, `limitParam`, `offsetParam`), header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/Tinybird.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `Tinybird` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Tinybird', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/Tinybird.tsx` registered as `'SINK:Tinybird'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Tinybird` Sink in `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Tinybird', type: 'SINK'`).
+    - **Property Panel Plan:** Implemented in `webview/src/properties/sink/Tinybird.tsx` (`TinybirdSinkProperties`, registered as `'SINK:Tinybird'` in `PropertyForm.tsx`). Exposes `WriteToTinybird(host, token, data_source, columns)` parameters (`host` with 7-region datalist, `tokenSecret` via `SecretManagerSecretField`, `datasource`, `columns`), collapsible upstream batching section (`batchingMode`: `batchElements` | `groupIntoBatches` | `none`, `minBatchSize`, `maxBatchSize`, `batchSize`, `maxBufferingDurationSecs`) required because `_WriteToTinybirdFn.process(element)` iterates `for row in element:`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/Tinybird.test.tsx` (100% test coverage).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tinybird.beam` and `src/test/integration/tinybird.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, `SecretManagerSecretField`, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Integration Test Suite:** `src/test/integration/tinybird.beam` and `src/test/integration/tinybird.test.ts` (exercises `PubSubIO` -> `ParseJson` -> `ParDo` -> `BatchElements` -> `SINK:Tinybird` `WriteToTinybird` in a 6-node Python pipeline DAG).
+  - **Status:** ✅ Done (`webview/src/properties/source/Tinybird.tsx`, `webview/src/properties/source/Tinybird.test.tsx`, `webview/src/properties/sink/Tinybird.tsx`, `webview/src/properties/sink/Tinybird.test.tsx`, `src/test/integration/tinybird.beam`, `src/test/integration/tinybird.test.ts`).
 
 - <a id="io78"></a>**IO78 — `Go Connect`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Go`).
@@ -2505,15 +2524,17 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Go Connect`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Go Connect` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GoConnect', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/GoConnect.tsx` registered as `'SOURCE:GoConnect'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Implemented in `webview/src/properties/source/GoConnect.tsx` registered as `'SOURCE:GoConnect'` in `PropertyForm.tsx`. Exposes `sourceType` (`kafka`, `amqp09`, `file`, `list`), per-type configurations (Kafka brokers, topic, groupId; AMQP url, exchange, queueName; File dir, pattern; List items), Limit, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/GoConnect.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Go Connect` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'GoConnect', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/GoConnect.tsx` registered as `'SINK:GoConnect'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Implemented in `webview/src/properties/sink/GoConnect.tsx` registered as `'SINK:GoConnect'` in `PropertyForm.tsx`. Exposes `sinkType` (`kafka`, `amqp09`, `stdout`), per-type configurations (Kafka brokers, topic; AMQP url, exchange, bindingKey; stdout format), header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/GoConnect.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/goconnect.beam` and `src/test/integration/goconnect.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/goconnect.beam` and `src/test/integration/goconnect.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Go SDK Mapping & Cross-Language Architecture:**
+    - **Native Beam Go Mapping & Expansion Service Bridge:** Go Connect integrates native Go data pipelines using Apache Beam Go SDK transforms (`beam.ParDo`, native Kafka/AMQP transforms) or maps across languages via the Apache Beam Cross-Language Expansion Service (`beam:transform:org.apache.beam:expansion_service`). In native Go pipelines, `goconnect` source/sink primitives compile directly into Go pipeline graphs; in multi-language environments (Java/Python), pipelines delegate execution to standard Beam Go expansion endpoints.
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io79"></a>**IO79 — `MySQL, PostgreSQL, Oracle, SQL Server`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Yaml`).
@@ -2532,8 +2553,14 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx` registered as `'SINK:MySQLPostgreSQLOracleSQLServer'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/multidb-yaml.beam` and `src/test/integration/multidb-yaml.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/multidb-yaml.beam` and `src/test/integration/multidb-yaml.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Language Mapping Notes:**
+    - **Target Language Mapping (D1):** Because code generation targets Java and Python, `MySQLPostgreSQLOracleSQLServer` (`ReadFromMySql`/`ReadFromPostgres`/`ReadFromOracle`/`ReadFromSqlServer` and `WriteToMySql`/`WriteToPostgres`/`WriteToOracle`/`WriteToSqlServer`) generates the native Beam JDBC equivalent: Java `JdbcIO` and Python `apache_beam.io.jdbc.ReadFromJdbc` / `WriteToJdbc` with the selected flavor's JDBC driver.
+    - **Credentials & Worker Secret Resolution (R3/D3/D5):** Plaintext `password` is replaced by `passwordSecret` (`SecretManagerSecretField`, discovered via `gcloud secrets list`). When `resolveOnWorkers` is unchecked (default), the secret is resolved at pipeline construction time via the Secret Manager client (compatible with Beam 2.53/2.55). When `resolveOnWorkers` is checked, generated code passes Beam's native `secret_manager: GoogleCloudSecretManager` (requires Beam > 2.55.0). The `secret_manager` enum key itself is not persisted in `.beam` node properties so it is not scrubbed by `classifyKey`.
+    - **Omitted `secret_manager: GoogleCloudHsmGeneratedSecretManager` (R3/D4):** `GcpHsmGeneratedSecret` (`apache_beam/utils/secret.py`) generates a new random secret value using a Cloud KMS HSM key and stores it as `HsmGeneratedSecret_<job_name>`; it cannot read an existing database password and is therefore omitted per R3.
+    - **Omitted `jdbc_type`:** Each per-flavor Beam YAML transform provider (`ReadFromMySqlSchemaTransformProvider`, `ReadFromPostgresSchemaTransformProvider`, etc.) forcibly overrides `jdbc_type` to match the selected flavor, which is already determined by the `databaseType` selector.
+    - **Flavor-Specific Upstream Rules:** `connectionInitSql` is exposed only when `databaseType === 'mysql'` (PostgreSQL and SQL Server schema transform providers throw `UnsupportedOperationException`, and upstream documentation states only MySQL and MariaDB support it). No `getSqlInstances` discovery is used because Beam YAML JDBC transforms accept standard `jdbc:` URLs rather than Cloud SQL connection names.
+  - **Status:** ✅ Done (`webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.test.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx`, `src/test/integration/multidb-yaml.beam`, `src/test/integration/multidb-yaml.test.ts`).
 
 ---
 

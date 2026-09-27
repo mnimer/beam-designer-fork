@@ -156,6 +156,24 @@ import { IcebergIOSourceProperties } from '../properties/source/IcebergIO';
 import { IcebergIOSinkProperties } from '../properties/sink/IcebergIO';
 import { TikaIOSourceProperties } from '../properties/source/TikaIO';
 import { TikaIOSinkProperties } from '../properties/sink/TikaIO';
+import { CloudBigtableSourceProperties } from '../properties/source/CloudBigtable';
+import { CloudBigtableSinkProperties } from '../properties/sink/CloudBigtable';
+import { CogniteDataFusionSourceProperties } from '../properties/source/CogniteDataFusion';
+import { CogniteDataFusionSinkProperties } from '../properties/sink/CogniteDataFusion';
+import { KineticaDBSourceProperties } from '../properties/source/KineticaDB';
+import { KineticaDBSinkProperties } from '../properties/sink/KineticaDB';
+import { TrepWsIOSourceProperties } from '../properties/source/TrepWsIO';
+import { TrepWsIOSinkProperties } from '../properties/sink/TrepWsIO';
+import { CloudSQLSourceProperties } from '../properties/source/CloudSQL';
+import { CloudSQLSinkProperties } from '../properties/sink/CloudSQL';
+import { MySQLSourceProperties } from '../properties/source/MySQL';
+import { MySQLSinkProperties } from '../properties/sink/MySQL';
+import { PyodbcSourceProperties } from '../properties/source/Pyodbc';
+import { PyodbcSinkProperties } from '../properties/sink/Pyodbc';
+import { TinybirdSourceProperties } from '../properties/source/Tinybird';
+import { TinybirdSinkProperties } from '../properties/sink/Tinybird';
+import { MySQLPostgreSQLOracleSQLServerSourceProperties } from '../properties/source/MySQLPostgreSQLOracleSQLServer';
+import { MySQLPostgreSQLOracleSQLServerSinkProperties } from '../properties/sink/MySQLPostgreSQLOracleSQLServer';
 
 export interface PropertyFormProps {
   node: any;
@@ -245,6 +263,15 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:GenerateSequence': GenerateSequenceProperties,
   'SOURCE:PeriodicImpulse': PeriodicImpulseProperties,
   'SOURCE:Create': CreateProperties,
+  'SOURCE:CloudBigtable': CloudBigtableSourceProperties,
+  'SOURCE:CogniteDataFusion': CogniteDataFusionSourceProperties,
+  'SOURCE:KineticaDB': KineticaDBSourceProperties,
+  'SOURCE:TrepWsIO': TrepWsIOSourceProperties,
+  'SOURCE:CloudSQL': CloudSQLSourceProperties,
+  'SOURCE:MySQL': MySQLSourceProperties,
+  'SOURCE:Pyodbc': PyodbcSourceProperties,
+  'SOURCE:Tinybird': TinybirdSourceProperties,
+  'SOURCE:MySQLPostgreSQLOracleSQLServer': MySQLPostgreSQLOracleSQLServerSourceProperties,
 
   // Direct Source transforms (Python Beam transforms / unique names)
   'ReadFromAvro': AvroIOSourceProperties,
@@ -332,6 +359,15 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:PulsarIO': PulsarIOSinkProperties,
   'SINK:SolaceIO': SolaceIOSinkProperties,
   'SINK:LogMessage': LogMessageProperties,
+  'SINK:CloudBigtable': CloudBigtableSinkProperties,
+  'SINK:CogniteDataFusion': CogniteDataFusionSinkProperties,
+  'SINK:KineticaDB': KineticaDBSinkProperties,
+  'SINK:TrepWsIO': TrepWsIOSinkProperties,
+  'SINK:CloudSQL': CloudSQLSinkProperties,
+  'SINK:MySQL': MySQLSinkProperties,
+  'SINK:Pyodbc': PyodbcSinkProperties,
+  'SINK:Tinybird': TinybirdSinkProperties,
+  'SINK:MySQLPostgreSQLOracleSQLServer': MySQLPostgreSQLOracleSQLServerSinkProperties,
 
   // Direct Sink transforms (Python Beam transforms / unique names)
   'WriteToAvro': AvroIOSinkProperties,

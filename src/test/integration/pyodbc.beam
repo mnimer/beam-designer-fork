@@ -1,0 +1,117 @@
+# ==============================================================================
+# IO76: Pyodbc Source -> ParDo -> Pyodbc Sink (Python)
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+# Purpose: Pipeline spec for the IO76 Pyodbc integration test. The pipeline reads the last
+#          24h of orders from an operational SQL Server over ODBC (pyodbc), normalizes and
+#          validates each row, and inserts the valid rows into a reporting SQL Server database
+#          over ODBC. Invalid rows go to a LogMessage dead-letter branch.
+#          Credentials are Secret Manager short IDs (passwordSecret). There are no plaintext secrets.
+nodes:
+  - id: "source-pyodbc-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: "Pyodbc"
+      type: SOURCE
+      iconName: Database
+      beam_transform: Pyodbc
+      properties:
+        driver: "ODBC Driver 18 for SQL Server"
+        host: "10.20.0.5"
+        port: 1433
+        database: "orders_oltp"
+        user: "beam_reader"
+        passwordSecret: "orders-oltp-reader-password"
+        extraAttributes: "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30"
+        query: "SELECT order_id, customer_id, order_total, order_status, updated_at FROM dbo.orders WHERE updated_at >= DATEADD(day, -1, SYSUTCDATETIME())"
+      system_instructions: "There is no built-in Beam transform for Pyodbc, so implement this source with the pyodbc library: beam.Impulse() followed by a custom DoFn. Build the ODBC connection string with attributes DRIVER={<driver>}, SERVER=<host>,<port>, DATABASE=<database>, UID=<user>, PWD set to the resolved passwordSecret value, and extraAttributes appended. The user is a non-secret identifier and is hardcoded. The password is the Secret Manager secret named by passwordSecret, resolved with the _access_secret helper. Open the connection in DoFn.setup() with pyodbc.connect(...), close it in teardown(), run the query with cursor.execute(query), read the results in cursor.fetchmany(1000) batches, and yield each row as a dict keyed by column name (from cursor.description). Add pyodbc to requirements.txt. The ODBC driver is a native library that pip cannot install, so extend the Dockerfile: before installing requirements, apt-get install unixodbc and Microsoft msodbcsql18 (ACCEPT_EULA=Y, from the packages.microsoft.com Debian 12 repository). Because Dataflow workers also need that driver, have run_dataflowrunner.sh launch the job with --parameters sdk_container_image=\"${TEMPLATE_IMAGE}\"."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "step-pardo-normalize-2"
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: "ParDo"
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Normalize each order row dict with fields order_id (int), customer_id (str), order_total (Decimal), order_status (str), updated_at (datetime). Convert order_total to float rounded to 2 decimals, upper-case order_status, and convert updated_at to an ISO-8601 UTC string. Route rows with a missing order_id or a negative order_total to the 'error' output as {'error': reason, 'raw': str(row)}. Yield all other rows on the main 'valid' output."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-pyodbc-3"
+    type: pipeline
+    position:
+      x: 680
+      y: 100
+    data:
+      label: "Pyodbc"
+      type: SINK
+      iconName: Database
+      beam_transform: Pyodbc
+      properties:
+        driver: "ODBC Driver 18 for SQL Server"
+        host: "10.20.0.9"
+        port: 1433
+        database: "orders_reporting"
+        user: "beam_writer"
+        passwordSecret: "orders-reporting-writer-password"
+        extraAttributes: "Encrypt=yes;TrustServerCertificate=no"
+        table: "dbo.orders_daily"
+        batchSize: 500
+      system_instructions: "There is no built-in Beam transform for Pyodbc, so implement this sink with the pyodbc library: group the elements with beam.BatchElements(min_batch_size=1, max_batch_size=batchSize), then write each batch in a custom DoFn. Build the ODBC connection string the same way as the source (DRIVER, SERVER=<host>,<port>, DATABASE, UID=<user>, PWD from the passwordSecret secret via _access_secret, then extraAttributes). Open the connection in setup() with autocommit=False and close it in teardown(). For each batch, set cursor.fast_executemany = True and call cursor.executemany with the parameterized statement INSERT INTO dbo.orders_daily (order_id, customer_id, order_total, order_status, updated_at) VALUES (?, ?, ?, ?, ?), then commit. If the batch fails, roll back and re-raise. Never build SQL by string-formatting row values."
+    width: 190
+    height: 64
+    selected: false
+    dragging: false
+  - id: "sink-log-errors-4"
+    type: pipeline
+    position:
+      x: 680
+      y: 260
+    data:
+      label: "Log Message"
+      type: STEP
+      iconName: Terminal
+      beam_transform: LogMessage
+    width: 180
+    height: 62
+    selected: false
+    dragging: false
+edges:
+  - id: "e-pyodbc-source-to-pardo"
+    source: "source-pyodbc-1"
+    target: "step-pardo-normalize-2"
+  - id: "e-pardo-valid-to-pyodbc-sink"
+    source: "step-pardo-normalize-2"
+    sourceHandle: valid
+    target: "sink-pyodbc-3"
+    targetHandle: null
+  - id: "e-pardo-error-to-log"
+    source: "step-pardo-normalize-2"
+    sourceHandle: error
+    target: "sink-log-errors-4"
+    targetHandle: null
+runtimeVariables:
+  - key: JOB_ID
+    value: "pyodbc-orders-sync"
+jobConfig:
+  runner: "DirectRunner"
+  machineType: "n1-standard-2"
+  minInstances: 1
+  maxInstances: 4
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: "Python"
+  outputFolder: "test/pyodbc-orders-sync"
+  needsRebuild: false

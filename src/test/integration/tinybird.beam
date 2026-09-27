@@ -1,0 +1,141 @@
+# ==============================================================================
+# IO77: Tinybird Web Analytics Ingestion (Python)
+# Python Generation & Evaluation: Validated
+# ==============================================================================
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# Pipeline Specification: IO77 - PubSubIO to Tinybird Data Source (tinybird-beam)
+# DAG: PubSubIO Source ➔ Parse Message (JSON, valid/error) ➔ ParDo (project to Data Source columns)
+#      ➔ Batch Elements (lists of dicts) ➔ Tinybird Sink (WriteToTinybird, append)
+#      Parse errors ➔ Log Message (DLQ)
+# Credentials: Tinybird auth token is a Secret Manager short ID (tokenSecret) resolved once
+# at pipeline construction. No plaintext token.
+
+nodes:
+  - id: "source-pubsub-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: "Web Events PubSub"
+      type: SOURCE
+      iconName: Cable
+      beam_transform: PubSubIO
+      properties:
+        subscription: "projects/my-project/subscriptions/web-analytics-events-sub"
+      system_instructions: "Read raw web analytics JSON events (bytes) from the Cloud Pub/Sub subscription 'projects/my-project/subscriptions/web-analytics-events-sub'."
+    width: 180
+    height: 62
+  - id: "step-parse-2"
+    type: pipeline
+    position:
+      x: 330
+      y: 150
+    data:
+      label: "Parse Message"
+      type: STEP
+      iconName: FileCode
+      beam_transform: ParseMessage
+      properties:
+        messageType: JSON
+      system_instructions: "Decode each Pub/Sub payload as UTF-8 JSON into a dict. Emit parsed dicts on the main 'valid' output and route undecodable payloads to the 'error' output with the error message and raw payload."
+    width: 180
+    height: 62
+  - id: "step-pardo-project-3"
+    type: pipeline
+    position:
+      x: 580
+      y: 150
+    data:
+      label: "Project To Columns"
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: "Map each event dict to a dict with_keys timestamp, session_id, action, version, payload. Copy timestamp, session_id, action and version from the event when present (use an empty string when missing) and set payload to the JSON string (json.dumps) of the full original event."
+      system_instructions: "Project each parsed event onto the Tinybird Data Source columns timestamp, session_id, action, version, payload (payload = json.dumps of the original event). Output one dict per element whose keys match the sink columns exactly."
+    width: 180
+    height: 62
+  - id: "step-batch-4"
+    type: pipeline
+    position:
+      x: 830
+      y: 150
+    data:
+      label: "Batch Elements"
+      type: STEP
+      iconName: BarChart
+      beam_transform: BatchElements
+      properties:
+        batchSize: 1000
+      system_instructions: "Group the projected dicts into lists using beam.BatchElements(min_batch_size=100, max_batch_size=1000) because tinybird-beam's WriteToTinybird requires every input element to be an iterable of dicts (a batch), never a single dict."
+    width: 180
+    height: 62
+  - id: "sink-tinybird-5"
+    type: pipeline
+    position:
+      x: 1080
+      y: 150
+    data:
+      label: "Tinybird"
+      type: SINK
+      iconName: Database
+      beam_transform: Tinybird
+      properties:
+        host: "https://api.tinybird.co"
+        tokenSecret: "tinybird-append-token"
+        datasource: "web_events"
+        columns: "timestamp,session_id,action,version,payload"
+        batchingMode: "none"
+      system_instructions: "Ingest the batches with the official Tinybird connector: `from tinybird.beam import WriteToTinybird` (PyPI package `tinybird-beam`; add `tinybird-beam` and `google-cloud-secret-manager` to requirements.txt; do NOT write a custom requests/HTTP DoFn). Resolve tokenSecret ONCE at pipeline construction with token = _access_secret(project_id, 'tinybird-append-token') where project_id comes from the GoogleCloudOptions project option, then apply WriteToTinybird('https://api.tinybird.co', token, 'web_events', 'timestamp,session_id,action,version,payload'.split(',')) positionally as (host, token, data_source, columns). Never log the token, never give it an argparse default or environment-variable fallback."
+    width: 180
+    height: 62
+  - id: "sink-log-dlq-6"
+    type: pipeline
+    position:
+      x: 580
+      y: 300
+    data:
+      label: "Log Parse Errors"
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        logLevel: ERROR
+      system_instructions: "Log malformed web analytics payload errors (error message only, not the raw payload) at ERROR level as a dead-letter audit trail."
+    width: 180
+    height: 62
+edges:
+  - id: "edge-pubsub-to-parse"
+    source: "source-pubsub-1"
+    target: "step-parse-2"
+  - id: "edge-parse-to-project"
+    source: "step-parse-2"
+    sourceHandle: valid
+    target: "step-pardo-project-3"
+  - id: "edge-parse-to-dlq"
+    source: "step-parse-2"
+    sourceHandle: error
+    target: "sink-log-dlq-6"
+  - id: "edge-project-to-batch"
+    source: "step-pardo-project-3"
+    target: "step-batch-4"
+  - id: "edge-batch-to-tinybird"
+    source: "step-batch-4"
+    target: "sink-tinybird-5"
+runtimeVariables:
+  - key: JOB_ID
+    value: tinybird-web-analytics
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 3
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: test/tinybird
+  needsRebuild: false

@@ -210,7 +210,7 @@ describe('TFRecordIOSourceProperties', () => {
 
     // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
     const filePatternInput = container.querySelector('#tfrecordSourceFilePattern') as HTMLInputElement;
-    const datalist = document.getElementById(filePatternInput.getAttribute('list')!);
+    const datalist = document.getElementById((filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list'))!);
     expect(datalist).toBeInTheDocument();
     expect(datalist?.children.length).toBe(2);
     expect(datalist?.children[0]).toHaveAttribute('value', 'gs://lakehouse-data/');

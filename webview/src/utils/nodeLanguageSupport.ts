@@ -369,6 +369,51 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
     displayName: 'Log Message',
     supportedLanguages: ['Java', 'Python', 'Go', 'TypeScript'],
   },
+  CloudBigtable: {
+    beamTransform: 'CloudBigtable',
+    displayName: 'Cloud Bigtable (HBase based)',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  CogniteDataFusion: {
+    beamTransform: 'CogniteDataFusion',
+    displayName: 'Cognite Data Fusion',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  KineticaDB: {
+    beamTransform: 'KineticaDB',
+    displayName: 'KineticaDB',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  TrepWsIO: {
+    beamTransform: 'TrepWsIO',
+    displayName: 'TrepWsIO',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  CloudSQL: {
+    beamTransform: 'CloudSQL',
+    displayName: 'Cloud SQL',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  MySQL: {
+    beamTransform: 'MySQL',
+    displayName: 'MySQL',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  Pyodbc: {
+    beamTransform: 'Pyodbc',
+    displayName: 'Pyodbc',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  Tinybird: {
+    beamTransform: 'Tinybird',
+    displayName: 'Tinybird',
+    supportedLanguages: ['Java', 'Python'],
+  },
+  MySQLPostgreSQLOracleSQLServer: {
+    beamTransform: 'MySQLPostgreSQLOracleSQLServer',
+    displayName: 'MySQL, PostgreSQL, Oracle, SQL Server',
+    supportedLanguages: ['Java', 'Python'],
+  },
 
   // ============================================================================
   // HEALTHCARE CONNECTORS (CLOUD HEALTHCARE API)

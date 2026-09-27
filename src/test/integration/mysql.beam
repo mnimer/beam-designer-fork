@@ -1,0 +1,87 @@
+# ==============================================================================
+# IO75: MySQL (beam-mysql-connector) -> Map -> MySQL (Python)
+# Author: Mike Nimer <mikenimer@google.com>
+#
+# DAG: MySQL Source (ReadFromMySQL, NoSplitter) ➔ Map (normalize order)
+#      ➔ MySQL Sink (WriteToMySQL, batch_size 500)
+# Credentials: passwordSecret values are Secret Manager SHORT IDs, resolved once at
+# pipeline construction and passed as the password= argument.
+# ==============================================================================
+nodes:
+  - id: "source-mysql-1"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: MySQL Shop Orders
+      type: SOURCE
+      iconName: Database
+      beam_transform: MySQL
+      properties:
+        host: "10.24.0.7"
+        port: "3306"
+        database: "shop"
+        user: "beam_reader"
+        passwordSecret: "shop-mysql-reader-password"
+        query: "SELECT id, customer_email, country, amount, created_at FROM orders WHERE created_at >= '2026-01-01'"
+        splitter: "NoSplitter"
+      system_instructions: "Use the beam-mysql-connector package (pip: beam-mysql-connector; imports: from beam_mysql.connector.io import ReadFromMySQL and from beam_mysql.connector import splitters). Apply it at the pipeline root as a built-in PTransform: p | 'MySQL Shop Orders' >> ReadFromMySQL(query=<query>, host='10.24.0.7', database='shop', user='beam_reader', password=<resolved>, port=3306, splitter=splitters.NoSplitter()). Do NOT substitute ReadFromJdbc / JdbcIO and do NOT write a custom DoFn for the read. Resolve passwordSecret ONCE at pipeline construction with _access_secret(project_id, 'shop-mysql-reader-password') and pass the resolved value as password=. The query must stay a SELECT statement (the connector rejects anything else). Output elements are dict rows keyed by column name. Add beam-mysql-connector and google-cloud-secret-manager to requirements.txt."
+    width: 180
+    height: 62
+  - id: "step-map-2"
+    type: pipeline
+    position:
+      x: 360
+      y: 150
+    data:
+      label: Normalize Order
+      type: STEP
+      iconName: Code
+      beam_transform: Map
+      system_instructions: "Convert each source row dict into a dict with exactly these keys for the target table: order_id (from id), customer_email (stripped and lower-cased), country (upper-cased), amount (float rounded to 2 decimals) and created_at (formatted as 'YYYY-MM-DD HH:MM:SS' string when it is a datetime, otherwise passed through). Implement it as a named module-level function (not a lambda) and unit-test that function with TestPipeline, beam.Create and assert_that/equal_to. Unit tests must not open MySQL or Secret Manager connections."
+    width: 180
+    height: 62
+  - id: "sink-mysql-3"
+    type: pipeline
+    position:
+      x: 640
+      y: 150
+    data:
+      label: MySQL Analytics Orders
+      type: SINK
+      iconName: Database
+      beam_transform: MySQL
+      properties:
+        host: "10.24.0.9"
+        port: "3306"
+        database: "analytics"
+        user: "beam_writer"
+        passwordSecret: "analytics-mysql-writer-password"
+        table: "orders_normalized"
+        batchSize: "500"
+      system_instructions: "Use beam-mysql-connector's built-in sink: from beam_mysql.connector.io import WriteToMySQL; apply normalized | 'MySQL Analytics Orders' >> WriteToMySQL(host='10.24.0.9', database='analytics', table='orders_normalized', user='beam_writer', password=<resolved>, port=3306, batch_size=500). Do NOT substitute WriteToJdbc / JdbcIO and do NOT write a custom DoFn for the write. Resolve passwordSecret ONCE at pipeline construction with _access_secret(project_id, 'analytics-mysql-writer-password'). WriteToMySQL consumes dict elements whose keys are the target column names, so the upstream Normalize Order step must emit dicts with exactly order_id, customer_email, country, amount and created_at."
+    width: 180
+    height: 62
+edges:
+  - id: e-source-mysql-1-step-map-2
+    source: "source-mysql-1"
+    target: "step-map-2"
+  - id: e-step-map-2-sink-mysql-3
+    source: "step-map-2"
+    target: "sink-mysql-3"
+runtimeVariables:
+  - key: JOB_ID
+    value: mysql-orders-normalize
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: test/mysql-examples/mysql-orders-normalize
+  needsRebuild: false
