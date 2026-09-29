@@ -30,7 +30,6 @@ export const KAFKA_SERIALIZER_PRESETS: KafkaSerializerPreset[] = [
   { label: 'Long (LongSerializer)', className: 'org.apache.kafka.common.serialization.LongSerializer' },
   { label: 'Integer (IntegerSerializer)', className: 'org.apache.kafka.common.serialization.IntegerSerializer' },
   { label: 'Double (DoubleSerializer)', className: 'org.apache.kafka.common.serialization.DoubleSerializer' },
-  { label: 'Custom Class...', className: 'custom' },
 ];
 
 interface KafkaIOSinkNode {
@@ -43,9 +42,7 @@ interface KafkaIOSinkNode {
       bootstrapServers?: string;
       topic?: string;
       keySerializer?: string;
-      customKeySerializer?: string;
       valueSerializer?: string;
-      customValueSerializer?: string;
       acks?: 'all' | '1' | '0';
       producerProperties?: string;
       useEOS?: boolean;
@@ -78,9 +75,7 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
   const bootstrapServers = properties.bootstrapServers || '';
   const topic = properties.topic || '';
   const keySerializer = properties.keySerializer || 'org.apache.kafka.common.serialization.ByteArraySerializer';
-  const customKeySerializer = properties.customKeySerializer || '';
   const valueSerializer = properties.valueSerializer || 'org.apache.kafka.common.serialization.StringSerializer';
-  const customValueSerializer = properties.customValueSerializer || '';
   const acks = properties.acks || 'all';
   const producerProperties = properties.producerProperties || '';
   const useEOS = properties.useEOS ?? false;
@@ -126,19 +121,15 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
     });
   };
 
-  const isKeyPreset = KAFKA_SERIALIZER_PRESETS.some(p => p.className === keySerializer && p.className !== 'custom');
-  const selectedKeyPreset = isKeyPreset ? keySerializer : 'custom';
-  const customKeyValue = isKeyPreset ? customKeySerializer : (customKeySerializer || (keySerializer !== 'custom' ? keySerializer : ''));
+  const isKeyPreset = KAFKA_SERIALIZER_PRESETS.some(p => p.className === keySerializer);
+  const selectedKeyPreset = isKeyPreset ? keySerializer : 'org.apache.kafka.common.serialization.ByteArraySerializer';
 
-  const isValuePreset = KAFKA_SERIALIZER_PRESETS.some(p => p.className === valueSerializer && p.className !== 'custom');
-  const selectedValuePreset = isValuePreset ? valueSerializer : 'custom';
-  const customValueValue = isValuePreset ? customValueSerializer : (customValueSerializer || (valueSerializer !== 'custom' ? valueSerializer : ''));
+  const isValuePreset = KAFKA_SERIALIZER_PRESETS.some(p => p.className === valueSerializer);
+  const selectedValuePreset = isValuePreset ? valueSerializer : 'org.apache.kafka.common.serialization.StringSerializer';
 
   // Validation states according to Apache Beam KafkaIO documentation
   const isBootstrapServersInvalid = !bootstrapServers.trim();
   const isTopicInvalid = !topic.trim();
-  const isCustomKeyInvalid = selectedKeyPreset === 'custom' && !customKeyValue.trim();
-  const isCustomValueInvalid = selectedValuePreset === 'custom' && !customValueValue.trim();
   const isEosNumPartitionsInvalid = useEOS && (!eosNumPartitions || Number(eosNumPartitions) <= 0);
   const isEosSinkGroupIdInvalid = useEOS && !eosSinkGroupId.trim();
 
@@ -146,54 +137,16 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
    * Handles serializer dropdown changes.
    */
   const handleKeySelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        keySerializer: customKeyValue || 'custom',
-        customKeySerializer: customKeyValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        keySerializer: val,
-        customKeySerializer: ''
-      });
-    }
-  };
-
-  const handleCustomKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      keySerializer: val,
-      customKeySerializer: val
+      keySerializer: e.target.value
     });
   };
 
   const handleValueSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        valueSerializer: customValueValue || 'custom',
-        customValueSerializer: customValueValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        valueSerializer: val,
-        customValueSerializer: ''
-      });
-    }
-  };
-
-  const handleCustomValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      valueSerializer: val,
-      customValueSerializer: val
+      valueSerializer: e.target.value
     });
   };
 
@@ -261,28 +214,6 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
             </option>
           ))}
         </select>
-        {selectedKeyPreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customKeySerializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomKeyInvalid}
-              value={customKeyValue}
-              onChange={handleCustomKeyChange}
-              placeholder="com.example.MyCustomKeySerializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomKeyInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomKeyInvalid && (
-              <span className="text-xs text-red-400">Custom Key Serializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Value Serializer (Required) */}
@@ -305,28 +236,6 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
             </option>
           ))}
         </select>
-        {selectedValuePreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customValueSerializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomValueInvalid}
-              value={customValueValue}
-              onChange={handleCustomValueChange}
-              placeholder="com.example.MyCustomValueSerializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomValueInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomValueInvalid && (
-              <span className="text-xs text-red-400">Custom Value Serializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Acks Setting */}

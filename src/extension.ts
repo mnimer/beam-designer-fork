@@ -1095,6 +1095,120 @@ export function parseSecretManagerOutput(stdout: string): SecretManagerItem[] {
 }
 
 /**
+ * Returns the last non-empty '/'-separated segment of a resource name
+ * (e.g. `projects/p/instances/i` -> `i`), or '' for non-strings.
+ *
+ * @param value Resource name from gcloud JSON output
+ * @returns The trailing path segment
+ */
+function lastPathSegment(value: unknown): string {
+    if (typeof value !== 'string') {
+        return '';
+    }
+    const parts = value.split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : '';
+}
+
+/**
+ * Maps `gcloud bigtable instances list --format=json` to short instance IDs.
+ *
+ * @param json Parsed gcloud JSON output
+ * @returns Short Bigtable instance IDs
+ */
+export function mapBigtableInstances(json: any): string[] {
+    return Array.isArray(json) ? json.map((i: any) => lastPathSegment(i?.name)).filter(Boolean) : [];
+}
+
+/**
+ * Maps `gcloud bigtable instances tables list --format=json` to short table IDs.
+ *
+ * @param json Parsed gcloud JSON output
+ * @returns Short Bigtable table IDs
+ */
+export function mapBigtableTables(json: any): string[] {
+    return Array.isArray(json) ? json.map((t: any) => lastPathSegment(t?.name)).filter(Boolean) : [];
+}
+
+/**
+ * Maps `gcloud sql instances list --format=json` to instance connection names
+ * (`project:region:instance`), which is what the Cloud SQL connectors expect.
+ * Falls back to composing the name from project/region/name when connectionName is absent.
+ *
+ * @param json Parsed gcloud JSON output
+ * @returns Cloud SQL instance connection names
+ */
+export function mapSqlInstances(json: any): string[] {
+    if (!Array.isArray(json)) {
+        return [];
+    }
+    return json.map((i: any) => {
+        if (typeof i?.connectionName === 'string' && i.connectionName) {
+            return i.connectionName;
+        }
+        return i?.project && i?.region && i?.name ? `${i.project}:${i.region}:${i.name}` : '';
+    }).filter(Boolean);
+}
+
+/**
+ * Maps `gcloud sql databases list --format=json` to database names.
+ *
+ * @param json Parsed gcloud JSON output
+ * @returns Database names
+ */
+export function mapSqlDatabases(json: any): string[] {
+    return Array.isArray(json) ? json.map((d: any) => d?.name).filter(Boolean) : [];
+}
+
+/**
+ * Maps `gcloud projects list --format=json` to project IDs.
+ *
+ * @param json Parsed gcloud JSON output
+ * @returns Project IDs
+ */
+export function mapProjects(json: any): string[] {
+    return Array.isArray(json) ? json.map((p: any) => p?.projectId).filter(Boolean) : [];
+}
+
+/**
+ * Parses a Bigtable instance identifier sent from the webview. Accepts a short
+ * instance ID or `projects/{project}/instances/{instance}`. The charset is strict
+ * (no ',' so a caller cannot smuggle a multi-instance list into `--instances=`),
+ * while length is left to the API to validate.
+ *
+ * @param raw Value of `message.instance`
+ * @returns `{ instance, project? }`, or null when missing or invalid
+ */
+export function parseBigtableInstanceParam(raw: unknown): { instance: string; project?: string } | null {
+    if (typeof raw !== 'string') {
+        return null;
+    }
+    const v = raw.trim();
+    const full = /^projects\/([a-z0-9.:-]+)\/instances\/([a-z][a-z0-9-]*)$/i.exec(v);
+    if (full) {
+        return { project: full[1], instance: full[2] };
+    }
+    return /^[a-z][a-z0-9-]*$/i.test(v) ? { instance: v } : null;
+}
+
+/**
+ * Parses a Cloud SQL instance identifier sent from the webview. Accepts a bare
+ * instance name or an instance connection name `[domain:]project:region:instance`.
+ *
+ * @param raw Value of `message.instance`
+ * @returns `{ instance, project? }`, or null when missing or invalid
+ */
+export function parseSqlInstanceParam(raw: unknown): { instance: string; project?: string } | null {
+    if (typeof raw !== 'string') {
+        return null;
+    }
+    const m = /^(?:([a-z0-9.:-]+):([a-z0-9-]+):)?([a-z][a-z0-9-]*)$/i.exec(raw.trim());
+    if (!m) {
+        return null;
+    }
+    return m[1] ? { project: m[1], instance: m[3] } : { instance: m[3] };
+}
+
+/**
  * Generic helper to discover cloud assets by executing a CLI command, parsing JSON,
  * and dispatching results or actionable error messages to the webview.
  * 
@@ -2096,25 +2210,32 @@ export async function savePipelineFiles(
 
     if (openDoc) {
         // Path A: Document is open in VS Code editor.
-        // Update via WorkspaceEdit to preserve undo history and dirty state.
-        if (syncState) {
-            syncState.isApplyingEdit = true;
-            syncState.lastSavedContent = data;
-        }
-        try {
-            const startPos = typeof openDoc.positionAt === 'function'
-                ? openDoc.positionAt(0)
-                : new vscode.Position(0, 0);
-            const endPos = typeof openDoc.positionAt === 'function'
-                ? openDoc.positionAt(openDoc.getText().length)
-                : new vscode.Position(openDoc.lineCount || 0, 0);
-            const fullRange = new vscode.Range(startPos, endPos);
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(openDoc.uri, fullRange, data);
-            await vscode.workspace.applyEdit(edit);
-        } finally {
+        // Skip WorkspaceEdit when content is already identical so opening a clean .beam file does not mark it dirty.
+        if (openDoc.getText() === data) {
             if (syncState) {
-                syncState.isApplyingEdit = false;
+                syncState.lastSavedContent = data;
+            }
+        } else {
+            // Update via WorkspaceEdit to preserve undo history and dirty state.
+            if (syncState) {
+                syncState.isApplyingEdit = true;
+                syncState.lastSavedContent = data;
+            }
+            try {
+                const startPos = typeof openDoc.positionAt === 'function'
+                    ? openDoc.positionAt(0)
+                    : new vscode.Position(0, 0);
+                const endPos = typeof openDoc.positionAt === 'function'
+                    ? openDoc.positionAt(openDoc.getText().length)
+                    : new vscode.Position(openDoc.lineCount || 0, 0);
+                const fullRange = new vscode.Range(startPos, endPos);
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(openDoc.uri, fullRange, data);
+                await vscode.workspace.applyEdit(edit);
+            } finally {
+                if (syncState) {
+                    syncState.isApplyingEdit = false;
+                }
             }
         }
     } else {
@@ -2554,6 +2675,54 @@ export async function handleGetSecrets(ctx: MessageContext, _message: any): Prom
 }
 
 /**
+ * Maps parsed JSON output from `gcloud healthcare datasets list --format=json`
+ * into an array of Cloud Healthcare dataset resource names
+ * (e.g. `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}`).
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param json Parsed JSON array from gcloud healthcare datasets list
+ * @returns Array of non-empty dataset resource name strings
+ */
+export function mapHealthcareDatasetItems(json: any): string[] {
+    if (!Array.isArray(json)) {
+        return [];
+    }
+    return json
+        .map((d: any) => (typeof d?.name === 'string' ? d.name.trim() : ''))
+        .filter((name: string) => name.length > 0);
+}
+
+/**
+ * Handler for 'getHealthcareDatasets' command.
+ * Fetches Google Cloud Healthcare API datasets via `gcloud healthcare datasets list --format=json`.
+ * Supports an optional validated `location` filter parameter.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param message Incoming IPC message containing optional `location`
+ */
+export async function handleGetHealthcareDatasets(ctx: MessageContext, message: any): Promise<void> {
+    const rawLocation = typeof message?.location === 'string' ? message.location.trim() : '';
+    const validLocation = /^[a-zA-Z0-9-]+$/.test(rawLocation) ? rawLocation : '';
+    await listAssets(
+        'gcloud',
+        [
+            'healthcare',
+            'datasets',
+            'list',
+            ...(validLocation ? [`--location=${validLocation}`] : []),
+            '--format=json'
+        ],
+        mapHealthcareDatasetItems,
+        'healthcareDatasetsLoaded',
+        'datasets',
+        ctx.postToWebview
+    );
+}
+
+/**
  * Handler for 'getAwsQueues' command.
  * Fetches AWS SQS queues via AWS CLI.
  *
@@ -2601,6 +2770,114 @@ export async function handleGetComputeInstances(ctx: MessageContext, _message: a
         }) : []),
         'computeInstancesLoaded',
         'instances',
+        ctx.postToWebview
+    );
+}
+
+/**
+ * Handler for 'getBigtableInstances' command.
+ * Fetches Cloud Bigtable instances via gcloud CLI and returns their short instance IDs.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param _message Incoming IPC message (unused)
+ */
+export async function handleGetBigtableInstances(ctx: MessageContext, _message: any): Promise<void> {
+    await listAssets(
+        'gcloud',
+        ['bigtable', 'instances', 'list', '--format=json'],
+        mapBigtableInstances,
+        'bigtableInstancesLoaded',
+        'bigtableInstances',
+        ctx.postToWebview
+    );
+}
+
+/**
+ * Handler for 'getBigtableTables' command.
+ * Validates the Bigtable instance identifier and fetches its tables via gcloud CLI.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param message Incoming IPC message with `instance` (short ID or projects/{p}/instances/{i})
+ */
+export async function handleGetBigtableTables(ctx: MessageContext, message: any): Promise<void> {
+    const parsed = parseBigtableInstanceParam(message?.instance);
+    if (!parsed) {
+        const invalidErr = `Invalid or missing Bigtable instance identifier: '${message?.instance}'`;
+        console.error('[@extension.ts]', invalidErr);
+        ctx.postToWebview({ command: 'bigtableTablesLoaded', bigtableTables: [], error: invalidErr, debugLog: invalidErr });
+        return;
+    }
+    const args = ['bigtable', 'instances', 'tables', 'list', `--instances=${parsed.instance}`, '--format=json'];
+    if (parsed.project) {
+        args.push(`--project=${parsed.project}`);
+    }
+    await listAssets('gcloud', args, mapBigtableTables, 'bigtableTablesLoaded', 'bigtableTables', ctx.postToWebview);
+}
+
+/**
+ * Handler for 'getSqlInstances' command.
+ * Fetches Cloud SQL instances via gcloud CLI and returns their instance connection names.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param _message Incoming IPC message (unused)
+ */
+export async function handleGetSqlInstances(ctx: MessageContext, _message: any): Promise<void> {
+    await listAssets(
+        'gcloud',
+        ['sql', 'instances', 'list', '--format=json'],
+        mapSqlInstances,
+        'sqlInstancesLoaded',
+        'sqlInstances',
+        ctx.postToWebview
+    );
+}
+
+/**
+ * Handler for 'getSqlDatabases' command.
+ * Validates the Cloud SQL instance identifier and fetches its databases via gcloud CLI.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param message Incoming IPC message with `instance` (instance name or connection name)
+ */
+export async function handleGetSqlDatabases(ctx: MessageContext, message: any): Promise<void> {
+    const parsed = parseSqlInstanceParam(message?.instance);
+    if (!parsed) {
+        const invalidErr = `Invalid or missing Cloud SQL instance identifier: '${message?.instance}'`;
+        console.error('[@extension.ts]', invalidErr);
+        ctx.postToWebview({ command: 'sqlDatabasesLoaded', sqlDatabases: [], error: invalidErr, debugLog: invalidErr });
+        return;
+    }
+    const args = ['sql', 'databases', 'list', `--instance=${parsed.instance}`, '--format=json'];
+    if (parsed.project) {
+        args.push(`--project=${parsed.project}`);
+    }
+    await listAssets('gcloud', args, mapSqlDatabases, 'sqlDatabasesLoaded', 'sqlDatabases', ctx.postToWebview);
+}
+
+/**
+ * Handler for 'getProjects' command.
+ * Fetches accessible Google Cloud projects via gcloud CLI and returns their project IDs.
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * @param ctx Message context
+ * @param _message Incoming IPC message (unused)
+ */
+export async function handleGetProjects(ctx: MessageContext, _message: any): Promise<void> {
+    await listAssets(
+        'gcloud',
+        ['projects', 'list', '--format=json'],
+        mapProjects,
+        'projectsLoaded',
+        'projects',
         ctx.postToWebview
     );
 }
@@ -3482,8 +3759,14 @@ export const MESSAGE_HANDLERS: Record<string, MessageHandler> = {
     getSubnetworks: handleGetSubnetworks,
     getStorageBuckets: handleGetStorageBuckets,
     getSecrets: handleGetSecrets,
+    getHealthcareDatasets: handleGetHealthcareDatasets,
     getAwsQueues: handleGetAwsQueues,
     getComputeInstances: handleGetComputeInstances,
+    getBigtableInstances: handleGetBigtableInstances,
+    getBigtableTables: handleGetBigtableTables,
+    getSqlInstances: handleGetSqlInstances,
+    getSqlDatabases: handleGetSqlDatabases,
+    getProjects: handleGetProjects,
     ready: handleReady,
     getSamples: handleGetSamples,
     openSample: handleOpenSample,

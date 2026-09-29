@@ -1,0 +1,103 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"externalId": "maint-1001", "type": "maintenance", "subtype":
+            "inspection", "description": "Pump A bearing check"}'
+          - '{"externalId": "maint-1002", "type": "maintenance", "subtype":
+            "repair", "description": "Valve B seal replacement"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Curate Events
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        externalIdPrefix: "curated:"
+        targetDataSetId: 4521987465213
+      system_instructions: 'Implement a static nested DoFn<String, Event> named
+        CurateEventsFn. Parse each input JSON string and build a
+        com.cognite.client.dto.Event with Event.newBuilder(): set externalId to
+        externalIdPrefix + the input externalId (skip and count with a Beam
+        Counter any record without an externalId), set dataSetId to
+        targetDataSetId, copy type/subtype/description, and put metadata entry
+        "curatedBy" = "beam-designer-cdf-curation". Register
+        ProtoCoder.of(Event.class) on the output PCollection and unit-test with
+        TestPipeline, Create.of(...) and PAssert.'
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Upsert CDF Curated Events
+      type: SINK
+      iconName: Cloud
+      beam_transform: CogniteDataFusion
+      properties:
+        resourceType: events
+        project: acme-analytics
+        baseUrl: https://westeurope-1.cognitedata.com
+        authType: clientCredentials
+        clientId: 9e8d7c6b-5a49-4382-a1b0-fedcba987654
+        clientSecretSecret: cdf-analytics-client-secret
+        authServerUrl: https://login.microsoftonline.com/acme-tenant.onmicrosoft.com/oauth2/v2.0/token
+        authScopes: https://westeurope-1.cognitedata.com/.default
+        upsertMode: REPLACE
+        extractionPipelineExtId: ep-cdf-events-curation
+        appIdentifier: beam-designer-cdf-curation
+      system_instructions: Use the community Cognite Beam connector (Maven
+        com.cognite:beam-connector-java:0.9.46; add it to pom.xml next to the
+        Beam baseline and add org.apache.beam:beam-sdks-java-extensions-protobuf
+        at the same Beam version). resourceType "events" means
+        CogniteIO.writeEvents() consuming
+        PCollection<com.cognite.client.dto.Event>. Build ProjectConfig with
+        ProjectConfig.create().withProject(project).withBaseUrl(baseUrl).withClientId(clientId).withClientSecretFromGcpSecret(GcpSecretConfig.of(options.getProject(),
+        clientSecretSecret)).withTokenUrl(authServerUrl).withAuthScopes(authScopes)
+        using this node's values; resolve clientSecretSecret ONLY via the
+        connector's native GcpSecretConfig, never via accessSecret or a literal.
+        Apply .withProjectConfig(config) and
+        .withWriterConfig(com.cognite.beam.io.config.WriterConfig.create().withUpsertMode(com.cognite.client.config.UpsertMode.REPLACE).withExtractionPipeline(extractionPipelineExtId).withAppIdentifier(appIdentifier)).
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: cognitedatafusion-sink-java
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/cognitedatafusion-sink-java
+  needsRebuild: false

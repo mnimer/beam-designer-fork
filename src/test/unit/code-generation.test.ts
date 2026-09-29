@@ -55,11 +55,20 @@ vi.mock('vscode', () => {
 import {
     resolveLanguageStrategy,
     assemblePrompt,
+    deduplicateGeneratedFiles,
     handleRegenerateCode,
     PYTHON_STRATEGY,
     JAVA_STRATEGY,
     PromptAssemblyOptions,
 } from '../../codeGeneration';
+import {
+    parseBeamVersionFromDownloadsHtml,
+    parseBeamVersionFromPypiJson,
+    getLatestBeamVersion,
+    getCachedBeamVersion,
+    resetBeamVersionCacheForTesting,
+    FALLBACK_BEAM_VERSION,
+} from '../../beamVersion';
 
 describe('A3 — resolveLanguageStrategy', () => {
     it('returns JAVA_STRATEGY for "java" (simple case)', () => {
@@ -391,98 +400,40 @@ describe('A3 — language strategy internal coherence (regression)', () => {
 });
 
 /**
- * Regression tests for the Java code-generation prompt's dependency guidance.
+ * Regression tests for the Java code-generation prompt's dependency & packaging guidance.
  *
- * Bug: a generated pipeline pinned `net.datafaker:datafaker:2.1.0` in pom.xml but called
- * `faker.timeAndDate()`, which does not exist in 2.1.0. Maven failed with
- * `cannot find symbol: method timeAndDate()`.
- *
- * Root cause: the prompt pinned every other library in a canonical pom.xml baseline but said
- * nothing about Datafaker, while separately instructing the model to "use the latest version of
- * all libraries". The model therefore invented a version AND chose an API from a different
- * release, with nothing tying the two together.
- *
- * These tests assert the *coherence invariant* -- the pinned version must expose the method the
- * prompt tells the model to call -- rather than merely asserting that some words are present.
- *
- * Verified against the real artifacts with `javap` at the time of writing:
- *   - datafaker 2.1.0: exposes `date()` -> DateAndTime only. No `timeAndDate()`, no TimeAndDate class.
- *   - datafaker 2.7.0: exposes BOTH `date()` -> DateAndTime and `timeAndDate()` -> TimeAndDate.
+ * Verifies that:
+ * 1. The Java prompt specifies Maven coordinates, minimum verified baseline versions (`>=`),
+ *    and shade plugin requirements (`main.jar`, `ServicesResourceTransformer`) concisely
+ *    without embedding a verbose full `<project>` XML block.
+ * 2. Sample-specific third-party libraries (such as Datafaker in `generate-mock-data.beam`)
+ *    carry their minimum version constraint (`>= 2.7.0`) in the sample pipeline definition
+ *    rather than bloating the global system prompt.
  */
-describe('Java codegen prompt — Datafaker version/API coherence (regression)', () => {
+describe('Java codegen prompt — dependency & pom.xml specification (regression)', () => {
     const PROMPT_PATH = path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-java.txt');
+    const SAMPLE_PATH = path.join(__dirname, '..', '..', '..', 'resources', 'samples', 'generate-mock-data.beam');
     const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
+    const sample = fs.readFileSync(SAMPLE_PATH, 'utf-8');
 
-    // The lowest Datafaker release verified to expose `timeAndDate()`. 2.1.0 is verified NOT to.
-    // The exact introduction version was not determined, so this is deliberately conservative:
-    // it is the oldest version we actually inspected and confirmed working.
-    const MIN_VERIFIED_TIME_AND_DATE = [2, 7, 0];
-
-    /** Parses a dotted version string into numeric components for ordered comparison. */
-    const parseVersion = (v: string): number[] => v.split('.').map(n => parseInt(n, 10));
-
-    /** Returns true when `a` is greater than or equal to `b`, component by component. */
-    const gte = (a: number[], b: number[]): boolean => {
-        for (let i = 0; i < Math.max(a.length, b.length); i++) {
-            const x = a[i] ?? 0;
-            const y = b[i] ?? 0;
-            if (x > y) { return true; }
-            if (x < y) { return false; }
-        }
-        return true;
-    };
-
-    it('non-vacuity guard: the prompt is found, substantial, and actually mentions Datafaker', () => {
-        // Without this guard every assertion below could pass trivially against an empty
-        // string if the resource were moved or renamed.
+    it('specifies Maven coordinates and plugins concisely without a full <project> XML block', () => {
         expect(prompt.length).toBeGreaterThan(1000);
-        expect(prompt.toLowerCase()).toContain('datafaker');
+        expect(prompt).not.toContain('<project xmlns="http://maven.apache.org/POM/4.0.0"');
+        expect(prompt).toContain('beam-sdks-java-core');
+        expect(prompt).toContain('maven-shade-plugin');
+        expect(prompt).toContain('${project.build.directory}/main.jar');
+        expect(prompt).toContain('ServicesResourceTransformer');
     });
 
-    it('no longer tells the model to use the "latest version of all libraries"', () => {
-        // This directive is what licensed the model to invent a version number it could not
-        // verify, while the rest of the prompt pins exact versions.
+    it('instructs the model to treat baseline versions as minimum verified versions (>=) matching called API methods', () => {
         expect(prompt).not.toMatch(/latest version of all libraries/i);
+        expect(prompt).toContain('minimum verified baseline versions (`>=`)');
+        expect(prompt).toContain('exposes the exact API methods called in your Java code');
     });
 
-    it('pins an explicit Datafaker version rather than leaving it to the model', () => {
-        expect(prompt).toMatch(/<artifactId>\s*datafaker\s*<\/artifactId>/);
-    });
-
-    it('pins a Datafaker version that actually exposes the API the prompt recommends', () => {
-        const pin = prompt.match(
-            /net\.datafaker\s*<\/groupId>\s*<artifactId>\s*datafaker\s*<\/artifactId>\s*<version>\s*([0-9][0-9.]*)\s*<\/version>/
-        );
-        expect(pin, 'expected an explicit net.datafaker version pin in the prompt').not.toBeNull();
-        // Narrows `pin` for the remainder of the test. The expect() above is what actually
-        // reports the failure; this guard only keeps the type checker honest without a
-        // non-null assertion.
-        if (!pin) { return; }
-
-        const version = pin[1];
-        const pinned = parseVersion(version);
-
-        // The coherence invariant. If the prompt recommends timeAndDate(), the pinned version
-        // must be one that actually has it -- this is the exact pairing that broke the build.
-        if (/timeAndDate\(\)/.test(prompt)) {
-            expect(
-                gte(pinned, MIN_VERIFIED_TIME_AND_DATE),
-                `prompt recommends timeAndDate() but pins datafaker ${version}, which is older ` +
-                `than the ${MIN_VERIFIED_TIME_AND_DATE.join('.')} verified to expose it`
-            ).toBe(true);
-        }
-    });
-
-    it('never pins the specific version that caused the reported build failure', () => {
-        expect(prompt).not.toMatch(
-            /<artifactId>\s*datafaker\s*<\/artifactId>\s*<version>\s*2\.1\.0\s*<\/version>/
-        );
-    });
-
-    it('documents the failure mode so the model understands why the pairing matters', () => {
-        // Stating the compiler error verbatim is what makes this guidance actionable rather
-        // than an arbitrary rule the model may discard when improvising.
-        expect(prompt).toContain('cannot find symbol: method timeAndDate()');
+    it('keeps sample-specific Datafaker >= 2.7.0 guidance in generate-mock-data.beam rather than the global prompt', () => {
+        expect(prompt.toLowerCase()).not.toContain('datafaker');
+        expect(sample).toContain('net.datafaker:datafaker >= 2.7.0');
     });
 });
 
@@ -617,5 +568,449 @@ edges:
         });
     });
 });
+
+
+/**
+ * Regression tests for connector facts added to the codegen prompts after the
+ * 2026-09-24 integration run (54/61 passing).
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Context: the run's auto-generated remediation directives recommended API that does
+ * not exist. Two were caught before they reached the prompts and are pinned here so a
+ * future edit cannot reintroduce them:
+ *
+ *  1. XmlIO. The directive told the generator to chain
+ *     `.withSuffix(...).withNumShards(...).withShardTemplate(...)` onto `XmlIO.write()`.
+ *     Verified against the real Beam 2.53.0 source: `XmlIO.Write` exposes exactly four
+ *     builder methods -- `to`, `withRecordClass`, `withRootElement`, `withCharset`. The
+ *     `.xml` suffix is hardcoded inside `expand()`. Following that directive would have
+ *     turned a passing-but-flagged test into an outright compile failure.
+ *
+ *  2. ParquetIO codec. The directive offered `'uncompressed'` as a spelling for no
+ *     compression. Beam forwards `codec` straight to pyarrow, whose validator accepts
+ *     only NONE/SNAPPY/GZIP/LZO/BROTLI/LZ4/ZSTD; `'uncompressed'` raises
+ *     `ArrowException: Unsupported compression`.
+ */
+describe('Codegen prompts — connector API coherence (regression)', () => {
+    const JAVA_PROMPT = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-java.txt'), 'utf-8');
+    const PYTHON_PROMPT = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'resources', 'code-gen-prompt-python.txt'), 'utf-8');
+
+    // Non-vacuity guard: every assertion below searches these strings, so prove they loaded.
+    it('both prompt files are readable and non-trivial', () => {
+        expect(JAVA_PROMPT.length).toBeGreaterThan(1000);
+        expect(PYTHON_PROMPT.length).toBeGreaterThan(1000);
+    });
+
+    describe('XmlIO write surface', () => {
+        it('documents XmlIO at all, so the model is not left to improvise it', () => {
+            expect(JAVA_PROMPT).toContain('XmlIO');
+        });
+
+        it('never recommends the three builder methods XmlIO.Write does not have', () => {
+            // Scoped to the XmlIO section: withSuffix/withNumShards are legitimate elsewhere
+            // (TextIO, FileIO), so a naive whole-file search would be both wrong and vacuous.
+            const section = JAVA_PROMPT.split('- **`XmlIO`**:')[1]?.split('\n- **`')[0] ?? '';
+            expect(section, 'XmlIO section not found in the Java prompt').not.toBe('');
+
+            // The prompt is allowed to *mention* these names to forbid them; what must never
+            // appear is the chained-call form that reads as a recommendation.
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withSuffix\(/);
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withNumShards\(/);
+            expect(section).not.toMatch(/XmlIO\.<T>write\(\)[^\n]*\.withShardTemplate\(/);
+        });
+
+        it('states plainly that the suffix is not configurable', () => {
+            // Without the rationale the model tends to "helpfully" restore the missing call.
+            expect(JAVA_PROMPT).toMatch(/no\b[^\n]*`withSuffix`/i);
+        });
+    });
+
+    describe('ParquetIO codec vocabulary', () => {
+        it('maps the UNCOMPRESSED node property to the only spelling pyarrow accepts', () => {
+            expect(PYTHON_PROMPT).toMatch(/UNCOMPRESSED[^\n]*codec='none'/);
+        });
+
+        it('warns that the intuitive spelling is rejected', () => {
+            expect(PYTHON_PROMPT).toContain("`'uncompressed'` is NOT a legal pyarrow value");
+        });
+    });
+
+    /**
+     * Iceberg is reachable only through Managed I/O, whose config map is validated at
+     * construction — an unknown key fails the pipeline rather than being ignored. Two keys the
+     * sink panel used to collect, `write_mode` and `create_table_if_not_exists`, do not exist
+     * anywhere in the Beam tree (verified against `IcebergWriteSchemaTransformProvider`). The
+     * panel fields were deleted; these assertions stop the prompts from reintroducing them.
+     */
+    describe('Iceberg Managed I/O surface', () => {
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt documents Iceberg rather than leaving the model to improvise', (_lang, get) => {
+            expect(get()).toContain('IcebergIO');
+            expect(get()).toContain('Managed I/O');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt names the two config keys that do not exist', (_lang, get) => {
+            expect(get()).toContain('there is no `write_mode` and no `create_table_if_not_exists`');
+            expect(get()).toContain('append-only');
+        });
+
+        it('Java prompt distinguishes the read output tag from the write snapshots tag', () => {
+            // Both are PCollectionRowTuple, and using "output" on the write result is the
+            // single easiest mistake to make here.
+            const section = JAVA_PROMPT.split('- **`IcebergIO`**')[1]?.split('\n- **`')[0] ?? '';
+            expect(section, 'IcebergIO section not found in the Java prompt').not.toBe('');
+            expect(section).toContain('.get("output")');
+            expect(section).toContain('"snapshots"');
+        });
+
+        it('Python prompt forbids the non-existent apache_beam.io.iceberg module', () => {
+            // `ReadFromIceberg` / `WriteToIceberg` exist only as Beam YAML transform identifiers;
+            // an earlier draft directive tried to import them as Python classes.
+            expect(PYTHON_PROMPT).toContain('NO** `apache_beam.io.iceberg` module');
+            expect(PYTHON_PROMPT).toContain('from apache_beam.transforms import managed');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt maps the camelCase panel keys onto snake_case config keys', (_lang, get) => {
+            // The panel stores camelCase; Managed's schema is snake_case. Without the explicit
+            // mapping the model passes `catalogName` straight through and construction fails.
+            expect(get()).toContain('`catalogName` → `catalog_name`');
+            expect(get()).toContain('`partition_fields`');
+            // catalogType/warehouseLocation/catalogUri are nested, not top-level.
+            expect(get()).toContain('NOT top-level keys');
+        });
+    });
+
+    describe('Tier 2 connector API composition & vocabulary rules', () => {
+        it('Java prompt routes TikaIO with* options via FileIO.readMatches -> TikaIO.parseFiles and delegates SINK:TikaIO to TextIO.write', () => {
+            expect(JAVA_PROMPT).toContain('`TikaIO.parse().filepattern(filePattern)` has **NO** `.with*` builder methods');
+            expect(JAVA_PROMPT).toContain('TikaIO.parseFiles()');
+            expect(JAVA_PROMPT).toContain('There is **NO** `TikaIO.write()` class in Apache Beam');
+        });
+
+        it('Java prompt documents ThriftIO.readFiles composition and forbids write-only TSimpleJSONProtocol on read', () => {
+            expect(JAVA_PROMPT).toContain('ThriftIO.readFiles(T.class).withProtocol(protocolFactory)');
+            expect(JAVA_PROMPT).toContain('TSimpleJSONProtocol is a write only protocol');
+            expect(JAVA_PROMPT).toContain('Never emit `TSimpleJSONProtocol` on read');
+        });
+
+        it('Java prompt warns against the broken ContextualTextIO.Read.watchForNewFiles javadoc and documents resourceId schema', () => {
+            expect(JAVA_PROMPT).toContain('`ContextualTextIO.Read.watchForNewFiles(...)` does **NOT** exist');
+            expect(JAVA_PROMPT).toContain('`resourceId`');
+            expect(JAVA_PROMPT).toContain('`ContextualTextIO` has **NO** `write()` or `sink()` API');
+        });
+
+        it('Java prompt documents CsvIO.parseRows composition, mandatory header, and JsonIO write-only fallback to JsonToRow', () => {
+            expect(JAVA_PROMPT).toContain('CsvIO.parseRows(schema, csvFormat)');
+            expect(JAVA_PROMPT).toContain('`CsvIOParseHelpers.validateCsvFormat` **requires** a non-null, non-empty `.withHeader');
+            expect(JAVA_PROMPT).toContain('`JsonIO` in Java is **write-only**');
+            expect(JAVA_PROMPT).toContain('JsonToRow.withSchema(schema)');
+        });
+
+        it('Python prompt forbids passing compression= to ReadFromCsv/WriteToCsv/ReadFromJson/WriteToJson', () => {
+            expect(PYTHON_PROMPT).toContain("raise NotImplementedError('compression')");
+            expect(PYTHON_PROMPT).toContain('**Never pass `compression=`** to `ReadFromCsv` or `WriteToCsv`');
+        });
+
+        it('Java prompt forbids Compression.AUTO on TFRecordIO.write and Compression.XZ/TAR everywhere', () => {
+            expect(JAVA_PROMPT).toContain('`Compression.AUTO.writeCompressed()` throws `UnsupportedOperationException`');
+            expect(JAVA_PROMPT).toContain('`Compression` has **NO** `XZ` or `TAR` member');
+        });
+
+        it.each([
+            ['Java', () => JAVA_PROMPT],
+            ['Python', () => PYTHON_PROMPT],
+        ])('%s prompt enforces azfs:// for AzureBlobStoreFileSystem and forbids abfss://', (_lang, get) => {
+            expect(get()).toContain('ONLY `azfs://{account}/{container}/{blob}`');
+            expect(get()).toContain('abfss://');
+        });
+    });
+
+    describe('property completeness sweep', () => {
+        // The single root cause behind 6 of the 7 failures in the run: a configured node
+        // property was silently dropped. Both checklists previously enumerated four named
+        // properties; every actual failure involved one that was not on that list.
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s checklist requires every node property to be accounted for', (_lang, prompt) => {
+            expect(prompt).toContain('Walk the `properties` map of EVERY node');
+            expect(prompt).toContain('Silently dropping a configured property is a defect');
+        });
+    });
+
+    /**
+     * Beam version floor.
+     *
+     * The pins should track the newest Beam release; this suite deliberately asserts a
+     * FLOOR rather than an exact version so routine upgrades do not require a test edit,
+     * while a regression below the floor fails loudly.
+     *
+     * Why 2.65 and not something lower:
+     *   - Managed I/O (`org.apache.beam.sdk.managed`) does not exist before Java 2.58 /
+     *     Python 2.61. It is the only supported way to reach Iceberg.
+     *   - The Iceberg config keys the UI collects (`partition_fields`, `table_properties`,
+     *     `keep`/`drop`/`filter`) landed after 2.60. Managed I/O validates config keys at
+     *     construction, so an unknown key is a pipeline construction failure, not a no-op.
+     *   2.65 is the first floor that clears both.
+     *
+     * The prompts must keep pinning an EXPLICIT version. Telling the model to "use the
+     * latest version" is what produced the Datafaker 2.1.0 / timeAndDate() build failure
+     * guarded above: the model cannot resolve "latest" and invents a plausible number.
+     */
+    describe('Beam version floor', () => {
+        const MIN_BEAM = [2, 65, 0];
+
+        const parseVersion = (v: string): number[] => v.split('.').map(n => parseInt(n, 10));
+
+        const gte = (a: number[], b: number[]): boolean => {
+            for (let i = 0; i < Math.max(a.length, b.length); i++) {
+                const x = a[i] ?? 0;
+                const y = b[i] ?? 0;
+                if (x > y) { return true; }
+                if (x < y) { return false; }
+            }
+            return true;
+        };
+
+        it('the Java prompt pins a Beam version at or above the Managed I/O floor', () => {
+            const pin = JAVA_PROMPT.match(/<beam\.version>\s*([0-9][0-9.]*)\s*<\/beam\.version>/);
+            expect(pin, 'expected an explicit <beam.version> pin in the Java prompt').not.toBeNull();
+            if (!pin) { return; }
+            expect(
+                gte(parseVersion(pin[1]), MIN_BEAM),
+                `Java prompt pins Beam ${pin[1]}, below the ${MIN_BEAM.join('.')} floor required ` +
+                `for Managed I/O and its Iceberg config keys`
+            ).toBe(true);
+        });
+
+        it('the Python prompt pins a Beam version at or above the Managed I/O floor', () => {
+            const pin = PYTHON_PROMPT.match(/apache-beam\[gcp\]>=\s*([0-9][0-9.]*)/);
+            expect(pin, 'expected an explicit apache-beam[gcp] pin in the Python prompt').not.toBeNull();
+            if (!pin) { return; }
+            expect(
+                gte(parseVersion(pin[1]), MIN_BEAM),
+                `Python prompt pins Beam ${pin[1]}, below the ${MIN_BEAM.join('.')} floor required ` +
+                `for Managed I/O and its Iceberg config keys`
+            ).toBe(true);
+        });
+
+        it('the Python requirements pin and the Dockerfile base image agree', () => {
+            // A mismatch here means the container ships one SDK while the job requests
+            // another, which surfaces as confusing runtime errors rather than a build failure.
+            const req = PYTHON_PROMPT.match(/apache-beam\[gcp\]>=\s*([0-9][0-9.]*)/);
+            const img = PYTHON_PROMPT.match(/apache\/beam_python3\.11_sdk:([0-9][0-9.]*)/);
+            expect(req).not.toBeNull();
+            expect(img).not.toBeNull();
+            if (!req || !img) { return; }
+            expect(img[1]).toBe(req[1]);
+        });
+    });
+
+    /**
+     * Flex Template parameterization. §3A and checklist #17 previously contradicted each
+     * other outright -- §3A said never expose non-sensitive properties as options, #17 said
+     * every IO endpoint must be one. A generator satisfying either violated the other.
+     */
+    describe('deployment-varying property carve-out', () => {
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt exposes input and output locations as runtime options', (_lang, prompt) => {
+            expect(prompt).toContain('DEPLOYMENT-VARYING PROPERTIES MUST BE RUNTIME OPTIONS');
+            expect(prompt).toContain('**Input locations**');
+            expect(prompt).toContain('**Output locations**');
+        });
+
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt no longer blanket-forbids exposing non-sensitive properties', (_lang, prompt) => {
+            // The exact sentence that contradicted checklist #17.
+            expect(prompt).not.toContain('NEVER expose non-sensitive properties');
+        });
+    });
+
+    /**
+     * Integration test report remediation directives regression suite.
+     * Validates Directives P1-P3 (Python), J1-J2 (Java), and runner scaling propagation rules.
+     */
+    describe('prompt remediation directives from integration test report (regression)', () => {
+        // Python GenerateSequence rate-limiting
+        it('Python prompt enforces rate-limited sequence generation and forbids silent property drops', () => {
+            // NOTE: Must specify PeriodicImpulse with counter DoFn or explicit # NOTE: comment
+            expect(PYTHON_PROMPT).toContain('ratePerSec');
+            expect(PYTHON_PROMPT).toContain('elementsPerPeriod');
+            expect(PYTHON_PROMPT).toContain('PeriodicImpulse');
+            expect(PYTHON_PROMPT).toContain('# NOTE: ratePerSec = <val> is not supported directly in in-memory beam.Create batch execution');
+            expect(PYTHON_PROMPT).toMatch(/NEVER silently drop or omit `ratePerSec`/);
+        });
+
+        // Python entrypoint quote consistency
+        it('Python prompt mandates matching quotes in entrypoint guard to prevent SyntaxError', () => {
+            // NOTE: Mismatched quotes like "__main__' trigger fatal SyntaxError: unterminated string literal
+            expect(PYTHON_PROMPT).toContain("either `if __name__ == '__main__': run()` or `if __name__ == \"__main__\": run()`");
+            expect(PYTHON_PROMPT).toContain('never mix quotation styles');
+        });
+
+        // Cloud Build tag pinning (Both languages)
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt pins docker builder image tag in cloudbuild.yaml', (_lang, prompt) => {
+            // NOTE: Builders without tag trigger fatal container image pull failures in Cloud Build
+            expect(prompt).toContain("'gcr.io/cloud-builders/docker:latest'");
+        });
+
+        // Java KafkaIO Exactly-Once Semantics (withEOS)
+        it('Java prompt enforces withEOS on KafkaIO sink when useEOS: true is specified', () => {
+            // NOTE: KafkaIO sink must configure withEOS or idempotent producer properties
+            expect(JAVA_PROMPT).toContain('Exactly-Once Semantics (`useEOS`)');
+            expect(JAVA_PROMPT).toContain('.withEOS(numShards > 0 ? numShards : 1, sinkGroupId != null ? sinkGroupId : "eos-sink-group")');
+            expect(JAVA_PROMPT).toMatch(/NEVER silently omit EOS when specified in YAML/);
+        });
+
+        // Java Combiner Optimizations after GroupByKey
+        it('Java prompt recommends Combine.groupedValues or Combine.perKey after GroupByKey', () => {
+            // NOTE: GroupByKey followed by reduction should use Combine.groupedValues rather than manual loop
+            expect(JAVA_PROMPT).toContain('Combiner Optimizations after `GroupByKey`');
+            expect(JAVA_PROMPT).toContain('Combine.groupedValues');
+        });
+
+        // Worker Scaling Propagation (Both languages)
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt enforces propagating jobConfig machineType, minInstances, and maxInstances', (_lang, prompt) => {
+            // NOTE: Runner script must propagate scaling parameters to Dataflow Flex Template execution
+            expect(prompt).toContain('Job Configuration & Scaling Propagation');
+            expect(prompt).toContain('--worker-machine-type="${MACHINE_TYPE:-<machineType>}"');
+            expect(prompt).toContain('--num-workers="${MIN_INSTANCES:-<minInstances>}"');
+            expect(prompt).toContain('--max-workers="${MAX_INSTANCES:-<maxInstances>}"');
+        });
+
+        // Truncation prevention: Java SchemaBuilder mandate & Python JSON-safe quoting
+        it('Java prompt mandates SchemaBuilder and forbids multi-line JSON schema strings', () => {
+            expect(JAVA_PROMPT).toContain('MANDATORY `SchemaBuilder` RULE — NO MULTI-LINE JSON SCHEMA STRINGS');
+            expect(JAVA_PROMPT).toContain('SchemaBuilder.record("Record")');
+        });
+
+        it('Python prompt enforces JSON-safe quoting and avoids triple-quoted docstrings in _access_secret', () => {
+            expect(PYTHON_PROMPT).toContain('# Reads the payload of a Secret Manager secret.');
+            expect(PYTHON_PROMPT).not.toContain('"""Reads the payload of a Secret Manager secret."""');
+            expect(PYTHON_PROMPT).toContain('JSON-SAFE QUOTING IN GENERATED CODE');
+        });
+
+        // ContextualTextIO and ElasticsearchIO Maven artifacts
+        it('Java prompt specifies correct Maven artifacts for ContextualTextIO and ElasticsearchIO', () => {
+            expect(JAVA_PROMPT).toContain('org.apache.beam:beam-sdks-java-extensions-contextual-text-io');
+            expect(JAVA_PROMPT).toContain('org.apache.beam:beam-sdks-java-io-elasticsearch');
+            expect(JAVA_PROMPT).toContain('NEVER `beam-sdks-java-io-elasticsearch-tests`');
+        });
+
+        // S3Options getter collision & MapElements.as() prohibition
+        it('Java prompt forbids redeclaring String getAwsRegion() on S3Options and forbids MapElements.as()', () => {
+            expect(JAVA_PROMPT).toContain('CRITICAL `S3Options` GETTER COLLISION RULE');
+            expect(JAVA_PROMPT).toContain('No `.as(String)` Method on `MapElements`');
+        });
+
+        // Python FileIO prefix, JsonIO beam.Row, MongoDbIO, Pyodbc, and Flatten single-input rules
+        it('Python prompt includes FileIO destination_prefix_naming, JsonIO beam.Row, MongoDbIO, Pyodbc, and Flatten rules', () => {
+            expect(PYTHON_PROMPT).toContain('fileio.destination_prefix_naming(prefix=..., suffix=...)');
+            expect(PYTHON_PROMPT).toContain('CRITICAL SCHEMA REQUIREMENT');
+            expect(PYTHON_PROMPT).toContain('ReadFromMongoDB, WriteToMongoDB');
+            expect(PYTHON_PROMPT).toContain('ODBC Connection String Braces Rule (CRITICAL)');
+            expect(PYTHON_PROMPT).toContain("(upstream_pcoll,) | '<step_name>' >> beam.Flatten()");
+        });
+
+        // Anti-bloat guard: neither prompt should contain internal "(Directive J1/P1)" bookkeeping tags
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt is free of internal (Directive J/P) bookkeeping tags', (_lang, prompt) => {
+            expect(prompt).not.toMatch(/\(Directives?\s+[PJ]\d+/);
+        });
+
+        it('Java prompt mandates PAssert.that(...) on every @Test method before p.run().waitUntilFinish()', () => {
+            expect(JAVA_PROMPT).toContain('Every `@Test` method in `src/test/java/com/example/<PipelineName>Test.java` MUST validate output elements using `PAssert.that(...)` prior to calling `p.run().waitUntilFinish()`');
+            expect(JAVA_PROMPT).toContain('never emit test methods that execute transforms without verifying the resulting `PCollection`');
+        });
+
+        it.each([
+            ['Java', JAVA_PROMPT],
+            ['Python', PYTHON_PROMPT],
+        ])('%s prompt forbids YAML sequence syntax (- _TAG: ...) under substitutions in cloudbuild.yaml', (_lang, prompt) => {
+            expect(prompt).toContain('NEVER use list/sequence syntax (`- _TAG: ...`) under `substitutions:`');
+        });
+    });
+
+    describe('Dynamic Beam Version Resolution & File Deduplication', () => {
+        it('parses latest Beam version from Apache Beam downloads HTML', () => {
+            const sampleHtml = `
+                <html><body>
+                <h2>Latest Release</h2>
+                <p><a href="/releases/javadoc/2.77.0/">2.77.0</a> (2026-10-01) - <a href="https://downloads.apache.org/beam/2.77.0/">Release Notes</a></p>
+                <p>Previous: 2.76.0, 2.75.0</p>
+                </body></html>
+            `;
+            expect(parseBeamVersionFromDownloadsHtml(sampleHtml)).toBe('2.77.0');
+        });
+
+        it('parses latest Beam version from PyPI JSON metadata', () => {
+            const samplePypi = JSON.stringify({ info: { name: 'apache-beam', version: '2.78.0' } });
+            expect(parseBeamVersionFromPypiJson(samplePypi)).toBe('2.78.0');
+        });
+
+        it('falls back to FALLBACK_BEAM_VERSION when network fetch fails', async () => {
+            resetBeamVersionCacheForTesting();
+            const failFetcher = async () => {
+                throw new Error('Network offline');
+            };
+            const version = await getLatestBeamVersion(failFetcher);
+            expect(version).toBe(FALLBACK_BEAM_VERSION);
+            expect(getCachedBeamVersion()).toBe(FALLBACK_BEAM_VERSION);
+        });
+
+        it('replaces Beam version in assemblePrompt when a newer version is supplied', () => {
+            const result = assemblePrompt({
+                promptTemplate: 'beamVersion: {{beam_version}}, pin: 2.76.0, docker: {{dockerfile_template}}',
+                language: 'python',
+                pipelineYaml: 'nodes: []',
+                dockerfileTemplate: 'FROM apache/beam_python3.11_sdk:2.76.0',
+                directRunnerTemplate: '',
+                dataflowRunnerTemplate: '',
+                sparkRunnerTemplate: '',
+                beamVersion: '2.79.0',
+            });
+            expect(result).toContain('beamVersion: 2.79.0');
+            expect(result).toContain('pin: 2.79.0');
+            expect(result).toContain('FROM apache/beam_python3.11_sdk:2.79.0');
+        });
+
+        it('deduplicateGeneratedFiles keeps the longest non-truncated entry per filename', () => {
+            const rawFiles = [
+                { filename: 'src/main/java/com/example/Pipe.java', content: 'package com.example;\npublic class Pipe {\n  public static void main(String[] args) {\n    System.out.println("complete");\n  }\n}\n' },
+                { filename: 'pom.xml', content: '<project></project>' },
+                { filename: 'src/main/java/com/example/Pipe.java', content: 'package com.example;\npublic class Pipe {\n  // truncated' },
+            ];
+            const deduped = deduplicateGeneratedFiles(rawFiles);
+            expect(deduped).toHaveLength(2);
+            expect(deduped[0].filename).toBe('src/main/java/com/example/Pipe.java');
+            expect(deduped[0].content).toContain('System.out.println("complete");');
+        });
+    });
+});
+
+
 
 

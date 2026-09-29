@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PropertyField } from './PropertyField';
 
@@ -138,7 +138,7 @@ describe('PropertyField', () => {
     );
 
     const input = document.getElementById('fruit-field');
-    const datalistId = input?.getAttribute('list');
+    const datalistId = input?.getAttribute('data-list') || input?.getAttribute('list');
     expect(datalistId).toBeTruthy();
 
     const datalist = document.getElementById(datalistId!);
@@ -170,5 +170,72 @@ describe('PropertyField', () => {
     );
 
     expect(screen.getByPlaceholderText('Disabled input')).toBeDisabled();
+  });
+
+  it('renders interactive dropdown arrow and opens options menu on click or focus', () => {
+    const handleChange = vi.fn();
+    render(
+      <PropertyField
+        id="fruit-field"
+        name="fruit"
+        label="Fruit"
+        datalist={['Apple', 'Banana', { value: 'Cherry', label: 'Fresh Cherry' }]}
+        onChange={handleChange}
+      />
+    );
+
+    // Arrow button is rendered
+    const arrowButton = screen.getByRole('button', { name: /Toggle suggestions/i });
+    expect(arrowButton).toBeInTheDocument();
+
+    // Dropdown list is closed initially
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    // Clicking arrow opens dropdown list
+    fireEvent.click(arrowButton);
+    const listbox = screen.getByRole('listbox');
+    expect(listbox).toBeInTheDocument();
+    expect(within(listbox).getByText('Apple')).toBeInTheDocument();
+    expect(within(listbox).getByText('Banana')).toBeInTheDocument();
+    expect(within(listbox).getByText('Fresh Cherry')).toBeInTheDocument();
+
+    // Clicking an option selects it, fires onChange, and closes list
+    const cherryOption = within(listbox).getByText('Fresh Cherry');
+    fireEvent.mouseDown(cherryOption);
+
+    expect(handleChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ name: 'fruit', value: 'Cherry' })
+      })
+    );
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('filters suggestions when typing and closes on Escape', () => {
+    render(
+      <PropertyField
+        id="fruit-field"
+        name="fruit"
+        label="Fruit"
+        datalist={['Apple', 'Banana', 'Avocado', 'Cherry']}
+      />
+    );
+
+    const input = screen.getByRole('textbox');
+
+    // Focus opens dropdown
+    fireEvent.focus(input);
+    const listbox = screen.getByRole('listbox');
+    expect(listbox).toBeInTheDocument();
+
+    // Type 'av' to filter
+    fireEvent.change(input, { target: { name: 'fruit', value: 'av' } });
+    expect(within(listbox).getByText('Avocado')).toBeInTheDocument();
+    expect(within(listbox).queryByText('Banana')).not.toBeInTheDocument();
+    expect(within(listbox).queryByText('Cherry')).not.toBeInTheDocument();
+
+    // Pressing Escape closes list
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 });

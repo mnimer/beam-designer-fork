@@ -24,7 +24,7 @@
         "kind": "build",
         "isDefault": true
       },
-      "problemMatcher": "$tsc",
+      "problemMatcher": [],
       "label": "npm: build",
       "detail": "npm run build:webview && npm run compile"
     },

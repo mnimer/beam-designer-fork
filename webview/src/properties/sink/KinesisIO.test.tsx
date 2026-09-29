@@ -40,7 +40,7 @@ describe('KinesisIOSinkProperties', () => {
     expect(screen.getByLabelText(/Stream Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/AWS Region/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Secret Manager$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Direct Keys$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Direct Keys$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^IAM \/ Default$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Partition Key Source/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Serialization Format/i)).toBeInTheDocument();
@@ -54,9 +54,7 @@ describe('KinesisIOSinkProperties', () => {
         properties: {
           streamName: 'analytics-output-stream',
           region: 'us-west-2',
-          authMode: 'direct' as const,
-          awsAccessKey: 'AKIA_SINK_KEY',
-          awsSecretKey: 'SECRET_SINK_KEY'
+          authMode: 'secretManager' as const,
         }
       }
     };
@@ -194,7 +192,7 @@ describe('KinesisIOSinkProperties', () => {
     expect(secretErrorAlert).toBeInTheDocument();
   });
 
-  it('supports direct credentials and toggles secret key visibility', () => {
+  it('does not render direct cleartext AWS credential inputs and strips legacy keys on update', () => {
     const mockNode = {
       data: {
         label: 'Kinesis',
@@ -207,15 +205,16 @@ describe('KinesisIOSinkProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const secretInput = screen.getByLabelText(/AWS Secret Access Key/i);
-    expect(secretInput).toHaveAttribute('type', 'password');
+    expect(container.querySelector('input[name="awsAccessKey"]')).not.toBeInTheDocument();
+    expect(container.querySelector('input[name="awsSecretKey"]')).not.toBeInTheDocument();
 
-    const toggleButton = screen.getByTitle(/Show key/i);
-    fireEvent.click(toggleButton);
+    const streamInput = screen.getByLabelText(/Stream Name/i);
+    fireEvent.change(streamInput, { target: { name: 'streamName', value: 'clean-sink-stream' } });
 
-    expect(secretInput).toHaveAttribute('type', 'text');
+    expect(mockOnChange.mock.calls[0][0].awsAccessKey).toBeUndefined();
+    expect(mockOnChange.mock.calls[0][0].awsSecretKey).toBeUndefined();
   });
 
   it('supports IAM / Default Provider mode with role ARN', () => {
@@ -279,26 +278,29 @@ describe('KinesisIOSinkProperties', () => {
     expect(customKeyInput).toHaveValue('record.getId()');
   });
 
-  it('handles data serialization modes including custom serializer', () => {
+  it('handles data serialization modes without custom serializer option or customDataSerializer input', () => {
     const mockNode = {
       data: {
         label: 'Kinesis',
         properties: {
-          dataSerialization: 'custom' as const,
-          customDataSerializer: 'com.example.ProtobufSerializer'
+          dataSerialization: 'stringUtf8' as const
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const customSerializerInput = screen.getByLabelText(/Custom Serializer Function \/ Class/i);
-    expect(customSerializerInput).toHaveValue('com.example.ProtobufSerializer');
+    const serializationSelect = screen.getByLabelText(/Serialization Format/i) as HTMLSelectElement;
+    expect(serializationSelect).toHaveValue('stringUtf8');
 
-    fireEvent.change(customSerializerInput, { target: { name: 'customDataSerializer', value: 'com.example.AvroSerializer' } });
+    const options = Array.from(serializationSelect.querySelectorAll('option')).map(o => o.value);
+    expect(options).not.toContain('custom');
+    expect(container.querySelector('#customDataSerializer')).not.toBeInTheDocument();
+
+    fireEvent.change(serializationSelect, { target: { name: 'dataSerialization', value: 'json' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      customDataSerializer: 'com.example.AvroSerializer'
+      dataSerialization: 'json'
     }));
   });
 

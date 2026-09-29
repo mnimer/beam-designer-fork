@@ -1,0 +1,82 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"event_id": "e-1", "user_id": "u-1", "action": "click", "status":
+            "SUCCESS", "duration_ms": 120, "timestamp": 1700000000}'
+          - '{"event_id": "e-2", "user_id": "u-2", "action": "view", "status":
+            "SUCCESS", "duration_ms": 340, "timestamp": 1700000030}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Parse each JSON string into a Beam Row (fields: event_id
+        STRING, user_id STRING, action STRING, status STRING, duration_ms INT64,
+        timestamp INT64) with setRowSchema applied for JsonIO.writeRows (Java)
+        or WriteToJson (Python)."
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: JsonIO Write Results
+      type: SINK
+      iconName: FileCode
+      beam_transform: JsonIO
+      properties:
+        to: gs://my-bucket/events/processed/results
+        suffix: .json
+        lines: true
+        compression: UNCOMPRESSED
+        numShards: 2
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: jsonio-sink-python
+  - key: filePattern
+    value: gs://my-bucket/events/incoming-*.json
+  - key: output
+    value: gs://my-bucket/events/processed/results
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/jsonio-sink-python
+  needsRebuild: false

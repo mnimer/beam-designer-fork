@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { BEAM_COMPRESSION_TYPES } from '../source/FileIO';
+import { BEAM_WRITE_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 
@@ -31,7 +31,6 @@ interface FileIOSinkNode {
       withCompression?: boolean;
       compression?: string;
       numShards?: string | number;
-      ignoreEmptyFiles?: boolean;
       system_instructions?: string;
       special_instructions?: string;
       codeGenerationPrompt?: string;
@@ -55,9 +54,9 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
   const prefix = properties.prefix || '';
   const suffix = properties.suffix || '';
   const withCompression = properties.withCompression ?? false;
-  const compression = properties.compression || 'AUTO';
+  const rawCompression = properties.compression || 'UNCOMPRESSED';
+  const compression = (rawCompression === 'AUTO' || rawCompression === 'ZIP') ? 'UNCOMPRESSED' : rawCompression;
   const numShards = properties.numShards ?? '';
-  const ignoreEmptyFiles = properties.ignoreEmptyFiles ?? false;
 
   const isToInvalid = !to.trim();
 
@@ -176,28 +175,12 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
               onChange={handleChange}
               className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
             >
-              {BEAM_COMPRESSION_TYPES.map(type => (
+              {BEAM_WRITE_COMPRESSION_TYPES.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
           </div>
         )}
-      </div>
-
-      {/* Ignore Empty Files */}
-      <div className="p-3 bg-slate-800/40 rounded border border-slate-700/50">
-        <label htmlFor="fileSinkIgnoreEmptyFiles" className="flex items-center gap-2 cursor-pointer">
-          <input
-            id="fileSinkIgnoreEmptyFiles"
-            type="checkbox"
-            name="ignoreEmptyFiles"
-            checked={ignoreEmptyFiles}
-            onChange={handleChange}
-            className="w-4 h-4 rounded border-slate-700 text-blue-600 focus:ring-0 focus:ring-offset-0 bg-[#252836]"
-          />
-          <span className="text-sm font-medium text-slate-300">Ignore Empty Files (.withIgnoreEmptyFiles)</span>
-          <InfoTooltip text="Skips writing empty output files if no elements are processed for a shard." />
-        </label>
       </div>
 
       {/* Flexible Spacer */}

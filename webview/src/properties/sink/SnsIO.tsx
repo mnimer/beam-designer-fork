@@ -217,6 +217,7 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
           <PropertyField
             id="snsSinkCustomRegion"
             name="customRegion"
+            label="Custom AWS Region"
             value={customRegion}
             onChange={handleChange}
             placeholder="e.g. me-central-1"
@@ -268,6 +269,7 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
               value={accessKeySecret}
               onChange={handleChange}
               list="secret-options"
+              datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
               placeholder="e.g. aws-access-key-id"
               error={secretError}
             />
@@ -278,14 +280,10 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
               value={secretKeySecret}
               onChange={handleChange}
               list="secret-options"
+              datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
               placeholder="e.g. aws-secret-access-key"
               error={secretError}
             />
-            <datalist id="secret-options">
-              {secrets.map(s => (
-                <option key={s.id || s.name} value={s.id || s.name} />
-              ))}
-            </datalist>
           </div>
         )}
       </div>

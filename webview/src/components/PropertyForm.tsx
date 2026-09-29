@@ -12,8 +12,13 @@
  * - Resolves keys using type-qualified keys (`${type}:${transform}`) and direct transform names.
  * - Fails fast: Displays an explicit "No property form registered for type <type>" message if no registry entry matches.
  * - Never inspects or falls back to user-editable display labels, preventing property sheet corruption on node renaming.
- * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO),
- *   Database, File, Aggregations, and Transform steps.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO, AmqpIO, RabbitMqIO,
+ *   PulsarIO, SolaceIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO, AmqpIO, RabbitMqIO, PulsarIO, SolaceIO),
+ *   Data Services (FlinkStreamingImpulseSource), Database, File, Aggregations, and Transform steps.
+ * - Database and Data Services connector family registered under type-qualified keys (`SOURCE:`/`SINK:`): CassandraIO,
+ *   HBaseIO, KuduIO, MongoDbIO, RedisIO, BigTableIO, ClickHouseIO, DatabaseIO, DatastoreIO, DynamoDBIO,
+ *   ElasticsearchIO, FirestoreIO, HadoopFormatIO, InfluxDbIO, MongoDbGridFSIO, Neo4jIO, SingleStoreDBIO,
+ *   SnowflakeIO, SolrIO, SpannerIO, CdapIO, CosmosIO, DebeziumIO, HCatalogIO, ArrowFlightIO, SparkReceiverIO.
  */
 import React from 'react';
 import { PubSubProperties } from '../properties/source/PubSubIO';
@@ -56,11 +61,127 @@ import { SqsIOSourceProperties } from '../properties/source/SqsIO';
 import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
 import { MqttIOSourceProperties } from '../properties/source/MqttIO';
 import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+import { CassandraIOSourceProperties } from '../properties/source/CassandraIO';
+import { CassandraIOSinkProperties } from '../properties/sink/CassandraIO';
+import { HBaseIOSourceProperties } from '../properties/source/HBaseIO';
+import { HBaseIOSinkProperties } from '../properties/sink/HBaseIO';
+import { KuduIOSourceProperties } from '../properties/source/KuduIO';
+import { KuduIOSinkProperties } from '../properties/sink/KuduIO';
+import { MongoDbIOSourceProperties } from '../properties/source/MongoDbIO';
+import { MongoDbIOSinkProperties } from '../properties/sink/MongoDbIO';
+import { RedisIOSourceProperties } from '../properties/source/RedisIO';
+import { RedisIOSinkProperties } from '../properties/sink/RedisIO';
+import { BigTableIOSourceProperties } from '../properties/source/BigTableIO';
+import { BigTableIOSinkProperties } from '../properties/sink/BigTableIO';
+import { ClickHouseIOSourceProperties } from '../properties/source/ClickHouseIO';
+import { ClickHouseIOSinkProperties } from '../properties/sink/ClickHouseIO';
+import { DatabaseIOSourceProperties } from '../properties/source/DatabaseIO';
+import { DatabaseIOSinkProperties } from '../properties/sink/DatabaseIO';
+import { DatastoreIOSourceProperties } from '../properties/source/DatastoreIO';
+import { DatastoreIOSinkProperties } from '../properties/sink/DatastoreIO';
+import { DynamoDBIOSourceProperties } from '../properties/source/DynamoDBIO';
+import { DynamoDBIOSinkProperties } from '../properties/sink/DynamoDBIO';
+import { ElasticsearchIOSourceProperties } from '../properties/source/ElasticsearchIO';
+import { ElasticsearchIOSinkProperties } from '../properties/sink/ElasticsearchIO';
+import { FirestoreIOSourceProperties } from '../properties/source/FirestoreIO';
+import { FirestoreIOSinkProperties } from '../properties/sink/FirestoreIO';
+import { HadoopFormatIOSourceProperties } from '../properties/source/HadoopFormatIO';
+import { HadoopFormatIOSinkProperties } from '../properties/sink/HadoopFormatIO';
+import { InfluxDbIOSourceProperties } from '../properties/source/InfluxDbIO';
+import { InfluxDbIOSinkProperties } from '../properties/sink/InfluxDbIO';
+import { MongoDbGridFSIOSourceProperties } from '../properties/source/MongoDbGridFSIO';
+import { MongoDbGridFSIOSinkProperties } from '../properties/sink/MongoDbGridFSIO';
+import { Neo4jIOSourceProperties } from '../properties/source/Neo4jIO';
+import { Neo4jIOSinkProperties } from '../properties/sink/Neo4jIO';
+import { SingleStoreDBIOSourceProperties } from '../properties/source/SingleStoreDBIO';
+import { SingleStoreDBIOSinkProperties } from '../properties/sink/SingleStoreDBIO';
+import { SnowflakeIOSourceProperties } from '../properties/source/SnowflakeIO';
+import { SnowflakeIOSinkProperties } from '../properties/sink/SnowflakeIO';
+import { SolrIOSourceProperties } from '../properties/source/SolrIO';
+import { SolrIOSinkProperties } from '../properties/sink/SolrIO';
+import { SpannerIOSourceProperties } from '../properties/source/SpannerIO';
+import { SpannerIOSinkProperties } from '../properties/sink/SpannerIO';
+import { CdapIOSourceProperties } from '../properties/source/CdapIO';
+import { CdapIOSinkProperties } from '../properties/sink/CdapIO';
+import { CosmosIOSourceProperties } from '../properties/source/CosmosIO';
+import { DebeziumIOSourceProperties } from '../properties/source/DebeziumIO';
+import { HCatalogIOSourceProperties } from '../properties/source/HCatalogIO';
+import { HCatalogIOSinkProperties } from '../properties/sink/HCatalogIO';
+import { ArrowFlightIOSourceProperties } from '../properties/source/ArrowFlightIO';
+import { ArrowFlightIOSinkProperties } from '../properties/sink/ArrowFlightIO';
+import { SparkReceiverIOSourceProperties } from '../properties/source/SparkReceiverIO';
+import { FhirIOSourceProperties } from '../properties/source/FhirIO';
+import { FhirIOSinkProperties } from '../properties/sink/FhirIO';
+import { HL7v2IOSourceProperties } from '../properties/source/HL7v2IO';
+import { HL7v2IOSinkProperties } from '../properties/sink/HL7v2IO';
+import { DicomIOSourceProperties } from '../properties/source/DicomIO';
+import { DicomIOSinkProperties } from '../properties/sink/DicomIO';
+import { SplunkIOSinkProperties } from '../properties/sink/SplunkIO';
+import { GoogleAdsIOSourceProperties } from '../properties/source/GoogleAdsIO';
+import { RequestResponseIOSourceProperties } from '../properties/source/RequestResponseIO';
+import { RequestResponseIOSinkProperties } from '../properties/sink/RequestResponseIO';
+import { DatadogIOSinkProperties } from '../properties/sink/DatadogIO';
+import { AmqpIOSourceProperties } from '../properties/source/AmqpIO';
+import { AmqpIOSinkProperties } from '../properties/sink/AmqpIO';
+import { RabbitMqIOSourceProperties } from '../properties/source/RabbitMqIO';
+import { RabbitMqIOSinkProperties } from '../properties/sink/RabbitMqIO';
+import { PulsarIOSourceProperties } from '../properties/source/PulsarIO';
+import { PulsarIOSinkProperties } from '../properties/sink/PulsarIO';
+import { SolaceIOSourceProperties } from '../properties/source/SolaceIO';
+import { SolaceIOSinkProperties } from '../properties/sink/SolaceIO';
+import { FlinkStreamingImpulseSourceProperties } from '../properties/source/FlinkStreamingImpulseSource';
+import { TFRecordIOSourceProperties } from '../properties/source/TFRecordIO';
+import { TFRecordIOSinkProperties } from '../properties/sink/TFRecordIO';
+import { CsvIOSourceProperties } from '../properties/source/CsvIO';
+import { CsvIOSinkProperties } from '../properties/sink/CsvIO';
+import { XmlIOSourceProperties } from '../properties/source/XmlIO';
+import { XmlIOSinkProperties } from '../properties/sink/XmlIO';
+import { JsonIOSourceProperties } from '../properties/source/JsonIO';
+import { JsonIOSinkProperties } from '../properties/sink/JsonIO';
+import { ContextualTextIOSourceProperties } from '../properties/source/ContextualTextIO';
+import { ContextualTextIOSinkProperties } from '../properties/sink/ContextualTextIO';
+import { ThriftIOSourceProperties } from '../properties/source/ThriftIO';
+import { ThriftIOSinkProperties } from '../properties/sink/ThriftIO';
+import { HadoopFileSystemSourceProperties } from '../properties/source/HadoopFileSystem';
+import { HadoopFileSystemSinkProperties } from '../properties/sink/HadoopFileSystem';
+import { GcsFileSystemSourceProperties } from '../properties/source/GcsFileSystem';
+import { GcsFileSystemSinkProperties } from '../properties/sink/GcsFileSystem';
+import { LocalFileSystemSourceProperties } from '../properties/source/LocalFileSystem';
+import { LocalFileSystemSinkProperties } from '../properties/sink/LocalFileSystem';
+import { S3FileSystemSourceProperties } from '../properties/source/S3FileSystem';
+import { S3FileSystemSinkProperties } from '../properties/sink/S3FileSystem';
+import { AzureBlobStoreFileSystemSourceProperties } from '../properties/source/AzureBlobStoreFileSystem';
+import { AzureBlobStoreFileSystemSinkProperties } from '../properties/sink/AzureBlobStoreFileSystem';
+import { IcebergIOSourceProperties } from '../properties/source/IcebergIO';
+import { IcebergIOSinkProperties } from '../properties/sink/IcebergIO';
+import { TikaIOSourceProperties } from '../properties/source/TikaIO';
+import { TikaIOSinkProperties } from '../properties/sink/TikaIO';
+import { CloudBigtableSourceProperties } from '../properties/source/CloudBigtable';
+import { CloudBigtableSinkProperties } from '../properties/sink/CloudBigtable';
+import { CogniteDataFusionSourceProperties } from '../properties/source/CogniteDataFusion';
+import { CogniteDataFusionSinkProperties } from '../properties/sink/CogniteDataFusion';
+import { KineticaDBSourceProperties } from '../properties/source/KineticaDB';
+import { KineticaDBSinkProperties } from '../properties/sink/KineticaDB';
+import { TrepWsIOSourceProperties } from '../properties/source/TrepWsIO';
+import { TrepWsIOSinkProperties } from '../properties/sink/TrepWsIO';
+import { CloudSQLSourceProperties } from '../properties/source/CloudSQL';
+import { CloudSQLSinkProperties } from '../properties/sink/CloudSQL';
+import { MySQLSourceProperties } from '../properties/source/MySQL';
+import { MySQLSinkProperties } from '../properties/sink/MySQL';
+import { PyodbcSourceProperties } from '../properties/source/Pyodbc';
+import { PyodbcSinkProperties } from '../properties/sink/Pyodbc';
+import { TinybirdSourceProperties } from '../properties/source/Tinybird';
+import { TinybirdSinkProperties } from '../properties/sink/Tinybird';
+import { MySQLPostgreSQLOracleSQLServerSourceProperties } from '../properties/source/MySQLPostgreSQLOracleSQLServer';
+import { MySQLPostgreSQLOracleSQLServerSinkProperties } from '../properties/sink/MySQLPostgreSQLOracleSQLServer';
+import { NodeDocsCard } from './common/NodeDocsCard';
+import { hasInlineNodeDocsCard } from '../utils/nodeDocumentation';
 
 export interface PropertyFormProps {
   node: any;
   onChange: (properties: any) => void;
   onAddKVMapper?: (windowNodeId: string) => void;
+  onAddPubSubSource?: (targetNodeId: string) => void;
 }
 
 /**
@@ -84,13 +205,75 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SOURCE:KinesisIO': KinesisIOSourceProperties,
   'SOURCE:ParquetIO': ParquetIOSourceProperties,
   'SOURCE:AvroIO': AvroIOSourceProperties,
+  'SOURCE:TFRecordIO': TFRecordIOSourceProperties,
+  'SOURCE:CsvIO': CsvIOSourceProperties,
+  'SOURCE:XmlIO': XmlIOSourceProperties,
+  'SOURCE:JsonIO': JsonIOSourceProperties,
+  'SOURCE:ContextualTextIO': ContextualTextIOSourceProperties,
+  'SOURCE:ThriftIO': ThriftIOSourceProperties,
+  'SOURCE:HadoopFileSystem': HadoopFileSystemSourceProperties,
+  'SOURCE:GcsFileSystem': GcsFileSystemSourceProperties,
+  'SOURCE:LocalFileSystem': LocalFileSystemSourceProperties,
+  'SOURCE:S3FileSystem': S3FileSystemSourceProperties,
+  'SOURCE:AzureBlobStoreFileSystem': AzureBlobStoreFileSystemSourceProperties,
+  'SOURCE:IcebergIO': IcebergIOSourceProperties,
+  'SOURCE:TikaIO': TikaIOSourceProperties,
   'SOURCE:SnsIO': SnsIOSourceProperties,
   'SOURCE:JmsIO': JmsIOSourceProperties,
   'SOURCE:SqsIO': SqsIOSourceProperties,
   'SOURCE:MqttIO': MqttIOSourceProperties,
+  'SOURCE:CassandraIO': CassandraIOSourceProperties,
+  'SOURCE:HBaseIO': HBaseIOSourceProperties,
+  'SOURCE:KuduIO': KuduIOSourceProperties,
+  'SOURCE:MongoDbIO': MongoDbIOSourceProperties,
+  'SOURCE:RedisIO': RedisIOSourceProperties,
+  'SOURCE:BigTableIO': BigTableIOSourceProperties,
+  'SOURCE:BigtableIO': BigTableIOSourceProperties,
+  'SOURCE:ClickHouseIO': ClickHouseIOSourceProperties,
+  'SOURCE:DatabaseIO': DatabaseIOSourceProperties,
+  'SOURCE:DatastoreIO': DatastoreIOSourceProperties,
+  'SOURCE:DynamoDBIO': DynamoDBIOSourceProperties,
+  'SOURCE:ElasticsearchIO': ElasticsearchIOSourceProperties,
+  'SOURCE:FirestoreIO': FirestoreIOSourceProperties,
+  'SOURCE:HadoopFormatIO': HadoopFormatIOSourceProperties,
+  'SOURCE:InfluxDbIO': InfluxDbIOSourceProperties,
+  'SOURCE:MongoDbGridFSIO': MongoDbGridFSIOSourceProperties,
+  'SOURCE:Neo4jIO': Neo4jIOSourceProperties,
+  'SOURCE:SingleStoreDBIO': SingleStoreDBIOSourceProperties,
+  'SOURCE:SingleStoreIO': SingleStoreDBIOSourceProperties,
+  'SOURCE:SnowflakeIO': SnowflakeIOSourceProperties,
+  'SOURCE:SolrIO': SolrIOSourceProperties,
+  'SOURCE:SpannerIO': SpannerIOSourceProperties,
+  'SOURCE:CdapIO': CdapIOSourceProperties,
+  'SOURCE:CosmosIO': CosmosIOSourceProperties,
+  'SOURCE:DebeziumIO': DebeziumIOSourceProperties,
+  'SOURCE:HCatalogIO': HCatalogIOSourceProperties,
+  'SOURCE:ArrowFlightIO': ArrowFlightIOSourceProperties,
+  'SOURCE:SparkReceiverIO': SparkReceiverIOSourceProperties,
+  'SOURCE:FhirIO': FhirIOSourceProperties,
+  'SOURCE:HL7v2IO': HL7v2IOSourceProperties,
+  'SOURCE:DicomIO': DicomIOSourceProperties,
+  'SOURCE:GoogleAdsIO': GoogleAdsIOSourceProperties,
+  'SOURCE:RequestResponseIO': RequestResponseIOSourceProperties,
+  'SOURCE:WebAPIs': RequestResponseIOSourceProperties,
+  'SOURCE:Web APIs (RequestResponseIO)': RequestResponseIOSourceProperties,
+  'SOURCE:AmqpIO': AmqpIOSourceProperties,
+  'SOURCE:RabbitMqIO': RabbitMqIOSourceProperties,
+  'SOURCE:PulsarIO': PulsarIOSourceProperties,
+  'SOURCE:SolaceIO': SolaceIOSourceProperties,
+  'SOURCE:FlinkStreamingImpulseSource': FlinkStreamingImpulseSourceProperties,
   'SOURCE:GenerateSequence': GenerateSequenceProperties,
   'SOURCE:PeriodicImpulse': PeriodicImpulseProperties,
   'SOURCE:Create': CreateProperties,
+  'SOURCE:CloudBigtable': CloudBigtableSourceProperties,
+  'SOURCE:CogniteDataFusion': CogniteDataFusionSourceProperties,
+  'SOURCE:KineticaDB': KineticaDBSourceProperties,
+  'SOURCE:TrepWsIO': TrepWsIOSourceProperties,
+  'SOURCE:CloudSQL': CloudSQLSourceProperties,
+  'SOURCE:MySQL': MySQLSourceProperties,
+  'SOURCE:Pyodbc': PyodbcSourceProperties,
+  'SOURCE:Tinybird': TinybirdSourceProperties,
+  'SOURCE:MySQLPostgreSQLOracleSQLServer': MySQLPostgreSQLOracleSQLServerSourceProperties,
 
   // Direct Source transforms (Python Beam transforms / unique names)
   'ReadFromAvro': AvroIOSourceProperties,
@@ -98,8 +281,13 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'ReadFromJms': JmsIOSourceProperties,
   'ReadDataFromKinesis': KinesisIOSourceProperties,
   'ReadFromParquet': ParquetIOSourceProperties,
+  'ReadFromTFRecord': TFRecordIOSourceProperties,
+  'ReadFromCsv': CsvIOSourceProperties,
+  'ReadFromJson': JsonIOSourceProperties,
   'ReadFromSqs': SqsIOSourceProperties,
   'ReadFromMqtt': MqttIOSourceProperties,
+  'DicomSearch': DicomIOSourceProperties,
+  'GoogleAdsIO': GoogleAdsIOSourceProperties,
   'FileIO.match': FileIOSourceProperties,
   'GenerateSequence': GenerateSequenceProperties,
   'PeriodicImpulse': PeriodicImpulseProperties,
@@ -117,11 +305,71 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'SINK:KinesisIO': KinesisIOSinkProperties,
   'SINK:ParquetIO': ParquetIOSinkProperties,
   'SINK:AvroIO': AvroIOSinkProperties,
+  'SINK:TFRecordIO': TFRecordIOSinkProperties,
+  'SINK:CsvIO': CsvIOSinkProperties,
+  'SINK:XmlIO': XmlIOSinkProperties,
+  'SINK:JsonIO': JsonIOSinkProperties,
+  'SINK:ContextualTextIO': ContextualTextIOSinkProperties,
+  'SINK:ThriftIO': ThriftIOSinkProperties,
+  'SINK:HadoopFileSystem': HadoopFileSystemSinkProperties,
+  'SINK:GcsFileSystem': GcsFileSystemSinkProperties,
+  'SINK:LocalFileSystem': LocalFileSystemSinkProperties,
+  'SINK:S3FileSystem': S3FileSystemSinkProperties,
+  'SINK:AzureBlobStoreFileSystem': AzureBlobStoreFileSystemSinkProperties,
+  'SINK:IcebergIO': IcebergIOSinkProperties,
+  'SINK:TikaIO': TikaIOSinkProperties,
   'SINK:SnsIO': SnsIOSinkProperties,
   'SINK:JmsIO': JmsIOSinkProperties,
   'SINK:SqsIO': SqsIOSinkProperties,
   'SINK:MqttIO': MqttIOSinkProperties,
+  'SINK:CassandraIO': CassandraIOSinkProperties,
+  'SINK:HBaseIO': HBaseIOSinkProperties,
+  'SINK:KuduIO': KuduIOSinkProperties,
+  'SINK:MongoDbIO': MongoDbIOSinkProperties,
+  'SINK:RedisIO': RedisIOSinkProperties,
+  'SINK:BigTableIO': BigTableIOSinkProperties,
+  'SINK:BigtableIO': BigTableIOSinkProperties,
+  'SINK:ClickHouseIO': ClickHouseIOSinkProperties,
+  'SINK:DatabaseIO': DatabaseIOSinkProperties,
+  'SINK:DatastoreIO': DatastoreIOSinkProperties,
+  'SINK:DynamoDBIO': DynamoDBIOSinkProperties,
+  'SINK:ElasticsearchIO': ElasticsearchIOSinkProperties,
+  'SINK:FirestoreIO': FirestoreIOSinkProperties,
+  'SINK:HadoopFormatIO': HadoopFormatIOSinkProperties,
+  'SINK:InfluxDbIO': InfluxDbIOSinkProperties,
+  'SINK:MongoDbGridFSIO': MongoDbGridFSIOSinkProperties,
+  'SINK:Neo4jIO': Neo4jIOSinkProperties,
+  'SINK:SingleStoreDBIO': SingleStoreDBIOSinkProperties,
+  'SINK:SingleStoreIO': SingleStoreDBIOSinkProperties,
+  'SINK:SnowflakeIO': SnowflakeIOSinkProperties,
+  'SINK:SolrIO': SolrIOSinkProperties,
+  'SINK:SpannerIO': SpannerIOSinkProperties,
+  'SINK:CdapIO': CdapIOSinkProperties,
+  'SINK:HCatalogIO': HCatalogIOSinkProperties,
+  'SINK:ArrowFlightIO': ArrowFlightIOSinkProperties,
+  'SINK:FhirIO': FhirIOSinkProperties,
+  'SINK:HL7v2IO': HL7v2IOSinkProperties,
+  'SINK:DicomIO': DicomIOSinkProperties,
+  'SINK:SplunkIO': SplunkIOSinkProperties,
+  'SINK:RequestResponseIO': RequestResponseIOSinkProperties,
+  'SINK:WebAPIs': RequestResponseIOSinkProperties,
+  'SINK:Web APIs (RequestResponseIO)': RequestResponseIOSinkProperties,
+  'SINK:DatadogIO': DatadogIOSinkProperties,
+  'SINK:DatadogWrite': DatadogIOSinkProperties,
+  'SINK:AmqpIO': AmqpIOSinkProperties,
+  'SINK:RabbitMqIO': RabbitMqIOSinkProperties,
+  'SINK:PulsarIO': PulsarIOSinkProperties,
+  'SINK:SolaceIO': SolaceIOSinkProperties,
   'SINK:LogMessage': LogMessageProperties,
+  'SINK:CloudBigtable': CloudBigtableSinkProperties,
+  'SINK:CogniteDataFusion': CogniteDataFusionSinkProperties,
+  'SINK:KineticaDB': KineticaDBSinkProperties,
+  'SINK:TrepWsIO': TrepWsIOSinkProperties,
+  'SINK:CloudSQL': CloudSQLSinkProperties,
+  'SINK:MySQL': MySQLSinkProperties,
+  'SINK:Pyodbc': PyodbcSinkProperties,
+  'SINK:Tinybird': TinybirdSinkProperties,
+  'SINK:MySQLPostgreSQLOracleSQLServer': MySQLPostgreSQLOracleSQLServerSinkProperties,
 
   // Direct Sink transforms (Python Beam transforms / unique names)
   'WriteToAvro': AvroIOSinkProperties,
@@ -129,8 +377,15 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'WriteToJms': JmsIOSinkProperties,
   'WriteToKinesis': KinesisIOSinkProperties,
   'WriteToParquet': ParquetIOSinkProperties,
+  'WriteToTFRecord': TFRecordIOSinkProperties,
+  'WriteToCsv': CsvIOSinkProperties,
+  'WriteToJson': JsonIOSinkProperties,
   'WriteToSqs': SqsIOSinkProperties,
   'WriteToMqtt': MqttIOSinkProperties,
+  'UploadToDicomStore': DicomIOSinkProperties,
+  'SplunkIO': SplunkIOSinkProperties,
+  'DatadogIO': DatadogIOSinkProperties,
+  'DatadogWrite': DatadogIOSinkProperties,
   'LogMessage': LogMessageProperties,
 
   // Steps & Core Transforms (with and without STEP: prefix)
@@ -209,6 +464,16 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'Reshuffle': OtherProperties,
   'STEP:ReShuffle': OtherProperties,
   'ReShuffle': OtherProperties,
+  'STEP:Keys': OtherProperties,
+  'Keys': OtherProperties,
+  'STEP:KvSwap': OtherProperties,
+  'KvSwap': OtherProperties,
+  'KV Swap': OtherProperties,
+  'STEP:ToString': OtherProperties,
+  'ToString': OtherProperties,
+  'To String': OtherProperties,
+  'STEP:Values': OtherProperties,
+  'Values': OtherProperties,
 };
 
 /**
@@ -218,7 +483,8 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
  * 1. Type-qualified key: `${nodeType}:${transform}` (e.g. "SOURCE:PubSubIO", "SINK:BigQueryIO")
  * 2. Direct transform key: `${transform}` (e.g. "ParDo", "WindowInto", "ReadFromKafka")
  * 
- * NOTE: Does NOT fall back to label matching under any circumstances.
+ * NOTE: Does NOT fall back to label matching under any circumstances, nor does it allow
+ * a SOURCE node to fall back to a SINK-only transform (or vice versa).
  * 
  * @param node - React Flow node object
  * @returns Registered React component or undefined if unregistered
@@ -237,6 +503,11 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
     if (PROPERTY_FORM_REGISTRY[qualifiedKey]) {
       return PROPERTY_FORM_REGISTRY[qualifiedKey];
     }
+    // Prevent cross-direction fallback when an opposite direction is explicitly registered
+    const oppositeType = nodeType === 'SOURCE' ? 'SINK' : nodeType === 'SINK' ? 'SOURCE' : '';
+    if (oppositeType && PROPERTY_FORM_REGISTRY[`${oppositeType}:${transform}`]) {
+      return undefined;
+    }
   }
 
   // 2. Try direct transform key (e.g. "ParDo", "WindowInto", "ReadFromKafka")
@@ -251,7 +522,12 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
  * Container component that dispatches specific node property sheets based on immutable node metadata.
  * Renders an explicit unregistered message when no matching registry entry is found.
  */
-export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
+export const PropertyForm: React.FC<PropertyFormProps> = ({
+  node,
+  onChange,
+  onAddKVMapper,
+  onAddPubSubSource
+}) => {
   const Component = getPropertyFormComponent(node);
 
   if (!Component) {
@@ -264,5 +540,15 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     );
   }
 
-  return <Component node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
+  return (
+    <div className="flex-1 flex flex-col gap-4">
+      {!hasInlineNodeDocsCard(node) && <NodeDocsCard node={node} />}
+      <Component
+        node={node}
+        onChange={onChange}
+        onAddKVMapper={onAddKVMapper}
+        onAddPubSubSource={onAddPubSubSource}
+      />
+    </div>
+  );
 };

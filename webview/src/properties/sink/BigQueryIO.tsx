@@ -16,6 +16,7 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { BigQuerySchemaEditor, type BigQueryField, jsonToFields, stringToFields } from './BigQuerySchemaEditor';
 
 interface BigQuerySinkPropertiesProps {
   node: any;
@@ -34,6 +35,36 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
 
   const dataset = properties.dataset || '';
   const table = properties.table || '';
+  const createDisposition = properties.createDisposition || 'beam.io.BigQueryDisposition.CREATE_NEVER';
+  const isCreateIfNeeded = createDisposition === 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED';
+
+  // Resolve schema fields from properties (support schemaFields array, schema JSON string, or schemaString)
+  const schemaFields: BigQueryField[] = React.useMemo(() => {
+    if (Array.isArray(properties.schemaFields)) {
+      return properties.schemaFields;
+    }
+    if (typeof properties.schema === 'string' && properties.schema.trim()) {
+      const parsed = jsonToFields(properties.schema);
+      if (parsed) return parsed;
+    }
+    if (typeof properties.schemaString === 'string' && properties.schemaString.trim()) {
+      return stringToFields(properties.schemaString);
+    }
+    return [];
+  }, [properties.schemaFields, properties.schema, properties.schemaString]);
+
+  const handleSchemaEditorChange = (data: {
+    schemaFields: BigQueryField[];
+    schema: string;
+    schemaString: string;
+  }) => {
+    onChange({
+      ...properties,
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
+    });
+  };
 
   const [datasets, setDatasets] = React.useState<string[]>([]);
   const [tables, setTables] = React.useState<string[]>([]);
@@ -142,7 +173,7 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
         <select 
           id="bigQuerySinkCreateDisposition"
           name="createDisposition" 
-          value={properties.createDisposition || 'beam.io.BigQueryDisposition.CREATE_NEVER'} 
+          value={createDisposition} 
           onChange={handleChange} 
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
         >
@@ -150,6 +181,25 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
           <option value="beam.io.BigQueryDisposition.CREATE_IF_NEEDED">Create If Needed</option>
         </select>
       </div>
+
+      {/* Schema Editor (shown only when CREATE_IF_NEEDED is selected) */}
+      {isCreateIfNeeded && (
+        <div className="p-3 bg-slate-800/40 rounded border border-purple-500/30 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase text-slate-300">Table Schema</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-semibold">
+                {schemaFields.length} {schemaFields.length === 1 ? 'FIELD' : 'FIELDS'}
+              </span>
+            </div>
+            <InfoTooltip text="Define table schema columns and types required by Apache Beam when CREATE_IF_NEEDED creates a new table." />
+          </div>
+          <BigQuerySchemaEditor
+            fields={schemaFields}
+            onChange={handleSchemaEditorChange}
+          />
+        </div>
+      )}
 
       {/* Write Disposition */}
       <div className="flex flex-col gap-2">

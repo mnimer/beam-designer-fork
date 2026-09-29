@@ -1,0 +1,121 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Read TREP FX Quotes
+      type: SOURCE
+      iconName: Radio
+      beam_transform: TrepWsIO
+      properties:
+        username: GE-A-01103867-3-1234
+        ertAuthEnabled: true
+        passwordSecret: trep-ert-password
+        ertAuthStoreLocation: gs://acme-dataflow-temp/trep-token-store
+        serviceDiscovery: true
+        region: eu
+        instrumentTuples:
+          - service: ELEKTRON_DD
+            rics: EUR=, JPY=, GBP=
+            fields: BID, ASK
+        cachedFields: PROD_PERM
+        maxMounts: 1
+        timeout: 60000
+      system_instructions: "Use the community Refinitiv TrepWsIO connector: Maven
+        com.refinitiv.beamio:trepws-io:1.2.0 (this artifact is NOT on Maven
+        Central; add an XML comment in pom.xml and a README Prerequisites step
+        saying it must first be installed into the local Maven repository with
+        \"mvn install -DskipTests\" from
+        https://github.com/Refinitiv/trep-websockets-beam-io). In pom.xml add an
+        exclusion of
+        com.google.cloud.dataflow:google-cloud-dataflow-java-sdk-all on that
+        dependency so the baseline beam.version is the only Beam on the
+        classpath. Imports: com.refinitiv.beamio.trepwebsockets.TrepWsIO,
+        com.refinitiv.beamio.trepwebsockets.TrepWsIO.InstrumentTuple,
+        com.refinitiv.beamio.trepwebsockets.MarketPriceMessage. TrepWsIO.read()
+        returns PCollection<MarketPriceMessage> and is an UNBOUNDED streaming
+        source: call options.setStreaming(true) and pass --streaming=true in the
+        runner scripts. Property mapping: username -> .withUsername(username);
+        ertAuthEnabled true -> .withTokenAuth(true); passwordSecret is a Google
+        Cloud Secret Manager secret ID -> resolve it once in main with the
+        accessSecret helper (projectId from options.getProject()) and pass it to
+        .withPassword(...); ertAuthStoreLocation -> .withTokenStore(...);
+        serviceDiscovery true -> .withServiceDiscovery(true) (no hostname is
+        needed); region -> .withRegion(region); instrumentTuples ->
+        .withInstrumentTuples(java.util.List.of(InstrumentTuple.of(service, list
+        of trimmed RICs split on commas, list of trimmed fields split on
+        commas))); cachedFields ->
+        .withCachedFields(java.util.Set.of(\"PROD_PERM\")); maxMounts ->
+        .withMaxMounts(1); timeout -> .withTimeout(60000) (upstream requires at
+        least 60000 ms). NEVER call .withAuthServer(...): upstream
+        TrepWsIO.withAuthServer() overwrites the username (bug); keep the
+        connector's default auth server. Build lists and sets with
+        java.util.List.of / java.util.Set.of, not Guava."
+    width: 190
+    height: 64
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Compute Mid Price
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        bidField: BID
+        askField: ASK
+        outputField: MID
+      system_instructions: Implement a static nested DoFn<MarketPriceMessage, String>
+        named ComputeMidFn. For each message whose getFields() map contains
+        parseable bidField and askField values, compute mid = (bid + ask) / 2
+        and emit a formatted JSON summary string containing getName(),
+        getService(), and outputField = mid. Drop messages missing either field
+        and count them with a Beam Counter (Metrics.counter). In the unit test
+        use TestPipeline, Create.of(...) with MarketPriceMessage instances and
+        .withCoder(SerializableCoder.of(MarketPriceMessage.class)), and PAssert
+        the formatted MID values.
+    width: 190
+    height: 64
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[TrepWsIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: trepwsio-source-java
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/trepwsio-source-java
+  needsRebuild: false

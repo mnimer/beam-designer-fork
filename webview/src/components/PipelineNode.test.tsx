@@ -75,6 +75,23 @@ describe('PipelineNode', () => {
     expect(screen.queryByTestId('handle-target-left')).not.toBeInTheDocument();
   });
 
+  it('renders target handle for FhirIO source in readResources mode so upstream PubSubIO can connect', () => {
+    render(
+      <PipelineNode
+        id="fhir-1"
+        data={{
+          ...mockData,
+          label: 'FhirIO',
+          beam_transform: 'FhirIO',
+          properties: { readMode: 'readResources' }
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right')).toBeInTheDocument();
+  });
+
   it('renders source handle for source node', () => {
     render(<PipelineNode id="node-1" data={mockData} />); // mockData is SOURCE
 
@@ -245,6 +262,63 @@ describe('PipelineNode', () => {
     const badge = screen.getByTestId('orphan-warning-badge');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveAttribute('title', 'Orphan step: node is not connected to the pipeline');
+  });
+
+  it('renders red dashed outline and retains target handle when FhirIO hasValidationError in searchResources mode', () => {
+    const errorData = {
+      ...mockData,
+      label: 'FhirIO',
+      type: 'SOURCE',
+      beam_transform: 'FhirIO',
+      properties: { readMode: 'searchResources' },
+      hasValidationError: true,
+      validationError: 'FhirIO.searchResources() does not accept an upstream connection.',
+    };
+    render(<PipelineNode id="node-fhir-err" data={errorData} selected={true} />);
+    const node = screen.getByTestId('pipeline-node-node-fhir-err');
+    expect(node).toHaveClass('border-red-500');
+    expect(node).toHaveClass('border-dashed');
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    expect(screen.getByTestId('cycle-error-badge')).toHaveAttribute(
+      'title',
+      'FhirIO.searchResources() does not accept an upstream connection.'
+    );
+  });
+
+  it('renders target handle for DicomIO in readStudyMetadata mode and red dashed outline when hasValidationError in dicomSearch mode', () => {
+    const { rerender } = render(
+      <PipelineNode
+        id="node-dicom"
+        data={{
+          ...mockData,
+          label: 'DicomIO',
+          type: 'SOURCE',
+          beam_transform: 'DicomIO',
+          properties: { readMode: 'readStudyMetadata' },
+        }}
+      />
+    );
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+
+    rerender(
+      <PipelineNode
+        id="node-dicom"
+        data={{
+          ...mockData,
+          label: 'DicomIO',
+          type: 'SOURCE',
+          beam_transform: 'DicomIO',
+          properties: { readMode: 'dicomSearch' },
+          hasValidationError: true,
+          validationError: 'DicomIO.dicomSearch() does not accept an upstream connection.',
+        }}
+        selected={true}
+      />
+    );
+    const node = screen.getByTestId('pipeline-node-node-dicom');
+    expect(node).toHaveClass('border-red-500');
+    expect(node).toHaveClass('border-dashed');
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
   });
 });
 

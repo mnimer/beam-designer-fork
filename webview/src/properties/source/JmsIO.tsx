@@ -25,36 +25,21 @@
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import { normalizeSecretItem, SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { AuthModeOption, SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
-export type JmsAuthMode = 'secretManager' | 'plaintext';
+export type JmsAuthMode = 'secretManager';
 
 export const JMS_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'secretManager', label: 'Google Cloud Secret Manager' },
-  { value: 'plaintext', label: 'Plaintext password' },
 ];
 
 /**
  * Resolves the authentication mode for the JMS Source node.
- * 
- * Backward compatibility:
- * - If authMode is explicitly set, use it.
- * - Else if a non-empty password already exists, start in 'plaintext'.
- * - Else start in 'secretManager'.
- * 
- * @param authMode Current authMode property if set
- * @param password Current password property if present
- * @returns Resolved authentication mode ('secretManager' | 'plaintext')
+ * Always resolves to 'secretManager' to prevent cleartext credential storage.
  */
-export function resolveAuthMode(authMode?: string, password?: string): JmsAuthMode {
-  if (authMode) {
-    return authMode as JmsAuthMode;
-  }
-  if (password && password.trim().length > 0) {
-    return 'plaintext';
-  }
+export function resolveAuthMode(_authMode?: string, _password?: string): JmsAuthMode {
   return 'secretManager';
 }
 
@@ -91,9 +76,14 @@ export const JMS_PROVIDER_PRESETS: JmsProviderPreset[] = [
     defaultUrl: 'tcp://localhost:55555'
   },
   {
-    label: 'Custom ConnectionFactory...',
-    factoryClass: 'custom',
-    defaultUrl: ''
+    label: 'RabbitMQ JMS Client',
+    factoryClass: 'com.rabbitmq.jms.admin.RMQConnectionFactory',
+    defaultUrl: 'amqp://localhost:5672'
+  },
+  {
+    label: 'TIBCO Enterprise Message Service (EMS)',
+    factoryClass: 'com.tibco.tibjms.TibjmsConnectionFactory',
+    defaultUrl: 'tcp://localhost:7222'
   }
 ];
 
@@ -113,7 +103,6 @@ interface JmsIOSourceNode {
     special_instructions?: string;
     properties?: {
       connectionFactory?: string;
-      customConnectionFactory?: string;
       brokerUrl?: string;
       destinationType?: 'queue' | 'topic';
       queue?: string;
@@ -124,7 +113,6 @@ interface JmsIOSourceNode {
       passwordSecret?: string;
       maxNumRecords?: string | number;
       maxReadTime?: string | number;
-      coder?: string;
       system_instructions?: string;
       special_instructions?: string;
       codeGenerationPrompt?: string;
@@ -149,21 +137,19 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
 
   // Form field state extracted from node properties
   const connectionFactory = properties.connectionFactory || 'org.apache.activemq.ActiveMQConnectionFactory';
-  const customConnectionFactory = properties.customConnectionFactory || '';
   const brokerUrl = properties.brokerUrl ?? 'tcp://localhost:61616';
   const destinationType = properties.destinationType || (properties.topic ? 'topic' : 'queue');
   const queue = properties.queue || '';
   const topic = properties.topic || '';
   const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
-  const password = properties.password || '';
   const passwordSecret = properties.passwordSecret || '';
   const maxNumRecords = properties.maxNumRecords ?? '';
   const maxReadTime = properties.maxReadTime ?? '';
-  const coder = properties.coder || '';
 
   // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
+  const { items: secrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
+  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
   const [computeInstances, setComputeInstances] = useState<ComputeInstanceInfo[]>([]);
 
   // NOTE: Listen for gcloud responses from the VS Code extension host
@@ -196,12 +182,11 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
     '';
 
   // Validation rules according to Beam JmsIO requirements
-  const isConnectionFactoryInvalid = !connectionFactory.trim() || (connectionFactory === 'custom' && !customConnectionFactory.trim());
   const isDestinationInvalid = destinationType === 'queue' ? !queue.trim() : !topic.trim();
 
   // Preset match helper
-  const isPreset = JMS_PROVIDER_PRESETS.some(p => p.factoryClass === connectionFactory && p.factoryClass !== 'custom');
-  const selectedPreset = isPreset ? connectionFactory : 'custom';
+  const isPreset = JMS_PROVIDER_PRESETS.some(p => p.factoryClass === connectionFactory);
+  const selectedPreset = isPreset ? connectionFactory : 'org.apache.activemq.ActiveMQConnectionFactory';
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -218,23 +203,10 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
       [name]: isCheckbox ? checked : value
     };
 
-    // Mode switching and credential property synchronization
-    if (name === 'authMode') {
-      if (value === 'secretManager') {
-        delete newProperties.password;
-      } else if (value === 'plaintext') {
-        delete newProperties.passwordSecret;
-      }
-    } else if (name === 'passwordSecret') {
-      delete newProperties.password;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'secretManager';
-      }
-    } else if (name === 'password') {
-      delete newProperties.passwordSecret;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'plaintext';
-      }
+    // Strip any legacy cleartext password property
+    delete newProperties.password;
+    if (!newProperties.authMode || newProperties.authMode !== 'secretManager') {
+      newProperties.authMode = 'secretManager';
     }
 
     onChange(newProperties);
@@ -250,34 +222,13 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
     const selectedClass = e.target.value;
     const matchedPreset = JMS_PROVIDER_PRESETS.find(p => p.factoryClass === selectedClass);
 
-    if (selectedClass === 'custom') {
-      onChange({
-        ...properties,
-        connectionFactory: customConnectionFactory || 'custom',
-        customConnectionFactory: customConnectionFactory
-      });
-    } else if (matchedPreset) {
+    if (matchedPreset) {
       onChange({
         ...properties,
         connectionFactory: matchedPreset.factoryClass,
-        customConnectionFactory: '',
         brokerUrl: matchedPreset.defaultUrl
       });
     }
-  };
-
-  /**
-   * Handles custom ConnectionFactory class input change.
-   * 
-   * @param e Input change event.
-   */
-  const handleCustomFactoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    onChange({
-      ...properties,
-      connectionFactory: val,
-      customConnectionFactory: val
-    });
   };
 
   /**
@@ -363,7 +314,7 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
       <div className="flex flex-col gap-1">
         <label htmlFor="jmsProviderPreset" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
           <span>JMS Provider Preset</span>
-          <InfoTooltip text="Select a standard JMS provider to automatically configure its ConnectionFactory and default URL, or select Custom to provide your own class." />
+          <InfoTooltip text="Select a standard JMS provider to automatically configure its ConnectionFactory and default URL." />
         </label>
         <select
           id="jmsProviderPreset"
@@ -380,51 +331,23 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
         </select>
       </div>
 
-      {/* Custom Connection Factory input if Custom preset selected */}
-      {selectedPreset === 'custom' && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="jmsCustomFactory" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>ConnectionFactory Class</span>
-            <span className="text-red-400 font-bold" title="ConnectionFactory is required">*</span>
-            <InfoTooltip text="Fully qualified Java class name of javax.jms.ConnectionFactory (e.g. org.apache.activemq.ActiveMQConnectionFactory)." />
-          </label>
-          <input
-            id="jmsCustomFactory"
-            type="text"
-            name="customConnectionFactory"
-            value={customConnectionFactory}
-            onChange={handleCustomFactoryChange}
-            placeholder="com.example.jms.CustomConnectionFactory"
-            className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm font-mono focus:outline-none ${
-              isConnectionFactoryInvalid ? 'border-red-500/80 focus:border-red-500' : 'border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)]'
-            }`}
-          />
-        </div>
-      )}
-
       {/* Broker URL */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="jmsBrokerUrl" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-          <span>Broker URL</span>
-          <InfoTooltip text="Connection URL for the JMS broker (e.g. tcp://localhost:61616 or amqp://localhost:5672). You can also select an IP from your Compute Engine instances." />
-        </label>
-        <input
+        <PropertyField
           id="jmsBrokerUrl"
-          type="text"
           name="brokerUrl"
+          label="Broker URL"
+          tooltip="Connection URL for the JMS broker (e.g. tcp://localhost:61616 or amqp://localhost:5672). You can also select an IP from your Compute Engine instances."
           value={brokerUrl}
           onChange={handleChange}
           placeholder="tcp://localhost:61616"
           list="compute-instance-ips"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
+          datalist={computeInstances.map(inst => ({
+            value: `tcp://${inst.internalIp || inst.externalIp}:61616`,
+            label: `${inst.name} (${inst.zone})`
+          }))}
+          mono={true}
         />
-        <datalist id="compute-instance-ips">
-          {computeInstances.map(inst => (
-            <option key={inst.name} value={`tcp://${inst.internalIp || inst.externalIp}:61616`}>
-              {inst.name} ({inst.zone})
-            </option>
-          ))}
-        </datalist>
 
         {/* Compute Engine Instance Helper if instances discovered */}
         {computeInstances.length > 0 && (
@@ -506,11 +429,14 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
         <PropertyField
           id="jmsUsername"
           name="username"
-          label="Username"
-          tooltip="Optional username for authenticating to the JMS broker."
+          label="Username Secret"
+          tooltip="Optional secret in Google Cloud Secret Manager containing the username for authenticating to the JMS broker."
           value={username}
           onChange={handleChange}
-          placeholder="admin"
+          placeholder="jms-broker-username"
+          list="jms-source-username-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
           mono={true}
         />
 
@@ -527,25 +453,6 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
           serviceName="JMS"
           onChange={handleChange}
         />
-
-        {authMode === 'plaintext' && (
-          <div className="flex flex-col gap-1">
-            <PropertyField
-              id="jmsPassword"
-              type="password"
-              name="password"
-              label="Password"
-              tooltip="Optional password for authenticating to the JMS broker."
-              value={password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              mono={false}
-            />
-            <p className="text-xs text-amber-400 mt-1" role="alert">
-              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Execution Limits & Coder */}
@@ -584,23 +491,6 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
             onChange={handleChange}
             placeholder="Unlimited"
             min="1"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
-          />
-        </div>
-
-        {/* Custom Coder */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="jmsCoder" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>Coder Class</span>
-            <InfoTooltip text="Optional Beam Coder to serialize/deserialize custom payload types (e.g. org.apache.beam.sdk.coders.StringUtf8Coder)." />
-          </label>
-          <input
-            id="jmsCoder"
-            type="text"
-            name="coder"
-            value={coder}
-            onChange={handleChange}
-            placeholder="org.apache.beam.sdk.coders.StringUtf8Coder"
             className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
           />
         </div>

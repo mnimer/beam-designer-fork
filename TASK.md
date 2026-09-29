@@ -90,82 +90,82 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO1](#io1) | 🔌 Connector | FileIO | `FileIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO2](#io2) | 🔌 Connector | AvroIO | `AvroIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO3](#io3) | 🔌 Connector | TextIO (metrics) | `TextIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO4](#io4) | 🔌 Connector | TFRecordIO | `TFRecordIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO5](#io5) | 🔌 Connector | XmlIO | `XmlIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO6](#io6) | 🔌 Connector | TikaIO | `TikaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO4](#io4) | 🔌 Connector | TFRecordIO | `TFRecordIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO5](#io5) | 🔌 Connector | XmlIO | `XmlIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO6](#io6) | 🔌 Connector | TikaIO | `TikaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO7](#io7) | 🔌 Connector | ParquetIO (guide) | `ParquetIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO8](#io8) | 🔌 Connector | ThriftIO | `ThriftIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO9](#io9) | 🔌 Connector | HadoopFileSystem | `HadoopFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO10](#io10) | 🔌 Connector | GcsFileSystem (metrics) | `GcsFileSystem (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO11](#io11) | 🔌 Connector | LocalFileSystem | `LocalFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO8](#io8) | 🔌 Connector | ThriftIO | `ThriftIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO9](#io9) | 🔌 Connector | HadoopFileSystem | `HadoopFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO10](#io10) | 🔌 Connector | GcsFileSystem (metrics) | `GcsFileSystem (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO11](#io11) | 🔌 Connector | LocalFileSystem | `LocalFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO12](#io12) | 🔌 Connector | S3FileSystem | `S3FileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO13](#io13) | 🔌 Connector | In-memory | `In-memory`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO14](#io14) | 🔌 Connector | KinesisIO | `KinesisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO15](#io15) | 🔌 Connector | AmqpIO | `AmqpIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO16](#io16) | 🔌 Connector | KafkaIO | `KafkaIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO17](#io17) | 🔌 Connector | PubSubIO | `PubSubIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO18](#io18) | 🔌 Connector | JmsIO | `JmsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO19](#io19) | 🔌 Connector | MqttIO | `MqttIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO20](#io20) | 🔌 Connector | RabbitMqIO | `RabbitMqIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO21](#io21) | 🔌 Connector | SqsIO | `SqsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO22](#io22) | 🔌 Connector | SnsIO | `SnsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO24](#io24) | 🔌 Connector | HadoopFormatIO (guide) | `HadoopFormatIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO25](#io25) | 🔌 Connector | HBaseIO | `HBaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO26](#io26) | 🔌 Connector | HCatalogIO (guide) | `HCatalogIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO27](#io27) | 🔌 Connector | KuduIO | `KuduIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO28](#io28) | 🔌 Connector | SolrIO | `SolrIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO29](#io29) | 🔌 Connector | ElasticsearchIO | `ElasticsearchIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO23](#io23) | 🔌 Connector | CassandraIO | `CassandraIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO24](#io24) | 🔌 Connector | HadoopFormatIO (guide) | `HadoopFormatIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO25](#io25) | 🔌 Connector | HBaseIO | `HBaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO26](#io26) | 🔌 Connector | HCatalogIO (guide) | `HCatalogIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO27](#io27) | 🔌 Connector | KuduIO | `KuduIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO28](#io28) | 🔌 Connector | SolrIO | `SolrIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO29](#io29) | 🔌 Connector | ElasticsearchIO | `ElasticsearchIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO30](#io30) | 🔌 Connector | BigQueryIO (guide) (metrics) | `BigQueryIO (guide) (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO31](#io31) | 🔌 Connector | BigTableIO (metrics) | `BigTableIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO32](#io32) | 🔌 Connector | DatastoreIO | `DatastoreIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO33](#io33) | 🔌 Connector | SnowflakeIO (guide) | `SnowflakeIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO34](#io34) | 🔌 Connector | SpannerIO | `SpannerIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO31](#io31) | 🔌 Connector | BigTableIO (metrics) | `BigTableIO (metrics)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO32](#io32) | 🔌 Connector | DatastoreIO | `DatastoreIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO33](#io33) | 🔌 Connector | SnowflakeIO (guide) | `SnowflakeIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO34](#io34) | 🔌 Connector | SpannerIO | `SpannerIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO35](#io35) | 🔌 Connector | JdbcIO | `JdbcIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO36](#io36) | 🔌 Connector | DebeziumIO | `DebeziumIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO37](#io37) | 🔌 Connector | MongoDbIO | `MongoDbIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO38](#io38) | 🔌 Connector | MongoDbGridFSIO | `MongoDbGridFSIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO39](#io39) | 🔌 Connector | RedisIO | `RedisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO40](#io40) | 🔌 Connector | DynamoDBIO | `DynamoDBIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO41](#io41) | 🔌 Connector | ClickHouseIO | `ClickHouseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO42](#io42) | 🔌 Connector | ArrowFlightIO | `ArrowFlightIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO43](#io43) | 🔌 Connector | DatabaseIO | `DatabaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO36](#io36) | 🔌 Connector | DebeziumIO | `DebeziumIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO37](#io37) | 🔌 Connector | MongoDbIO | `MongoDbIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO38](#io38) | 🔌 Connector | MongoDbGridFSIO | `MongoDbGridFSIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO39](#io39) | 🔌 Connector | RedisIO | `RedisIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO40](#io40) | 🔌 Connector | DynamoDBIO | `DynamoDBIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO41](#io41) | 🔌 Connector | ClickHouseIO | `ClickHouseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO42](#io42) | 🔌 Connector | ArrowFlightIO | `ArrowFlightIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO43](#io43) | 🔌 Connector | DatabaseIO | `DatabaseIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO44](#io44) | 🔌 Connector | GenerateSequence | `GenerateSequence`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [IO45](#io45) | 🔌 Connector | SplunkIO | `SplunkIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO46](#io46) | 🔌 Connector | FhirIO | `FhirIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO47](#io47) | 🔌 Connector | HL7v2IO | `HL7v2IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO48](#io48) | 🔌 Connector | DicomIO | `DicomIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO53](#io53) | 🔌 Connector | SparkReceiverIO (guide) | `SparkReceiverIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO54](#io54) | 🔌 Connector | CdapIO (guide) | `CdapIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO56](#io56) | 🔌 Connector | GoogleAdsIO | `GoogleAdsIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO57](#io57) | 🔌 Connector | Web APIs (guide) | `Web APIs (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO71](#io71) | 🔌 Connector | SAP Hana to Google BigQuery | `SAP Hana to Google BigQuery` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO72](#io72) | 🔌 Connector | TrepWsIO | `TrepWsIO` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO73](#io73) | 🔌 Connector | Beam PyIO (Collection of Python IO connectors) | `Beam PyIO (Collection of Python IO connectors)` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO74](#io74) | 🔌 Connector | Cloud SQL | `Cloud SQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO75](#io75) | 🔌 Connector | MySQL | `MySQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO76](#io76) | 🔌 Connector | Pyodbc | `Pyodbc` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
-| [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⬜ Not Started |
+| [IO45](#io45) | 🔌 Connector | SplunkIO | `SplunkIO`: 1 Sink (writer) node + property panel + integration test (`SOURCE:SplunkIO` skipped — native `SplunkIO.Write` HEC sink only). || ✅ Done |
+| [IO46](#io46) | 🔌 Connector | FhirIO | `FhirIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO47](#io47) | 🔌 Connector | HL7v2IO | `HL7v2IO`: 1 Source (reader) node + 1 Sink (writer) node (`BATCH_IMPORT` excluded per Beam JavaDoc) + property panels + integration test. || ✅ Done |
+| [IO48](#io48) | 🔌 Connector | DicomIO | `DicomIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO49](#io49) | 🔌 Connector | FlinkStreamingImpulseSource | `FlinkStreamingImpulseSource`: 1 Source (reader) node (no native writer support) + property panel + integration test. || ✅ Done |
+| [IO50](#io50) | 🔌 Connector | Firestore IO | `Firestore IO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO51](#io51) | 🔌 Connector | Neo4j | `Neo4j`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO52](#io52) | 🔌 Connector | InfluxDB | `InfluxDB`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO53](#io53) | 🔌 Connector | SparkReceiverIO (guide) | `SparkReceiverIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO54](#io54) | 🔌 Connector | CdapIO (guide) | `CdapIO (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO55](#io55) | 🔌 Connector | SingleStoreDB (guide) | `SingleStoreDB (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO56](#io56) | 🔌 Connector | GoogleAdsIO | `GoogleAdsIO`: 1 Source (reader) node + property panel + integration test (`SINK:GoogleAdsIO` skipped — native `Read`/`ReadAll` GAQL source only). || ✅ Done |
+| [IO57](#io57) | 🔌 Connector | Web APIs (guide) | `Web APIs (guide)` (`RequestResponseIO`): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO58](#io58) | 🔌 Connector | Iceberg (guide) | `Iceberg (guide)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO59](#io59) | 🔌 Connector | CsvIO | `CsvIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO60](#io60) | 🔌 Connector | JsonIO | `JsonIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO61](#io61) | 🔌 Connector | ContextualTextIO | `ContextualTextIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO62](#io62) | 🔌 Connector | PulsarIO | `PulsarIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO63](#io63) | 🔌 Connector | SolaceIO | `SolaceIO`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO64](#io64) | 🔌 Connector | DatadogIO | `DatadogIO`: 1 Sink (writer) node + property panel + integration test (`SOURCE:DatadogIO` skipped — native `DatadogIO.Write`/`DatadogWrite` sink only). || ✅ Done |
+| [IO65](#io65) | 🔌 Connector | CosmosIO (Azure Cosmos DB) | `CosmosIO (Azure Cosmos DB)`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO66](#io66) | 🔌 Connector | AzureBlobStoreFileSystem | `AzureBlobStoreFileSystem`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO67](#io67) | 🔌 Connector | Delta Lake | `Delta Lake`: 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO68](#io68) | 🔌 Connector | Cloud Bigtable (HBase based) | `Cloud Bigtable (HBase based)` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO69](#io69) | 🔌 Connector | Cognite Data Fusion | `Cognite Data Fusion` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO70](#io70) | 🔌 Connector | KineticaDB | `KineticaDB` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO71](#io71) | 🔌 Connector | SAP Hana to Google BigQuery | `SAP Hana to Google BigQuery` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO72](#io72) | 🔌 Connector | TrepWsIO | `TrepWsIO` (Java): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO73](#io73) | 🔌 Connector | Beam PyIO (Collection of Python IO connectors) | `Beam PyIO (Collection of Python IO connectors)` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO74](#io74) | 🔌 Connector | Cloud SQL | `Cloud SQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO75](#io75) | 🔌 Connector | MySQL | `MySQL` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO76](#io76) | 🔌 Connector | Pyodbc | `Pyodbc` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
+| [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 
 ---
 
@@ -911,6 +911,8 @@ This section defines individual engineering tasks for every supported Apache Bea
 1. **Pre-Implementation Form Plan & Docs Review:**
    - Before implementing, thoroughly review the official Java and Python documentation links to find all possible properties and their valid value(s). Strictly no guessing of valid properties.
    - Formulate a clean property schema and layout plan for both the Source (reader) panel and the Sink (writer) panel before generating the panel, mapping out required vs. optional connection parameters, serialization, batch/streaming configurations, and windowing/sharding rules.
+   - Before implementing, thoroughly review the official Java and Python documentation links to find all possible properties and their valid value(s). Strictly no guessing of valid properties.
+   - Formulate a clean property schema and layout plan for both the Source (reader) panel and the Sink (writer) panel before generating the panel, mapping out required vs. optional connection parameters, serialization, batch/streaming configurations, and windowing/sharding rules.
 
 2. **Strict Scope Isolation (Do Not Modify Other Nodes):**
    - **CRITICAL:** Do NOT modify existing nodes, step transforms, or property panels in the project. Each task is strictly scoped to adding **only 2 new nodes** (1 Source reader and 1 Sink writer) and their accompanying property panels, tests, and registration.
@@ -1030,7 +1032,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/TFRecordIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tfrecordio-pipeline.beam` and `src/test/integration/tfrecordio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io5"></a>**IO5 — `XmlIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1050,7 +1052,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/XmlIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/xmlio-pipeline.beam` and `src/test/integration/xmlio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io6"></a>**IO6 — `TikaIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1070,7 +1072,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/TikaIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tikaio-pipeline.beam` and `src/test/integration/tikaio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io7"></a>**IO7 — `ParquetIO (guide)`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1110,7 +1112,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ThriftIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/thriftio-pipeline.beam` and `src/test/integration/thriftio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io9"></a>**IO9 — `HadoopFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1130,7 +1132,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HadoopFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hadoopfilesystem-pipeline.beam` and `src/test/integration/hadoopfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io10"></a>**IO10 — `GcsFileSystem (metrics)`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1150,7 +1152,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/GcsFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/gcsfilesystem-pipeline.beam` and `src/test/integration/gcsfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io11"></a>**IO11 — `LocalFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1170,7 +1172,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/LocalFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/localfilesystem-pipeline.beam` and `src/test/integration/localfilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io12"></a>**IO12 — `S3FileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -1190,7 +1192,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/S3FileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/s3filesystem-pipeline.beam` and `src/test/integration/s3filesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io13"></a>**IO13 — `In-memory`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1249,8 +1251,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/AmqpIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:AmqpIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/AmqpIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/amqpio-pipeline.beam` and `src/test/integration/amqpio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/amqp-source.{beam,test.ts}` following `AmqpIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/amqp-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> AmqpIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 40 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: `handleApplyProtocol` rewrites each address line independently (port-boundary swap 5672↔5671) because the newline-separated multi-address list was previously corrupted by a single non-multiline regex; `handleSelectInstanceIp` is append-only to avoid destroying an existing address list.
 
 - <a id="io16"></a>**IO16 — `KafkaIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -1349,8 +1351,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/RabbitMqIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RabbitMqIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/RabbitMqIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/rabbitmqio-pipeline.beam` and `src/test/integration/rabbitmqio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/rabbitmq-source.{beam,test.ts}` following `RabbitMqIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/rabbitmq-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> RabbitMqIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 51 unit tests, fixture + integration spec). NOTE: RabbitMQ's URI embeds credentials, so the panel deliberately splits host/port/vhost/username fields from a Secret Manager password reference — the generated code assembles the URI from the secret at runtime and the password is never persisted in the `.beam` file. Panels were decomposed into `components/common/rabbitmq/RabbitMqConnectionFields.tsx` and `RabbitMqDestinationFields.tsx` to stay within repo file-size norms.
 
 - <a id="io21"></a>**IO21 — `SqsIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -1410,7 +1412,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CassandraIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cassandraio-pipeline.beam` and `src/test/integration/cassandraio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io24"></a>**IO24 — `HadoopFormatIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1430,7 +1432,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HadoopFormatIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hadoopformatio-pipeline.beam` and `src/test/integration/hadoopformatio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io25"></a>**IO25 — `HBaseIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1450,7 +1452,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HBaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hbaseio-pipeline.beam` and `src/test/integration/hbaseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io26"></a>**IO26 — `HCatalogIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1470,7 +1472,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/HCatalogIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hcatalogio-pipeline.beam` and `src/test/integration/hcatalogio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io27"></a>**IO27 — `KuduIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1490,7 +1492,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/KuduIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/kuduio-pipeline.beam` and `src/test/integration/kuduio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io28"></a>**IO28 — `SolrIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1510,7 +1512,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SolrIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/solrio-pipeline.beam` and `src/test/integration/solrio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io29"></a>**IO29 — `ElasticsearchIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1530,7 +1532,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ElasticsearchIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/elasticsearchio-pipeline.beam` and `src/test/integration/elasticsearchio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io30"></a>**IO30 — `BigQueryIO (guide) (metrics)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1570,7 +1572,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/BigTableIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/bigtableio-pipeline.beam` and `src/test/integration/bigtableio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io32"></a>**IO32 — `DatastoreIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1590,7 +1592,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DatastoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/datastoreio-pipeline.beam` and `src/test/integration/datastoreio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io33"></a>**IO33 — `SnowflakeIO (guide)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1610,7 +1612,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SnowflakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/snowflakeio-pipeline.beam` and `src/test/integration/snowflakeio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io34"></a>**IO34 — `SpannerIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1630,7 +1632,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SpannerIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/spannerio-pipeline.beam` and `src/test/integration/spannerio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io35"></a>**IO35 — `JdbcIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1670,7 +1672,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DebeziumIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/debeziumio-pipeline.beam` and `src/test/integration/debeziumio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io37"></a>**IO37 — `MongoDbIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1690,7 +1692,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/MongoDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mongodbio-pipeline.beam` and `src/test/integration/mongodbio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io38"></a>**IO38 — `MongoDbGridFSIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1710,7 +1712,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/MongoDbGridFSIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mongodbgridfsio-pipeline.beam` and `src/test/integration/mongodbgridfsio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io39"></a>**IO39 — `RedisIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1730,7 +1732,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/RedisIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/redisio-pipeline.beam` and `src/test/integration/redisio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io40"></a>**IO40 — `DynamoDBIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1750,7 +1752,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DynamoDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/dynamodbio-pipeline.beam` and `src/test/integration/dynamodbio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io41"></a>**IO41 — `ClickHouseIO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1770,7 +1772,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ClickHouseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/clickhouseio-pipeline.beam` and `src/test/integration/clickhouseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io42"></a>**IO42 — `ArrowFlightIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1790,7 +1792,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ArrowFlightIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/arrowflightio-pipeline.beam` and `src/test/integration/arrowflightio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io43"></a>**IO43 — `DatabaseIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1810,7 +1812,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DatabaseIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/databaseio-pipeline.beam` and `src/test/integration/databaseio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io44"></a>**IO44 — `GenerateSequence`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -1833,104 +1835,100 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Status:** ✅ Done (Already implemented).
 
 - <a id="io45"></a>**IO45 — `SplunkIO`**
-  - **Category Alignment:** `Streaming Sources` (Source) and `Logging Sinks` (Sink).
+  - **Category Alignment:** `Logging Sinks` (Sink ONLY).
   - **Documentation Links:**
     - **Java SDK:** [SplunkIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/splunk/SplunkIO.html)
     - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Native Direction Audit Note:** `SOURCE:SplunkIO` was intentionally skipped because `org.apache.beam.sdk.io.splunk.SplunkIO` only provides a native `Write` sink (`SplunkIO.write` / `SplunkIO.Write` for Splunk HTTP Event Collector [HEC]) and has no native `Read` transform in Apache Beam.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `SplunkIO`.
+    - [x] `getSecrets` (`gcloud secrets list` for Secret Manager HEC token credentials).
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `SplunkIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'SplunkIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/SplunkIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:SplunkIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/SplunkIO.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Skipped (No Native Beam Transform):** `org.apache.beam.sdk.io.splunk.SplunkIO` does not provide a native `Read` transform (`webview/src/properties/source/SplunkIO.tsx` intentionally omitted).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `SplunkIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'SplunkIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/SplunkIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SplunkIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/SplunkIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/splunkio-pipeline.beam` and `src/test/integration/splunkio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `SplunkIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'SplunkIO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/sink/SplunkIO.tsx` with documented `SplunkIO.Write` (`url`, `tokenSecret` via Secret Manager, `batchCount`, `parallelism`, `disableCertificateValidation`, `rootCaCertificatePath`, `enableBatchLogs`, `enableGzipHttpCompression`) and `SplunkEvent.Builder` (`index`, `source`, `sourceType`, `host`, `eventField`, `timeField`) properties plus `system_instructions`. Registered as `'SINK:SplunkIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/SplunkIO.test.tsx` (100% test coverage including dynamic `getSecrets` message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized sink integration tests split across environments (`src/test/integration/sinks/{agent-engine,cloud-run}/splunk-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> SplunkIO`).
+  - **Status:** ✅ Done.
 
 - <a id="io46"></a>**IO46 — `FhirIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
   - **Documentation Links:**
     - **Java SDK:** [FhirIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/FhirIO.html)
     - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Native Direction Audit Note:** Both Source (`FhirIO.readResources`, `FhirIO.searchResources`, `FhirIO.exportResourcesToGcs`, `FhirIO.exportResourcesToBigQuery`, `FhirIO.deidentify`, `FhirIO.getPatientEverything`) and Sink (`FhirIO.executeBundles`, `FhirIO.importResources`) are natively supported in `org.apache.beam.sdk.io.gcp.healthcare.FhirIO` and implemented.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FhirIO`.
+    - [x] `getHealthcareDatasets` (`gcloud healthcare datasets list`).
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `FhirIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'FhirIO', type: 'SOURCE'`).
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/FhirIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FhirIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/FhirIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `FhirIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'FhirIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/FhirIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FhirIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/FhirIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/fhirio-pipeline.beam` and `src/test/integration/fhirio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `FhirIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'FhirIO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Implemented `webview/src/properties/sink/FhirIO.tsx` with documented `FhirIO.Write.executeBundles` and `fhirStoresImport` (`contentStructure`: `BUNDLE`, `RESOURCE`, `BUNDLE_PRETTY`, `RESOURCE_PRETTY`) controls. Registered as `'SINK:FhirIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/FhirIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/fhir-source.{beam,test.ts}` following `FhirIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/fhir-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> FhirIO`).
+  - **Status:** ✅ Done.
 
 - <a id="io47"></a>**IO47 — `HL7v2IO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
   - **Documentation Links:**
     - **Java SDK:** [HL7v2IO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/HL7v2IO.html)
     - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Native Direction Audit Note:** Both Source (`HL7v2IO.read`, `HL7v2IO.readWithFilter`, `HL7v2IO.getAll`) and Sink (`HL7v2IO.ingestMessages` / `HL7v2IO.Write`) are natively supported and implemented. Note that `BATCH_IMPORT` (`HL7v2IO.Write.Mode.BATCH_IMPORT`) is explicitly excluded from Sink write modes because the official Apache Beam JavaDoc states `BATCH_IMPORT` is not yet supported by `HL7v2IO`.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `HL7v2IO`.
+    - [x] `getHealthcareDatasets` (`gcloud healthcare datasets list`).
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `HL7v2IO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'HL7v2IO', type: 'SOURCE'`).
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/HL7v2IO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:HL7v2IO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/HL7v2IO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `HL7v2IO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'HL7v2IO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/HL7v2IO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:HL7v2IO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/HL7v2IO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/hl7v2io-pipeline.beam` and `src/test/integration/hl7v2io-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `HL7v2IO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'HL7v2IO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/sink/HL7v2IO.tsx` with `HL7v2IO.ingestMessages` (`INGEST` mode only; `BATCH_IMPORT` excluded per Beam JavaDoc). Registered as `'SINK:HL7v2IO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/HL7v2IO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/hl7v2-source.{beam,test.ts}` following `HL7v2IO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/hl7v2-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> HL7v2IO`).
+  - **Status:** ✅ Done.
 
 - <a id="io48"></a>**IO48 — `DicomIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
   - **Documentation Links:**
     - **Java SDK:** [DicomIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/gcp/healthcare/DicomIO.html)
     - **Python SDK:** [DicomIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.gcp.healthcare.dicomio.html)
+  - **Native Direction Audit Note:** Both Source (Java `DicomIO.readStudyMetadata` & Python `DicomSearch` with `QIDO_INSTANCE`, `QIDO_SERIES`, `QIDO_STUDY`) and Sink (Python `UploadToDicomStore` with `input_type`: `'bytes' | 'fileio'`) are natively supported in Apache Beam and implemented.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getHealthcareDatasets` (`gcloud healthcare datasets list`).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DicomIO`.
+    - [x] `getHealthcareDatasets` (`gcloud healthcare datasets list`).
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `DicomIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'DicomIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/DicomIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DicomIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
+    - [x] **Palette Definition:** Added `DicomIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'DicomIO', type: 'SOURCE'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/source/DicomIO.tsx` with documented Java `DicomIO.readStudyMetadata` and Python `DicomSearch` controls. Registered as `'SOURCE:DicomIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/source/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `DicomIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'DicomIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/DicomIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DicomIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/dicomio-pipeline.beam` and `src/test/integration/dicomio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `DicomIO` Sink to `NodesCard.tsx` under `Streaming Sinks` (`beamTransform: 'DicomIO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/sink/DicomIO.tsx` with documented Python `UploadToDicomStore` (`project_id`, `region`, `dataset_id`, `dicom_store_id`, `input_type`, `credential`, `max_workers`, `buffer_size`) controls. Registered as `'SINK:DicomIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/DicomIO.test.tsx` (100% test coverage including dynamic message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/dicom-source.{beam,test.ts}` following `DicomIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/dicom-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> DicomIO`).
+  - **Status:** ✅ Done.
 
 - <a id="io49"></a>**IO49 — `FlinkStreamingImpulseSource`**
-  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Category Alignment:** `Data Services Sources` (Source only; no native Beam writer).
   - **Documentation Links:**
     - **Java SDK:** Not available natively in Java SDK (Not available)
     - **Python SDK:** [FlinkStreamingImpulseSource PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.flink.flink_streaming_impulse_source.html)
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
     - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `FlinkStreamingImpulseSource`.
+  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the source node for `FlinkStreamingImpulseSource`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `FlinkStreamingImpulseSource` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/FlinkStreamingImpulseSource.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/FlinkStreamingImpulseSource.tsx` with dedicated controls for read targets, limits, Flink JobManager endpoint, and system prompt override. Registered as `'SOURCE:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
+    - **Test Suite:** `webview/src/properties/source/FlinkStreamingImpulseSource.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `FlinkStreamingImpulseSource` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'FlinkStreamingImpulseSource', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/FlinkStreamingImpulseSource.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:FlinkStreamingImpulseSource'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/FlinkStreamingImpulseSource.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Omitted:** Apache Beam has no native Writer or Sink support for `FlinkStreamingImpulseSource` (it is an unbounded synthetic source). No sink node or property panel is registered.
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/flinkstreamingimpulsesource-pipeline.beam` and `src/test/integration/flinkstreamingimpulsesource-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/flinkstreamingimpulse-source.{beam,test.ts}` following `FlinkStreamingImpulseSource -> ParDo -> LogMessage`).
+  - **Status:** ✅ Completed (Source panel, unit tests, fixture + integration spec). NOTE: `FlinkStreamingImpulseSource` is Python-only and has no native Beam writer support. The integration fixture is Python-only with `runner: FlinkRunner`.
 
 - <a id="io50"></a>**IO50 — `Firestore IO`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1950,7 +1948,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/FirestoreIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/firestoreio-pipeline.beam` and `src/test/integration/firestoreio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io51"></a>**IO51 — `Neo4j`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1970,7 +1968,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/Neo4jIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/neo4j-pipeline.beam` and `src/test/integration/neo4j-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io52"></a>**IO52 — `InfluxDB`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -1990,7 +1988,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/InfluxDbIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/influxdb-pipeline.beam` and `src/test/integration/influxdb-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io53"></a>**IO53 — `SparkReceiverIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2010,7 +2008,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SparkReceiverIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/sparkreceiverio-pipeline.beam` and `src/test/integration/sparkreceiverio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io54"></a>**IO54 — `CdapIO (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2030,7 +2028,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CdapIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cdapio-pipeline.beam` and `src/test/integration/cdapio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io55"></a>**IO55 — `SingleStoreDB (guide)`**
   - **Category Alignment:** `Database Sources` (Source) and `Database Sinks` (Sink).
@@ -2050,47 +2048,45 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/SingleStoreDBIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/singlestoredb-pipeline.beam` and `src/test/integration/singlestoredb-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io56"></a>**IO56 — `GoogleAdsIO`**
-  - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
+  - **Category Alignment:** `Data Services Sources` (Source ONLY).
   - **Documentation Links:**
     - **Java SDK:** [GoogleAdsIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/googleads/GoogleAdsIO.html)
     - **Python SDK:** (not available natively; use the x-lang option to call the Java version via `apache_beam.transforms.xlang` / expansion service)
+  - **Native Direction Audit Note:** `SINK:GoogleAdsIO` was intentionally skipped because `org.apache.beam.sdk.io.googleads.GoogleAdsIO` (`GoogleAdsV23`) only provides native `Read` / `ReadAll` transforms (`GoogleAdsIO.current().read()` and `GoogleAdsIO.current().readAll()`) for querying Google Ads via GAQL and has no native `Write` transform in Apache Beam.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `GoogleAdsIO`.
+    - [x] `getSecrets` (`gcloud secrets list` for Secret Manager developer token and OAuth2 credentials).
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `GoogleAdsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GoogleAdsIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/GoogleAdsIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:GoogleAdsIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/GoogleAdsIO.test.tsx` (100% test coverage including dynamic message dispatch).
+    - [x] **Palette Definition:** Added `GoogleAdsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'GoogleAdsIO', type: 'SOURCE'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/source/GoogleAdsIO.tsx` with documented `GoogleAdsV23.Read` / `ReadAll` (`readMode`, `customerId`, `loginCustomerId`, `linkedCustomerId`, `query`) and `GoogleAdsOptions` (`authMode`, `developerTokenSecret`, `clientId`, `clientSecretSecret`, `refreshTokenSecret`, `googleAdsEndpoint`) controls plus `system_instructions`. Registered as `'SOURCE:GoogleAdsIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/source/GoogleAdsIO.test.tsx` (100% test coverage including dynamic `getSecrets` message dispatch).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `GoogleAdsIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'GoogleAdsIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/GoogleAdsIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:GoogleAdsIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/GoogleAdsIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/googleadsio-pipeline.beam` and `src/test/integration/googleadsio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - **Skipped (No Native Beam Transform):** `org.apache.beam.sdk.io.googleads.GoogleAdsIO` does not provide a native `Write` transform (`webview/src/properties/sink/GoogleAdsIO.tsx` intentionally omitted).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized source integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/googleads-source.{beam,test.ts}` following `GoogleAdsIO -> ParDo -> LogMessage`).
+  - **Status:** ✅ Done.
 
 - <a id="io57"></a>**IO57 — `Web APIs (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
   - **Documentation Links:**
     - **Java SDK:** [Web APIs (guide) JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/io/requestresponse/RequestResponseIO.html)
     - **Python SDK:** [Web APIs (guide) PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.io.requestresponse.html?highlight=requestresponse#apache_beam.io.requestresponse.RequestResponseIO)
+  - **Native Direction Audit Note:** Both Source (`SOURCE:RequestResponseIO`) and Sink (`SINK:RequestResponseIO`) are implemented per the official Java (`org.apache.beam.io.requestresponse.RequestResponseIO`) and Python (`apache_beam.io.requestresponse.RequestResponseIO`) documentation (`"PTransform for reading from and writing to Web APIs"`).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Web APIs (guide)`.
+    - [x] `getSecrets` (`gcloud secrets list` for API tokens/credentials via Secret Manager).
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `Web APIs (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'RequestResponseIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/RequestResponseIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:RequestResponseIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/RequestResponseIO.test.tsx` (100% test coverage including dynamic message dispatch).
+    - [x] **Palette Definition:** Added `Web APIs (guide)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'RequestResponseIO', type: 'SOURCE'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/source/RequestResponseIO.tsx` with documented `Caller` (`endpointUrl`, `httpMethod`, `requestCoder`, `responseCoder`), `SetupTeardown` Secret Manager auth (`authMode`, `secretName`, `authHeaderName`), resilience (`timeout`, `enableRepeater` / `.withoutRepeater()`, `enableThrottler` / `DefaultThrottler`, `overloadRatio`), and Redis cache (`enableCache`, `redisUri`, `cacheTtlSeconds`) controls. Registered as `'SOURCE:RequestResponseIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/source/RequestResponseIO.test.tsx` (100% test coverage including dynamic `getSecrets` message dispatch).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `Web APIs (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'RequestResponseIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/RequestResponseIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:RequestResponseIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/RequestResponseIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/webapis-pipeline.beam` and `src/test/integration/webapis-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `Web APIs (guide)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'RequestResponseIO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/sink/RequestResponseIO.tsx` with documented `Caller` (`endpointUrl`, `httpMethod`, `requestCoder`, `responseCoder`), Secret Manager auth (`authMode`, `secretName`, `authHeaderName`), `timeout`, `enableRepeater`, `enableThrottler`, `overloadRatio`, and `RedisCache` controls. Registered as `'SINK:RequestResponseIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/RequestResponseIO.test.tsx` (100% test coverage including dynamic `getSecrets` message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/webapis-source.{beam,test.ts}` following `RequestResponseIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/webapis-sink.{beam,test.ts}` following `Create -> ParDo -> RequestResponseIO`).
+  - **Status:** ✅ Done.
 
 - <a id="io58"></a>**IO58 — `Iceberg (guide)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2110,7 +2106,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/IcebergIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/iceberg-pipeline.beam` and `src/test/integration/iceberg-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io59"></a>**IO59 — `CsvIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2130,7 +2126,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CsvIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/csvio-pipeline.beam` and `src/test/integration/csvio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io60"></a>**IO60 — `JsonIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2150,7 +2146,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/JsonIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/jsonio-pipeline.beam` and `src/test/integration/jsonio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io61"></a>**IO61 — `ContextualTextIO`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2170,7 +2166,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/ContextualTextIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/contextualtextio-pipeline.beam` and `src/test/integration/contextualtextio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io62"></a>**IO62 — `PulsarIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -2189,8 +2185,8 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/PulsarIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:PulsarIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/PulsarIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/pulsario-pipeline.beam` and `src/test/integration/pulsario-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/pulsar-source.{beam,test.ts}` following `PulsarIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/pulsar-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> PulsarIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 35 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: panels were decomposed into `components/common/pulsar/PulsarConnectionFields.tsx` and `PulsarAuthFields.tsx` to stay within repo file-size norms; the client URL (`pulsar://`) and admin URL (`http://`) are separate fields because Beam's `PulsarIO` requires both.
 
 - <a id="io63"></a>**IO63 — `SolaceIO`**
   - **Category Alignment:** `Streaming Sources` (Source) and `Streaming Sinks` (Sink).
@@ -2209,28 +2205,26 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/SolaceIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:SolaceIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/SolaceIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/solaceio-pipeline.beam` and `src/test/integration/solaceio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** Standardized source and sink integration tests split across environments (`src/test/integration/sources/{agent-engine,cloud-run}/solace-source.{beam,test.ts}` following `SolaceIO -> ParDo -> LogMessage` and `src/test/integration/sinks/{agent-engine,cloud-run}/solace-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> SolaceIO`).
+  - **Status:** ✅ Completed (Source + Sink panels, 32 unit tests, fixture + integration spec). Uses the shared `ExpansionServiceFields` primitive for the Python x-lang group. NOTE: the connection block was intentionally NOT extracted into a shared component — the Source needs both a SEMP management host (HTTPS :943) and a JCSMP messaging host (SMF :55555) while the Sink needs only JCSMP, so sharing would require internal branching for no real reuse benefit.
 
 - <a id="io64"></a>**IO64 — `DatadogIO`**
-  - **Category Alignment:** `Streaming Sources` (Source) and `Logging Sinks` (Sink).
+  - **Category Alignment:** `Logging Sinks` (Sink ONLY).
   - **Documentation Links:**
     - **Java SDK:** [DatadogIO JavaDoc](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/io/datadog/DatadogIO.html)
     - **Python SDK:** [DatadogIO PyDoc](https://beam.apache.org/releases/pydoc/current/apache_beam.transforms.xlang.io.html#apache_beam.transforms.xlang.io.DatadogWrite)
+  - **Native Direction Audit Note:** `SOURCE:DatadogIO` was intentionally skipped because `org.apache.beam.sdk.io.datadog.DatadogIO` and Python `apache_beam.transforms.xlang.io.DatadogWrite` only provide a native `Write` sink (`DatadogIO.Write` / `DatadogWrite` for Datadog Logs HTTP Intake API) and have no native `Read` transform in Apache Beam.
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `DatadogIO`.
+    - [x] `getSecrets` (`gcloud secrets list` for Secret Manager Datadog API key credentials).
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `DatadogIO` Source to `NodesCard.tsx` under `Streaming Sources` (`beamTransform: 'DatadogIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/DatadogIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:DatadogIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/source/DatadogIO.test.tsx` (100% test coverage including dynamic message dispatch).
+    - **Skipped (No Native Beam Transform):** Neither `org.apache.beam.sdk.io.datadog.DatadogIO` nor Python `DatadogWrite` provides a native `Read` transform (`webview/src/properties/source/DatadogIO.tsx` intentionally omitted).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `DatadogIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'DatadogIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/DatadogIO.tsx` with dedicated controls for write destination, serialization/encoding, delivery guarantees/sharding, and system prompt override. Registered as `'SINK:DatadogIO'` in `PropertyForm.tsx`.
-    - **Test Suite:** `webview/src/properties/sink/DatadogIO.test.tsx` (100% test coverage including dynamic message dispatch).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/datadogio-pipeline.beam` and `src/test/integration/datadogio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+    - [x] **Palette Definition:** Added `DatadogIO` Sink to `NodesCard.tsx` under `Logging Sinks` (`beamTransform: 'DatadogIO', type: 'SINK'`).
+    - [x] **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented `webview/src/properties/sink/DatadogIO.tsx` with documented `DatadogIO.Write` / `DatadogWrite` (`url` with regional intake presets US1, US3, US5, EU1, AP1, US1-FED, `apiKeySecret` via Secret Manager, `batchCount`, `minBatchCount`, `maxBufferSize`, `parallelism`) and `DatadogEvent.Builder` (`ddsource`, `ddtags`, `hostname`, `service`, `messageField`) controls plus `system_instructions`. Registered as `'SINK:DatadogIO'` in `PropertyForm.tsx`.
+    - [x] **Test Suite:** `webview/src/properties/sink/DatadogIO.test.tsx` (100% test coverage including dynamic `getSecrets` message dispatch).
+  - [x] **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - [x] **Integration Test Suite:** Standardized sink integration tests split across environments (`src/test/integration/sinks/{agent-engine,cloud-run}/datadog-sink.{beam,test.ts}` following `GenerateSequence -> ParDo -> DatadogIO`).
+  - **Status:** ✅ Done.
 
 - <a id="io65"></a>**IO65 — `CosmosIO (Azure Cosmos DB)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2242,7 +2236,7 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `CosmosIO (Azure Cosmos DB)`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `CosmosIO (Azure Cosmos DB)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CosmosIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CosmosIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CosmosIO'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CosmosIO.tsx` with dedicated controls for read targets, authentication, limits, and system prompt override. Registered as `'SOURCE:CosmosIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/CosmosIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `CosmosIO (Azure Cosmos DB)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CosmosIO', type: 'SINK'`).
@@ -2250,7 +2244,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/CosmosIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cosmosio-pipeline.beam` and `src/test/integration/cosmosio-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done.
 
 - <a id="io66"></a>**IO66 — `AzureBlobStoreFileSystem`**
   - **Category Alignment:** `File Sources` (Source) and `File Sinks` (Sink).
@@ -2270,7 +2264,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/AzureBlobStoreFileSystem.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/azureblobstorefilesystem-pipeline.beam` and `src/test/integration/azureblobstorefilesystem-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ✅ Done (Panels, unit tests, palette + registry wiring, and integration fixture landed).
 
 - <a id="io67"></a>**IO67 — `Delta Lake`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink).
@@ -2290,7 +2284,13 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Test Suite:** `webview/src/properties/sink/DeltaLakeIO.test.tsx` (100% test coverage including dynamic message dispatch).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), InfoTooltips, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
   - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/deltalake-pipeline.beam` and `src/test/integration/deltalake-pipeline.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Status:** ⏭️ SKIPPED — no first-party Apache Beam Delta Lake connector could be
+    confirmed. Managed I/O officially covers **Iceberg, Kafka, and BigQuery** only; Delta Lake
+    appears in Beam's roadmap/"expanding ecosystem" language, but no `Managed.DELTA_LAKE`
+    constant or `"deltalake"` managed key was verified in the SDK. Both documentation links
+    above point at the generic `Managed` API rather than at a Delta Lake connector, which is
+    the tell. Shipping a palette node whose generated code cannot compile is worse than
+    omitting the connector. Revisit if/when Beam publishes a Delta Lake managed key.
 
 
 ---
@@ -2303,7 +2303,7 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Primary Documentation / Repository:** [Cloud Bigtable (HBase based) Repository / Documentation](https://cloud.google.com/bigtable/docs/hbase-dataflow-java)
     - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getBigtableInstances` (`gcloud bigtable instances list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
+    - `getProjects` (`gcloud projects list`); `getBigtableInstances` (`gcloud bigtable instances list`); `getBigtableTables` (`gcloud bigtable instances tables list`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud Bigtable (HBase based)`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cloud Bigtable (HBase based)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudBigtable', type: 'SOURCE'`).
@@ -2314,28 +2314,32 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CloudBigtable.tsx` registered as `'SINK:CloudBigtable'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CloudBigtable.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cloudbigtable-hbase.beam` and `src/test/integration/cloudbigtable-hbase.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cloudbigtable-hbase.beam` and `src/test/integration/cloudbigtable-hbase.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Notes:**
+    - **Credential file-path / class-name keys (`google.bigtable.auth.json.keyfile`, `google.bigtable.auth.service.account.email`, `google.bigtable.auth.service.account.keyfile`, `google.bigtable.auth.custom.credentials.class`, `google.bigtable.auth.service.account.enable`, `google.bigtable.auth.null.credential.enable`):** Omitted per R3/D3 because file paths, P12 keyfiles, custom credential classes, and unit-test-only null credentials cannot be sourced from GCP Secret Manager. Service account JSON credentials are instead supported via the Secret Manager picker (`credentialsSecret`, resolved at runtime and passed to `google.bigtable.auth.json.value`), while leaving `credentialsSecret` empty uses Application Default Credentials (ADC), the upstream-recommended default. All `google.bigtable.auth.*` keys are rejected in the `configuration` key/value list.
+    - **`CloudBigtableScanConfiguration.Builder.withRequest(ReadRowsRequest)`:** Omitted because it is `@Deprecated` upstream in favor of `withScan(Scan)`.
+    - **Unsupported / no-op HBase `Scan` methods (`setCacheBlocks`, `setCaching`, `setBatch`, `setMaxResultSize`, `setMaxResultsPerColumnFamily`, `setLimit`, `setReversed`):** Omitted from the UI because `ScanAdapter` either ignores them, throws `UnsupportedOperationException` (`maxResultsPerColumnFamily`), or has per-bundle semantics incompatible with `CloudBigtableIO.Source` key-range splitting (`limit`, `reversed`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CloudBigtable.tsx`, `webview/src/properties/source/CloudBigtable.test.tsx`, `webview/src/properties/sink/CloudBigtable.tsx`, `webview/src/properties/sink/CloudBigtable.test.tsx`, `src/test/integration/cloudbigtable-hbase.beam`, `src/test/integration/cloudbigtable-hbase.test.ts`).
 
 - <a id="io69"></a>**IO69 — `Cognite Data Fusion`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
   - **Documentation Links:**
     - **Primary Documentation / Repository:** [Cognite Data Fusion Repository / Documentation](https://github.com/cognitedata/cdf-beam-connector-java)
-    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Target Language:** `Java` (Native `com.cognite.beam:cdf-beam-connector` SDK; Python and Go are not supported).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `clientSecretSecret` and `apiKeySecret`); `getProjects` (`gcloud projects list` via `useAssetLoader('projects')` for `secretProject` targeting `GcpSecretConfig.of(projectId, secretId)`).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cognite Data Fusion`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cognite Data Fusion` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CogniteDataFusion', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CogniteDataFusion.tsx` registered as `'SOURCE:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes all documented `CogniteIO.read*` / `readAll*` / `readAggregates*` / `readDirect*` resource types (`assets`, `events`, `files`, `filesMetadata`, `timeseriesMetadata`, `timeseriesPoints`, `sequencesMetadata`, `sequenceRows`, `rawDatabases`, `rawTables`, `rawRows`, `dataSets`, `relationships`, `labels`), `ProjectConfig` (`project`, `baseUrl`, `authType` = `clientCredentials` | `apiKey`, `clientId`, `clientSecretSecret`, `azureTenantId`, `authServerUrl`, `authScopes`, `apiKeySecret`, `secretProject`, `secretVersion`), `RequestParameters` (`filterParameters`, `metadataFilterParameters`, `rootParameters`, `itemExternalIds`, `itemInternalIds`, `requestJson` with a non-blocking amber warning when `resourceType === 'timeseriesPoints'` has no item IDs), `ReaderConfig` (`appIdentifier`, `sessionIdentifier`, `enableMetrics`, `deltaReadTable`, `deltaIdentifier`, `deltaOffset`, `watchForNewItems`, `pollInterval`, `pollOffset`), and `Hints` (`readShardsPerWorker`, `maxRetries`, `readFileBinaryBatchSize`). Intentionally omits `CogniteIO.Read.withProjectConfigFile(String)` because loading a plaintext TOML credentials file from disk violates `C2` / `R3` (all credentials use GCP Secret Manager via `GcpSecretConfig`). Implemented in `webview/src/properties/source/CogniteDataFusion.tsx` and registered as `'SOURCE:CogniteDataFusion'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/CogniteDataFusion.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Cognite Data Fusion` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CogniteDataFusion', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CogniteDataFusion.tsx` registered as `'SINK:CogniteDataFusion'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes all documented `CogniteIO.write*` / `writeDirect*` / `delete*` / `writeMultipleAssetHierarchies` / `synchronizeAssetHierarchies` transforms across the 12 writable CDF resource types, `ProjectConfig` (same OAuth2 client credentials and legacy API key Secret Manager configuration as Source, intentionally omitting `withProjectConfigFile` per `C2`/`R3`), `WriterConfig` (`upsertMode`, `appIdentifier`, `sessionIdentifier`, `extractionPipelineExtId`, `extractionPipelineRunStatus`, `enableMetrics`), and `Hints` (`writeShards`, `writeMaxBatchLatency`, `maxRetries`, `writeFileBatchSize`, `writeRawMaxBatchSize`, `writeTsPointsUpdateFrequency`). Note: `referenceUpsertTarget` is omitted as non-existent in upstream `WriterConfig`. Implemented in `webview/src/properties/sink/CogniteDataFusion.tsx` and registered as `'SINK:CogniteDataFusion'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CogniteDataFusion.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cognitedatafusion.beam` and `src/test/integration/cognitedatafusion.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cognitedatafusion.beam` and `src/test/integration/cognitedatafusion.test.ts` (Java-only pipeline: `CogniteIO.readEvents()` ➔ `ParDo` ➔ `CogniteIO.writeEvents()`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CogniteDataFusion.tsx`, `webview/src/properties/source/CogniteDataFusion.test.tsx`, `webview/src/properties/sink/CogniteDataFusion.tsx`, `webview/src/properties/sink/CogniteDataFusion.test.tsx`, `src/test/integration/cognitedatafusion.beam`, `src/test/integration/cognitedatafusion.test.ts`).
 
 - <a id="io70"></a>**IO70 — `KineticaDB`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
@@ -2354,8 +2358,12 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/KineticaDB.tsx` registered as `'SINK:KineticaDB'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/KineticaDB.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/kineticadb.beam` and `src/test/integration/kineticadb.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/kineticadb.beam` and `src/test/integration/kineticadb.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Language Notes:**
+    - **Credentials (R3/D3):** Plaintext `withPassword(String)` input is omitted; credentials are supplied exclusively via the Secret Manager picker (`passwordSecret`, discovered via `gcloud secrets list`) and resolved at runtime via Secret Manager before calling `withPassword(...)`.
+    - **Upstream Non-User / Non-Configurable Options Omitted:** `withCoder(Coder<T>)` (always synthesized in generated code as `SerializableCoder.of(<Entity>.class)`), `withKineticaService(KineticaService)` (programmatic test hook taking a Java object), `minNumberOfSplits` (no public setter on `KineticaIO.Read`; reader always uses 1 split), writer `batchSize` (100000) and `flushTimerFrequency` (3000 ms) (`private final static` in `KineticaServiceImpl`), read filters/expressions/limits (not supported by `KineticaServiceImpl`, which issues a single `GetRecordsRequest` with empty options), automatic table creation on write (target table must already exist), and `@RecordObject.Column(name = ...)` override (`KineticaServiceImpl` looks up by `name()` and reflects via `getDeclaredField(name())`, so column name must equal field name).
+    - **Target Language & Python Fallback Note:** Upstream `com.kinetica:apache-beam-kineticaio:7.2.0.0` supports Java Beam pipelines only and provides no Python SDK or registered Beam cross-language expansion service. The integration test (`kineticadb.test.ts`) therefore targets Java (`languages: ['Java']`); if used in a Python pipeline, codegen falls back to a custom `beam.DoFn` bridge using the official `gpudb` Python client library.
+  - **Status:** ✅ Done (`webview/src/properties/source/KineticaDB.tsx`, `webview/src/properties/source/KineticaDB.test.tsx`, `webview/src/properties/sink/KineticaDB.tsx`, `webview/src/properties/sink/KineticaDB.test.tsx`, `src/test/integration/kineticadb.beam`, `src/test/integration/kineticadb.test.ts`).
 
 - <a id="io71"></a>**IO71 — `SAP Hana to Google BigQuery`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
@@ -2374,68 +2382,76 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/SAPHanatoGoogleBigQuery.tsx` registered as `'SINK:SAPHanatoGoogleBigQuery'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/SAPHanatoGoogleBigQuery.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/saphana-to-bigquery.beam` and `src/test/integration/saphana-to-bigquery.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/saphana-to-bigquery.beam` and `src/test/integration/saphana-to-bigquery.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Notes:**
+    - **Source / Sink split (`HanaToBQ.Options`):** Upstream `google/hana-bq-beam-connector` is a single-pipeline proof-of-concept (`HanaToBQ.java`) that reads SAP HANA via `JdbcIO.readAll()` (`HanaToDBRow`) and writes to Google BigQuery (`BigQueryIO.writeTableRows()`). The Source panel exposes the 9 SAP HANA reader options from `HanaToBQ.Options` (`connectionString`, `username`, `passwordSecret`, `driver`, `tableName`, `timestampColumn`, `startTime`, `endTime`, `chunkSize`), and the Sink panel exposes `destDataset` plus an optional `destTable` override (when blank, defaults to the source HANA `tableName`, matching upstream `destDataset + "." + tableName`).
+    - **Plaintext `--password` option:** Replaced by `passwordSecret` (`SecretManagerSecretField`) per R3/D3 so the SAP HANA password is resolved from GCP Secret Manager at runtime and never stored in plaintext or embedded in `connectionString`.
+    - **`endTime` upstream behavior:** Declared on `HanaToBQ.Options` (`@Description("End time, inclusive")`) although ignored by the upstream PoC (which hard-codes `"2000000000"` at `HanaToBQ.java:166`); kept as an optional field with transparent helper/tooltip text so generated code applies it as the upper bound when provided.
+    - **Fixed BigQuery dispositions & schema:** Upstream hard-codes `WriteDisposition.WRITE_APPEND`, `CreateDisposition.CREATE_IF_NEEDED`, and derives the `TableSchema` from SAP HANA `SYS.TABLE_COLUMNS` (`hanaToBqTypeMap`); these are displayed in a read-only info block on the Sink panel rather than as editable fields.
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io72"></a>**IO72 — `TrepWsIO`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Java`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [TrepWsIO Repository / Documentation](https://github.com/Refinitiv/trep-websockets-beam-io)
-    - **Target Language:** `Java` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [TrepWsIO Repository / Documentation](https://github.com/Refinitiv/trep-websockets-beam-io) and [Refinitiv / LSEG WebSocket API Specification](https://github.com/Refinitiv/websocket-api)
+    - **Target Language:** `Java` (`com.refinitiv.beamio:trepws-io:1.2.0`; Python and Go are not supported).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `passwordSecret`).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `TrepWsIO`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `TrepWsIO` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'TrepWsIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/TrepWsIO.tsx` registered as `'SOURCE:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes all documented `TrepWsIO.Read.with*` builder options (`hostname`, `port`, `serviceDiscovery`, `region`, `username`, `ertAuthEnabled`, `passwordSecret` via `SecretManagerSecretField`, `ertAuthStoreLocation`, repeatable `instrumentTuples` rows `{service, rics, fields}`, and advanced settings `cachedFields`, `maxMounts`, `position`, `appId`, `timeout`, `maxNumRecords`, `authPort`, `ertAuthPath`, `discoveryPath`). Displays `authServer` (`api.edp.thomsonreuters.com`) read-only and never persists or emits it because upstream `TrepWsIO.Read.withAuthServer(String)` contains a bug (`TrepWsIO.java:301`) that calls `setUsername(authServer)` and overwrites `username`. Implemented in `webview/src/properties/source/TrepWsIO.tsx` and registered as `'SOURCE:TrepWsIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/TrepWsIO.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `TrepWsIO` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'TrepWsIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/TrepWsIO.tsx` registered as `'SINK:TrepWsIO'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Upstream `TrepWsIO` is source-only (`TrepWsIO.read()`). Per `PROJECT.md` Decision D2 and `SnsIO` precedent, implements the `TrepWsIO` Sink panel for a custom Beam `DoFn` that contributes `MarketPrice` updates over the documented LSEG/Refinitiv WebSocket API (`tr_json2` sub-protocol Login, off-stream or on-stream `Post` messages with `Ack`/`PostID`, and `Ping`/`Pong` keepalive), exposing `hostname`, `port`, `username`, `ertAuthEnabled`, `passwordSecret` (`SecretManagerSecretField`), `clientId`, `serviceDiscovery`, `region`, `serviceName`, `postMode` (`offStream` | `onStream`), `ricMode` (`fromElement` | `fixed`), `ricField`, `ricName`, `fieldNames`, `ackRequired`, `nakHandling` (`log` | `fail`), and advanced settings `position`, `appId`, `authServer`, `authPort`, `ertAuthPath`, `takeExclusiveSignOnControl`, `discoveryPath` (omitting `includePostUserInfo` per `MILESTONE_DECISIONS.md`). Implemented in `webview/src/properties/sink/TrepWsIO.tsx` and registered as `'SINK:TrepWsIO'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/TrepWsIO.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/trepwsio.beam` and `src/test/integration/trepwsio.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/trepwsio.beam` and `src/test/integration/trepwsio.test.ts` (Java-only pipeline: `TrepWsIO.read()` ➔ `Filter` ➔ `ParDo(TrepWsPostDoFn)`).
+  - **Status:** ✅ Done (`webview/src/properties/source/TrepWsIO.tsx`, `webview/src/properties/source/TrepWsIO.test.tsx`, `webview/src/properties/sink/TrepWsIO.tsx`, `webview/src/properties/sink/TrepWsIO.test.tsx`, `src/test/integration/trepwsio.beam`, `src/test/integration/trepwsio.test.ts`).
 
 - <a id="io73"></a>**IO73 — `Beam PyIO (Collection of Python IO connectors)`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Beam PyIO (Collection of Python IO connectors) Repository / Documentation](https://github.com/beam-pyio)
-    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [Beam PyIO Organization](https://github.com/beam-pyio) · [firehose_pyio (`WriteToFirehose`)](https://beam-pyio.github.io/firehose_pyio/) · [sqs_pyio (`WriteToSqs`)](https://beam-pyio.github.io/sqs_pyio/) · [dynamodb_pyio (`WriteToDynamoDB`)](https://beam-pyio.github.io/dynamodb_pyio/)
+    - **AWS Boto3 Bridge References (Source):** [SQS `receive_message` / `delete_message_batch` / `get_queue_url`](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html) · [DynamoDB `Scan` / `Query` Paginators](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html) · [Boto3 `Session.client` Options](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html#boto3.session.Session.client)
+    - **Target Language:** `Python` (`firehose_pyio`, `sqs_pyio`, `dynamodb_pyio` are native Python sink-only packages; `SOURCE:BeamPyIO` follows the IO22 `SnsIO` D2 bridge precedent over boto3 SQS `ReceiveMessage`/`DeleteMessageBatch` and DynamoDB `Scan`/`Query`).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Beam PyIO (Collection of Python IO connectors)`.
+    - `getAwsQueues` (`aws sqs list-queues` normalized to queue short names for `queueName` datalist); `getSecrets` (`gcloud secrets list` for Secret Manager AWS credential references `accessKeySecret`, `secretKeySecret`, `sessionTokenSecret`).
+  - **Scope Isolation:** Strictly isolated to `BeamPyIO` Source/Sink panels, unit tests, and integration test suite.
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BeamPyIO', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/BeamPyIO.tsx` registered as `'SOURCE:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Beam PyIO (Collection of Python IO connectors)` Source in `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'BeamPyIO', type: 'SOURCE'`).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/source/BeamPyIO.tsx` (`BeamPyIOSourceProperties`, registered as `'SOURCE:BeamPyIO'` in `PropertyForm.tsx`). Includes D2 bridge `role="note"` banner explaining that `beam-pyio` is sink-only and Firehose has no read API, service selector (`sqs` | `dynamodb`), SQS bridge controls (`queueName` with `awsQueues` datalist, `ownerAccId`, `maxNumberOfMessages`, `visibilityTimeout`, `waitTimeSeconds`, `messageSystemAttributeNames` 10-attribute checkbox group, `messageAttributeNames`, `deleteAfterRead`, `maxNumRecords`, `maxReadTime`), DynamoDB bridge controls (`tableName`, `dynamoOperation` Scan/Query, `indexName`, `keyConditionExpression`, `scanIndexForward`, `totalSegments`, `filterExpression`, `projectionExpression`, `expressionAttributeNames`, `expressionAttributeValues`, `select`, `consistentRead`, `limit`, `maxItems`), shared `BeamPyIOAwsClientSection` (`authMode`, `accessKeySecret`, `secretKeySecret`, `sessionTokenSecret`, `regionName`, `customRegion`, collapsible `endpointUrl`, `apiVersion`, `verify`, `verifyCaBundle`, `disableSsl`), header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/BeamPyIO.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `Beam PyIO (Collection of Python IO connectors)` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BeamPyIO', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/BeamPyIO.tsx` registered as `'SINK:BeamPyIO'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Beam PyIO (Collection of Python IO connectors)` Sink in `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'BeamPyIO', type: 'SINK'`).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/sink/BeamPyIO.tsx` (`BeamPyIOSinkProperties`, registered as `'SINK:BeamPyIO'` in `PropertyForm.tsx`). Supports all three official `beam-pyio` sink transforms (`firehose` -> `firehose_pyio.io.WriteToFirehose`, `sqs` -> `sqs_pyio.io.WriteToSqs`, `dynamodb` -> `dynamodb_pyio.io.WriteToDynamoDB`), upstream batching (`batchElements` with service-specific max batch size limits of 500 for Firehose and 10 for SQS, `groupIntoBatches`, or `none`), shared `BeamPyIOAwsClientSection`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/BeamPyIO.test.tsx` (100% test coverage).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/beampyio.beam` and `src/test/integration/beampyio.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, `SecretManagerSecretField`, collapsible advanced client options, and LLM prompt override textarea (`system_instructions`).
+  - **Integration Test Suite:** `src/test/integration/beampyio.beam` and `src/test/integration/beampyio.test.ts` (exercises both `SOURCE:BeamPyIO` SQS bridge and `SINK:BeamPyIO` `WriteToFirehose` in a 6-node Python pipeline DAG).
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io74"></a>**IO74 — `Cloud SQL`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Cloud SQL Repository / Documentation](https://github.com/jccatrinck/dataflow-cloud-sql-python)
+    - **Primary Documentation / Repository:** [Cloud SQL Repository / Documentation](https://github.com/jccatrinck/dataflow-cloud-sql-python) · [Google Cloud SQL Python Connector](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector)
     - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
+    - `getSqlInstances` (`gcloud sql instances list`); `getSqlDatabases` (`gcloud sql databases list --instance=<instance>`); `getSecrets` (`gcloud secrets list` for Secret Manager credentials).
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Cloud SQL`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Cloud SQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'CloudSQL', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/CloudSQL.tsx` registered as `'SOURCE:CloudSQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes `cloudSqlInstance` with dynamic instance datalist, `dbDriver` (`postgresql+pg8000`, `mysql+pymysql`, `mssql+pytds`), `database` with dynamic database datalist, `username`, `passwordSecret` (`SecretManagerSecretField`), `query`, `queryParams` (JSON object), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/source/CloudSQL.tsx` registered as `'SOURCE:CloudSQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/CloudSQL.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Cloud SQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'CloudSQL', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/CloudSQL.tsx` registered as `'SINK:CloudSQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes `cloudSqlInstance`, `dbDriver`, `database`, `username`, `passwordSecret`, `table`, `updateIgnores` (comma-separated column names for ON CONFLICT DO UPDATE), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/sink/CloudSQL.tsx` registered as `'SINK:CloudSQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/CloudSQL.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/cloudsql.beam` and `src/test/integration/cloudsql.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/cloudsql.beam` and `src/test/integration/cloudsql.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Security Architecture:**
+    - **Explicit Omission of `GCP_SERVICE_ACCOUNT_FILE`:** Upstream `jccatrinck/dataflow-cloud-sql-python` references baking a local service account JSON key into container images or passing a filesystem path (`GCP_SERVICE_ACCOUNT_FILE`). This pattern is explicitly omitted because hardcoding or baking JSON private keys violates security invariant R3 and Secret Manager best practices. Under Google Cloud ADC and Dataflow execution, worker credentials are automatically sourced from the Dataflow worker service account identity without requiring local private key files. Database passwords are provided exclusively via GCP Secret Manager references (`passwordSecret`).
+  - **Status:** ✅ Done (`webview/src/properties/source/CloudSQL.tsx`, `webview/src/properties/source/CloudSQL.test.tsx`, `webview/src/properties/sink/CloudSQL.tsx`, `webview/src/properties/sink/CloudSQL.test.tsx`, `src/test/integration/cloudsql.beam`, `src/test/integration/cloudsql.test.ts`).
 
 - <a id="io75"></a>**IO75 — `MySQL`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
@@ -2447,15 +2463,15 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `MySQL`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `MySQL` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'MySQL', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/MySQL.tsx` registered as `'SOURCE:MySQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes `host`, `port` (default 3306), `database`, `user`, `passwordSecret` (`SecretManagerSecretField`), `query` (validated SELECT statement), `splitter` (`NoSplitter`, `LimitOffsetSplitter`, `IdsSplitter`, `DateSplitter`), dynamic `splitterBatchSize`, `generateIdsFn` (for `IdsSplitter`), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/source/MySQL.tsx` registered as `'SOURCE:MySQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/source/MySQL.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `MySQL` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'MySQL', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/MySQL.tsx` registered as `'SINK:MySQL'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Exposes `host`, `port` (default 3306), `database`, `user`, `passwordSecret`, `table`, `batchSize` (default 100), header `Docs ↗` link, and `system_instructions`. Implemented in `webview/src/properties/sink/MySQL.tsx` registered as `'SINK:MySQL'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/MySQL.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/mysql.beam` and `src/test/integration/mysql.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/mysql.beam` and `src/test/integration/mysql.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Status:** ✅ Done (`webview/src/properties/source/MySQL.tsx`, `webview/src/properties/source/MySQL.test.tsx`, `webview/src/properties/sink/MySQL.tsx`, `webview/src/properties/sink/MySQL.test.tsx`, `src/test/integration/mysql.beam`, `src/test/integration/mysql.test.ts`).
 
 - <a id="io76"></a>**IO76 — `Pyodbc`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
@@ -2467,35 +2483,38 @@ This section defines individual engineering tasks for every supported Apache Bea
   - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Pyodbc`.
   - **Source (Reader) Node:**
     - **Palette Definition:** Add `Pyodbc` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Pyodbc', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/Pyodbc.tsx` registered as `'SOURCE:Pyodbc'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/source/Pyodbc.tsx` registered as `'SOURCE:Pyodbc'` in `PropertyForm.tsx`. Exposes ODBC `driver`, `host`, `port`, `database`, `user`, `passwordSecret` (`SecretManagerSecretField`), `extraAttributes`, `query`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/Pyodbc.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
     - **Palette Definition:** Add `Pyodbc` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Pyodbc', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/Pyodbc.tsx` registered as `'SINK:Pyodbc'` in `PropertyForm.tsx`.
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/sink/Pyodbc.tsx` registered as `'SINK:Pyodbc'` in `PropertyForm.tsx`. Exposes ODBC `driver`, `host`, `port`, `database`, `table`, `user`, `passwordSecret`, `extraAttributes`, `batchSize`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/Pyodbc.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/pyodbc.beam` and `src/test/integration/pyodbc.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/pyodbc.beam` and `src/test/integration/pyodbc.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Architecture & System Integration Notes:**
+    - **Custom Python DoFn unixODBC/FreeTDS Bridge Architecture:** The Pyodbc connector operates via a custom Python `beam.DoFn` architecture bridging system unixODBC/FreeTDS drivers to Beam Python pipelines. Workers establish pooled ODBC connection handles inside `setup()` / `start_bundle()`, bind database credentials dynamically resolved from Secret Manager (`passwordSecret`), and execute cursor operations (`fetchall()` for reading and `executemany()` for batched sink writes). System driver dependencies (`unixodbc`, `freetds-dev`, `tdsodbc`) are provisioned in worker container images without exposing credentials on disk.
+  - **Status:** ✅ Done (`webview/src/properties/source/Pyodbc.tsx`, `webview/src/properties/source/Pyodbc.test.tsx`, `webview/src/properties/sink/Pyodbc.tsx`, `webview/src/properties/sink/Pyodbc.test.tsx`, `src/test/integration/pyodbc.beam`, `src/test/integration/pyodbc.test.ts`).
 
 - <a id="io77"></a>**IO77 — `Tinybird`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Python`).
   - **Documentation Links:**
-    - **Primary Documentation / Repository:** [Tinybird Repository / Documentation](https://github.com/tinybirdco/tinybird-beam)
-    - **Target Language:** `Python` (When used in Python/Java, utilize native connector or cross-language bridge).
+    - **Primary Documentation / Repository:** [Tinybird Beam Repository (`tinybirdco/tinybird-beam`)](https://github.com/tinybirdco/tinybird-beam) · [`tinybird/beam.py` (`WriteToTinybird` / `_WriteToTinybirdFn`)](https://github.com/tinybirdco/tinybird-beam/blob/main/tinybird/beam.py)
+    - **Tinybird HTTP API Documentation:** [Events API (`/v0/events`)](https://www.tinybird.co/docs/api-reference/events-api) · [Query API (`/v0/sql`)](https://www.tinybird.co/docs/api-reference/query-api) · [Pipe API (`/v0/pipes/{name}.{ext}`)](https://www.tinybird.co/docs/api-reference/pipe-api) · [Tinybird Regions & API Hosts](https://www.tinybird.co/docs/concepts/regions-and-cloud-providers) · [Auth Tokens (`Authorization: Bearer`)](https://www.tinybird.co/docs/Order-and-Access/tokens)
+    - **Target Language:** `Python` (`tinybird-beam` is a native Python ingest-only library; `SOURCE:Tinybird` follows the IO22 `SnsIO` D2 bridge precedent over the Tinybird Pipes `/v0/pipes/{pipeName}.{ext}` and Query `/v0/sql` HTTP APIs).
   - **Usability & Dynamic Discovery (`gcloud` / CLI):**
-    - `getSecrets` (`gcloud secrets list` for API tokens/credentials if authentication required).
-  - **Scope Isolation:** Strictly isolated: Do NOT modify other nodes in the project. Only add the 2 new nodes for `Tinybird`.
+    - `getSecrets` (`gcloud secrets list` via `SecretManagerSecretField` for `tokenSecret`); 7-region Tinybird API host datalist (`https://api.tinybird.co`, `https://api.us-east.tinybird.co`, `https://api.europe-west2.gcp.tinybird.co`, `https://api.northamerica-northeast2.gcp.tinybird.co`, `https://api.us-east.aws.tinybird.co`, `https://api.us-west-2.aws.tinybird.co`, `https://api.eu-central-1.aws.tinybird.co`).
+  - **Scope Isolation:** Strictly isolated to `Tinybird` Source/Sink panels, unit tests, and integration test suite.
   - **Source (Reader) Node:**
-    - **Palette Definition:** Add `Tinybird` Source to `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Tinybird', type: 'SOURCE'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/source/Tinybird.tsx` registered as `'SOURCE:Tinybird'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Tinybird` Source in `NodesCard.tsx` under `Data Services Sources` (`beamTransform: 'Tinybird', type: 'SOURCE'`).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/source/Tinybird.tsx` (`TinybirdSourceProperties`, registered as `'SOURCE:Tinybird'` in `PropertyForm.tsx`). Includes D2 bridge `role="note"` banner, `host` with 7-region datalist, `tokenSecret` (`SecretManagerSecretField`), `queryMode` (`pipe` | `sql`), `pipeName`, `pipeQuery`, `sqlQuery`, `sqlPipeline`, `queryParams`, `format` (`json` | `ndjson` | `csv` | `parquet`), `quote64BitIntegers` (`output_format_json_quote_64bit_integers`), collapsible pagination section (`enablePagination`, `pageSize`, `maxPages`, `limitParam`, `offsetParam`), header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/source/Tinybird.test.tsx` (100% test coverage).
   - **Sink (Writer) Node:**
-    - **Palette Definition:** Add `Tinybird` Sink to `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Tinybird', type: 'SINK'`).
-    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/Tinybird.tsx` registered as `'SINK:Tinybird'` in `PropertyForm.tsx`.
+    - **Palette Definition:** `Tinybird` Sink in `NodesCard.tsx` under `Data Services Sinks` (`beamTransform: 'Tinybird', type: 'SINK'`).
+    - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Implemented in `webview/src/properties/sink/Tinybird.tsx` (`TinybirdSinkProperties`, registered as `'SINK:Tinybird'` in `PropertyForm.tsx`). Exposes `WriteToTinybird(host, token, data_source, columns)` parameters (`host` with 7-region datalist, `tokenSecret` via `SecretManagerSecretField`, `datasource`, `columns`), collapsible upstream batching section (`batchingMode`: `batchElements` | `groupIntoBatches` | `none`, `minBatchSize`, `maxBatchSize`, `batchSize`, `maxBufferingDurationSecs`) required because `_WriteToTinybirdFn.process(element)` iterates `for row in element:`, header `Docs ↗` link, and `system_instructions`.
     - **Test Suite:** `webview/src/properties/sink/Tinybird.test.tsx` (100% test coverage).
-  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/tinybird.beam` and `src/test/integration/tinybird.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, `SecretManagerSecretField`, collapsible parameter groups, and LLM prompt override textarea (`system_instructions`).
+  - **Integration Test Suite:** `src/test/integration/tinybird.beam` and `src/test/integration/tinybird.test.ts` (exercises `PubSubIO` -> `ParseJson` -> `ParDo` -> `BatchElements` -> `SINK:Tinybird` `WriteToTinybird` in a 6-node Python pipeline DAG).
+  - **Status:** ✅ Done (`webview/src/properties/source/Tinybird.tsx`, `webview/src/properties/source/Tinybird.test.tsx`, `webview/src/properties/sink/Tinybird.tsx`, `webview/src/properties/sink/Tinybird.test.tsx`, `src/test/integration/tinybird.beam`, `src/test/integration/tinybird.test.ts`).
 
 - <a id="io78"></a>**IO78 — `Go Connect`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Go`).
@@ -2514,8 +2533,10 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/GoConnect.tsx` registered as `'SINK:GoConnect'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/GoConnect.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/goconnect.beam` and `src/test/integration/goconnect.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/goconnect.beam` and `src/test/integration/goconnect.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Go SDK Mapping & Cross-Language Architecture:**
+    - **Native Beam Go Mapping & Expansion Service Bridge:** Go Connect integrates native Go data pipelines using Apache Beam Go SDK transforms (`beam.ParDo`, native Kafka/AMQP transforms) or maps across languages via the Apache Beam Cross-Language Expansion Service (`beam:transform:org.apache.beam:expansion_service`). In native Go pipelines, `goconnect` source/sink primitives compile directly into Go pipeline graphs; in multi-language environments (Java/Python), pipelines delegate execution to standard Beam Go expansion endpoints.
+  - **Status:** ⏭️ SKIPPED (Removed from palette and registry).
 
 - <a id="io79"></a>**IO79 — `MySQL, PostgreSQL, Oracle, SQL Server`**
   - **Category Alignment:** `Data Services Sources` (Source) and `Data Services Sinks` (Sink) (Target Language: `Yaml`).
@@ -2534,8 +2555,14 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Property Panel Plan:** Review documentation to find all possible properties and their value(s), then come up with a plan for the property panel before generating the panel (strictly no guessing of valid properties). Create `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx` registered as `'SINK:MySQLPostgreSQLOracleSQLServer'` in `PropertyForm.tsx`.
     - **Test Suite:** `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx` (100% test coverage).
   - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips, and LLM prompt override textarea (`system_instructions`).
-  - **Integration Test Suite:** Generate at least one new end-to-end integration test (`src/test/integration/multidb-yaml.beam` and `src/test/integration/multidb-yaml.test.ts`) exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
-  - **Status:** ⬜ Not Started.
+  - **Integration Test Suite:** `src/test/integration/multidb-yaml.beam` and `src/test/integration/multidb-yaml.test.ts` exercising the connector in a realistic pipeline DAG validated against the Multi-Agent Evaluation Harness.
+  - **Documented Omissions & Language Mapping Notes:**
+    - **Target Language Mapping (D1):** Because code generation targets Java and Python, `MySQLPostgreSQLOracleSQLServer` (`ReadFromMySql`/`ReadFromPostgres`/`ReadFromOracle`/`ReadFromSqlServer` and `WriteToMySql`/`WriteToPostgres`/`WriteToOracle`/`WriteToSqlServer`) generates the native Beam JDBC equivalent: Java `JdbcIO` and Python `apache_beam.io.jdbc.ReadFromJdbc` / `WriteToJdbc` with the selected flavor's JDBC driver.
+    - **Credentials & Worker Secret Resolution (R3/D3/D5):** Plaintext `password` is replaced by `passwordSecret` (`SecretManagerSecretField`, discovered via `gcloud secrets list`). When `resolveOnWorkers` is unchecked (default), the secret is resolved at pipeline construction time via the Secret Manager client (compatible with Beam 2.53/2.55). When `resolveOnWorkers` is checked, generated code passes Beam's native `secret_manager: GoogleCloudSecretManager` (requires Beam > 2.55.0). The `secret_manager` enum key itself is not persisted in `.beam` node properties so it is not scrubbed by `classifyKey`.
+    - **Omitted `secret_manager: GoogleCloudHsmGeneratedSecretManager` (R3/D4):** `GcpHsmGeneratedSecret` (`apache_beam/utils/secret.py`) generates a new random secret value using a Cloud KMS HSM key and stores it as `HsmGeneratedSecret_<job_name>`; it cannot read an existing database password and is therefore omitted per R3.
+    - **Omitted `jdbc_type`:** Each per-flavor Beam YAML transform provider (`ReadFromMySqlSchemaTransformProvider`, `ReadFromPostgresSchemaTransformProvider`, etc.) forcibly overrides `jdbc_type` to match the selected flavor, which is already determined by the `databaseType` selector.
+    - **Flavor-Specific Upstream Rules:** `connectionInitSql` is exposed only when `databaseType === 'mysql'` (PostgreSQL and SQL Server schema transform providers throw `UnsupportedOperationException`, and upstream documentation states only MySQL and MariaDB support it). No `getSqlInstances` discovery is used because Beam YAML JDBC transforms accept standard `jdbc:` URLs rather than Cloud SQL connection names.
+  - **Status:** ✅ Done (`webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.test.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx`, `src/test/integration/multidb-yaml.beam`, `src/test/integration/multidb-yaml.test.ts`).
 
 ---
 

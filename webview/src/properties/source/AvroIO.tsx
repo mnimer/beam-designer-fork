@@ -26,6 +26,8 @@
 import React, { useMemo } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { StoragePathField } from '../../components/common/StoragePathField';
+import { SchemaEditor, BEAM_SCHEMA_TYPES, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
 /**
  * Standard sample Avro record schema for quick prefilling.
@@ -57,9 +59,10 @@ export interface AvroIOSourceNode {
       filePattern?: string;
       recordType?: 'GENERIC_RECORD' | 'SPECIFIC_RECORD' | 'PARSE_GENERIC';
       schemaMode?: 'AUTO' | 'INLINE' | 'FILE';
+      schemaFields?: SchemaField[];
       schema?: string;
+      schemaString?: string;
       schemaPath?: string;
-      recordClass?: string;
       emptyMatchTreatment?: 'ALLOW' | 'DISALLOW' | 'ALLOW_IF_WILDCARD';
       validate?: boolean;
       watchForNewFiles?: boolean;
@@ -89,9 +92,7 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   const filePattern = properties.filePattern || '';
   const recordType = properties.recordType || 'GENERIC_RECORD';
   const schemaMode = properties.schemaMode || 'AUTO';
-  const schema = properties.schema || '';
   const schemaPath = properties.schemaPath || '';
-  const recordClass = properties.recordClass || '';
   const emptyMatchTreatment = properties.emptyMatchTreatment || 'ALLOW_IF_WILDCARD';
   const validate = properties.validate ?? true;
   const watchForNewFiles = properties.watchForNewFiles ?? false;
@@ -104,18 +105,11 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   // Required field validation
   const isPatternInvalid = !filePattern.trim();
 
-  // Validate inline JSON schema if provided and in INLINE mode
-  const jsonSchemaValidation = useMemo(() => {
-    if (recordType !== 'GENERIC_RECORD' || schemaMode !== 'INLINE' || !schema.trim()) {
-      return { isValid: true, error: null };
-    }
-    try {
-      JSON.parse(schema);
-      return { isValid: true, error: null };
-    } catch (err: any) {
-      return { isValid: false, error: err?.message || 'Invalid JSON syntax' };
-    }
-  }, [recordType, schemaMode, schema]);
+  // Resolve SchemaField[] from properties
+  const schemaFields = useMemo(
+    () => resolveSchemaFields(properties),
+    [properties.schemaFields, properties.schema, properties.schemaString]
+  );
 
   // Extract instructions with fallbacks
   const systemInstructions =
@@ -140,12 +134,18 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   };
 
   /**
-   * Inserts the default sample Avro schema into the inline schema textarea.
+   * Updates schema properties when SchemaEditor changes.
    */
-  const handleInsertSampleSchema = () => {
+  const handleSchemaChange = (data: {
+    schemaFields: SchemaField[];
+    schema: string;
+    schemaString: string;
+  }) => {
     onChange({
       ...properties,
-      schema: SAMPLE_AVRO_SCHEMA
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
     });
   };
 
@@ -161,27 +161,24 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
 
   return (
     <div className="flex-1 flex flex-col gap-4">
-      {/* Section 1: File Pattern & Target */}
-      <PropertyField
+      {/* Section 1: File Pattern & Target with GCS Bucket Datalist */}
+      <StoragePathField
         id="avroFilePattern"
         name="filePattern"
         label="File Pattern / Path (.from / file_pattern)"
-        required="Required"
         tooltip="File path or glob pattern to read from (e.g. gs://bucket/data/*.avro or /local/path/*.avro). Required."
         value={filePattern}
-        invalid={isPatternInvalid}
-        error={isPatternInvalid ? 'File Pattern is required.' : null}
-        helperText={!isPatternInvalid ? 'Path or glob matching Avro files (e.g. gs://bucket/*.avro)' : null}
-        placeholder="gs://my-bucket/data/*.avro or /path/to/files/*.avro"
         onChange={handleChange}
-        mono={true}
+        placeholder="gs://my-bucket/data/*.avro or /path/to/files/*.avro"
+        errorMessage="File Pattern is required."
+        helperText={!isPatternInvalid ? 'Path or glob matching Avro files (e.g. gs://bucket/*.avro)' : null}
       />
 
       {/* Section 2: Record Type & Schema Configuration */}
       <div className="flex flex-col gap-3 p-4 bg-slate-800/40 rounded border border-slate-700/50">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold uppercase text-slate-400">Record Type & Schema</span>
-          <InfoTooltip text="Choose whether to deserialize into dynamic GenericRecords or specific compiled Java class records." />
+          <InfoTooltip text="Choose whether to deserialize into dynamic GenericRecords or generated SpecificRecord classes." />
         </div>
 
         {/* Record Type Selection */}
@@ -197,7 +194,7 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
             className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
           >
             <option value="GENERIC_RECORD">GenericRecord (Dynamic / Untyped Schema)</option>
-            <option value="SPECIFIC_RECORD">SpecificRecord (Compiled Java Class)</option>
+            <option value="SPECIFIC_RECORD">SpecificRecord (Generated Record Schema)</option>
             <option value="PARSE_GENERIC">Parse GenericRecord (Custom Parse Function)</option>
           </select>
         </div>
@@ -208,7 +205,7 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
             <div className="flex flex-col gap-1">
               <label htmlFor="avroSchemaMode" className="flex items-center text-xs font-semibold text-slate-400">
                 <span>Schema Definition Mode</span>
-                <InfoTooltip text="Embedded: Reads the schema directly from the Avro file header. Inline: Specify schema JSON. File: Reference an external .avsc file." />
+                <InfoTooltip text="Embedded: Reads the schema directly from the Avro file header. Inline: Define reader schema fields or JSON. File: Reference an external .avsc file." />
               </label>
               <select
                 id="avroSchemaMode"
@@ -218,44 +215,24 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
                 className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
               >
                 <option value="AUTO">Auto-detect (Embedded in Avro File Header)</option>
-                <option value="INLINE">Inline JSON Schema (Reader Schema)</option>
+                <option value="INLINE">Inline Schema (Reader Schema)</option>
                 <option value="FILE">External Schema File (.avsc)</option>
               </select>
             </div>
 
-            {/* Inline Schema Input */}
+            {/* Inline Schema Editor */}
             {schemaMode === 'INLINE' && (
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="avroInlineSchema" className="text-xs font-semibold text-slate-400">
-                    Avro JSON Schema
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleInsertSampleSchema}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
-                  >
-                    Insert Sample Schema
-                  </button>
-                </div>
-                <textarea
-                  id="avroInlineSchema"
-                  name="schema"
-                  value={schema}
-                  onChange={handleChange}
-                  placeholder={`{\n  "type": "record",\n  "name": "User",\n  "fields": [...]\n}`}
-                  rows={5}
-                  className={`bg-[#252836] text-white p-2 rounded border text-xs focus:outline-none font-mono ${
-                    !jsonSchemaValidation.isValid
-                      ? 'border-red-500/80 focus:border-red-500'
-                      : 'border-slate-700 focus:border-blue-500'
-                  }`}
+                <SchemaEditor
+                  fields={schemaFields}
+                  types={BEAM_SCHEMA_TYPES}
+                  schemaTitle="Avro Reader Schema Specification"
+                  stringTitle="Avro Schema String"
+                  stringPlaceholder="e.g. id:STRING:REQUIRED, name:STRING, timestamp:BIGINT, active:BOOLEAN"
+                  jsonTextareaId="avroSourceSchemaJson"
+                  stringTextareaId="avroSourceSchemaString"
+                  onChange={handleSchemaChange}
                 />
-                {!jsonSchemaValidation.isValid && (
-                  <span className="text-xs text-red-400">
-                    JSON Error: {jsonSchemaValidation.error}
-                  </span>
-                )}
                 <span className="text-xs text-slate-400">
                   Optional reader schema used for projection or schema evolution.
                 </span>
@@ -282,22 +259,21 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
           </div>
         )}
 
-        {/* Options for SpecificRecord */}
+        {/* Options for SpecificRecord: Visual SchemaEditor (Gemini synthesizes the SpecificRecord automatically) */}
         {recordType === 'SPECIFIC_RECORD' && (
-          <div className="flex flex-col gap-1 mt-1 pt-3 border-t border-slate-700/40">
-            <label htmlFor="avroRecordClass" className="flex items-center text-xs font-semibold text-slate-400">
-              <span>Generated Java Record Class</span>
-              <span className="text-red-400 ml-1 font-bold" title="Required">*</span>
-              <InfoTooltip text="Fully qualified name of the Avro-generated Java class (e.g. com.example.models.OrderRecord)." />
-            </label>
-            <input
-              id="avroRecordClass"
-              type="text"
-              name="recordClass"
-              value={recordClass}
-              onChange={handleChange}
-              placeholder="com.example.avro.UserRecord"
-              className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
+          <div className="flex flex-col gap-2.5 mt-1 pt-3 border-t border-slate-700/40">
+            <div className="p-2 bg-blue-950/30 rounded border border-blue-900/40 text-xs text-slate-300">
+              Define your record fields below. Gemini automatically generates the typed Avro <code className="text-blue-300 font-mono">SpecificRecord</code> / schema class from these fields.
+            </div>
+            <SchemaEditor
+              fields={schemaFields}
+              types={BEAM_SCHEMA_TYPES}
+              schemaTitle="Avro SpecificRecord Schema"
+              stringTitle="Avro SpecificRecord Schema String"
+              stringPlaceholder="e.g. id:STRING:REQUIRED, name:STRING, timestamp:BIGINT, active:BOOLEAN"
+              jsonTextareaId="avroSourceSpecificSchemaJson"
+              stringTextareaId="avroSourceSpecificSchemaString"
+              onChange={handleSchemaChange}
             />
           </div>
         )}

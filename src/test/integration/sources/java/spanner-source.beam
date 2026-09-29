@@ -1,0 +1,91 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Spanner
+      type: SOURCE
+      iconName: Database
+      beam_transform: SpannerIO
+      properties:
+        instanceId: telemetry-instance
+        databaseId: telemetry_db
+        projectId: my-spanner-project
+        readMode: query
+        query: SELECT device_id, timestamp, temperature, humidity, status FROM
+          SensorReadings WHERE status = 'VALID'
+        batching: true
+        timestampBoundMode: strong
+        authMode: adc
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformFn: BuildSummaryMutationFn
+      system_instructions: Transform read Spanner rows into Mutation objects targeting
+        table 'DeviceAggregates'. In Java, process each
+        com.google.cloud.spanner.Struct and construct a Mutation using
+        Mutation.newInsertOrUpdateBuilder("DeviceAggregates").set("device_id").to(struct.getString("device_id")).set("last_timestamp").to(struct.getTimestamp("timestamp")).set("temperature").to(struct.getDouble("temperature")).set("humidity").to(struct.getDouble("humidity")).build().
+        In Python, yield a dictionary formatted for write_mutations in
+        apache_beam.io.gcp.spanner. Output normalized JSON strings ready for
+        structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[SpannerIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: spanner-source-java
+  - key: projectId
+    value: my-spanner-project
+  - key: instanceId
+    value: telemetry-instance
+  - key: databaseId
+    value: telemetry_db
+  - key: batchSizeBytes
+    value: 1048576
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/spanner-source-java
+  needsRebuild: false

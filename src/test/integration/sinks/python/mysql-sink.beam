@@ -1,0 +1,95 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 501, "customer_email": " Alice@Example.com ", "country":
+            "us", "amount": 123.456, "created_at": "2026-09-01 12:00:00"}'
+          - '{"id": 502, "customer_email": " Bob@Example.com ", "country": "ca",
+            "amount": 78.9, "created_at": "2026-09-01 12:05:00"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Normalize Order
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Parse each input JSON string (or dict) into a dict with
+        exactly these keys for the target table: order_id (from id),
+        customer_email (stripped and lower-cased), country (upper-cased), amount
+        (float rounded to 2 decimals) and created_at (formatted as 'YYYY-MM-DD
+        HH:MM:SS' string). Unit-test the DoFn with TestPipeline, beam.Create and
+        assert_that/equal_to without opening MySQL or Secret Manager
+        connections."
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: MySQL Analytics Orders
+      type: SINK
+      iconName: Database
+      beam_transform: MySQL
+      properties:
+        host: 10.24.0.9
+        port: "3306"
+        database: analytics
+        user: beam_writer
+        passwordSecret: analytics-mysql-writer-password
+        table: orders_normalized
+        batchSize: "500"
+      system_instructions: "Use beam-mysql-connector's built-in sink: from
+        beam_mysql.connector.io import WriteToMySQL; apply normalized | 'MySQL
+        Analytics Orders' >> WriteToMySQL(host='10.24.0.9',
+        database='analytics', table='orders_normalized', user='beam_writer',
+        password=<resolved>, port=3306, batch_size=500). Do NOT substitute
+        WriteToJdbc / JdbcIO and do NOT write a custom DoFn for the write.
+        Resolve passwordSecret ONCE at pipeline construction with
+        _access_secret(project_id, 'analytics-mysql-writer-password').
+        WriteToMySQL consumes dict elements whose keys are the target column
+        names, so the upstream Normalize Order step must emit dicts with exactly
+        order_id, customer_email, country, amount and created_at. Add
+        beam-mysql-connector and google-cloud-secret-manager to
+        requirements.txt."
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: mysql-sink-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/mysql-sink-python
+  needsRebuild: false

@@ -23,16 +23,70 @@ interface CreatePropertiesProps {
   onChange: (properties: any) => void;
 }
 
-export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
-  const elements: string[] = properties.elements || [''];
+/**
+ * Normalizes raw elements from node properties into a typed string array.
+ * Handles:
+ * - JSON-stringified arrays (e.g. `'["{\\"id\\": 1}", "{\\"id\\": 2}"]'` or `'["record-1", "record-2"]'`)
+ * - Stringified primitives or single strings
+ * - Arrays of objects, numbers, booleans, or strings
+ * - Undefined, null, or empty values
+ */
+export function normalizeElements(raw: any): string[] {
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) {
+      return [''];
+    }
+    return raw.map((el) => {
+      if (typeof el === 'string') {
+        return el;
+      }
+      if (typeof el === 'object' && el !== null) {
+        try {
+          return JSON.stringify(el);
+        } catch {
+          return String(el);
+        }
+      }
+      return String(el ?? '');
+    });
+  }
 
-  const isInvalid = elements.length === 0 || elements.every(el => !el.trim());
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return [''];
+    }
+    // Check if the string represents a JSON array
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return normalizeElements(parsed);
+        }
+      } catch {
+        // Not a valid JSON array, treat as raw single string
+      }
+    }
+    return [raw];
+  }
+
+  if (raw !== undefined && raw !== null) {
+    return [String(raw)];
+  }
+
+  return [''];
+}
+
+export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChange }) => {
+  const properties = node?.data?.properties || {};
+  const elements: string[] = normalizeElements(properties.elements);
+
+  const isInvalid = elements.length === 0 || elements.every(el => typeof el !== 'string' || !el.trim());
 
   // System instructions text with fallback
   const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
+    node?.data?.system_instructions ??
+    node?.data?.special_instructions ??
     properties.system_instructions ??
     properties.special_instructions ??
     '';
@@ -52,7 +106,7 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
   };
 
   const removeElement = (index: number) => {
-    if (elements.length === 1) {
+    if (elements.length <= 1) {
       updateElements(['']);
     } else {
       updateElements(elements.filter((_, i) => i !== index));

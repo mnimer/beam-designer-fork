@@ -295,6 +295,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   id="snsSourceCustomRegion"
                   type="text"
                   name="customRegion"
+                  aria-label="Custom AWS Region"
                   value={customRegion}
                   onChange={handleChange}
                   placeholder="e.g. me-central-1"
@@ -339,9 +340,12 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   <PropertyField
                     id="snsSourceAccessKeySecret"
                     name="accessKeySecret"
+                    label="AWS Access Key Secret"
+                    tooltip="Secret Manager secret name for AWS access key ID."
                     value={accessKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
+                    datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
                     placeholder="Access Key Secret (e.g. aws-access-key-id)"
                     error={secretError}
                     invalid={!!secretError}
@@ -350,17 +354,15 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                   <PropertyField
                     id="snsSourceSecretKeySecret"
                     name="secretKeySecret"
+                    label="AWS Secret Key Secret"
+                    tooltip="Secret Manager secret name for AWS secret access key."
                     value={secretKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
+                    datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
                     placeholder="Secret Key Secret (e.g. aws-secret-access-key)"
                     mono={true}
                   />
-                  <datalist id="source-secret-options">
-                    {secrets.map(s => (
-                      <option key={s.id || s.name} value={s.id || s.name} />
-                    ))}
-                  </datalist>
                 </div>
               )}
             </div>
@@ -382,13 +384,9 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
               placeholder="projects/my-project/topics/my-topic"
               onChange={handleChange}
               list="source-pubsub-topics"
+              datalist={pubsubTopics}
               mono={true}
             />
-            <datalist id="source-pubsub-topics">
-              {pubsubTopics.map(t => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
           </div>
         )}
       </div>

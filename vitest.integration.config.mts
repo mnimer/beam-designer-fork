@@ -29,10 +29,16 @@ export default defineConfig({
     test: {
         include: ['src/test/integration/**/*.test.ts'],
         exclude: ['**/node_modules/**', '**/dist/**'],
+        globalSetup: ['./src/test/integration/global-setup.ts'],
         testTimeout: 180000, // 3 minutes timeout for Gemini LLM generation and evaluation
         hookTimeout: 60000,
         globals: true,
         environment: 'node',
-        maxConcurrency: 3,
+        maxConcurrency: 2,
+        sequence: {
+            concurrent: true
+        }
     },
 });
+
+

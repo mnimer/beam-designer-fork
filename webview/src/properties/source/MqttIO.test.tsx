@@ -141,27 +141,29 @@ describe('MqttIOSourceProperties', () => {
     }));
   });
 
-  it('switches between Secret Manager and direct password entry with show/hide toggle', () => {
+  it('does not render direct cleartext password entry and strips legacy password on update', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
         properties: {
-          passwordSource: 'direct' as const,
           password: 'super-secret-token'
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const passwordInput = screen.getByLabelText(/^Password/i);
-    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+    expect(container.querySelector('#mqtt-source-secret-options')).toBeInTheDocument();
 
-    const toggleButton = screen.getByLabelText('Show password');
-    fireEvent.click(toggleButton);
+    const usernameInput = container.querySelector('#mqtt-username') as HTMLInputElement;
+    fireEvent.change(usernameInput, { target: { name: 'username', value: 'mqtt-user-secret' } });
 
-    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      username: 'mqtt-user-secret'
+    }));
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 
   it('handles extension message for Compute Engine instances and applies IP to serverUri', () => {

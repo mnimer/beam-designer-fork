@@ -20,7 +20,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { StoragePathField } from '../../components/common/StoragePathField';
+import { SchemaEditor, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
+import { FileCode, ChevronDown, ChevronRight } from 'lucide-react';
 
 export interface ParquetIOSinkNode {
   data: {
@@ -32,6 +34,8 @@ export interface ParquetIOSinkNode {
       to?: string;
       suffix?: string;
       schema?: string;
+      schemaString?: string;
+      schemaFields?: SchemaField[];
       codec?: string;
       numShards?: string | number;
       shardTemplate?: string;
@@ -59,22 +63,6 @@ export const PARQUET_CODECS = [
   { value: 'UNCOMPRESSED', label: 'UNCOMPRESSED / NONE' }
 ];
 
-const SAMPLE_AVRO_SINK_SCHEMA = JSON.stringify(
-  {
-    type: 'record',
-    name: 'OutputRecord',
-    namespace: 'com.example.beam',
-    fields: [
-      { name: 'id', type: 'string' },
-      { name: 'name', type: 'string' },
-      { name: 'amount', type: 'double' },
-      { name: 'processed_at', type: 'long' }
-    ]
-  },
-  null,
-  2
-);
-
 /**
  * ParquetIOSinkProperties renders the property configuration form for ParquetIO writes.
  */
@@ -82,7 +70,7 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   const properties = node.data.properties || {};
   const to = properties.to || '';
   const suffix = properties.suffix ?? '.parquet';
-  const schema = properties.schema || '';
+  const schemaFields: SchemaField[] = resolveSchemaFields(properties);
   const codec = properties.codec || 'SNAPPY';
   const numShards = properties.numShards ?? '';
   const shardTemplate = properties.shardTemplate || '';
@@ -120,16 +108,6 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   };
 
   /**
-   * Inserts a sample Avro schema snippet into the schema field
-   */
-  const handleInsertSampleSchema = () => {
-    onChange({
-      ...properties,
-      schema: SAMPLE_AVRO_SINK_SCHEMA
-    });
-  };
-
-  /**
    * Updates AI prompt / system instructions
    */
   const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -142,20 +120,16 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Destination Directory (.to) Input */}
-      <PropertyField
+      <StoragePathField
         id="parquetSinkTo"
         name="to"
         label="Destination Directory / Prefix (.to)"
-        required={true}
         tooltip="Base output directory path or prefix where Parquet files will be written (e.g. gs://bucket/output/, s3://bucket/output/, hdfs://path/output/, or /local/output/). Required."
         value={to}
-        invalid={isToInvalid}
-        error={isToInvalid ? 'Destination Directory is required.' : null}
+        errorMessage={isToInvalid ? 'Destination Directory is required.' : undefined}
         onChange={handleChange}
         placeholder="gs://bucket/output/, s3://bucket/output/, or /local/output/"
-        helperText={
-          isToInvalid ? undefined : 'Target storage prefix across Cloud Storage, Amazon S3, HDFS, or local storage.'
-        }
+        helperText="Target storage prefix across Cloud Storage, Amazon S3, HDFS, or local storage."
       />
 
       {/* File Suffix Input */}
@@ -206,32 +180,22 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
 
         {isSchemaOpen && (
           <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--vscode-border-light)] mt-2">
-            <div className="flex justify-between items-center mt-2">
-              <label htmlFor="parquetSinkSchema" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Avro / PyArrow Schema (Required for Java / Strict Python)</span>
-                <InfoTooltip text="Target schema definition. In Java, FileIO.write().via(ParquetIO.sink(schema)) requires an Avro schema. In Python WriteToParquet, pyarrow.Schema is required." />
-              </label>
-              <button
-                type="button"
-                onClick={handleInsertSampleSchema}
-                className="text-[11px] text-[var(--vscode-highlight)] hover:underline flex items-center gap-1 font-medium"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Insert Sample</span>
-              </button>
+            <div className="mt-2">
+              <SchemaEditor
+                fields={schemaFields}
+                schemaTitle="Avro / PyArrow Schema (Required for Java / Strict Python)"
+                jsonTextareaId="parquetSinkSchema"
+                stringTextareaId="parquetSinkSchemaString"
+                onChange={({ schemaFields: nextFields, schema: nextSchema, schemaString: nextStr }) => {
+                  onChange({
+                    ...properties,
+                    schemaFields: nextFields,
+                    schema: nextSchema,
+                    schemaString: nextStr
+                  });
+                }}
+              />
             </div>
-            <textarea
-              id="parquetSinkSchema"
-              name="schema"
-              value={schema}
-              onChange={handleChange}
-              rows={4}
-              placeholder='{"type": "record", "name": "Output", "fields": [...]} or gs://bucket/schema.avsc'
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono resize-y"
-            />
-            <span className="text-[11px] text-[var(--vscode-text-muted)]">
-              Provide schema JSON string or path to <code>.avsc</code> file.
-            </span>
           </div>
         )}
       </div>

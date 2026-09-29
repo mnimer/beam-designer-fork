@@ -25,7 +25,7 @@
 import React, { useState, useEffect } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import { normalizeSecretItem, SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { resolveAuthMode, JMS_AUTH_OPTIONS } from '../source/JmsIO';
@@ -64,9 +64,14 @@ export const JMS_PROVIDER_PRESETS: JmsProviderPreset[] = [
     defaultUrl: 'tcp://localhost:55555'
   },
   {
-    label: 'Custom ConnectionFactory...',
-    factoryClass: 'custom',
-    defaultUrl: ''
+    label: 'RabbitMQ JMS Client',
+    factoryClass: 'com.rabbitmq.jms.admin.RMQConnectionFactory',
+    defaultUrl: 'amqp://localhost:5672'
+  },
+  {
+    label: 'TIBCO Enterprise Message Service (EMS)',
+    factoryClass: 'com.tibco.tibjms.TibjmsConnectionFactory',
+    defaultUrl: 'tcp://localhost:7222'
   }
 ];
 
@@ -86,7 +91,6 @@ interface JmsIOSinkNode {
     special_instructions?: string;
     properties?: {
       connectionFactory?: string;
-      customConnectionFactory?: string;
       brokerUrl?: string;
       destinationType?: 'queue' | 'topic';
       queue?: string;
@@ -97,7 +101,6 @@ interface JmsIOSinkNode {
       passwordSecret?: string;
       maxRetries?: string | number;
       initialRetryDelay?: string | number;
-      valueMapper?: string;
       system_instructions?: string;
       special_instructions?: string;
       codeGenerationPrompt?: string;
@@ -122,21 +125,19 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
 
   // Form field state extracted from node properties
   const connectionFactory = properties.connectionFactory || 'org.apache.activemq.ActiveMQConnectionFactory';
-  const customConnectionFactory = properties.customConnectionFactory || '';
   const brokerUrl = properties.brokerUrl ?? 'tcp://localhost:61616';
   const destinationType = properties.destinationType || (properties.topic ? 'topic' : 'queue');
   const queue = properties.queue || '';
   const topic = properties.topic || '';
   const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
-  const password = properties.password || '';
   const passwordSecret = properties.passwordSecret || '';
   const maxRetries = properties.maxRetries ?? '';
   const initialRetryDelay = properties.initialRetryDelay ?? '';
-  const valueMapper = properties.valueMapper || '';
 
   // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
+  const { items: secrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
+  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
   const [computeInstances, setComputeInstances] = useState<ComputeInstanceInfo[]>([]);
 
   // NOTE: Listen for gcloud responses from the VS Code extension host
@@ -169,12 +170,11 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
     '';
 
   // Validation rules according to Beam JmsIO requirements
-  const isConnectionFactoryInvalid = !connectionFactory.trim() || (connectionFactory === 'custom' && !customConnectionFactory.trim());
   const isDestinationInvalid = destinationType === 'queue' ? !queue.trim() : !topic.trim();
 
   // Preset match helper
-  const isPreset = JMS_PROVIDER_PRESETS.some(p => p.factoryClass === connectionFactory && p.factoryClass !== 'custom');
-  const selectedPreset = isPreset ? connectionFactory : 'custom';
+  const isPreset = JMS_PROVIDER_PRESETS.some(p => p.factoryClass === connectionFactory);
+  const selectedPreset = isPreset ? connectionFactory : 'org.apache.activemq.ActiveMQConnectionFactory';
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -191,23 +191,10 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
       [name]: isCheckbox ? checked : value
     };
 
-    // Mode switching and credential property synchronization
-    if (name === 'authMode') {
-      if (value === 'secretManager') {
-        delete newProperties.password;
-      } else if (value === 'plaintext') {
-        delete newProperties.passwordSecret;
-      }
-    } else if (name === 'passwordSecret') {
-      delete newProperties.password;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'secretManager';
-      }
-    } else if (name === 'password') {
-      delete newProperties.passwordSecret;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'plaintext';
-      }
+    // Strip any legacy cleartext password property
+    delete newProperties.password;
+    if (!newProperties.authMode || newProperties.authMode !== 'secretManager') {
+      newProperties.authMode = 'secretManager';
     }
 
     onChange(newProperties);
@@ -223,34 +210,13 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
     const selectedClass = e.target.value;
     const matchedPreset = JMS_PROVIDER_PRESETS.find(p => p.factoryClass === selectedClass);
 
-    if (selectedClass === 'custom') {
-      onChange({
-        ...properties,
-        connectionFactory: customConnectionFactory || 'custom',
-        customConnectionFactory: customConnectionFactory
-      });
-    } else if (matchedPreset) {
+    if (matchedPreset) {
       onChange({
         ...properties,
         connectionFactory: matchedPreset.factoryClass,
-        customConnectionFactory: '',
         brokerUrl: matchedPreset.defaultUrl
       });
     }
-  };
-
-  /**
-   * Handles custom ConnectionFactory class input change.
-   * 
-   * @param e Input change event.
-   */
-  const handleCustomFactoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    onChange({
-      ...properties,
-      connectionFactory: val,
-      customConnectionFactory: val
-    });
   };
 
   /**
@@ -336,7 +302,7 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
       <div className="flex flex-col gap-1">
         <label htmlFor="jmsSinkProviderPreset" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
           <span>JMS Provider Preset</span>
-          <InfoTooltip text="Select a standard JMS provider to automatically configure its ConnectionFactory and default URL, or select Custom to provide your own class." />
+          <InfoTooltip text="Select a standard JMS provider to automatically configure its ConnectionFactory and default URL." />
         </label>
         <select
           id="jmsSinkProviderPreset"
@@ -353,51 +319,23 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
         </select>
       </div>
 
-      {/* Custom Connection Factory input if Custom preset selected */}
-      {selectedPreset === 'custom' && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="jmsSinkCustomFactory" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>ConnectionFactory Class</span>
-            <span className="text-red-400 font-bold" title="ConnectionFactory is required">*</span>
-            <InfoTooltip text="Fully qualified Java class name of javax.jms.ConnectionFactory (e.g. org.apache.activemq.ActiveMQConnectionFactory)." />
-          </label>
-          <input
-            id="jmsSinkCustomFactory"
-            type="text"
-            name="customConnectionFactory"
-            value={customConnectionFactory}
-            onChange={handleCustomFactoryChange}
-            placeholder="com.example.jms.CustomConnectionFactory"
-            className={`bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border text-sm font-mono focus:outline-none ${
-              isConnectionFactoryInvalid ? 'border-red-500/80 focus:border-red-500' : 'border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)]'
-            }`}
-          />
-        </div>
-      )}
-
       {/* Broker URL */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="jmsSinkBrokerUrl" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-          <span>Broker URL</span>
-          <InfoTooltip text="Connection URL for the JMS broker (e.g. tcp://localhost:61616 or amqp://localhost:5672). You can also select an IP from your Compute Engine instances." />
-        </label>
-        <input
+        <PropertyField
           id="jmsSinkBrokerUrl"
-          type="text"
           name="brokerUrl"
+          label="Broker URL"
+          tooltip="Connection URL for the JMS broker (e.g. tcp://localhost:61616 or amqp://localhost:5672). You can also select an IP from your Compute Engine instances."
           value={brokerUrl}
           onChange={handleChange}
           placeholder="tcp://localhost:61616"
           list="sink-compute-instance-ips"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
+          datalist={computeInstances.map(inst => ({
+            value: `tcp://${inst.internalIp || inst.externalIp}:61616`,
+            label: `${inst.name} (${inst.zone})`
+          }))}
+          mono={true}
         />
-        <datalist id="sink-compute-instance-ips">
-          {computeInstances.map(inst => (
-            <option key={inst.name} value={`tcp://${inst.internalIp || inst.externalIp}:61616`}>
-              {inst.name} ({inst.zone})
-            </option>
-          ))}
-        </datalist>
 
         {/* Compute Engine Instance Helper if instances discovered */}
         {computeInstances.length > 0 && (
@@ -479,11 +417,14 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
         <PropertyField
           id="jmsSinkUsername"
           name="username"
-          label="Username"
-          tooltip="Optional username for authenticating to the JMS broker."
+          label="Username Secret"
+          tooltip="Optional secret in Google Cloud Secret Manager containing the username for authenticating to the JMS broker."
           value={username}
           onChange={handleChange}
-          placeholder="admin"
+          placeholder="jms-broker-username"
+          list="jms-sink-username-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
           mono={true}
         />
 
@@ -500,25 +441,6 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
           serviceName="JMS"
           onChange={handleChange}
         />
-
-        {authMode === 'plaintext' && (
-          <div className="flex flex-col gap-1">
-            <PropertyField
-              id="jmsSinkPassword"
-              type="password"
-              name="password"
-              label="Password"
-              tooltip="Optional password for authenticating to the JMS broker."
-              value={password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              mono={false}
-            />
-            <p className="text-xs text-amber-400 mt-1" role="alert">
-              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Reliability & Mapping */}
@@ -561,23 +483,6 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
               className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
             />
           </div>
-        </div>
-
-        {/* Custom ValueMapper */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="jmsValueMapper" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-            <span>Value Mapper</span>
-            <InfoTooltip text="Custom function or class mapping pipeline elements to javax.jms.Message (withValueMapper). Defaults to TextMessage." />
-          </label>
-          <input
-            id="jmsValueMapper"
-            type="text"
-            name="valueMapper"
-            value={valueMapper}
-            onChange={handleChange}
-            placeholder="e.g. (element, session) -> session.createTextMessage(element)"
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none"
-          />
         </div>
       </div>
 

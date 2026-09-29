@@ -37,6 +37,7 @@ export interface PipelineNodeProps {
     system_instructions?: string;
     properties?: Record<string, any>;
     hasCycle?: boolean;
+    hasValidationError?: boolean;
     isOrphan?: boolean;
     validationError?: string;
     validationWarning?: string;
@@ -51,6 +52,19 @@ export interface PipelineNodeProps {
 export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }) => {
   const isSource = data.type === 'SOURCE';
   const isSink = data.type === 'SINK';
+  const isFhirSource =
+    isSource && (data.beam_transform === 'FhirIO' || data.label?.includes('FhirIO'));
+  const isDicomSource =
+    isSource && (data.beam_transform === 'DicomIO' || data.label?.includes('DicomIO'));
+  const isFhirReadResources =
+    isFhirSource && (data.properties?.readMode || 'readResources') === 'readResources';
+  const isDicomReadMetadata =
+    isDicomSource && (data.properties?.readMode || 'readStudyMetadata') === 'readStudyMetadata';
+  const showTargetHandle =
+    !isSource ||
+    isFhirReadResources ||
+    isDicomReadMetadata ||
+    ((isFhirSource || isDicomSource) && Boolean(data.hasValidationError));
 
   const IconComponent = iconComponentMap[data.iconName];
 
@@ -128,10 +142,15 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
   };
 
   // Determine dynamic node border and glow styles based on category: Green (Sources), Blue (Steps), Red (Sinks)
-  // With high-priority crimson pulsing for cyclic dependencies and dashed amber for orphan steps
+  // With high-priority crimson pulsing for cyclic dependencies, red dashed outline for validation errors, and dashed amber for orphan steps
   const getNodeBorderClasses = () => {
     if (data.hasCycle) {
       return 'border-rose-500 ring-2 ring-rose-500/70 shadow-lg shadow-rose-500/25 animate-pulse';
+    }
+    if (data.hasValidationError) {
+      return selected
+        ? 'border-red-500 ring-2 ring-red-500/50 shadow-lg shadow-red-500/20 border-dashed'
+        : 'border-red-500 border-dashed hover:border-red-400';
     }
     if (data.isOrphan) {
       return selected
@@ -175,12 +194,12 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
       }}
       data-testid={`pipeline-node-${id || 'node'}`}
     >
-      {/* Target handle for incoming connections (not for sources) */}
-      {!isSource && (
+      {/* Target handle for incoming connections (not for sources, except FhirIO.readResources or when an invalid upstream edge is connected) */}
+      {showTargetHandle && (
         <Handle 
           type="target" 
           position={Position.Left} 
-          className={`w-2 h-2 border-none ${isSink ? 'bg-red-500' : 'bg-blue-500'}`} 
+          className={`w-2 h-2 border-none ${isSink || data.hasValidationError ? 'bg-red-500' : isSource ? 'bg-emerald-500' : 'bg-blue-500'}`} 
         />
       )}
       
@@ -197,7 +216,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
             <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
               {data.type}
             </span>
-            {data.hasCycle && (
+            {(data.hasCycle || data.hasValidationError) && (
               <span
                 className="flex items-center text-rose-400 cursor-help"
                 title={data.validationError || 'Cycle detected: this node participates in a cyclic dependency loop'}
@@ -206,7 +225,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
                 <AlertCircle className="w-3.5 h-3.5 text-rose-400 fill-rose-500/20" />
               </span>
             )}
-            {data.isOrphan && !data.hasCycle && (
+            {data.isOrphan && !data.hasCycle && !data.hasValidationError && (
               <span
                 className="flex items-center text-amber-400 cursor-help"
                 title={data.validationWarning || 'Orphan step: node is not connected to the pipeline'}

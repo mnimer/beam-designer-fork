@@ -125,7 +125,6 @@ export interface SecretManagerAuthFieldsProps {
 const DEFAULT_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'default', label: 'Default Credentials Chain (IAM Role / AwsOptions)' },
   { value: 'secretManager', label: 'Google Cloud Secret Manager' },
-  { value: 'static', label: 'Static Credentials (Env / Local testing)' }
 ];
 
 /**
@@ -152,7 +151,7 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
 }) => {
   // Only auto-load secrets from extension host if secrets prop was not explicitly provided
   const shouldAutoLoad = passedSecrets === undefined;
-  const { items: loadedSecrets, error: assetError } = useAssetLoader<SecretItem | string>('secrets', {
+  const { items: loadedSecrets, error: assetError, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets', {
     enabled: shouldAutoLoad
   });
 
@@ -214,6 +213,8 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
           }}
           placeholder={secretPlaceholder}
           list={effectiveDatalistId}
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
           error={effectiveError}
           helperText={
             <span>
@@ -223,15 +224,7 @@ export const SecretManagerAuthFields: React.FC<SecretManagerAuthFieldsProps> = (
               </code>
             </span>
           }
-        >
-          <datalist id={effectiveDatalistId}>
-            {normalizedSecrets.map((s, idx) => (
-              <option key={`${s.id}-${idx}`} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </datalist>
-        </PropertyField>
+        />
       )}
     </>
   );

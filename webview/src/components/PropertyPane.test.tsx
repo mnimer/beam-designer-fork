@@ -59,4 +59,88 @@ describe('PropertyPane', () => {
 
     expect(mockClipboard.writeText).toHaveBeenCalledWith('$VAR1');
   });
+
+  it('renders PropertyPane for Create SOURCE node with JSON string elements (e.g. from avro-sink.beam)', () => {
+    const avroSinkSourceNode = {
+      id: 'source-1',
+      type: 'pipeline',
+      data: {
+        label: 'Create',
+        type: 'SOURCE',
+        iconName: 'Box',
+        beam_transform: 'Create',
+        properties: {
+          elements: '["{\\"id\\": 1, \\\"name\\\": \\\"alpha\\\", \\\"score\\\": 99.5}", "{\\"id\\": 2, \\\"name\\\": \\\"beta\\\", \\\"score\\\": 88.0}"]'
+        },
+        system_instructions: 'In-memory test batch records.'
+      }
+    };
+
+    render(
+      <PropertyPane
+        node={avroSinkSourceNode}
+        onChange={vi.fn()}
+        runtimeVariables={mockRuntimeVariables}
+      />
+    );
+
+    expect(screen.getByText('SOURCE')).toBeInTheDocument();
+    expect(screen.getByText('In-Memory Elements')).toBeInTheDocument();
+    const textareas = screen.getAllByPlaceholderText(/Element \d/);
+    expect(textareas).toHaveLength(2);
+    expect(textareas[0]).toHaveValue('{"id": 1, "name": "alpha", "score": 99.5}');
+    expect(textareas[1]).toHaveValue('{"id": 2, "name": "beta", "score": 88.0}');
+  });
+
+  it('renders resize handle along left edge and triggers onResizeStart on mousedown', () => {
+    const handleResizeStart = vi.fn();
+    render(
+      <PropertyPane
+        node={mockNode}
+        onChange={vi.fn()}
+        runtimeVariables={mockRuntimeVariables}
+        onResizeStart={handleResizeStart}
+      />
+    );
+
+    const handle = screen.getByTestId('property-pane-resize-handle');
+    expect(handle).toBeInTheDocument();
+    expect(handle).toHaveAttribute('role', 'separator');
+    expect(handle).toHaveAttribute('aria-label', 'Resize property panel');
+
+    fireEvent.mouseDown(handle);
+    expect(handleResizeStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders close button when onClose is provided and triggers callback on click', () => {
+    const handleClose = vi.fn();
+    render(
+      <PropertyPane
+        node={mockNode}
+        onChange={vi.fn()}
+        runtimeVariables={mockRuntimeVariables}
+        onClose={handleClose}
+      />
+    );
+
+    const closeBtn = screen.getByRole('button', { name: 'Close properties' });
+    expect(closeBtn).toBeInTheDocument();
+
+    fireEvent.click(closeBtn);
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies custom width when width prop is provided', () => {
+    const { container } = render(
+      <PropertyPane
+        node={mockNode}
+        onChange={vi.fn()}
+        runtimeVariables={mockRuntimeVariables}
+        width={450}
+      />
+    );
+
+    const rootPane = container.firstElementChild as HTMLElement;
+    expect(rootPane.style.width).toBe('450px');
+  });
 });
