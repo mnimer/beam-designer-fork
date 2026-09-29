@@ -434,6 +434,149 @@ describe('code generation prompt templates', () => {
       it('tells the model not to emit the placeholder as a literal', () => {
         expect(content).toMatch(/environment variable/i);
       });
+
+      it('keys the Secret Manager convention on the "ends in Secret" suffix', () => {
+        // clientSecretSecret / secretKeySecret / sessionTokenSecret rely on this rule.
+        expect(content).toMatch(/name ends in `Secret`/);
+      });
     });
   }
+});
+
+describe('IO68–IO79 connector credential keys', () => {
+  it('classifies the new connector Secret Manager pointers as reference', () => {
+    for (const key of [
+      'clientSecretSecret',
+      'secretKeySecret',
+      'sessionTokenSecret',
+      'connectionStringSecret',
+      'uriSecret',
+    ]) {
+      expect(classifyKey(key), key).toBe('reference');
+    }
+  });
+
+  it('keeps the existing allowlisted keys reused by IO68–IO79 as reference', () => {
+    for (const key of ['passwordSecret', 'tokenSecret', 'apiKeySecret', 'accessKeySecret', 'credentialsSecret', 'secretVersion']) {
+      expect(classifyKey(key), key).toBe('reference');
+    }
+  });
+
+  it('still redacts the bare value forms of the new credentials', () => {
+    for (const key of ['clientSecret', 'secretKey', 'awsSecretAccessKey', 'sessionToken', 'awsSessionToken', 'connectionStringPassword']) {
+      expect(classifyKey(key), key).toBe('secret');
+    }
+  });
+
+  it('does not allowlist prefixed variants, because the allowlist is exact-match', () => {
+    for (const key of ['saslPasswordSecret', 'sourcePasswordSecret', 'dbUrlSecret']) {
+      expect(classifyKey(key), key).toBe('secret');
+    }
+  });
+
+  it('pins that the renamed non-credential connector keys are safe', () => {
+    const safe = [
+      'authServerUrl', 'azureTenantId', 'authType', 'clientId', 'authScopes',
+      'ertAuthEnabled', 'ertAuthStoreLocation', 'ertAuthPath', 'authServer', 'authPort',
+      'headNodeURL', 'connectionString', 'timestampColumn', 'destDataset',
+      'regionName', 'endpointUrl', 'deliveryStreamName', 'ownerAccId',
+      'cloudSqlInstance', 'dbDriver', 'extraAttributes', 'datasource', 'columns',
+      'consumerConfig', 'producerConfig', 'saslUsername', 'saslMechanism', 'uri', 'consumerTag',
+      'resolveOnWorkers', 'connectionProperties', 'driverJars', 'jdbcType',
+      'instanceId', 'appProfileId', 'configuration',
+    ];
+    for (const key of safe) {
+      expect(classifyKey(key), key).toBe('safe');
+    }
+  });
+
+  it('documents the upstream option names that MUST NOT be used as property keys', () => {
+    // Non-credential options whose natural names would have their values wiped.
+    for (const key of ['tokenUrl', 'tokenAuth', 'tokenStore', 'tokenAuthPath', 'secret_manager']) {
+      expect(classifyKey(key), key).toBe('secret');
+    }
+  });
+
+  it('preserves Cognite, PyIO and TREP pointers end-to-end through redactPipelineYaml', () => {
+    const yamlText = YAML.stringify({
+      nodes: [
+        { properties: { authType: 'clientCredentials', clientId: 'app', clientSecretSecret: 'cdf-client-secret', authServerUrl: 'https://login.microsoftonline.com/t/oauth2/v2.0/token' } },
+        { properties: { accessKeySecret: 'aws-key-id', secretKeySecret: 'aws-secret', sessionTokenSecret: 'aws-session' } },
+        { properties: { ertAuthEnabled: true, ertAuthStoreLocation: 'gs://b/tmp', passwordSecret: 'trep-pw' } },
+        { properties: { connectionStringSecret: 'odbc-conn', uriSecret: 'amqp-uri' } },
+      ],
+    });
+    const { value, redactedPaths } = redactPipelineYaml(yamlText);
+    expect(redactedPaths).toEqual([]);
+    expect(value).toBe(yamlText);
+  });
+});
+
+describe('URL credential scrubbing (IO74/IO76/IO78/IO79)', () => {
+  const scrub = (key: string, input: string) => {
+    const result = redactCredentialValues<Record<string, string>>({ [key]: input });
+    return { out: result.value[key], paths: result.redactedPaths };
+  };
+
+  it('redacts a password in URI userinfo while keeping user and host', () => {
+    const { out, paths } = scrub('uri', 'amqp://guest:hunter2@host:5672/vh');
+    expect(out).toBe(`amqp://guest:${REDACTION_PLACEHOLDER}@host:5672/vh`);
+    expect(paths).toEqual(['uri']);
+  });
+
+  it('redacts userinfo in SQLAlchemy-style URLs and empty-user URIs', () => {
+    const sqlalchemy = scrub('dbUrl', 'postgresql+pg8000://user:hunter2@/db?unix_sock=/cloudsql/x');
+    expect(sqlalchemy.out).not.toContain('hunter2');
+    expect(sqlalchemy.out).toContain('/cloudsql/x');
+    expect(sqlalchemy.out).toContain('user:');
+
+    const redis = scrub('url', 'redis://:pw@h');
+    expect(redis.out).toBe(`redis://:${REDACTION_PLACEHOLDER}@h`);
+  });
+
+  it('redacts a leading PWD= / password= with no delimiter', () => {
+    expect(scrub('extraAttributes', 'PWD=hunter2;Encrypt=yes').out).toBe(`PWD=${REDACTION_PLACEHOLDER};Encrypt=yes`);
+    expect(scrub('connectionProperties', 'password=hunter2;ssl=true').out).toBe(`password=${REDACTION_PLACEHOLDER};ssl=true`);
+  });
+
+  it('redacts PWD= after "; " with whitespace', () => {
+    const { out, paths } = scrub('extraAttributes', 'Encrypt=yes; PWD=hunter2');
+    expect(out).toBe(`Encrypt=yes; PWD=${REDACTION_PLACEHOLDER}`);
+    expect(paths).toEqual(['extraAttributes']);
+  });
+
+  it('still redacts the classic query-string form', () => {
+    expect(scrub('url', 'jdbc:sqlserver://h:1433;databaseName=d;password=x').out)
+      .toBe(`jdbc:sqlserver://h:1433;databaseName=d;password=${REDACTION_PLACEHOLDER}`);
+  });
+
+  it('does not touch URLs or strings without embedded credentials', () => {
+    for (const s of [
+      'http://host:8080/path',
+      'gs://bucket/a@b',
+      'jdbc:mysql://my-host:3306/database',
+      'https://api.tinybird.co',
+      'ssh://git@github.com:22/x',
+      'user@example.com',
+      'SELECT * FROM t WHERE tokenize=1',
+    ]) {
+      const { out, paths } = scrub('v', s);
+      expect(out, s).toBe(s);
+      expect(paths, s).toEqual([]);
+    }
+  });
+});
+
+describe('Bigtable configuration map (IO68)', () => {
+  it('redacts google.bigtable.auth.json.value in pair and map form', () => {
+    const pairs = redactCredentialValues({ configuration: [{ key: 'google.bigtable.auth.json.value', value: '{"k":1}' }] });
+    expect(pairs.redactedPaths).toEqual(['configuration[0].value']);
+    const map = redactCredentialValues({ configuration: { 'google.bigtable.auth.json.value': '{"k":1}' } });
+    expect(map.redactedPaths).toEqual(['configuration.google.bigtable.auth.json.value']);
+  });
+
+  it('leaves ordinary Bigtable tuning keys alone', () => {
+    const r = redactCredentialValues({ configuration: [{ key: 'google.bigtable.rpc.timeout.ms', value: '5000' }] });
+    expect(r.redactedPaths).toEqual([]);
+  });
 });

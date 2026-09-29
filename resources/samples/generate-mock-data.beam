@@ -40,7 +40,7 @@ nodes:
 
           python: JSF
 
-          java:  Datafaker
+          java:  Datafaker (net.datafaker:datafaker >= 2.7.0)
 
 
           ```

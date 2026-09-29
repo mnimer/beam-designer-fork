@@ -14,6 +14,11 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import {
+  DEFAULT_BEAM_TRANSFORMS_DOCS_URL,
+  getNodeDocumentation,
+  openNodeDocs,
+} from '../../utils/nodeDocumentation';
 
 interface OtherNode {
   data: {
@@ -39,13 +44,21 @@ interface OtherPropertiesProps {
 const DESCRIPTIONS: Record<string, string> = {
   'Flatten': 'Merges multiple PCollection objects of the same type into a single logical PCollection.',
   'ReShuffle': 'Redistributes elements across workers by assigning temporary random keys to break fusion and balance load.',
-  'Reshuffle': 'Redistributes elements across workers by assigning temporary random keys to break fusion and balance load.'
+  'Reshuffle': 'Redistributes elements across workers by assigning temporary random keys to break fusion and balance load.',
+  'Keys': 'Extracts the key from each KV<K, V> element in a PCollection.',
+  'KvSwap': 'Swaps the key and value of each KV<K, V> element to produce KV<V, K>.',
+  'KV Swap': 'Swaps the key and value of each KV<K, V> element to produce KV<V, K>.',
+  'ToString': 'Converts every element, key-value pair, or iterable in a PCollection to its String representation.',
+  'To String': 'Converts every element, key-value pair, or iterable in a PCollection to its String representation.',
+  'Values': 'Extracts the value from each KV<K, V> element in a PCollection.',
 };
 
 export const OtherProperties: React.FC<OtherPropertiesProps> = ({ node, onChange }) => {
   const transform = node.data.beam_transform || node.data.label;
   const label = node.data.label;
   const description = DESCRIPTIONS[transform] || DESCRIPTIONS[label] || 'Transform properties are currently empty.';
+  const doc = getNodeDocumentation(node);
+  const docsUrl = doc?.docsUrl ?? DEFAULT_BEAM_TRANSFORMS_DOCS_URL;
   const properties = node.data.properties || {};
 
   const systemInstructions =
@@ -67,12 +80,22 @@ export const OtherProperties: React.FC<OtherPropertiesProps> = ({ node, onChange
 
   return (
     <div className="flex-1 flex flex-col gap-4">
-      <div className="text-sm text-slate-400 bg-slate-800/40 p-3 rounded border border-slate-700/50">
-        <div className="font-semibold text-slate-300 mb-1 flex items-center">
-          <span>{label}</span>
-          <InfoTooltip text={description} />
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-semibold text-slate-200 flex items-center">
+            <span>{label}</span>
+            <InfoTooltip text={description} />
+          </div>
+          <button
+            type="button"
+            onClick={() => openNodeDocs(docsUrl)}
+            aria-label={`Open ${label} documentation`}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
+          >
+            Docs ↗
+          </button>
         </div>
-        {description}
+        <p className="text-slate-400">{description}</p>
       </div>
 
       {/* Flexible Spacer */}

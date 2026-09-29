@@ -357,6 +357,63 @@ describe('SourceCodeTab', () => {
       render(<SourceCodeTab {...mockProps} tokenUsage={null} />);
       expect(screen.queryByTestId('token-usage')).not.toBeInTheDocument();
     });
+
+    it('disables Generate Code and shows error message when diagram contains a Java-only node and Python is selected', () => {
+      const mockOnRegenerate = vi.fn();
+      const javaOnlyNodes = [
+        { id: 'tika-1', data: { label: 'Read Documents', beam_transform: 'TikaIO' } },
+      ];
+
+      const { rerender } = render(
+        <SourceCodeTab
+          {...mockProps}
+          onRegenerate={mockOnRegenerate}
+          language="Python"
+          nodes={javaOnlyNodes}
+          isGraphValid={true}
+          validationErrors={[]}
+        />
+      );
+
+      const generateBtn = screen.getByText('Generate Code').closest('button');
+      expect(generateBtn).toBeDisabled();
+
+      // Attempting to click disabled button must not call onRegenerate
+      fireEvent.click(generateBtn!);
+      expect(mockOnRegenerate).not.toHaveBeenCalled();
+
+      // Left column validation callout
+      const errorCallout = screen.getByTestId('codegen-validation-error');
+      expect(errorCallout).toBeInTheDocument();
+      expect(errorCallout).toHaveTextContent(
+        'Node "Read Documents" (TikaIO) is only supported in Java and cannot generate Python code.'
+      );
+      expect(
+        screen.getByText('Generation disabled: resolve diagram errors to continue')
+      ).toBeInTheDocument();
+
+      // Right column prominent blocked banner
+      const blockedPreview = screen.getByTestId('codegen-preview-blocked');
+      expect(blockedPreview).toBeInTheDocument();
+      expect(blockedPreview).toHaveTextContent('Cannot Generate Python Code');
+      expect(blockedPreview).toHaveTextContent('Node "Read Documents" (TikaIO) is only supported in Java');
+
+      // Switching language to Java clears the error, enables Generate Code, and dismisses the blocked banner
+      rerender(
+        <SourceCodeTab
+          {...mockProps}
+          onRegenerate={mockOnRegenerate}
+          language="Java"
+          nodes={javaOnlyNodes}
+          isGraphValid={true}
+          validationErrors={[]}
+        />
+      );
+
+      expect(screen.getByText('Generate Code').closest('button')).not.toBeDisabled();
+      expect(screen.queryByTestId('codegen-validation-error')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('codegen-preview-blocked')).not.toBeInTheDocument();
+    });
   });
 });
 

@@ -1,0 +1,93 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 1, "name": "alpha", "score": 99.5}'
+          - '{"id": 2, "name": "beta", "score": 88.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformFn: ReshapeDocumentFn
+      system_instructions: Transform upstream JSON batch records into destination
+        records required by MongoDbIO. Extract customerId, compute event metrics
+        and timestamps from raw BSON documents, and format each record into an
+        aggregated BSON Document with a unique '_id' composite key
+        ('customerId#date') ready for upsert into target MongoDB collection. In
+        Java, transform to org.bson.Document; in Python, transform dictionary
+        objects.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: MongoDB Sink
+      type: SINK
+      iconName: Database
+      beam_transform: MongoDbIO
+      properties:
+        uri: mongodb://mongodb.default.svc.cluster.local:27017
+        database: ecommerce
+        collection: customer_daily_aggregates
+        writeMode: upsert
+        keyFields: _id
+        batchSize: 1024
+        ordered: false
+        writeConcern: MAJORITY
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: mongodb-sink-java
+  - key: uri
+    value: mongodb://mongodb.default.svc.cluster.local:27017
+  - key: database
+    value: ecommerce
+  - key: sourceCollection
+    value: raw_events
+  - key: sinkCollection
+    value: customer_daily_aggregates
+  - key: batchSize
+    value: 1024
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/mongodb-sink-java
+  needsRebuild: false

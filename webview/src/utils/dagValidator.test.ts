@@ -214,4 +214,136 @@ describe('validateDagTopology (Kahn\'s Algorithm)', () => {
     expect(res.warnings).toContain('Pipeline has no SOURCE node. At least one SOURCE is required for execution.');
     expect(res.warnings).toContain('Pipeline has no SINK node. At least one SINK is recommended for output delivery.');
   });
+
+  it('flags FhirIO node in readResources mode when no upstream PubSubIO node is connected', () => {
+    const nodes: DagNode[] = [
+      {
+        id: 'fhir_1',
+        data: {
+          label: 'FhirIO Source',
+          type: 'SOURCE',
+          beam_transform: 'FhirIO',
+          properties: { readMode: 'readResources' },
+        },
+      },
+      { id: 'sink_1', data: { label: 'Log Message', type: 'SINK' } },
+    ];
+    const edges: DagEdge[] = [{ id: 'e1', source: 'fhir_1', target: 'sink_1' }];
+
+    const res = validateDagTopology(nodes, edges);
+    expect(res.isValid).toBe(false);
+    expect(res.missingUpstreamNodeIds).toEqual(['fhir_1']);
+    expect(res.errors[0]).toContain('FhirIO.readResources() on node "FhirIO Source" (fhir_1) requires an upstream PubSubIO node');
+  });
+
+  it('approves FhirIO node in readResources mode when an upstream PubSubIO node is connected', () => {
+    const nodes: DagNode[] = [
+      { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } },
+      {
+        id: 'fhir_1',
+        data: {
+          label: 'FhirIO Source',
+          type: 'SOURCE',
+          beam_transform: 'FhirIO',
+          properties: { readMode: 'readResources' },
+        },
+      },
+      { id: 'sink_1', data: { label: 'Log Message', type: 'SINK' } },
+    ];
+    const edges: DagEdge[] = [
+      { id: 'e0', source: 'pubsub_1', target: 'fhir_1' },
+      { id: 'e1', source: 'fhir_1', target: 'sink_1' },
+    ];
+
+    const res = validateDagTopology(nodes, edges);
+    expect(res.isValid).toBe(true);
+    expect(res.missingUpstreamNodeIds).toEqual([]);
+    expect(res.errors).toEqual([]);
+  });
+
+  it('flags FhirIO node in searchResources mode when an upstream PubSubIO node is still connected', () => {
+    const nodes: DagNode[] = [
+      { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } },
+      {
+        id: 'fhir_1',
+        data: {
+          label: 'FhirIO Source',
+          type: 'SOURCE',
+          beam_transform: 'FhirIO',
+          properties: { readMode: 'searchResources' },
+        },
+      },
+      { id: 'sink_1', data: { label: 'Log Message', type: 'SINK' } },
+    ];
+    const edges: DagEdge[] = [
+      { id: 'e0', source: 'pubsub_1', target: 'fhir_1' },
+      { id: 'e1', source: 'fhir_1', target: 'sink_1' },
+    ];
+
+    const res = validateDagTopology(nodes, edges);
+    expect(res.isValid).toBe(false);
+    expect(res.invalidUpstreamNodeIds).toEqual(['fhir_1']);
+    expect(res.errors[0]).toContain(
+      'FhirIO.searchResources() on node "FhirIO Source" (fhir_1) does not accept an upstream connection'
+    );
+  });
+
+  it('flags DicomIO node in readStudyMetadata mode when missing an upstream PubSubIO connection and passes when connected', () => {
+    const dicomNode: DagNode = {
+      id: 'dicom_1',
+      data: {
+        label: 'DicomIO Source',
+        type: 'SOURCE',
+        beam_transform: 'DicomIO',
+        properties: { readMode: 'readStudyMetadata' },
+      },
+    };
+    const sinkNode: DagNode = { id: 'sink_1', data: { label: 'Log Message', type: 'SINK' } };
+
+    const missingRes = validateDagTopology([dicomNode, sinkNode], [{ id: 'e1', source: 'dicom_1', target: 'sink_1' }]);
+    expect(missingRes.isValid).toBe(false);
+    expect(missingRes.missingUpstreamNodeIds).toEqual(['dicom_1']);
+    expect(missingRes.errors[0]).toContain(
+      'DicomIO.readStudyMetadata() on node "DicomIO Source" (dicom_1) requires an upstream PubSubIO node'
+    );
+
+    const pubSubNode: DagNode = { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } };
+    const validRes = validateDagTopology(
+      [pubSubNode, dicomNode, sinkNode],
+      [
+        { id: 'e0', source: 'pubsub_1', target: 'dicom_1' },
+        { id: 'e1', source: 'dicom_1', target: 'sink_1' },
+      ]
+    );
+    expect(validRes.isValid).toBe(true);
+    expect(validRes.missingUpstreamNodeIds).toEqual([]);
+    expect(validRes.errors).toEqual([]);
+  });
+
+  it('flags DicomIO node in dicomSearch mode when an upstream PubSubIO node is still connected', () => {
+    const nodes: DagNode[] = [
+      { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } },
+      {
+        id: 'dicom_1',
+        data: {
+          label: 'DicomIO Source',
+          type: 'SOURCE',
+          beam_transform: 'DicomIO',
+          properties: { readMode: 'dicomSearch' },
+        },
+      },
+      { id: 'sink_1', data: { label: 'Log Message', type: 'SINK' } },
+    ];
+    const edges: DagEdge[] = [
+      { id: 'e0', source: 'pubsub_1', target: 'dicom_1' },
+      { id: 'e1', source: 'dicom_1', target: 'sink_1' },
+    ];
+
+    const res = validateDagTopology(nodes, edges);
+    expect(res.isValid).toBe(false);
+    expect(res.invalidUpstreamNodeIds).toEqual(['dicom_1']);
+    expect(res.errors[0]).toContain(
+      'DicomIO.dicomSearch() on node "DicomIO Source" (dicom_1) does not accept an upstream connection'
+    );
+  });
 });

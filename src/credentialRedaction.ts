@@ -87,6 +87,17 @@ export const SECRET_REFERENCE_KEYS: ReadonlySet<string> = new Set([
   'tokensecret',
   'credentialssecret',
   'apikeysecret',
+  // OIDC client secret pointer (IO69 Cognite Data Fusion clientSecretSecret).
+  'clientsecretsecret',
+  // AWS secret access key / session token pointers (IO73 Beam PyIO; SnsIO also emits secretKeySecret).
+  'secretkeysecret',
+  'sessiontokensecret',
+  // Whole ODBC connection string stored in Secret Manager (IO76 Pyodbc contingency).
+  'connectionstringsecret',
+  // Whole connection URI stored in Secret Manager (IO78 Go Connect AMQP contingency).
+  'urisecret',
+  'developertokensecret',
+  'refreshtokensecret',
 ]);
 
 /**
@@ -114,17 +125,30 @@ export const SECRET_VALUE_PATTERNS: readonly string[] = [
   'credential',
   'token',
   'secret',
+  // Service-account JSON passed inline, e.g. Bigtable `google.bigtable.auth.json.value`.
+  'authjson',
 ];
 
 /**
- * Matches a credential embedded in a URI query string or userinfo component, e.g.
- * `jdbc:postgresql://host/db?user=admin&password=hunter2` or `amqp://user:pw@host`.
+ * Matches a credential embedded as a `key=value` parameter in a URI query string or
+ * a `;`-delimited connection string, e.g.
+ * `jdbc:postgresql://host/db?user=admin&password=hunter2` or `PWD=hunter2;Encrypt=yes`.
+ * The parameter may start the string (or a line) and may be preceded by whitespace
+ * after its delimiter (`Encrypt=yes; PWD=hunter2`).
  *
  * Only the value is replaced; the surrounding connection string is preserved so the
  * generated code still targets the right host and database.
  */
 export const URL_EMBEDDED_CREDENTIAL_PATTERN =
-  /([?&;](?:password|passwd|pwd|secret|token|apikey|api_key)=)([^&;\s]+)/gi;
+  /((?:^|[?&;])\s*(?:password|passwd|pwd|secret|token|apikey|api_key)=)([^&;\s]+)/gim;
+
+/**
+ * Matches the password in a URI userinfo component, e.g. `amqp://user:pw@host` or
+ * `postgresql+pg8000://user:pw@/db`. Group 1 is `scheme://user:`, group 2 the password
+ * and group 3 the `@`, so a replacement of `$1<placeholder>$3` keeps user and host.
+ */
+export const URL_USERINFO_CREDENTIAL_PATTERN =
+  /(\b[a-z][a-z0-9+.-]*:\/\/[^\s:/?#@]*:)([^\s@/?#]+)(@)/gi;
 
 /**
  * Classification of a single property key.
@@ -268,7 +292,9 @@ export function redactCredentialValues<T>(input: T): RedactionResult<T> {
 
     // Scalars: the only remaining risk is a credential embedded in a connection string.
     if (typeof node === 'string') {
-      const scrubbed = node.replace(URL_EMBEDDED_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}`);
+      const scrubbed = node
+        .replace(URL_EMBEDDED_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}`)
+        .replace(URL_USERINFO_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}$3`);
       if (scrubbed !== node) {
         redactedPaths.push(path);
       }

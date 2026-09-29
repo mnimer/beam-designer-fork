@@ -72,7 +72,9 @@ vi.mock('child_process', () => {
 import {
     listAssets,
     resolveCli,
-    findGcloudPath
+    findGcloudPath,
+    handleGetHealthcareDatasets,
+    mapHealthcareDatasetItems
 } from '../../extension';
 
 describe('A2, M6, M8 — Asset Discovery, CLI Resolution, and Error Surfacing', () => {
@@ -330,5 +332,76 @@ describe('A2, M6, M8 — Asset Discovery, CLI Resolution, and Error Surfacing', 
         expect(msg.datasets).toEqual(['analytics_prod', 'analytics_staging']);
         expect(msg.projectId).toBe('corp-gcp-project');
         expect(msg.error).toBeUndefined();
+    });
+
+    // 8. getHealthcareDatasets happy path, location argument forwarding, and error fallback
+    it('handleGetHealthcareDatasets lists Cloud Healthcare datasets and forwards optional location argument', async () => {
+        const mockHealthcareOutput = JSON.stringify([
+            { name: 'projects/med-proj/locations/us-central1/datasets/clinical-fhir-ds' },
+            { name: 'projects/med-proj/locations/us-central1/datasets/imaging-dicom-ds' }
+        ]);
+
+        let capturedArgs: string[] = [];
+        (execFile as any).mockImplementation((_bin: string, args: string[], _opts: any, cb: any) => {
+            capturedArgs = args;
+            const callback = typeof _opts === 'function' ? _opts : cb;
+            callback(null, mockHealthcareOutput, '');
+        });
+
+        mockConfigValues['dataflowDesigner.gcloudPath'] = '/mock/bin/gcloud';
+
+        const postedMessages: any[] = [];
+        await handleGetHealthcareDatasets(
+            {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: (msg) => { postedMessages.push(msg); return true; }
+            },
+            { command: 'getHealthcareDatasets', location: 'us-central1' }
+        );
+
+        expect(capturedArgs).toEqual([
+            'healthcare',
+            'datasets',
+            'list',
+            '--location=us-central1',
+            '--format=json'
+        ]);
+        expect(postedMessages).toHaveLength(1);
+        expect(postedMessages[0].command).toBe('healthcareDatasetsLoaded');
+        expect(postedMessages[0].datasets).toEqual([
+            'projects/med-proj/locations/us-central1/datasets/clinical-fhir-ds',
+            'projects/med-proj/locations/us-central1/datasets/imaging-dicom-ds'
+        ]);
+        expect(postedMessages[0].error).toBeUndefined();
+    });
+
+    it('handleGetHealthcareDatasets handles non-array/empty JSON and surfaces CLI errors', async () => {
+        expect(mapHealthcareDatasetItems(null)).toEqual([]);
+        expect(mapHealthcareDatasetItems([{ name: '  ' }, {}])).toEqual([]);
+
+        (execFile as any).mockImplementation((_bin: string, _args: string[], _opts: any, cb: any) => {
+            const callback = typeof _opts === 'function' ? _opts : cb;
+            const err: ExecFileException = new Error('Command failed');
+            err.code = 1;
+            callback(err, '', 'ERROR: (gcloud.healthcare.datasets.list) API healthcare.googleapis.com not enabled.');
+        });
+
+        mockConfigValues['dataflowDesigner.gcloudPath'] = '/mock/bin/gcloud';
+
+        const postedMessages: any[] = [];
+        await handleGetHealthcareDatasets(
+            {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: (msg) => { postedMessages.push(msg); return true; }
+            },
+            { command: 'getHealthcareDatasets', location: 'invalid;injection' }
+        );
+
+        expect(postedMessages).toHaveLength(1);
+        expect(postedMessages[0].command).toBe('healthcareDatasetsLoaded');
+        expect(postedMessages[0].datasets).toEqual([]);
+        expect(postedMessages[0].error).toContain('API healthcare.googleapis.com not enabled');
     });
 });

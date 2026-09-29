@@ -54,6 +54,7 @@ interface BottomPanelProps {
   projectId?: string;
   isGraphValid?: boolean;
   validationErrors?: string[];
+  nodes?: any[];
   tokenUsage?: TokenUsage | null;
   onInteract?: () => void;
 }
@@ -93,6 +94,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   projectId = 'YOUR_PROJECT_ID',
   isGraphValid = true,
   validationErrors = [],
+  nodes = [],
   tokenUsage = null,
   onInteract
 }) => {
@@ -188,6 +190,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             isGenerating={isGenerating}
             isGraphValid={isGraphValid}
             validationErrors={validationErrors}
+            nodes={nodes}
             tokenUsage={tokenUsage}
           />
         )}

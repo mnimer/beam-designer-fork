@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { BEAM_COMPRESSION_TYPES } from '../source/FileIO';
+import { BEAM_WRITE_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
 
@@ -57,7 +57,8 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
   const numShards = properties.numShards ?? '';
   const withoutSharding = properties.withoutSharding ?? false;
   const withCompression = properties.withCompression ?? false;
-  const compression = properties.compression || 'AUTO';
+  const rawCompression = properties.compression || 'UNCOMPRESSED';
+  const compression = (rawCompression === 'AUTO' || rawCompression === 'ZIP') ? 'UNCOMPRESSED' : rawCompression;
   const header = properties.header || '';
   const footer = properties.footer || '';
 
@@ -186,7 +187,7 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
               onChange={handleChange}
               className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
             >
-              {BEAM_COMPRESSION_TYPES.map(type => (
+              {BEAM_WRITE_COMPRESSION_TYPES.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>

@@ -1,0 +1,94 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Read User Events (Bigtable HBase)
+      type: SOURCE
+      iconName: Database
+      beam_transform: CloudBigtable
+      properties:
+        projectId: my-gcp-project
+        instanceId: events-instance
+        tableId: user-events
+        appProfileId: batch-analytics
+        rowPrefix: 2026-09#
+        columnFamilies: events
+        maxVersions: "1"
+      system_instructions: "Use the HBase-based Cloud Bigtable connector from Maven
+        artifact com.google.cloud.bigtable:bigtable-hbase-beam (package
+        com.google.cloud.bigtable.beam), NOT
+        org.apache.beam.sdk.io.gcp.bigtable.BigtableIO. Build an
+        org.apache.hadoop.hbase.client.Scan with
+        setRowPrefixFilter(Bytes.toBytes(rowPrefix)),
+        addFamily(Bytes.toBytes(columnFamilies)), setMaxVersions(maxVersions)
+        and setCacheBlocks(false); pass it to new
+        CloudBigtableScanConfiguration.Builder().withProjectId(projectId).withI\
+        nstanceId(instanceId).withTableId(tableId).withAppProfileId(appProfileI\
+        d).withScan(scan).build() and apply
+        Read.from(CloudBigtableIO.read(config)) to produce
+        PCollection<org.apache.hadoop.hbase.client.Result>. This node has no
+        credential properties: authenticate with Application Default
+        Credentials."
+    width: 190
+    height: 64
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Format Bigtable Result
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: Implement a static nested DoFn<Result, String> that formats
+        each non-empty org.apache.hadoop.hbase.client.Result into a structured
+        JSON summary string containing the UTF-8 row key
+        (Bytes.toString(result.getRow())) and the latest column qualifiers and
+        values from family 'events'. Skip results where result.isEmpty(). Factor
+        the formatting into a static helper method and unit-test it with
+        TestPipeline, Create.of and PAssert without connecting to Bigtable.
+    width: 190
+    height: 64
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[CloudBigtable-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: cloudbigtable-hbase-source-java
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/cloudbigtable-hbase-source-java
+  needsRebuild: false

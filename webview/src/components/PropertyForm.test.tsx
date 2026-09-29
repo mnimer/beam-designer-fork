@@ -893,6 +893,7 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     expect(screen.getByText('Mapping Function / Expression')).toBeInTheDocument();
+    expect(screen.getByText('Output Data Type')).toBeInTheDocument();
   });
 
   it('renders ParDoProperties when beam_transform is ParDo', () => {
@@ -959,6 +960,226 @@ describe('PropertyForm', () => {
 
     expect(screen.getByText(/Redistributes elements across workers by assigning temporary random keys to break fusion and balance load\./i)).toBeInTheDocument();
   });
+
+  // =========================================================================
+  // Healthcare, SaaS & Observability Connectors (M1-M3)
+  // =========================================================================
+
+  it('renders FhirIOSourceProperties when type is SOURCE and beam_transform is FhirIO', () => {
+    const mockNode = {
+      data: {
+        label: 'FhirIO Source',
+        type: 'SOURCE',
+        beam_transform: 'FhirIO',
+        properties: {
+          readMode: 'searchResources',
+          fhirStore: 'projects/p1/locations/us-central1/datasets/d1/fhirStores/fs1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders FhirIOSinkProperties when type is SINK and beam_transform is FhirIO', () => {
+    const mockNode = {
+      data: {
+        label: 'FhirIO Sink',
+        type: 'SINK',
+        beam_transform: 'FhirIO',
+        properties: {
+          writeMethod: 'EXECUTE_BUNDLE',
+          fhirStore: 'projects/p1/locations/us-central1/datasets/d1/fhirStores/fs1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders HL7v2IOSourceProperties when type is SOURCE and beam_transform is HL7v2IO', () => {
+    const mockNode = {
+      data: {
+        label: 'HL7v2IO Source',
+        type: 'SOURCE',
+        beam_transform: 'HL7v2IO',
+        properties: {
+          readMode: 'readWithFilter',
+          hl7v2Store: 'projects/p1/locations/us-central1/datasets/d1/hl7V2Stores/s1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders HL7v2IOSinkProperties when type is SINK and beam_transform is HL7v2IO', () => {
+    const mockNode = {
+      data: {
+        label: 'HL7v2IO Sink',
+        type: 'SINK',
+        beam_transform: 'HL7v2IO',
+        properties: {
+          hl7v2Store: 'projects/p1/locations/us-central1/datasets/d1/hl7V2Stores/s1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders DicomIOSourceProperties when type is SOURCE and beam_transform is DicomIO', () => {
+    const mockNode = {
+      data: {
+        label: 'DicomIO Source',
+        type: 'SOURCE',
+        beam_transform: 'DicomIO',
+        properties: {
+          readMode: 'dicomSearch',
+          searchType: 'studies'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders DicomIOSinkProperties when type is SINK and beam_transform is DicomIO', () => {
+    const mockNode = {
+      data: {
+        label: 'DicomIO Sink',
+        type: 'SINK',
+        beam_transform: 'DicomIO',
+        properties: {
+          inputType: 'bytes',
+          dicomStoreId: 'dicom-store-1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders SplunkIOSinkProperties when type is SINK and beam_transform is SplunkIO', () => {
+    const mockNode = {
+      data: {
+        label: 'SplunkIO Sink',
+        type: 'SINK',
+        beam_transform: 'SplunkIO',
+        properties: {
+          url: 'https://splunk-hec.example.com:8088'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders GoogleAdsIOSourceProperties when type is SOURCE and beam_transform is GoogleAdsIO', () => {
+    const mockNode = {
+      data: {
+        label: 'GoogleAdsIO Source',
+        type: 'SOURCE',
+        beam_transform: 'GoogleAdsIO',
+        properties: {
+          customerId: '1234567890',
+          query: 'SELECT campaign.id FROM campaign'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders RequestResponseIOSourceProperties when type is SOURCE and beam_transform is RequestResponseIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Web APIs Source',
+        type: 'SOURCE',
+        beam_transform: 'RequestResponseIO',
+        properties: {
+          endpointUrl: 'https://api.example.com/v1/items',
+          httpMethod: 'GET'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders RequestResponseIOSinkProperties when type is SINK and beam_transform is RequestResponseIO', () => {
+    const mockNode = {
+      data: {
+        label: 'Web APIs Sink',
+        type: 'SINK',
+        beam_transform: 'RequestResponseIO',
+        properties: {
+          endpointUrl: 'https://api.example.com/v1/ingest',
+          httpMethod: 'POST'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('renders DatadogIOSinkProperties when type is SINK and beam_transform is DatadogIO', () => {
+    const mockNode = {
+      data: {
+        label: 'DatadogIO Sink',
+        type: 'SINK',
+        beam_transform: 'DatadogIO',
+        properties: {
+          url: 'https://http-intake.logs.datadoghq.com'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+    expect(screen.queryByText(/No property form registered/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+  });
+
+  it('does NOT register or resolve unsupported native directions (SOURCE:SplunkIO, SINK:GoogleAdsIO, SOURCE:DatadogIO)', () => {
+    expect(PROPERTY_FORM_REGISTRY['SOURCE:SplunkIO']).toBeUndefined();
+    expect(PROPERTY_FORM_REGISTRY['SINK:GoogleAdsIO']).toBeUndefined();
+    expect(PROPERTY_FORM_REGISTRY['SOURCE:DatadogIO']).toBeUndefined();
+
+    expect(getPropertyFormComponent({ data: { type: 'SOURCE', beam_transform: 'SplunkIO' } })).toBeUndefined();
+    expect(getPropertyFormComponent({ data: { type: 'SINK', beam_transform: 'GoogleAdsIO' } })).toBeUndefined();
+    expect(getPropertyFormComponent({ data: { type: 'SOURCE', beam_transform: 'DatadogIO' } })).toBeUndefined();
+
+    const { rerender } = render(
+      <PropertyForm node={{ data: { type: 'SOURCE', beam_transform: 'SplunkIO' } }} onChange={vi.fn()} />
+    );
+    expect(screen.getByText('No property form registered for type "SplunkIO"')).toBeInTheDocument();
+
+    rerender(<PropertyForm node={{ data: { type: 'SINK', beam_transform: 'GoogleAdsIO' } }} onChange={vi.fn()} />);
+    expect(screen.getByText('No property form registered for type "GoogleAdsIO"')).toBeInTheDocument();
+
+    rerender(<PropertyForm node={{ data: { type: 'SOURCE', beam_transform: 'DatadogIO' } }} onChange={vi.fn()} />);
+    expect(screen.getByText('No property form registered for type "DatadogIO"')).toBeInTheDocument();
+  });
 });
 
 describe('Real Sample Pipelines Acceptance Tests', () => {
@@ -1008,3 +1229,172 @@ describe('Real Sample Pipelines Acceptance Tests', () => {
     }
   });
 });
+
+// =========================================================================
+// Messaging & Streaming Connector Dispatch (IO15, IO20, IO49, IO62, IO63)
+// =========================================================================
+
+/**
+ * NOTE: These tests guard the registry wiring for the messaging/streaming connector batch.
+ * They assert dispatch by immutable metadata only (type + beam_transform) and deliberately avoid
+ * asserting on connector-specific field labels, so that panel refactors cannot silently break the
+ * registration contract (or vice versa).
+ */
+describe('PropertyForm dispatch for messaging & streaming connectors', () => {
+  const ALL_CONNECTORS = [
+    { transform: 'AmqpIO', label: 'AMQP', task: 'IO15' },
+    { transform: 'RabbitMqIO', label: 'RabbitMQ', task: 'IO20' },
+    { transform: 'FlinkStreamingImpulseSource', label: 'Flink Streaming Impulse', task: 'IO49' },
+    { transform: 'PulsarIO', label: 'Pulsar', task: 'IO62' },
+    { transform: 'SolaceIO', label: 'Solace', task: 'IO63' }
+  ];
+
+  const BIDIRECTIONAL_CONNECTORS = [
+    { transform: 'AmqpIO', label: 'AMQP', task: 'IO15' },
+    { transform: 'RabbitMqIO', label: 'RabbitMQ', task: 'IO20' },
+    { transform: 'PulsarIO', label: 'Pulsar', task: 'IO62' },
+    { transform: 'SolaceIO', label: 'Solace', task: 'IO63' }
+  ];
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('registers SOURCE:$transform and SINK:$transform ($task)', ({ transform }) => {
+    expect(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]).toBeDefined();
+    expect(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]).toBeDefined();
+    // Source and sink must resolve to distinct components, never the same panel.
+    expect(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]).not.toBe(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]);
+  });
+
+  it('registers SOURCE:FlinkStreamingImpulseSource without a sink panel (IO49 - source only)', () => {
+    expect(PROPERTY_FORM_REGISTRY['SOURCE:FlinkStreamingImpulseSource']).toBeDefined();
+    expect(PROPERTY_FORM_REGISTRY['SINK:FlinkStreamingImpulseSource']).toBeUndefined();
+  });
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('resolves $transform by node metadata for both directions ($task)', ({ transform, label }) => {
+    const sourceNode = { data: { label, type: 'SOURCE', beam_transform: transform, properties: {} } };
+    const sinkNode = { data: { label, type: 'SINK', beam_transform: transform, properties: {} } };
+
+    expect(getPropertyFormComponent(sourceNode)).toBe(PROPERTY_FORM_REGISTRY[`SOURCE:${transform}`]);
+    expect(getPropertyFormComponent(sinkNode)).toBe(PROPERTY_FORM_REGISTRY[`SINK:${transform}`]);
+  });
+
+  it('resolves FlinkStreamingImpulseSource by node metadata for SOURCE only (IO49)', () => {
+    const sourceNode = { data: { label: 'Flink Streaming Impulse', type: 'SOURCE', beam_transform: 'FlinkStreamingImpulseSource', properties: {} } };
+    expect(getPropertyFormComponent(sourceNode)).toBe(PROPERTY_FORM_REGISTRY['SOURCE:FlinkStreamingImpulseSource']);
+  });
+
+  it.each(ALL_CONNECTORS)('renders a real $transform source panel, not the unregistered fallback ($task)', ({ transform, label }) => {
+    const mockNode = { data: { label, type: 'SOURCE', beam_transform: transform, properties: {} } };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    // Every connector panel must expose the LLM prompt override contract.
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
+  });
+
+  it.each(BIDIRECTIONAL_CONNECTORS)('renders a real $transform sink panel, not the unregistered fallback ($task)', ({ transform, label }) => {
+    const mockNode = { data: { label, type: 'SINK', beam_transform: transform, properties: {} } };
+    const mockOnChange = vi.fn();
+
+    const { container } = render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
+  });
+
+  it.each(ALL_CONNECTORS)('never resolves $transform from a renamed user label alone ($task)', ({ transform }) => {
+    // Regression guard for M14: dispatch must ignore the user-editable label.
+    const renamedNode = { data: { label: transform, type: 'SOURCE', properties: {} } };
+    expect(getPropertyFormComponent(renamedNode)).toBeUndefined();
+  });
+});
+
+// =========================================================================
+// Node Documentation & Docs Link Across All Property Panels
+// =========================================================================
+
+import { SOURCE_NODES, STEP_NODES, SINK_NODES } from './NodesCard';
+import { getNodeDocumentation } from '../utils/nodeDocumentation';
+
+describe('Node Documentation & Docs Link Across All Property Panels', () => {
+  it('resolves documentation metadata (title, description, docsUrl) and a valid property form for every SOURCE_NODES, STEP_NODES, and SINK_NODES entry', () => {
+    const allPaletteNodes = [
+      ...SOURCE_NODES,
+      ...STEP_NODES,
+      ...SINK_NODES,
+    ];
+
+    for (const item of allPaletteNodes) {
+      const node = {
+        data: {
+          label: item.label,
+          type: item.type,
+          beam_transform: item.beamTransform,
+          properties: {},
+        },
+      };
+
+      const Component = getPropertyFormComponent(node);
+      expect(Component, `Expected property form for ${item.type}:${item.beamTransform}`).toBeDefined();
+
+      const doc = getNodeDocumentation(node);
+      expect(doc, `Expected documentation metadata for ${item.type}:${item.beamTransform}`).toBeDefined();
+      expect(doc!.title.trim().length).toBeGreaterThan(0);
+      expect(doc!.description.trim().length).toBeGreaterThan(10);
+      expect(doc!.docsUrl).toMatch(/^https:\/\//);
+    }
+  });
+
+  it('resolves documentation metadata for every key in PROPERTY_FORM_REGISTRY', () => {
+    for (const key of Object.keys(PROPERTY_FORM_REGISTRY)) {
+      const parts = key.split(':');
+      const node =
+        parts.length === 2
+          ? { data: { type: parts[0], beam_transform: parts[1], properties: {} } }
+          : { data: { beam_transform: key, properties: {} } };
+
+      const doc = getNodeDocumentation(node);
+      expect(doc, `Expected documentation metadata for registry key "${key}"`).toBeDefined();
+      expect(doc!.title.trim().length).toBeGreaterThan(0);
+      expect(doc!.description.trim().length).toBeGreaterThan(10);
+      expect(doc!.docsUrl).toMatch(/^https:\/\//);
+    }
+  });
+
+  it('renders a short description and a single "Docs ↗" link that dispatches openExternal for Source, Step, and Sink panels', () => {
+    const postMessage = vi.fn();
+    (window as unknown as { vscode?: { postMessage: typeof postMessage } }).vscode = { postMessage };
+
+    const sampleNodes = [
+      { data: { label: 'PubSub Source', type: 'SOURCE', beam_transform: 'PubSubIO', properties: {} } },
+      { data: { label: 'ParDo Step', type: 'STEP', beam_transform: 'ParDo', properties: {} } },
+      { data: { label: 'Combine Step', type: 'STEP', beam_transform: 'Combine', properties: {} } },
+      { data: { label: 'Flatten Step', type: 'STEP', beam_transform: 'Flatten', properties: {} } },
+      { data: { label: 'BigQuery Sink', type: 'SINK', beam_transform: 'BigQueryIO', properties: {} } },
+      { data: { label: 'Cloud Bigtable Sink', type: 'SINK', beam_transform: 'CloudBigtable', properties: {} } },
+    ];
+
+    for (const { data } of sampleNodes) {
+      postMessage.mockClear();
+      const doc = getNodeDocumentation({ data });
+      expect(doc).toBeDefined();
+
+      const { unmount } = render(<PropertyForm node={{ data }} onChange={vi.fn()} />);
+
+      expect(screen.getByText(doc!.description)).toBeInTheDocument();
+      const docsButtons = screen.getAllByText('Docs ↗');
+      expect(docsButtons).toHaveLength(1);
+
+      fireEvent.click(docsButtons[0]);
+      expect(postMessage).toHaveBeenCalledWith({
+        command: 'openExternal',
+        url: doc!.docsUrl,
+      });
+
+      unmount();
+    }
+  });
+});
+

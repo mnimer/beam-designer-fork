@@ -54,6 +54,10 @@ export interface DagValidationResult {
     sortedNodeIds: string[];
     /** Disconnected nodes with zero incoming and zero outgoing edges (when graph size > 1) */
     orphanNodeIds: string[];
+    /** Nodes requiring an upstream source (e.g. FhirIO with readResources()) that have no incoming edge */
+    missingUpstreamNodeIds: string[];
+    /** Source nodes that do not accept upstream input (e.g. FhirIO in searchResources mode) but have an incoming edge */
+    invalidUpstreamNodeIds: string[];
     /** Fatal error messages that block pipeline code generation */
     errors: string[];
     /** Non-fatal warning messages for user feedback */
@@ -88,6 +92,8 @@ export function validateDagTopology(
             cyclePathString: '',
             sortedNodeIds: [],
             orphanNodeIds: [],
+            missingUpstreamNodeIds: [],
+            invalidUpstreamNodeIds: [],
             errors: [],
             warnings: [],
         };
@@ -151,8 +157,10 @@ export function validateDagTopology(
         }
     }
 
-    // 4. Check for orphan / disconnected nodes
+    // 4. Check for orphan / disconnected nodes and missing/invalid upstream nodes
     const orphanNodeIds: string[] = [];
+    const missingUpstreamNodeIds: string[] = [];
+    const invalidUpstreamNodeIds: string[] = [];
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -173,6 +181,39 @@ export function validateDagTopology(
             errors.push(`Orphan node(s) detected: ${orphanLabels.join(', ')}. All steps must be connected into the pipeline.`);
         }
     }
+
+    // 4b. Check FhirIO and DicomIO nodes for required or disallowed upstream connections based on readMode
+    validNodes.forEach((node) => {
+        const id = String(node.id);
+        const isFhirSource =
+            node.data?.type === 'SOURCE' &&
+            (node.data?.beam_transform === 'FhirIO' || node.data?.label?.includes('FhirIO'));
+        const isDicomSource =
+            node.data?.type === 'SOURCE' &&
+            (node.data?.beam_transform === 'DicomIO' || node.data?.label?.includes('DicomIO'));
+
+        if (!isFhirSource && !isDicomSource) {
+            return;
+        }
+
+        const transformName = isDicomSource ? 'DicomIO' : 'FhirIO';
+        const upstreamRequiredMode = isDicomSource ? 'readStudyMetadata' : 'readResources';
+        const readMode = node.data?.properties?.readMode || upstreamRequiredMode;
+        const degIn = initialInDegree.get(id) || 0;
+        const label = node.data?.label ? `"${node.data.label}" (${id})` : id;
+
+        if (readMode === upstreamRequiredMode && degIn === 0) {
+            missingUpstreamNodeIds.push(id);
+            errors.push(
+                `${transformName}.${upstreamRequiredMode}() on node ${label} requires an upstream PubSubIO node connected in front of it.`
+            );
+        } else if (readMode !== upstreamRequiredMode && degIn > 0) {
+            invalidUpstreamNodeIds.push(id);
+            errors.push(
+                `${transformName}.${readMode}() on node ${label} does not accept an upstream connection. Remove the connected upstream node or switch back to ${transformName}.${upstreamRequiredMode}().`
+            );
+        }
+    });
 
     // 5. Check for missing Apache Beam core components
     const hasSource = validNodes.some((n) => n.data?.type === 'SOURCE');
@@ -279,6 +320,8 @@ export function validateDagTopology(
         cyclePathString,
         sortedNodeIds: hasCycles ? [] : sortedNodeIds,
         orphanNodeIds,
+        missingUpstreamNodeIds,
+        invalidUpstreamNodeIds,
         errors,
         warnings,
     };

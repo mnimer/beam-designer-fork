@@ -12,7 +12,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePipelinePersistence, serializePipeline, type PipelineState } from './usePipelinePersistence';
+import {
+  usePipelinePersistence,
+  serializePipeline,
+  type PipelineState,
+  type UsePipelinePersistenceOptions,
+} from './usePipelinePersistence';
 
 describe('usePipelinePersistence (P6 autosave)', () => {
   beforeEach(() => {
@@ -56,37 +61,110 @@ describe('usePipelinePersistence (P6 autosave)', () => {
     expect(mockPostMessage).not.toHaveBeenCalled();
   });
 
-  it('posts save message after debounce interval when isLoaded is true', () => {
+  it('does not post save message on initial load when no changes have been made (regression: opening .beam file must not mark it unsaved)', () => {
     const mockPostMessage = vi.fn();
-    renderHook(() =>
-      usePipelinePersistence({
-        ...sampleState,
-        isLoaded: true,
-        vscode: { postMessage: mockPostMessage },
-        debounceMs: 2000,
-      })
+    const { rerender } = renderHook(
+      (props: UsePipelinePersistenceOptions) => usePipelinePersistence(props),
+      {
+        initialProps: {
+          ...sampleState,
+          isLoaded: false,
+          vscode: { postMessage: mockPostMessage },
+          debounceMs: 2000,
+        },
+      }
     );
 
-    act(() => {
-      vi.advanceTimersByTime(1000);
+    // Simulate loadPipeline completing (isLoaded transitions from false to true)
+    rerender({
+      ...sampleState,
+      isLoaded: true,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
     });
-    expect(mockPostMessage).not.toHaveBeenCalled();
 
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
-    expect(mockPostMessage).toHaveBeenCalledTimes(1);
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      command: 'savePipeline',
-      data: expect.stringContaining('Node 1'),
-    });
+
+    // Opening a file without making edits must NOT send savePipeline
+    expect(mockPostMessage).not.toHaveBeenCalled();
   });
 
-  /**
-   * P6 Core Requirement:
-   * Two consecutive debounce ticks with unchanged state produce ONE post, not two.
-   */
-  it('P6: two consecutive debounce ticks with unchanged state produce one post, not two', () => {
+  it('does not post save message when React Flow mutates transient node/edge fields (width, height, selected, dragging, positionAbsolute) after load', () => {
+    const mockPostMessage = vi.fn();
+    const { rerender } = renderHook(
+      (props: UsePipelinePersistenceOptions) => usePipelinePersistence(props),
+      {
+        initialProps: {
+          ...sampleState,
+          edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+          isLoaded: true,
+          vscode: { postMessage: mockPostMessage },
+          debounceMs: 2000,
+        } as UsePipelinePersistenceOptions,
+      }
+    );
+
+    // Simulate React Flow ResizeObserver measuring node dimensions and user selecting a node/edge to inspect
+    rerender({
+      ...sampleState,
+      nodes: [
+        {
+          ...sampleState.nodes[0],
+          width: 180,
+          height: 64,
+          selected: true,
+          dragging: false,
+          positionAbsolute: { x: 0, y: 0 },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2', selected: true }],
+      isLoaded: true,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(mockPostMessage).not.toHaveBeenCalled();
+  });
+
+  it('re-seeds baseline without saving when loadRevision increments on external loadPipeline', () => {
+    const mockPostMessage = vi.fn();
+    const { rerender } = renderHook(
+      (props) => usePipelinePersistence(props),
+      {
+        initialProps: {
+          ...sampleState,
+          isLoaded: true,
+          loadRevision: 1,
+          vscode: { postMessage: mockPostMessage },
+          debounceMs: 2000,
+        },
+      }
+    );
+
+    // Simulate receiving a new loadPipeline payload from the extension host
+    rerender({
+      ...sampleState,
+      nodes: [{ id: 'n2', type: 'pipeline', position: { x: 50, y: 50 }, data: { label: 'Reloaded Node', type: 'SOURCE', iconName: 'Radio' } }],
+      isLoaded: true,
+      loadRevision: 2,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(mockPostMessage).not.toHaveBeenCalled();
+  });
+
+  it('posts save message after debounce interval when state is modified after load', () => {
     const mockPostMessage = vi.fn();
     const { rerender } = renderHook(
       (props) => usePipelinePersistence(props),
@@ -100,15 +178,67 @@ describe('usePipelinePersistence (P6 autosave)', () => {
       }
     );
 
+    // User modifies a node label after load
+    rerender({
+      ...sampleState,
+      nodes: [{ id: 'n1', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Node 1 Updated', type: 'SOURCE', iconName: 'Radio' } }],
+      isLoaded: true,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(mockPostMessage).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(mockPostMessage).toHaveBeenCalledTimes(1);
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      command: 'savePipeline',
+      data: expect.stringContaining('Node 1 Updated'),
+    });
+  });
+
+  /**
+   * P6 Core Requirement:
+   * Two consecutive debounce ticks with identical state produce ONE post, not two.
+   */
+  it('P6: two consecutive debounce ticks after a change with identical subsequent state produce one post, not two', () => {
+    const mockPostMessage = vi.fn();
+    const { rerender } = renderHook(
+      (props) => usePipelinePersistence(props),
+      {
+        initialProps: {
+          ...sampleState,
+          isLoaded: true,
+          vscode: { postMessage: mockPostMessage },
+          debounceMs: 2000,
+        },
+      }
+    );
+
+    // User makes a change
+    const updatedNodes = [{ id: 'n1', type: 'pipeline', position: { x: 10, y: 20 }, data: { label: 'Node 1', type: 'SOURCE', iconName: 'Radio' } }];
+    rerender({
+      ...sampleState,
+      nodes: updatedNodes,
+      isLoaded: true,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
+    });
+
     // First tick fires
     act(() => {
       vi.advanceTimersByTime(2000);
     });
     expect(mockPostMessage).toHaveBeenCalledTimes(1);
 
-    // Re-render with identical state (e.g. parent re-render or new object with same content)
+    // Re-render with identical state (new object references with same content)
     rerender({
-      nodes: [{ id: 'n1', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Node 1', type: 'SOURCE', iconName: 'Radio' } }],
+      nodes: [{ id: 'n1', type: 'pipeline', position: { x: 10, y: 20 }, data: { label: 'Node 1', type: 'SOURCE', iconName: 'Radio' } }],
       edges: [],
       runtimeVariables: [{ key: 'LOG_LEVEL', value: 'INFO' }],
       jobConfig: { runner: 'DirectRunner' },
@@ -145,11 +275,11 @@ describe('usePipelinePersistence (P6 autosave)', () => {
       }
     );
 
-    // First tick fires
+    // Initial load tick fires: 0 posts because no changes were made yet
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(mockPostMessage).toHaveBeenCalledTimes(1);
+    expect(mockPostMessage).toHaveBeenCalledTimes(0);
 
     // State actually changes (e.g. node moved)
     rerender({
@@ -165,8 +295,8 @@ describe('usePipelinePersistence (P6 autosave)', () => {
       vi.advanceTimersByTime(2000);
     });
 
-    // Real change was saved: total 2 posts
-    expect(mockPostMessage).toHaveBeenCalledTimes(2);
+    // Real change was saved: 1 post
+    expect(mockPostMessage).toHaveBeenCalledTimes(1);
     expect(mockPostMessage).toHaveBeenLastCalledWith({
       command: 'savePipeline',
       data: expect.stringContaining('150'),
@@ -187,7 +317,16 @@ describe('usePipelinePersistence (P6 autosave)', () => {
       }
     );
 
-    // 1000ms in, change happens
+    // First edit
+    rerender({
+      ...sampleState,
+      runtimeVariables: [{ key: 'LOG_LEVEL', value: 'WARN' }],
+      isLoaded: true,
+      vscode: { postMessage: mockPostMessage },
+      debounceMs: 2000,
+    });
+
+    // 1000ms in, second edit happens
     act(() => {
       vi.advanceTimersByTime(1000);
     });
@@ -201,7 +340,7 @@ describe('usePipelinePersistence (P6 autosave)', () => {
       debounceMs: 2000,
     });
 
-    // Another 1500ms (total 2500ms from start, but only 1500ms since re-render)
+    // Another 1500ms (total 2500ms from first edit, but only 1500ms since second edit)
     act(() => {
       vi.advanceTimersByTime(1500);
     });

@@ -1,0 +1,104 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"sensorId": "sensor-01", "readingTime": 1727481600000,
+            "temperature": 68.0, "unit": "F"}'
+          - '{"sensorId": "sensor-02", "readingTime": 1727481660000,
+            "temperature": 21.5, "unit": "C"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Parse each input JSON string into a SensorReading instance
+        and normalize temperature: if unit is 'F', convert temperature to
+        Celsius with (temperature - 32) * 5 / 9 and set unit to 'C'; readings
+        already in 'C' pass through unchanged. Increment a Beam Metrics counter
+        'converted_readings' for every converted element. Output type stays
+        SensorReading with SerializableCoder.of(SensorReading.class)."
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: KineticaDB
+      type: SINK
+      iconName: Database
+      beam_transform: KineticaDB
+      properties:
+        headNodeURL: http://kinetica-head.internal.example.com:9191
+        username: beam_etl
+        passwordSecret: kinetica-etl-password
+        table: sensor_readings_clean
+        entityClassName: SensorReading
+        entityColumns:
+          - name: sensorId
+            javaType: String
+            columnProperties: char32
+          - name: readingTime
+            javaType: Long
+            columnProperties: timestamp
+          - name: temperature
+            javaType: Double
+            columnProperties: ""
+          - name: unit
+            javaType: String
+            columnProperties: char4
+      system_instructions: Write the normalized SensorReading elements into the
+        existing Kinetica table 'sensor_readings_clean' with
+        KineticaIO.<SensorReading>write().withHeadNodeURL("http://kinetica-head.internal.example.com:9191").withUsername(kineticaUsername).withPassword(kineticaPassword).withTable("sensor_readings_clean").withEntity(SensorReading.class),
+        where kineticaUsername carries 'beam_etl' and kineticaPassword is
+        resolved once in main from Secret Manager secret 'kinetica-etl-password'
+        via accessSecret(projectId, "kinetica-etl-password"). Define
+        SensorReading as a public static nested class extending
+        com.gpudb.RecordObject and implementing java.io.Serializable with
+        @RecordObject.Column annotations matching entityColumns. In pom.xml add
+        com.kinetica:apache-beam-kineticaio:7.2.0.0 and
+        com.gpudb:gpudb-api:7.2.3.22, and add the Kinetica Maven repository
+        https://nexus.kinetica.com/repository/releases/ (id kinetica-releases).
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: kineticadb-sink-java
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/kineticadb-sink-java
+  needsRebuild: false

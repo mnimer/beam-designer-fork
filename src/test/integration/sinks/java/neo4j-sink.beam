@@ -1,0 +1,91 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": 1, "name": "alpha", "score": 99.5}'
+          - '{"id": 2, "name": "beta", "score": 88.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Transform upstream JSON batch records into destination
+        records required by Neo4jIO. Shape each incoming employee-company row
+        into an unwind parameter map matching the keys expected by the sink
+        Cypher statement. Each output map contains 'personId', 'personName',
+        'companyId', 'companyName', and 'timestamp' attributes formatted as
+        Map<String, Object> for UNWIND batching. In Java, apply a DoFn<Row,
+        Map<String, Object>>. In Python, use beam.Map or beam.ParDo.
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Neo4j
+      type: SINK
+      iconName: GitMerge
+      beam_transform: Neo4jIO
+      properties:
+        url: neo4j://127.0.0.1:7687
+        database: neo4j
+        unwindMapName: rows
+        cypher: "UNWIND $rows AS row MERGE (p:Person {id: row.personId}) ON CREATE SET
+          p.name = row.personName MERGE (c:Company {id: row.companyId}) ON
+          CREATE SET c.name = row.companyName MERGE (p)-[r:AFFILIATED_WITH]->(c)
+          SET r.updatedAt = row.timestamp"
+        batchSize: 1000
+        cypherLogging: true
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: neo4j-sink-java
+  - key: neo4jUrl
+    value: neo4j://127.0.0.1:7687
+  - key: database
+    value: neo4j
+  - key: unwindMapName
+    value: rows
+  - key: batchSize
+    value: 1000
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/neo4j-sink-java
+  needsRebuild: false

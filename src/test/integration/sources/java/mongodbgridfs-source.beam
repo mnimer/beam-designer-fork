@@ -1,0 +1,90 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: GridFS Source
+      type: SOURCE
+      iconName: HardDrive
+      beam_transform: MongoDbGridFSIO
+      properties:
+        uri: mongodb://mongodb.default.svc.cluster.local:27017
+        database: content_repository
+        bucket: raw_files
+        filter: '{"filename": {"$regex": "^report_.*\\.pdf$"}}'
+        skew: 60000
+        parser: com.example.PdfContentParser
+        coder: org.apache.beam.sdk.coders.AvroCoder
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformFn: ProcessFileContentFn
+      system_instructions: Process parsed document contents, extract metadata summary,
+        apply content normalization and redaction, and produce processed binary
+        payloads ready for GridFS archival storage. In Java, implement as a
+        DoFn<ParsedDocument, ProcessedFile>; in Python, implement as a beam.DoFn
+        converting input dictionaries into archive file payloads. Output
+        normalized JSON strings ready for structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[MongoDbGridFSIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: mongodbgridfs-source-java
+  - key: uri
+    value: mongodb://mongodb.default.svc.cluster.local:27017
+  - key: database
+    value: content_repository
+  - key: sourceBucket
+    value: raw_files
+  - key: sinkBucket
+    value: processed_archives
+  - key: chunkSize
+    value: 524288
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/mongodbgridfs-source-java
+  needsRebuild: false

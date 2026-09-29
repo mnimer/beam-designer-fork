@@ -1,0 +1,106 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"order_id": 1001, "customer_id": "cust-01", "status": "PAID",
+            "total_amount": 149.95, "created_at": "2026-09-01T10:00:00Z"}'
+          - '{"order_id": 1002, "customer_id": "cust-02", "status": "PAID",
+            "total_amount": 89.50, "created_at": "2026-09-01T10:05:00Z"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Mark Fulfilled
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: Parse each input JSON string (or dict) and emit a new dict
+        with keys (order_id, customer_id, status, total_amount, created_at)
+        where status is set to 'FULFILLED'. Unit-test the DoFn with
+        TestPipeline, beam.Create and assert_that/equal_to without opening
+        database or Secret Manager connections.
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Cloud SQL Fulfilled Orders
+      type: SINK
+      iconName: Database
+      beam_transform: CloudSQL
+      properties:
+        cloudSqlInstance: retail-prod-123:us-central1:analytics-pg
+        dbDriver: postgresql+pg8000
+        database: analytics
+        username: beam_writer
+        passwordSecret: analytics-pg-writer-password
+        table: fulfilled_orders
+        updateIgnores: created_at
+      system_instructions: "Implement this sink as a composite beam.PTransform named
+        WriteIntoDB mirroring the jccatrinck/dataflow-cloud-sql-python
+        WriteIntoDB(url, table, update_ignores) contract, taking the Cloud SQL
+        Connector settings and SQLAlchemy 2.x API. Resolve passwordSecret ONCE
+        at pipeline construction with _access_secret(project_id,
+        'analytics-pg-writer-password') and pass only the resolved string into
+        the transform. Parse updateIgnores ('created_at') into
+        update_ignores=('created_at',). In expand():
+        beam.BatchElements(min_batch_size=50, max_batch_size=500) then
+        beam.ParDo(_UpsertBatchFn(...)). In _UpsertBatchFn.setup() create
+        Connector() and sqlalchemy.create_engine('postgresql+pg8000://',
+        creator=lambda:
+        connector.connect('retail-prod-123:us-central1:analytics-pg', 'pg8000',
+        user='beam_writer', password=<resolved>, db='analytics')) with no
+        password in any URL, then reflect the target table with
+        sqlalchemy.Table('fulfilled_orders', sqlalchemy.MetaData(),
+        autoload_with=engine). In process(batch): stmt =
+        sqlalchemy.dialects.postgresql.insert(tbl).values(list(batch)); stmt =
+        stmt.on_conflict_do_update(index_elements=[c.name for c in
+        tbl.primary_key.columns], set_={c.name: stmt.excluded[c.name] for c in
+        tbl.columns if not c.primary_key and c.name not in update_ignores});
+        execute inside with engine.begin() as conn. update_ignores =
+        ('created_at',) so created_at keeps its original value on conflict. In
+        teardown() dispose the engine and close the connector. requirements.txt
+        must include cloud-sql-python-connector[pg8000], SQLAlchemy>=2.0 and
+        google-cloud-secret-manager."
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: cloudsql-sink-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/cloudsql-sink-python
+  needsRebuild: false

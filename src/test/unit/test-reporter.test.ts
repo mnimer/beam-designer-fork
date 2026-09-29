@@ -219,6 +219,65 @@ describe('Integration Test Reporter (test-reporter.ts)', () => {
         expect(cache).toEqual({});
     });
 
+    it('discards stale .test-report.json entries when test-report.md has been deleted before a run', () => {
+        // Seed an old entry in both .test-report.json and test-report.md
+        recordAndSaveTestReport({
+            testName: 'Stale-Source-Test',
+            language: 'Java',
+            timestamp: '2026-09-10T00:00:00.000Z',
+            passed: true,
+            explanation: 'Old cached run',
+            findings: [],
+            promptRemediationDirectives: [],
+            generatedFiles: [],
+        });
+        expect(fs.existsSync(reportPath)).toBe(true);
+        expect(fs.existsSync(cachePath)).toBe(true);
+
+        // User deletes test-report.md while .test-report.json still exists
+        fs.unlinkSync(reportPath);
+        expect(fs.existsSync(reportPath)).toBe(false);
+        expect(fs.existsSync(cachePath)).toBe(true);
+
+        // Next test run records a new entry
+        recordAndSaveTestReport({
+            testName: 'Fresh-Step-Test',
+            language: 'Python',
+            timestamp: '2026-09-29T00:00:00.000Z',
+            passed: true,
+            explanation: 'Fresh run',
+            findings: [],
+            promptRemediationDirectives: [],
+            generatedFiles: [],
+        });
+
+        const content = fs.readFileSync(reportPath, 'utf-8');
+        expect(content).toContain('Fresh-Step-Test');
+        expect(content).not.toContain('Stale-Source-Test');
+        expect(content).toContain('**Suites Recorded:** 1');
+    });
+
+    it('clears both .test-report.json and test-report.md via globalSetup hook at test run start', async () => {
+        recordAndSaveTestReport({
+            testName: 'Prior-Run-Test',
+            language: 'Java',
+            timestamp: '2026-09-10T00:00:00.000Z',
+            passed: true,
+            explanation: 'Prior run',
+            findings: [],
+            promptRemediationDirectives: [],
+            generatedFiles: [],
+        });
+        expect(fs.existsSync(reportPath)).toBe(true);
+        expect(fs.existsSync(cachePath)).toBe(true);
+
+        const { default: globalSetup } = await import('../integration/global-setup');
+        globalSetup();
+
+        expect(fs.existsSync(reportPath)).toBe(false);
+        expect(fs.existsSync(cachePath)).toBe(false);
+    });
+
     describe('Directive Deduplication & Consolidation', () => {
         it('detects topics correctly for container tagging, hardening, DLQ logging, and shell quoting (simple condition)', () => {
             expect(detectDirectiveTopic('Deployment Scripts', 'avoid mutable :latest image tags')).toBe('Deterministic Container Image Tagging (Cloud Build & Runner Scripts)');

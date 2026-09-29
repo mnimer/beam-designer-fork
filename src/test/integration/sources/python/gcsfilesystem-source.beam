@@ -1,0 +1,81 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: GcsFileSystem Read
+      type: SOURCE
+      iconName: Cloud
+      beam_transform: GcsFileSystem
+      properties:
+        filePattern: gs://my-bucket/events/*.json
+        projectId: my-gcp-project
+        enablePerformanceMetrics: true
+        readTimeoutMs: 20000
+        format: TextIO
+        validate: true
+        minBundleSize: 67108864
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Filter non-empty JSON event lines read from Google Cloud
+        Storage (gs://) and normalize each record for structured logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[GcsFileSystem-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: gcsfilesystem-source-python
+  - key: INPUT_GCS_PATTERN
+    value: gs://my-bucket/events/*.json
+  - key: OUTPUT_GCS_PREFIX
+    value: gs://my-bucket/output/events
+  - key: GCP_PROJECT_ID
+    value: my-gcp-project
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/gcsfilesystem-source-python
+  needsRebuild: false

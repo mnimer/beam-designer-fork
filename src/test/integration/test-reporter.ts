@@ -353,6 +353,10 @@ export function generateReportMarkdown(entries: TestReportEntry[]): string {
  * @returns The absolute path to the generated test report file.
  */
 export function recordAndSaveTestReport(entry: TestReportEntry): string {
+    const reportPath = getReportFilePath();
+    if (!fs.existsSync(reportPath)) {
+        clearReportCache();
+    }
     const cache = loadReportCache();
     const key = `${entry.testName}::${entry.language}`;
     cache[key] = entry;
@@ -367,7 +371,7 @@ export function recordAndSaveTestReport(entry: TestReportEntry): string {
     });
 
     const markdown = generateReportMarkdown(sortedEntries);
-    const reportPath = getReportFilePath();
     fs.writeFileSync(reportPath, markdown, 'utf-8');
     return reportPath;
 }
+

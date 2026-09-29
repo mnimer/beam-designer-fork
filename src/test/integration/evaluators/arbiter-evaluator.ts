@@ -24,6 +24,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
+import { getCachedBeamVersion, BEAM_DOWNLOADS_URL } from '../../../beamVersion';
 import {
     DeterministicGateResult,
     SpecialistAgentResult,
@@ -143,12 +144,38 @@ export async function synthesizeEvaluation(
     specialistResults: Record<string, SpecialistAgentResult>,
     codeGenPromptTemplate: string
 ): Promise<MultiAgentEvaluationResult> {
+    const beamVersion = getCachedBeamVersion();
     const allFindings: EvaluatorFinding[] = [
         ...deterministic.secretFindings,
         ...Object.values(specialistResults).flatMap(r => r.findings)
     ];
 
     const initialBaseline = calculateBaselineScorecard(deterministic, allFindings);
+    const specialistsList = Object.values(specialistResults);
+    const allSpecialistsPassed = specialistsList.length > 0 && specialistsList.every(r => r.passed);
+    const hasMissingDeliverables = (deterministic.missingDeliverables?.length ?? 0) > 0;
+
+    if (
+        deterministic.syntaxValid &&
+        deterministic.secretScanPassed &&
+        !hasMissingDeliverables &&
+        allFindings.length === 0 &&
+        allSpecialistsPassed &&
+        !initialBaseline.hardVetoTriggered
+    ) {
+        return {
+            isGood: true,
+            scorecard: initialBaseline.scorecard,
+            hardVetoTriggered: false,
+            hardVetoReasons: [],
+            allFindings: [],
+            confirmedFindings: [],
+            rejectedFindings: [],
+            specialistResults,
+            promptRemediationDirectives: [],
+            explanation: 'All deterministic pre-flight checks and specialist sub-agent evaluations passed with zero findings.'
+        };
+    }
 
     const prompt = `You are the Lead Arbiter & Quality Assurance Synthesizer Agent for the Apache Beam Code Generator Integration Test Suite.
 
@@ -161,6 +188,7 @@ Your tasks:
 2. Ground-Truth Validation & False-Positive Reconciliation:
    - Carefully cross-reference each specialist finding against the generated line-numbered code below.
    - If a finding is a FALSE POSITIVE (e.g. the sub-agent claimed a property was omitted or insecure, but the line-numbered code actually implements it correctly), list its ID in \`rejectedFindingIds\` with a clear explanation in \`rejectedFindings\`.
+   - **AUTHORITATIVE APACHE BEAM VERSION GROUNDING**: The current official Apache Beam release verified from ${BEAM_DOWNLOADS_URL} is \`${beamVersion}\` (including \`2.76.0\`). Any finding claiming that Apache Beam version \`${beamVersion}\` / \`2.76.0\` is "non-existent", "unreleased", or "hallucinated" is a FALSE POSITIVE caused by pre-cutoff knowledge and MUST be added to \`rejectedFindingIds\`.
 3. Actionable Prompt Remediation Directives:
    - When the test fails or exhibits real defects, DO NOT patch or rewrite the generated code.
    - Formulate actionable **Prompt Remediation Directives** targeting the generator prompt template:

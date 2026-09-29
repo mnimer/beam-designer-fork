@@ -36,7 +36,7 @@ import {
     resetResolvedSecurityModelForTesting
 } from '../integration/evaluators/security-evaluator';
 import { formatFilesWithLineNumbers } from '../integration/evaluators/format-utils';
-import { synchronizePipelineLanguage } from '../integration/codegen-runner';
+import { synchronizePipelineLanguage, parseGcloudProjectFromIni } from '../integration/codegen-runner';
 import {
     DeterministicGateResult,
     EvaluatorFinding,
@@ -170,6 +170,140 @@ public class WordCountPipelineTest {
 `;
             const error = checkJavaStructure('WordCountPipelineTest.java', regexJava);
             expect(error).toBeNull();
+        });
+    });
+
+    describe('checkBashSyntax', () => {
+        it('passes valid bash script (simple condition)', async () => {
+            const validBash = `#!/bin/bash\nset -euo pipefail\necho "Running pipeline"\n`;
+            const error = await checkBashSyntax('run_directrunner.sh', validBash);
+            expect(error).toBeNull();
+        });
+
+        it('catches bash syntax error (failure condition)', async () => {
+            const brokenBash = `#!/bin/bash\nif [ $foo == 1; then\necho "missing bracket"\n`;
+            const error = await checkBashSyntax('broken.sh', brokenBash);
+            expect(error).not.toBeNull();
+            expect(error).toContain('broken.sh');
+        });
+    });
+
+    describe('checkJsonSyntax', () => {
+        it('validates correct JSON structure (simple condition)', () => {
+            const validJson = JSON.stringify({ image: "gcr.io/my-proj/img", parameters: [] });
+            expect(checkJsonSyntax('metadata.json', validJson)).toBeNull();
+        });
+
+        it('flags invalid JSON (failure condition)', () => {
+            const invalidJson = `{ "image": "missing-quote, }`;
+            const err = checkJsonSyntax('metadata.json', invalidJson);
+            expect(err).not.toBeNull();
+            expect(err).toContain('JSON parse error');
+        });
+    });
+
+    describe('checkXmlStructure', () => {
+        it('validates well-formed XML (simple condition)', () => {
+            const validXml = `<project><modelVersion>4.0.0</modelVersion><dependencies><dependency><groupId>org.apache.beam</groupId></dependency></dependencies></project>`;
+            expect(checkXmlStructure('pom.xml', validXml)).toBeNull();
+        });
+
+        it('detects mismatched XML tags (failure condition)', () => {
+            const brokenXml = `<project><dependencies></project></dependencies>`;
+            const err = checkXmlStructure('pom.xml', brokenXml);
+            expect(err).not.toBeNull();
+            expect(err).toContain('Mismatched XML tag');
+        });
+
+        it('detects unclosed XML tags (failure condition)', () => {
+            const unclosedXml = `<project><dependencies>`;
+            const err = checkXmlStructure('pom.xml', unclosedXml);
+            expect(err).not.toBeNull();
+            expect(err).toContain('Unclosed XML tag');
+        });
+    });
+
+    describe('scanForUnreplacedPlaceholders', () => {
+        it('detects template placeholders and redaction tokens (failure condition)', () => {
+            const files = [
+                { filename: 'pipeline.py', content: 'pipeline_name = "{{pipeline_name}}"' },
+                { filename: 'run.sh', content: 'SECRET=__REDACTED_BY_BEAM_DESIGNER__' }
+            ];
+            const findings = scanForUnreplacedPlaceholders(files);
+            expect(findings.length).toBe(2);
+            expect(findings[0].description).toContain('{{pipeline_name}}');
+            expect(findings[1].description).toContain('__REDACTED_BY_BEAM_DESIGNER__');
+        });
+
+        it('passes clean files without placeholders (simple condition)', () => {
+            const files = [{ filename: 'pipeline.py', content: 'x = 10\ny = 20' }];
+            expect(scanForUnreplacedPlaceholders(files).length).toBe(0);
+        });
+
+        it('does not falsely flag Python f-string escaped braces {{{driver}}} as Mustache placeholders (Directive P14)', () => {
+            const files = [
+                {
+                    filename: 'src/pyodbc_sink.py',
+                    content: 'conn_str = f"DRIVER={{{driver}}};SERVER={server};PORT={port};"\n'
+                }
+            ];
+            expect(scanForUnreplacedPlaceholders(files)).toEqual([]);
+        });
+    });
+
+    describe('checkShellPermissionsAndShebang', () => {
+        it('flags scripts lacking executable flag or valid shebang (failure condition)', () => {
+            const files = [
+                {
+                    filename: 'run_directrunner.sh',
+                    content: 'echo "No shebang"',
+                    executable: false
+                }
+            ];
+            const findings = checkShellPermissionsAndShebang(files);
+            expect(findings.length).toBe(2);
+            expect(findings.some(f => f.id.includes('SHELL-EXEC-FLAG'))).toBe(true);
+            expect(findings.some(f => f.id.includes('SHELL-SHEBANG'))).toBe(true);
+        });
+
+        it('accepts valid shebang and executable flag (simple condition)', () => {
+            const files = [
+                {
+                    filename: 'run_directrunner.sh',
+                    content: '#!/usr/bin/env bash\necho "Good"',
+                    executable: true
+                }
+            ];
+            const findings = checkShellPermissionsAndShebang(files);
+            expect(findings.length).toBe(0);
+        });
+    });
+
+    describe('checkDeliverableCompleteness', () => {
+        it('flags missing deliverables for Python (failure condition)', () => {
+            const files = [
+                { filename: 'metadata.json', content: '{}' },
+                { filename: 'Dockerfile', content: 'FROM python' }
+            ];
+            const missing = checkDeliverableCompleteness(files, 'Python');
+            expect(missing.some(m => m.includes('requirements.txt'))).toBe(true);
+            expect(missing.some(m => m.includes('run_directrunner.sh'))).toBe(true);
+        });
+
+        it('verifies complete deliverable set for Python (simple condition)', () => {
+            const files = [
+                { filename: 'metadata.json', content: '{}' },
+                { filename: 'Dockerfile', content: 'FROM python' },
+                { filename: 'run_directrunner.sh', content: '#!/bin/bash' },
+                { filename: 'run_dataflowrunner.sh', content: '#!/bin/bash' },
+                { filename: 'cloudbuild.yaml', content: 'steps: []' },
+                { filename: 'README.md', content: '# Doc' },
+                { filename: 'requirements.txt', content: 'apache-beam' },
+                { filename: 'src/pipeline.py', content: 'import beam' },
+                { filename: 'src/pipeline_test.py', content: 'def test(): pass' }
+            ];
+            const missing = checkDeliverableCompleteness(files, 'Python');
+            expect(missing.length).toBe(0);
         });
     });
 
@@ -504,6 +638,12 @@ nodes: []
         expect(pythonYaml).toContain('language: Python');
         expect(pythonYaml).not.toContain('language: Java');
     });
+
+    it('extracts project ID synchronously from gcloud config_default INI content', () => {
+        const iniContent = `[core]\naccount = user@google.com\nproject = my-gcp-vertex-project\n\n[compute]\nregion = us-central1\n`;
+        expect(parseGcloudProjectFromIni(iniContent)).toBe('my-gcp-vertex-project');
+        expect(parseGcloudProjectFromIni('[core]\naccount = user@google.com\n')).toBeUndefined();
+    });
 });
 
 describe('Arbiter False-Positive Reconciliation', () => {
@@ -705,5 +845,104 @@ describe('End-to-End Orchestration with Mocked Model Calls', () => {
         expect(result.specialistResults.PipelineSpecificationAgent).toBeDefined();
         expect(result.specialistResults.SecurityAndHardeningAgent).toBeDefined();
         expect(result.specialistResults.PackagingAndDeployabilityAgent).toBeDefined();
+        // Only the 4 specialist sub-agents should be invoked in parallel on a clean pass (no ping calls, no redundant 5th arbiter LLM call)
+        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(4);
+    });
+
+    it('invokes Lead Arbiter LLM when a specialist reports findings', async () => {
+        const mockAi: any = {
+            models: {
+                generateContent: vi.fn().mockImplementation((args: any) => {
+                    const promptText = args.contents;
+                    if (promptText.includes('Beam Architecture Evaluator Agent')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: false,
+                                summary: 'Missing windowing',
+                                findings: [
+                                    {
+                                        id: 'ARCH-WIN-1',
+                                        category: 'ARCHITECTURE',
+                                        severity: 'CRITICAL',
+                                        file: 'pipeline.py',
+                                        description: 'Missing windowing before GroupByKey',
+                                        rationale: 'Unbounded aggregation requires window'
+                                    }
+                                ]
+                            })
+                        });
+                    }
+                    if (promptText.includes('Pipeline Specification & Property Conformance')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Spec clean',
+                                requirementVerifications: [],
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Security & Container Hardening')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Security clean',
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Packaging & Runtime Deployability')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Packaging clean',
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Lead Arbiter')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                isGood: false,
+                                explanation: 'Critical missing windowing confirmed.',
+                                rejectedFindingIds: [],
+                                rejectedFindings: [],
+                                promptRemediationDirectives: [
+                                    {
+                                        targetPromptFile: 'code-gen-prompt-python.txt',
+                                        targetSection: 'Windowing',
+                                        recommendedRuleText: 'Apply windowing before GroupByKey.',
+                                        rationale: 'Prevents unbounded aggregation errors.'
+                                    }
+                                ]
+                            })
+                        });
+                    }
+                    return Promise.resolve({ text: '{}' });
+                })
+            }
+        };
+
+        const files = [
+            {
+                filename: 'pipeline.py',
+                content: 'print("hello world")'
+            }
+        ];
+
+        const result = await runMultiAgentEvaluation(
+            mockAi,
+            'Python',
+            'nodes: []',
+            'system prompt',
+            files
+        );
+
+        expect(result.isGood).toBe(false);
+        expect(result.hardVetoTriggered).toBe(true);
+        expect(result.promptRemediationDirectives.length).toBe(1);
+        // 4 specialist sub-agents + 1 Lead Arbiter call = 5 calls total
+        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(5);
     });
 });
+

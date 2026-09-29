@@ -23,6 +23,7 @@ export type AssetType =
   | 'topics'
   | 'subscriptions'
   | 'secrets'
+  | 'healthcareDatasets'
   | 'awsQueues'
   | 'queues'
   | 'storageBuckets'
@@ -30,12 +31,19 @@ export type AssetType =
   | 'networks'
   | 'subnetworks'
   | 'computeInstances'
-  | 'instances';
+  | 'instances'
+  | 'bigtableInstances'
+  | 'bigtableTables'
+  | 'sqlInstances'
+  | 'sqlDatabases'
+  | 'projects';
 
 export interface AssetConfig {
   requestCommand: string;
   responseCommand: string;
   responseKey: string;
+  /** Request is auto-disabled until this param is a non-empty string (e.g. 'dataset', 'instance'). */
+  requiredParam?: string;
 }
 
 /**
@@ -51,7 +59,8 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
   tables: {
     requestCommand: 'getTables',
     responseCommand: 'tablesLoaded',
-    responseKey: 'tables'
+    responseKey: 'tables',
+    requiredParam: 'dataset'
   },
   topics: {
     requestCommand: 'getTopics',
@@ -67,6 +76,11 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
     requestCommand: 'getSecrets',
     responseCommand: 'secretsLoaded',
     responseKey: 'secrets'
+  },
+  healthcareDatasets: {
+    requestCommand: 'getHealthcareDatasets',
+    responseCommand: 'healthcareDatasetsLoaded',
+    responseKey: 'datasets'
   },
   awsQueues: {
     requestCommand: 'getAwsQueues',
@@ -107,6 +121,33 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
     requestCommand: 'getComputeInstances',
     responseCommand: 'computeInstancesLoaded',
     responseKey: 'instances'
+  },
+  bigtableInstances: {
+    requestCommand: 'getBigtableInstances',
+    responseCommand: 'bigtableInstancesLoaded',
+    responseKey: 'bigtableInstances'
+  },
+  bigtableTables: {
+    requestCommand: 'getBigtableTables',
+    responseCommand: 'bigtableTablesLoaded',
+    responseKey: 'bigtableTables',
+    requiredParam: 'instance'
+  },
+  sqlInstances: {
+    requestCommand: 'getSqlInstances',
+    responseCommand: 'sqlInstancesLoaded',
+    responseKey: 'sqlInstances'
+  },
+  sqlDatabases: {
+    requestCommand: 'getSqlDatabases',
+    responseCommand: 'sqlDatabasesLoaded',
+    responseKey: 'sqlDatabases',
+    requiredParam: 'instance'
+  },
+  projects: {
+    requestCommand: 'getProjects',
+    responseCommand: 'projectsLoaded',
+    responseKey: 'projects'
   }
 };
 
@@ -115,7 +156,7 @@ export interface UseAssetLoaderOptions<T = any> {
   params?: Record<string, any>;
   /** Optional shorthand for dataset param if loading tables */
   dataset?: string;
-  /** Whether loading is enabled. Defaults to true (unless assetType is 'tables' with empty dataset). */
+  /** Whether loading is enabled. Defaults to true (unless assetType has a requiredParam that is empty). */
   enabled?: boolean;
   /** Optional callback invoked when assets or error are loaded */
   onLoaded?: (items: T[], rawMessage: any) => void;
@@ -162,15 +203,17 @@ export function useAssetLoader<T = any>(
   }
 
   // Combine params with shorthand options
-  const params = {
+  const params: Record<string, unknown> = {
     ...(options?.dataset ? { dataset: options.dataset } : {}),
     ...(options?.params || {})
   };
 
-  // Tables require a dataset identifier; auto-disable if dataset is not provided
-  const isTables = assetType === 'tables';
-  const hasDataset = Boolean(params.dataset && String(params.dataset).trim().length > 0);
-  const autoEnabled = isTables ? hasDataset : true;
+  // Some assets (tables, bigtableTables, sqlDatabases) require a parent identifier;
+  // auto-disable until the config's requiredParam is provided.
+  const requiredParam = config.requiredParam;
+  const hasRequiredParam = !requiredParam ||
+    Boolean(params[requiredParam] && String(params[requiredParam]).trim().length > 0);
+  const autoEnabled = hasRequiredParam;
   const isEnabled = options?.enabled !== undefined ? options.enabled : autoEnabled;
 
   const [items, setItems] = useState<T[]>(options?.initialItems || []);
@@ -226,7 +269,7 @@ export function useAssetLoader<T = any>(
       requestAssets();
     } else {
       setLoading(false);
-      if (isTables && !hasDataset) {
+      if (!hasRequiredParam) {
         setItems([]);
         setError(null);
       }

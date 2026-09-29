@@ -200,4 +200,64 @@ describe('usePipelineGraph', () => {
     expect(result.current.edges.length).toBe(0);
     expect(result.current.selectedEdgeId).toBeNull();
   });
+
+  it('handleAddNode triggers auto layout and fitView when adding nodes with the + button', () => {
+    vi.useFakeTimers();
+    const takeSnapshot = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const fitView = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePipelineGraph({ takeSnapshot, setPipelineConfig, fitView })
+    );
+
+    // 1. Add a PubSub source node via '+'
+    act(() => {
+      result.current.handleAddNode('PubSub', 'SOURCE', 'Radio', 'PubSubIO');
+    });
+
+    expect(result.current.nodes).toHaveLength(1);
+    expect(result.current.nodes[0].position).toEqual({ x: 80, y: 150 });
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(fitView).toHaveBeenCalledWith({ duration: 300, padding: 1 });
+
+    // 2. Add a first STEP node via '+' — auto-connects to the source and lays out into column 1 (x = 380)
+    fitView.mockClear();
+    act(() => {
+      result.current.handleAddNode('ParDo', 'STEP', 'Code', 'ParDo');
+    });
+
+    expect(result.current.nodes).toHaveLength(2);
+    expect(result.current.edges).toHaveLength(1);
+    expect(result.current.nodes[0].position).toEqual({ x: 80, y: 150 });
+    expect(result.current.nodes[1].position).toEqual({ x: 380, y: 150 });
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(fitView).toHaveBeenCalledWith({ duration: 300, padding: 1 });
+
+    // 3. Add a FileIO source via '+' — spawns FileIO Match (col 0) and FileIO Read Matches (col 1) and lays out all 4 nodes
+    fitView.mockClear();
+    act(() => {
+      result.current.handleAddNode('FileIO', 'SOURCE', 'Folder', 'FileIO');
+    });
+
+    expect(result.current.nodes).toHaveLength(4);
+    expect(result.current.edges).toHaveLength(2);
+    const matchNode = result.current.nodes.find((n) => n.data.beam_transform === 'FileIO.match');
+    const readMatchesNode = result.current.nodes.find((n) => n.data.beam_transform === 'FileIO.readMatches');
+    expect(matchNode?.position.x).toBe(80);
+    expect(readMatchesNode?.position.x).toBe(380);
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(fitView).toHaveBeenCalledWith({ duration: 300, padding: 1 });
+    vi.useRealTimers();
+  });
 });
+

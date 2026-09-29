@@ -9,6 +9,16 @@
     background-color: var(--vscode-canvas-bg, #0d1117);
     color: var(--vscode-text-primary, #f0f6fc);
   }
+
+  /* Suppress native browser datalist drop-down indicator to prevent duplicate dropdowns */
+  input::-webkit-calendar-picker-indicator {
+    display: none !important;
+    -webkit-appearance: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }
 
 /* ==========================================================================

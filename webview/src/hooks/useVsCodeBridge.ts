@@ -114,6 +114,7 @@ export function useVsCodeBridge({
   vsCodeRef.current = activeVsCode;
 
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadRevision, setLoadRevision] = useState(0);
   const [samples, setSamples] = useState<SamplePipeline[]>(DEFAULT_SAMPLES);
   const [generatedCode, setGeneratedCode] = useState('');
   const [subnetworks, setSubnetworks] = useState<{ name: string; region: string; network: string; value: string }[]>([]);
@@ -311,6 +312,7 @@ export function useVsCodeBridge({
             });
           }
           setIsLoaded(true);
+          setLoadRevision((prev) => prev + 1);
 
           setTimeout(() => {
             if (fitView) {
@@ -395,6 +397,7 @@ export function useVsCodeBridge({
   return {
     isLoaded,
     setIsLoaded,
+    loadRevision,
     samples,
     setSamples,
     generatedCode,

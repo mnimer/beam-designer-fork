@@ -19,6 +19,15 @@
  *   automatically collapse to prevent the slide-out panel from overflowing vertically.
  * - Step and Sink menu items are disabled when nodesCount is 0 to enforce pipeline validity.
  * - Added MqttIO nodes to Streaming Sources and Streaming Sinks categories for IoT message broker streaming.
+ * - Added the Databases/NoSQL connector family to Database Sources and Database Sinks: CassandraIO, HBaseIO,
+ *   KuduIO, MongoDbIO, and RedisIO. NOTE: categories are grouped dynamically from NodeDefinition.category,
+ *   so introducing a new category name here is sufficient to render it — but any new category also needs a
+ *   matching `${tab}_${category}` key in defaultGroupOpenState to control its default accordion state.
+ * - Added AmqpIO, RabbitMqIO, PulsarIO, and SolaceIO nodes to Streaming Sources and Streaming Sinks
+ *   (IO15, IO20, IO62, IO63). All four are Java-native connectors reached from Python via a cross-language
+ *   expansion service, which the property panels configure.
+ * - Added FlinkStreamingImpulseSource (IO49) under the new Data Services Sources / Data Services Sinks groups
+ *   rather than Streaming, because it is Python-only and executes exclusively on the Flink runner.
  * - Adheres strictly to the 8pt grid spacing system, VS Code semantic tokens, and Tailwind CSS styling.
  */
 import React, { useState, useMemo } from 'react';
@@ -78,6 +87,7 @@ const GROUPS_STORAGE_KEY = 'beam_node_groups_state';
 export const defaultGroupOpenState: Record<string, boolean> = {
   sources_streaming_sources: true,
   sources_database_sources: false,
+  sources_data_services_sources: false,
   sources_file_sources: false,
   sources_other_sources: false,
   steps_core_transforms: true,
@@ -88,6 +98,7 @@ export const defaultGroupOpenState: Record<string, boolean> = {
   steps_other_transforms: false,
   sinks_streaming_sinks: true,
   sinks_database_sinks: false,
+  sinks_data_services_sinks: false,
   sinks_file_sinks: false,
   sinks_logging_sinks: false,
   samples_sample_pipelines: true,
@@ -170,7 +181,7 @@ interface NodesCardProps {
 }
 
 
-interface NodeDefinition {
+export interface NodeDefinition {
   label: string;
   type: 'SOURCE' | 'STEP' | 'SINK';
   iconName: string;
@@ -178,30 +189,91 @@ interface NodeDefinition {
   badge: string;
   description: string;
   category: string;
+  supportedLanguages?: ('Java' | 'Python' | 'Go' | 'TypeScript')[];
 }
 
 // Source node definitions
-const SOURCE_NODES: NodeDefinition[] = [
+export const SOURCE_NODES: NodeDefinition[] = [
+  { label: 'AMQP', type: 'SOURCE', iconName: 'Cable', beamTransform: 'AmqpIO', badge: 'Queue', description: 'Consume streaming messages from AMQP 1.0 broker addresses', category: 'Streaming Sources' },
+  { label: 'DicomIO', type: 'SOURCE', iconName: 'Activity', beamTransform: 'DicomIO', badge: 'Healthcare', description: 'Read study metadata or search DICOM stores via QIDO-RS', category: 'Streaming Sources' },
+  { label: 'FhirIO', type: 'SOURCE', iconName: 'Activity', beamTransform: 'FhirIO', badge: 'Healthcare', description: 'Read, search, or export FHIR resources from Cloud Healthcare API', category: 'Streaming Sources' },
+  { label: 'Generate Sequence', type: 'SOURCE', iconName: 'ListOrdered', beamTransform: 'GenerateSequence', badge: 'Synthetic', description: 'Generate periodic integer sequence', category: 'Streaming Sources' },
+  { label: 'HL7v2IO', type: 'SOURCE', iconName: 'Activity', beamTransform: 'HL7v2IO', badge: 'Healthcare', description: 'Read or filter HL7v2 messages from Cloud Healthcare API', category: 'Streaming Sources' },
+  { label: 'JMS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Consume streaming messages from JMS queue or topic', category: 'Streaming Sources' },
   { label: 'Kafka', type: 'SOURCE', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Consume streaming records from Kafka topic', category: 'Streaming Sources' },
   { label: 'Kinesis', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Consume streaming records from AWS Kinesis stream', category: 'Streaming Sources' },
-  { label: 'PubSub', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Read streaming messages from Cloud Pub/Sub', category: 'Streaming Sources' },
-  { label: 'SNS', type: 'SOURCE', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Consume streaming messages from Amazon SNS topic', category: 'Streaming Sources' },
-  { label: 'JMS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Consume streaming messages from JMS queue or topic', category: 'Streaming Sources' },
-  { label: 'SQS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Read streaming messages from Amazon SQS queue', category: 'Streaming Sources' },
   { label: 'MQTT', type: 'SOURCE', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Consume streaming messages from MQTT broker topic', category: 'Streaming Sources' },
-  { label: 'Generate Sequence', type: 'SOURCE', iconName: 'ListOrdered', beamTransform: 'GenerateSequence', badge: 'Synthetic', description: 'Generate periodic integer sequence', category: 'Streaming Sources' },
   { label: 'Periodic Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'PeriodicImpulse', badge: 'Trigger', description: 'Emit elements periodically on interval', category: 'Streaming Sources' },
+  { label: 'PubSub', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Read streaming messages from Cloud Pub/Sub', category: 'Streaming Sources' },
+  { label: 'Pulsar', type: 'SOURCE', iconName: 'Radio', beamTransform: 'PulsarIO', badge: 'Streaming', description: 'Consume streaming messages from Apache Pulsar topic', category: 'Streaming Sources' },
+  { label: 'RabbitMQ', type: 'SOURCE', iconName: 'Cable', beamTransform: 'RabbitMqIO', badge: 'Queue', description: 'Consume streaming messages from RabbitMQ queue or exchange', category: 'Streaming Sources' },
+  { label: 'SNS', type: 'SOURCE', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Consume streaming messages from Amazon SNS topic', category: 'Streaming Sources' },
+  { label: 'Solace', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SolaceIO', badge: 'Queue', description: 'Consume streaming messages from Solace queue or topic', category: 'Streaming Sources' },
+  { label: 'SQS', type: 'SOURCE', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Read streaming messages from Amazon SQS queue', category: 'Streaming Sources' },
   { label: 'BigQuery', type: 'SOURCE', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Read records from BigQuery table or SQL query', category: 'Database Sources' },
+  { label: 'Bigtable', type: 'SOURCE', iconName: 'Database', beamTransform: 'BigTableIO', badge: 'NoSQL', description: 'Scan rows from a Cloud Bigtable table', category: 'Database Sources' },
+  { label: 'Cassandra', type: 'SOURCE', iconName: 'Database', beamTransform: 'CassandraIO', badge: 'NoSQL', description: 'Read rows from Apache Cassandra keyspace table', category: 'Database Sources' },
+  { label: 'ClickHouse', type: 'SOURCE', iconName: 'BarChart', beamTransform: 'ClickHouseIO', badge: 'OLAP', description: 'Query ClickHouse columnar tables over JDBC', category: 'Database Sources' },
+  { label: 'Cloud Bigtable (HBase based)', type: 'SOURCE', iconName: 'Database', beamTransform: 'CloudBigtable', badge: 'HBase', description: 'Read rows from Cloud Bigtable via the HBase API', category: 'Database Sources' },
+  { label: 'Cloud SQL', type: 'SOURCE', iconName: 'Database', beamTransform: 'CloudSQL', badge: 'Cloud SQL', description: 'Query a Cloud SQL database instance', category: 'Database Sources' },
+  { label: 'Cosmos DB', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'CosmosIO', badge: 'Azure', description: 'Query documents from Azure Cosmos DB', category: 'Database Sources' },
+  { label: 'Database', type: 'SOURCE', iconName: 'Database', beamTransform: 'DatabaseIO', badge: 'SQL', description: 'Read from any JDBC database by engine preset', category: 'Database Sources' },
+  { label: 'Datastore', type: 'SOURCE', iconName: 'Database', beamTransform: 'DatastoreIO', badge: 'NoSQL', description: 'Read entities from Cloud Datastore kind or GQL query', category: 'Database Sources' },
+  { label: 'DynamoDB', type: 'SOURCE', iconName: 'Database', beamTransform: 'DynamoDBIO', badge: 'AWS', description: 'Scan items from Amazon DynamoDB table', category: 'Database Sources' },
+  { label: 'Firestore', type: 'SOURCE', iconName: 'Database', beamTransform: 'FirestoreIO', badge: 'NoSQL', description: 'Run queries or list documents in Cloud Firestore', category: 'Database Sources' },
+  { label: 'HBase', type: 'SOURCE', iconName: 'Database', beamTransform: 'HBaseIO', badge: 'NoSQL', description: 'Scan rows from Apache HBase table', category: 'Database Sources' },
+  { label: 'InfluxDB', type: 'SOURCE', iconName: 'Activity', beamTransform: 'InfluxDbIO', badge: 'TimeSeries', description: 'Read time-series points from InfluxDB database', category: 'Database Sources' },
   { label: 'JdbcIO', type: 'SOURCE', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Query relational database over JDBC', category: 'Database Sources' },
-  { label: 'FileIO', type: 'SOURCE', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Match and read file streams', category: 'File Sources' },
-  { label: 'ParquetIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Read columnar Parquet records', category: 'File Sources' },
-  { label: 'TextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Read newline-delimited text records', category: 'File Sources' },
+  { label: 'KineticaDB', type: 'SOURCE', iconName: 'Database', beamTransform: 'KineticaDB', badge: 'Kinetica', description: 'Read records from a KineticaDB table', category: 'Database Sources' },
+  { label: 'Kudu', type: 'SOURCE', iconName: 'Database', beamTransform: 'KuduIO', badge: 'Columnar', description: 'Scan columnar rows from Apache Kudu table', category: 'Database Sources' },
+  { label: 'MongoDB', type: 'SOURCE', iconName: 'Database', beamTransform: 'MongoDbIO', badge: 'NoSQL', description: 'Read BSON documents from MongoDB collection', category: 'Database Sources' },
+  { label: 'MongoDB GridFS', type: 'SOURCE', iconName: 'HardDrive', beamTransform: 'MongoDbGridFSIO', badge: 'Files', description: 'Read large files from a MongoDB GridFS bucket', category: 'Database Sources' },
+  { label: 'MySQL', type: 'SOURCE', iconName: 'Database', beamTransform: 'MySQL', badge: 'MySQL', description: 'Query rows from a MySQL database', category: 'Database Sources' },
+  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'MySQLPostgreSQLOracleSQLServer', badge: 'YAML', description: 'Read from MySQL, PostgreSQL, Oracle or SQL Server (Beam YAML)', category: 'Database Sources' },
+  { label: 'Neo4j', type: 'SOURCE', iconName: 'GitMerge', beamTransform: 'Neo4jIO', badge: 'Graph', description: 'Run Cypher read queries against Neo4j graph', category: 'Database Sources' },
+  { label: 'Redis', type: 'SOURCE', iconName: 'Zap', beamTransform: 'RedisIO', badge: 'Cache', description: 'Read key/value pairs from Redis by key pattern', category: 'Database Sources' },
+  { label: 'SingleStoreDB', type: 'SOURCE', iconName: 'Database', beamTransform: 'SingleStoreDBIO', badge: 'SQL', description: 'Read rows from SingleStore distributed SQL database', category: 'Database Sources' },
+  { label: 'Snowflake', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'SnowflakeIO', badge: 'Warehouse', description: 'Read rows from Snowflake via external stage', category: 'Database Sources' },
+  { label: 'Spanner', type: 'SOURCE', iconName: 'Database', beamTransform: 'SpannerIO', badge: 'SQL', description: 'Read rows from Cloud Spanner query or table', category: 'Database Sources' },
+  { label: 'Arrow Flight', type: 'SOURCE', iconName: 'Cable', beamTransform: 'ArrowFlightIO', badge: 'Arrow', description: 'Fetch Arrow record batches over a Flight server', category: 'Data Services Sources' },
+  { label: 'CDAP', type: 'SOURCE', iconName: 'Workflow', beamTransform: 'CdapIO', badge: 'Plugin', description: 'Read through any CDAP batch or streaming plugin', category: 'Data Services Sources' },
+  { label: 'Cognite Data Fusion', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'CogniteDataFusion', badge: 'Cognite', description: 'Read industrial data from Cognite Data Fusion', category: 'Data Services Sources' },
+  { label: 'Debezium', type: 'SOURCE', iconName: 'GitMerge', beamTransform: 'DebeziumIO', badge: 'CDC', description: 'Stream database change events via Debezium', category: 'Data Services Sources' },
+  { label: 'Elasticsearch', type: 'SOURCE', iconName: 'Layers', beamTransform: 'ElasticsearchIO', badge: 'Search', description: 'Read documents from Elasticsearch index', category: 'Data Services Sources' },
+  // NOTE: FlinkStreamingImpulseSource is a Python-only synthetic impulse source that requires the Flink runner,
+  // so it is grouped under Data Services rather than the runner-agnostic Streaming Sources category.
+  { label: 'Flink Streaming Impulse', type: 'SOURCE', iconName: 'Zap', beamTransform: 'FlinkStreamingImpulseSource', badge: 'Flink', description: 'Generate synthetic impulses on the Flink runner (Python)', category: 'Data Services Sources', supportedLanguages: ['Python'] },
+  { label: 'GoogleAdsIO', type: 'SOURCE', iconName: 'BarChart', beamTransform: 'GoogleAdsIO', badge: 'SaaS', description: 'Read GoogleAdsRow records via Google Ads Query Language (GAQL)', category: 'Data Services Sources' },
+  { label: 'Pyodbc', type: 'SOURCE', iconName: 'Cable', beamTransform: 'Pyodbc', badge: 'ODBC', description: 'Query an ODBC data source via pyodbc', category: 'Data Services Sources' },
+  { label: 'Solr', type: 'SOURCE', iconName: 'Grid', beamTransform: 'SolrIO', badge: 'Search', description: 'Read documents from SolrCloud collection', category: 'Data Services Sources' },
+  { label: 'Spark Receiver', type: 'SOURCE', iconName: 'Cpu', beamTransform: 'SparkReceiverIO', badge: 'Spark', description: 'Ingest a stream from a Spark Streaming receiver', category: 'Data Services Sources' },
+  { label: 'Tinybird', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'Tinybird', badge: 'Tinybird', description: 'Read data from Tinybird', category: 'Data Services Sources' },
+  { label: 'TrepWsIO', type: 'SOURCE', iconName: 'Radio', beamTransform: 'TrepWsIO', badge: 'Refinitiv', description: 'Stream market data from Refinitiv TREP over WebSocket', category: 'Data Services Sources' },
+  { label: 'Web APIs (RequestResponseIO)', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'RequestResponseIO', badge: 'HTTP/RPC', description: 'Read and enrich data from HTTP/REST/RPC Web APIs', category: 'Data Services Sources' },
   { label: 'AvroIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Read records from Avro files', category: 'File Sources' },
+  { label: 'AzureBlobStoreFileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'AzureBlobStoreFileSystem', badge: 'Azure', description: 'Read from Azure Blob Storage containers', category: 'File Sources' },
+  { label: 'ContextualTextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'ContextualTextIO', badge: 'Context', description: 'Read text lines with file and line-number context', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'CsvIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'CsvIO', badge: 'CSV', description: 'Read delimited CSV rows into schema records', category: 'File Sources' },
+  { label: 'FileIO', type: 'SOURCE', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Match and read file streams', category: 'File Sources' },
+  { label: 'GcsFileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'GcsFileSystem', badge: 'GCS', description: 'Read from Cloud Storage with request metrics', category: 'File Sources' },
+  { label: 'Hadoop Format', type: 'SOURCE', iconName: 'HardDrive', beamTransform: 'HadoopFormatIO', badge: 'Hadoop', description: 'Read via any Hadoop InputFormat implementation', category: 'File Sources' },
+  { label: 'HadoopFileSystem', type: 'SOURCE', iconName: 'HardDrive', beamTransform: 'HadoopFileSystem', badge: 'HDFS', description: 'Read from HDFS cluster paths', category: 'File Sources' },
+  { label: 'HCatalog', type: 'SOURCE', iconName: 'Layers', beamTransform: 'HCatalogIO', badge: 'Hive', description: 'Read records from a Hive metastore table', category: 'File Sources' },
+  { label: 'Iceberg', type: 'SOURCE', iconName: 'Database', beamTransform: 'IcebergIO', badge: 'Iceberg', description: 'Read Apache Iceberg tables via Managed I/O', category: 'File Sources' },
+  { label: 'JsonIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'JsonIO', badge: 'JSON', description: 'Read newline-delimited JSON records', category: 'File Sources' },
+  { label: 'LocalFileSystem', type: 'SOURCE', iconName: 'Folder', beamTransform: 'LocalFileSystem', badge: 'Local', description: 'Read from worker-local disk paths', category: 'File Sources' },
+  { label: 'ParquetIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Read columnar Parquet records', category: 'File Sources' },
+  { label: 'S3FileSystem', type: 'SOURCE', iconName: 'Cloud', beamTransform: 'S3FileSystem', badge: 'S3', description: 'Read from Amazon S3 bucket paths', category: 'File Sources' },
+  { label: 'TextIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Read newline-delimited text records', category: 'File Sources' },
+  { label: 'TFRecordIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'TFRecordIO', badge: 'TFRecord', description: 'Read binary TFRecord ML datasets', category: 'File Sources' },
+  { label: 'ThriftIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'ThriftIO', badge: 'Thrift', description: 'Read Thrift structs via TProtocol factory', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'TikaIO', type: 'SOURCE', iconName: 'FileText', beamTransform: 'TikaIO', badge: 'Tika', description: 'Extract text and metadata from documents via Apache Tika', category: 'File Sources', supportedLanguages: ['Java'] },
+  { label: 'XmlIO', type: 'SOURCE', iconName: 'FileCode', beamTransform: 'XmlIO', badge: 'XML', description: 'Read JAXB-mapped XML record elements', category: 'File Sources', supportedLanguages: ['Java'] },
   { label: 'Create', type: 'SOURCE', iconName: 'Box', beamTransform: 'Create', badge: 'Memory', description: 'Create in-memory static PCollection', category: 'Other Sources' },
 ];
 
 // Step node definitions
-const STEP_NODES: NodeDefinition[] = [
+export const STEP_NODES: NodeDefinition[] = [
   { label: 'ParDo', type: 'STEP', iconName: 'Code', beamTransform: 'ParDo', badge: 'Core', description: 'Apply custom per-element DoFn transform', category: 'Core Transforms' },
   { label: 'Parse Message', type: 'STEP', iconName: 'FileCode', beamTransform: 'ParseMessage', badge: 'Parser', description: 'Parse structured JSON/Avro payload', category: 'Message Parsers' },
   { label: 'Add Timestamp', type: 'STEP', iconName: 'Calendar', beamTransform: 'WithTimestamps', badge: 'Timestamp', description: 'Assign event timestamps to elements', category: 'Element Transforms' },
@@ -236,21 +308,76 @@ const STEP_NODES: NodeDefinition[] = [
 ];
 
 // Sink node definitions
-const SINK_NODES: NodeDefinition[] = [
+export const SINK_NODES: NodeDefinition[] = [
+  { label: 'AMQP', type: 'SINK', iconName: 'Cable', beamTransform: 'AmqpIO', badge: 'Queue', description: 'Publish messages to AMQP 1.0 broker address', category: 'Streaming Sinks' },
+  { label: 'DicomIO', type: 'SINK', iconName: 'Activity', beamTransform: 'DicomIO', badge: 'Healthcare', description: 'Upload DICOM instances via STOW-RS to Cloud Healthcare API', category: 'Streaming Sinks' },
+  { label: 'FhirIO', type: 'SINK', iconName: 'Activity', beamTransform: 'FhirIO', badge: 'Healthcare', description: 'Execute FHIR bundles or import resources to Cloud Healthcare API', category: 'Streaming Sinks' },
+  { label: 'HL7v2IO', type: 'SINK', iconName: 'Activity', beamTransform: 'HL7v2IO', badge: 'Healthcare', description: 'Ingest HL7v2 messages into Cloud Healthcare API store', category: 'Streaming Sinks' },
+  { label: 'JMS', type: 'SINK', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Publish messages to JMS queue or topic', category: 'Streaming Sinks' },
   { label: 'Kafka', type: 'SINK', iconName: 'Cable', beamTransform: 'KafkaIO', badge: 'Streaming', description: 'Publish records to Apache Kafka topic', category: 'Streaming Sinks' },
   { label: 'Kinesis', type: 'SINK', iconName: 'Cloud', beamTransform: 'KinesisIO', badge: 'Streaming', description: 'Publish records to AWS Kinesis stream', category: 'Streaming Sinks' },
-  { label: 'PubSub', type: 'SINK', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Publish messages to Cloud Pub/Sub topic', category: 'Streaming Sinks' },
-  { label: 'SNS', type: 'SINK', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Publish messages to Amazon Simple Notification Service topic', category: 'Streaming Sinks' },
-  { label: 'JMS', type: 'SINK', iconName: 'Cable', beamTransform: 'JmsIO', badge: 'Queue', description: 'Publish messages to JMS queue or topic', category: 'Streaming Sinks' },
-  { label: 'SQS', type: 'SINK', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Publish messages to Amazon SQS queue', category: 'Streaming Sinks' },
   { label: 'MQTT', type: 'SINK', iconName: 'Radio', beamTransform: 'MqttIO', badge: 'IoT', description: 'Publish streaming messages to MQTT broker topic', category: 'Streaming Sinks' },
+  { label: 'PubSub', type: 'SINK', iconName: 'Radio', beamTransform: 'PubSubIO', badge: 'Queue', description: 'Publish messages to Cloud Pub/Sub topic', category: 'Streaming Sinks' },
+  { label: 'Pulsar', type: 'SINK', iconName: 'Radio', beamTransform: 'PulsarIO', badge: 'Streaming', description: 'Publish messages to Apache Pulsar topic', category: 'Streaming Sinks' },
+  { label: 'RabbitMQ', type: 'SINK', iconName: 'Cable', beamTransform: 'RabbitMqIO', badge: 'Queue', description: 'Publish messages to RabbitMQ queue or exchange', category: 'Streaming Sinks' },
+  { label: 'SNS', type: 'SINK', iconName: 'Share2', beamTransform: 'SnsIO', badge: 'AWS', description: 'Publish messages to Amazon Simple Notification Service topic', category: 'Streaming Sinks' },
+  { label: 'Solace', type: 'SINK', iconName: 'Cable', beamTransform: 'SolaceIO', badge: 'Queue', description: 'Publish messages to Solace topic or queue', category: 'Streaming Sinks' },
+  { label: 'SQS', type: 'SINK', iconName: 'Cable', beamTransform: 'SqsIO', badge: 'Queue', description: 'Publish messages to Amazon SQS queue', category: 'Streaming Sinks' },
   { label: 'BigQuery', type: 'SINK', iconName: 'Database', beamTransform: 'BigQueryIO', badge: 'Analytics', description: 'Write or stream rows into BigQuery table', category: 'Database Sinks' },
+  { label: 'Bigtable', type: 'SINK', iconName: 'Database', beamTransform: 'BigTableIO', badge: 'NoSQL', description: 'Apply row mutations to a Cloud Bigtable table', category: 'Database Sinks' },
+  { label: 'Cassandra', type: 'SINK', iconName: 'Database', beamTransform: 'CassandraIO', badge: 'NoSQL', description: 'Write or delete rows in Apache Cassandra table', category: 'Database Sinks' },
+  { label: 'ClickHouse', type: 'SINK', iconName: 'BarChart', beamTransform: 'ClickHouseIO', badge: 'OLAP', description: 'Bulk insert schema rows into ClickHouse table', category: 'Database Sinks' },
+  { label: 'Cloud Bigtable (HBase based)', type: 'SINK', iconName: 'Database', beamTransform: 'CloudBigtable', badge: 'HBase', description: 'Write mutations to Cloud Bigtable via the HBase API', category: 'Database Sinks' },
+  { label: 'Cloud SQL', type: 'SINK', iconName: 'Database', beamTransform: 'CloudSQL', badge: 'Cloud SQL', description: 'Write rows to a Cloud SQL database instance', category: 'Database Sinks' },
+  { label: 'Database', type: 'SINK', iconName: 'Database', beamTransform: 'DatabaseIO', badge: 'SQL', description: 'Write to any JDBC database by engine preset', category: 'Database Sinks' },
+  { label: 'Datastore', type: 'SINK', iconName: 'Database', beamTransform: 'DatastoreIO', badge: 'NoSQL', description: 'Upsert or delete entities in Cloud Datastore', category: 'Database Sinks' },
+  { label: 'DynamoDB', type: 'SINK', iconName: 'Database', beamTransform: 'DynamoDBIO', badge: 'AWS', description: 'Batch write items into Amazon DynamoDB table', category: 'Database Sinks' },
+  { label: 'Firestore', type: 'SINK', iconName: 'Database', beamTransform: 'FirestoreIO', badge: 'NoSQL', description: 'Batch write document mutations to Cloud Firestore', category: 'Database Sinks' },
+  { label: 'HBase', type: 'SINK', iconName: 'Database', beamTransform: 'HBaseIO', badge: 'NoSQL', description: 'Write mutations to Apache HBase table', category: 'Database Sinks' },
+  { label: 'InfluxDB', type: 'SINK', iconName: 'Activity', beamTransform: 'InfluxDbIO', badge: 'TimeSeries', description: 'Write line-protocol points to InfluxDB database', category: 'Database Sinks' },
   { label: 'JdbcIO', type: 'SINK', iconName: 'Database', beamTransform: 'JdbcIO', badge: 'SQL', description: 'Write rows to SQL database via JDBC', category: 'Database Sinks' },
-  { label: 'FileIO', type: 'SINK', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Write dynamic files to Cloud Storage/Disk', category: 'File Sinks' },
-  { label: 'ParquetIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Write columnar Parquet files', category: 'File Sinks' },
-  { label: 'TextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Write newline-delimited text records', category: 'File Sinks' },
+  { label: 'KineticaDB', type: 'SINK', iconName: 'Database', beamTransform: 'KineticaDB', badge: 'Kinetica', description: 'Insert records into a KineticaDB table', category: 'Database Sinks' },
+  { label: 'Kudu', type: 'SINK', iconName: 'Database', beamTransform: 'KuduIO', badge: 'Columnar', description: 'Upsert or insert rows into Apache Kudu table', category: 'Database Sinks' },
+  { label: 'MongoDB', type: 'SINK', iconName: 'Database', beamTransform: 'MongoDbIO', badge: 'NoSQL', description: 'Insert or upsert documents into MongoDB collection', category: 'Database Sinks' },
+  { label: 'MongoDB GridFS', type: 'SINK', iconName: 'HardDrive', beamTransform: 'MongoDbGridFSIO', badge: 'Files', description: 'Write large files into a MongoDB GridFS bucket', category: 'Database Sinks' },
+  { label: 'MySQL', type: 'SINK', iconName: 'Database', beamTransform: 'MySQL', badge: 'MySQL', description: 'Write rows to a MySQL table', category: 'Database Sinks' },
+  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', type: 'SINK', iconName: 'FileCode', beamTransform: 'MySQLPostgreSQLOracleSQLServer', badge: 'YAML', description: 'Write to MySQL, PostgreSQL, Oracle or SQL Server (Beam YAML)', category: 'Database Sinks' },
+  { label: 'Neo4j', type: 'SINK', iconName: 'GitMerge', beamTransform: 'Neo4jIO', badge: 'Graph', description: 'Write graph nodes and relationships via Cypher unwind', category: 'Database Sinks' },
+  { label: 'Redis', type: 'SINK', iconName: 'Zap', beamTransform: 'RedisIO', badge: 'Cache', description: 'Write key/value pairs to Redis with optional TTL', category: 'Database Sinks' },
+  { label: 'SingleStoreDB', type: 'SINK', iconName: 'Database', beamTransform: 'SingleStoreDBIO', badge: 'SQL', description: 'Write rows into SingleStore distributed SQL table', category: 'Database Sinks' },
+  { label: 'Snowflake', type: 'SINK', iconName: 'Cloud', beamTransform: 'SnowflakeIO', badge: 'Warehouse', description: 'Load rows into Snowflake table via external stage', category: 'Database Sinks' },
+  { label: 'Spanner', type: 'SINK', iconName: 'Database', beamTransform: 'SpannerIO', badge: 'SQL', description: 'Apply mutations to Cloud Spanner database', category: 'Database Sinks' },
+  { label: 'Arrow Flight', type: 'SINK', iconName: 'Cable', beamTransform: 'ArrowFlightIO', badge: 'Arrow', description: 'Push Arrow record batches to a Flight server', category: 'Data Services Sinks' },
+  { label: 'CDAP', type: 'SINK', iconName: 'Workflow', beamTransform: 'CdapIO', badge: 'Plugin', description: 'Write through any CDAP batch sink plugin', category: 'Data Services Sinks' },
+  { label: 'Cognite Data Fusion', type: 'SINK', iconName: 'Cloud', beamTransform: 'CogniteDataFusion', badge: 'Cognite', description: 'Write industrial data to Cognite Data Fusion', category: 'Data Services Sinks' },
+  { label: 'Elasticsearch', type: 'SINK', iconName: 'Layers', beamTransform: 'ElasticsearchIO', badge: 'Search', description: 'Bulk index documents into Elasticsearch', category: 'Data Services Sinks' },
+  { label: 'Pyodbc', type: 'SINK', iconName: 'Cable', beamTransform: 'Pyodbc', badge: 'ODBC', description: 'Write rows to an ODBC data source via pyodbc', category: 'Data Services Sinks' },
+  { label: 'Solr', type: 'SINK', iconName: 'Grid', beamTransform: 'SolrIO', badge: 'Search', description: 'Index documents into SolrCloud collection', category: 'Data Services Sinks' },
+  { label: 'Tinybird', type: 'SINK', iconName: 'Cloud', beamTransform: 'Tinybird', badge: 'Tinybird', description: 'Ingest events into a Tinybird data source', category: 'Data Services Sinks' },
+  { label: 'TrepWsIO', type: 'SINK', iconName: 'Radio', beamTransform: 'TrepWsIO', badge: 'Refinitiv', description: 'Publish messages to Refinitiv TREP over WebSocket', category: 'Data Services Sinks' },
+  { label: 'Web APIs (RequestResponseIO)', type: 'SINK', iconName: 'Cloud', beamTransform: 'RequestResponseIO', badge: 'HTTP/RPC', description: 'Write payloads to external HTTP/REST/RPC Web APIs', category: 'Data Services Sinks' },
   { label: 'AvroIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'AvroIO', badge: 'Avro', description: 'Write records to Avro files', category: 'File Sinks' },
+  { label: 'AzureBlobStoreFileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'AzureBlobStoreFileSystem', badge: 'Azure', description: 'Write to Azure Blob Storage containers', category: 'File Sinks' },
+  { label: 'ContextualTextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'ContextualTextIO', badge: 'Context', description: 'Write text lines with header and footer', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'CsvIO', type: 'SINK', iconName: 'FileText', beamTransform: 'CsvIO', badge: 'CSV', description: 'Write delimited CSV rows with header', category: 'File Sinks' },
+  { label: 'FileIO', type: 'SINK', iconName: 'Folder', beamTransform: 'FileIO', badge: 'Files', description: 'Write dynamic files to Cloud Storage/Disk', category: 'File Sinks' },
+  { label: 'GcsFileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'GcsFileSystem', badge: 'GCS', description: 'Write to Cloud Storage with request metrics', category: 'File Sinks' },
+  { label: 'Hadoop Format', type: 'SINK', iconName: 'HardDrive', beamTransform: 'HadoopFormatIO', badge: 'Hadoop', description: 'Write via any Hadoop OutputFormat implementation', category: 'File Sinks' },
+  { label: 'HadoopFileSystem', type: 'SINK', iconName: 'HardDrive', beamTransform: 'HadoopFileSystem', badge: 'HDFS', description: 'Write to HDFS cluster paths', category: 'File Sinks' },
+  { label: 'HCatalog', type: 'SINK', iconName: 'Layers', beamTransform: 'HCatalogIO', badge: 'Hive', description: 'Write records into a partitioned Hive table', category: 'File Sinks' },
+  { label: 'Iceberg', type: 'SINK', iconName: 'Database', beamTransform: 'IcebergIO', badge: 'Iceberg', description: 'Write Apache Iceberg tables via Managed I/O', category: 'File Sinks' },
+  { label: 'JsonIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'JsonIO', badge: 'JSON', description: 'Write newline-delimited JSON records', category: 'File Sinks' },
+  { label: 'LocalFileSystem', type: 'SINK', iconName: 'Folder', beamTransform: 'LocalFileSystem', badge: 'Local', description: 'Write to worker-local disk paths', category: 'File Sinks' },
+  { label: 'ParquetIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ParquetIO', badge: 'Parquet', description: 'Write columnar Parquet files', category: 'File Sinks' },
+  { label: 'S3FileSystem', type: 'SINK', iconName: 'Cloud', beamTransform: 'S3FileSystem', badge: 'S3', description: 'Write to Amazon S3 bucket paths', category: 'File Sinks' },
+  { label: 'TextIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TextIO', badge: 'Text', description: 'Write newline-delimited text records', category: 'File Sinks' },
+  { label: 'TFRecordIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'TFRecordIO', badge: 'TFRecord', description: 'Write binary TFRecord ML datasets', category: 'File Sinks' },
+  { label: 'ThriftIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'ThriftIO', badge: 'Thrift', description: 'Write Thrift structs via TProtocol factory', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'TikaIO', type: 'SINK', iconName: 'FileText', beamTransform: 'TikaIO', badge: 'Tika', description: 'Persist extracted document content via FileIO.write()', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'XmlIO', type: 'SINK', iconName: 'FileCode', beamTransform: 'XmlIO', badge: 'XML', description: 'Write JAXB-mapped XML documents', category: 'File Sinks', supportedLanguages: ['Java'] },
+  { label: 'DatadogIO', type: 'SINK', iconName: 'Terminal', beamTransform: 'DatadogIO', badge: 'Logs', description: 'Write DatadogEvent batches to Datadog HTTP Logs Intake API', category: 'Logging Sinks' },
   { label: 'Log Message', type: 'SINK', iconName: 'Terminal', beamTransform: 'LogMessage', badge: 'Debug', description: 'Emit structured logs for elements', category: 'Logging Sinks' },
+  { label: 'SplunkIO', type: 'SINK', iconName: 'Terminal', beamTransform: 'SplunkIO', badge: 'HEC', description: 'Write SplunkEvent batches to Splunk HTTP Event Collector (HEC)', category: 'Logging Sinks' },
 ];
 
 /**
@@ -444,19 +571,23 @@ export const NodesCard: React.FC<NodesCardProps> = ({
 
   const filteredSamples = useMemo(() => {
     if (activeTab !== 'SAMPLES') return [];
-    if (!searchQuery.trim()) return availableSamples;
-    const q = searchQuery.toLowerCase();
-    return availableSamples.filter(
-      sample =>
-        sample.title.toLowerCase().includes(q) ||
-        sample.filename.toLowerCase().includes(q) ||
-        sample.description.toLowerCase().includes(q) ||
-        (sample.badge && sample.badge.toLowerCase().includes(q)) ||
-        (sample.category && sample.category.toLowerCase().includes(q))
+    const q = searchQuery.trim().toLowerCase();
+    const list = !q
+      ? availableSamples
+      : availableSamples.filter(
+          sample =>
+            sample.title.toLowerCase().includes(q) ||
+            sample.filename.toLowerCase().includes(q) ||
+            sample.description.toLowerCase().includes(q) ||
+            (sample.badge && sample.badge.toLowerCase().includes(q)) ||
+            (sample.category && sample.category.toLowerCase().includes(q))
+        );
+    return [...list].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
     );
   }, [activeTab, availableSamples, searchQuery]);
 
-  // Group items by category
+  // Group items by category and sort items in each category alphabetically
   const groupedCategories = useMemo(() => {
     const map = new Map<string, NodeDefinition[]>();
     filteredItems.forEach(item => {
@@ -464,15 +595,21 @@ export const NodesCard: React.FC<NodesCardProps> = ({
       list.push(item);
       map.set(item.category, list);
     });
+    map.forEach((list, category) => {
+      list.sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+      );
+      map.set(category, list);
+    });
     return map;
   }, [filteredItems]);
 
   const HeaderIcon = categoryConfig.icon;
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-start select-none font-sans">
+    <div className="absolute top-3 left-3 h-full max-h-[calc(100%-1.5rem)] z-20 flex items-start select-none font-sans pointer-events-none">
       {/* 1. Vertical Menu Bar (Left strip) */}
-      <div className={`w-12 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${isPanelOpen ? 'rounded-l-xl rounded-r-none border-r-0' : 'rounded-xl'} p-1 flex flex-col gap-1.5 shadow-2xl z-20 shrink-0`}>
+      <div className={`w-12 max-h-[90%] min-h-0 overflow-y-auto overflow-x-hidden bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${isPanelOpen ? 'rounded-l-xl rounded-r-none border-r-0' : 'rounded-xl'} p-1 flex flex-col gap-1.5 shadow-2xl z-20 shrink-0 pointer-events-auto`}>
         {/* Tab 1: SOURCES (Green Theme) */}
         <button
           type="button"
@@ -582,9 +719,9 @@ export const NodesCard: React.FC<NodesCardProps> = ({
 
       {/* 2. Slide-out Category Panel */}
       {isPanelOpen && (
-        <div className="w-88 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col max-h-[calc(100vh-80px)] ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150">
+        <div className="w-88 h-[90%] max-h-[90%] min-h-0 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150 pointer-events-auto">
           {/* Panel Header */}
-          <div className="flex items-center justify-between px-3.5 py-3 border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)]">
+          <div className="shrink-0 flex items-center justify-between px-3.5 py-3 border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)]">
             <div className="flex items-center gap-2">
               <HeaderIcon className={`w-4 h-4 ${categoryConfig.headerColor}`} />
               <h2 className="text-xs font-bold text-[var(--vscode-text-primary,#ffffff)] uppercase tracking-wider">
@@ -606,7 +743,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
           </div>
 
           {/* Search Bar */}
-          <div className="p-2.5 border-b border-[var(--vscode-border-light,#334155)]">
+          <div className="shrink-0 p-2.5 border-b border-[var(--vscode-border-light,#334155)]">
             <div className="relative flex items-center">
               <Search className="w-3.5 h-3.5 absolute left-2.5 text-[var(--vscode-text-muted,#94a3b8)] pointer-events-none" />
               <input
@@ -631,7 +768,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
 
           {/* List of Items: Distinct layout for SAMPLES vs Node palette */}
           {activeTab === 'SAMPLES' ? (
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
               {filteredSamples.length === 0 ? (
                 <div className="text-center py-6 text-xs text-[var(--vscode-text-muted,#94a3b8)]">
                   No sample pipelines matching "{searchQuery}"
@@ -690,7 +827,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
               )}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
               {groupedCategories.size === 0 ? (
                 <div className="text-center py-6 text-xs text-[var(--vscode-text-muted,#94a3b8)]">
                   No components matching "{searchQuery}"

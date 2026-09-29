@@ -33,6 +33,5 @@ webview/src/**/*.js.map
 src/test/integration/.test-report.json
 src/test/integration/test-report.md
 test-report.md
-
-
+.agents/teamwork
 

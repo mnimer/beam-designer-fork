@@ -1,0 +1,88 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: CsvIO Read Orders
+      type: SOURCE
+      iconName: FileText
+      beam_transform: CsvIO
+      properties:
+        filePattern: gs://my-bucket/orders/incoming-*.csv
+        csvFormat: DEFAULT
+        delimiter: ","
+        hasHeader: true
+        header: order_id,customer_id,amount,status,timestamp
+        schema: |
+          {
+            "fields": [
+              {"name": "order_id", "type": "STRING"},
+              {"name": "customer_id", "type": "STRING"},
+              {"name": "amount", "type": "DOUBLE"},
+              {"name": "status", "type": "STRING"},
+              {"name": "timestamp", "type": "INT64"}
+            ]
+          }
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: Filter incoming CSV order rows for completed transactions
+        (status == COMPLETED and amount > 0) and format each retained row into a
+        string summary for logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[CsvIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: csvio-source-java
+  - key: filePattern
+    value: gs://my-bucket/orders/incoming-*.csv
+  - key: output
+    value: gs://my-bucket/orders/completed/results
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/csvio-source-java
+  needsRebuild: false

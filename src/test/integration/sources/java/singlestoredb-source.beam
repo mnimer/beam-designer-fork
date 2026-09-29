@@ -1,0 +1,92 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: SingleStoreDB
+      type: SOURCE
+      iconName: Database
+      beam_transform: SingleStoreDBIO
+      properties:
+        endpoint: 127.0.0.1:3306
+        database: telemetry_db
+        readMode: query
+        query: SELECT sensor_id, reading_value, recorded_at FROM sensor_readings WHERE
+          status = 1
+        mapperStrategy: infer
+        outputParallelization: true
+        authMode: none
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: aggregate_and_shape_rollup
+      system_instructions: Process each Row element, extract sensor_id and
+        reading_value values, compute hourly summary metrics, and construct new
+        SensorRollup records. In Java, implement DoFn<Row, String> to map Row
+        metrics into structured JSON strings. In Python, apply beam.DoFn or Map
+        transform to reshape reading records into destination rollup
+        dictionaries. Output normalized JSON strings ready for structured
+        downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[SingleStoreDBIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: singlestoredb-source-java
+  - key: endpoint
+    value: 127.0.0.1:3306
+  - key: database
+    value: telemetry_db
+  - key: sourceTable
+    value: sensor_readings
+  - key: targetTable
+    value: sensor_rollups
+  - key: batchSize
+    value: 10000
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/singlestoredb-source-java
+  needsRebuild: false

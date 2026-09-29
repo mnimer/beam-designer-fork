@@ -63,4 +63,91 @@ describe('Extension Host validateDagTopology', () => {
         expect(res.errors).toHaveLength(1);
         expect(res.errors[0]).toContain('Orphan node(s) detected');
     });
+
+    it('flags FhirIO.readResources() when missing an upstream PubSubIO connection and passes when connected', () => {
+        const fhirNode: DagNode = {
+            id: 'fhir_1',
+            data: {
+                label: 'FhirIO Source',
+                type: 'SOURCE',
+                beam_transform: 'FhirIO',
+                properties: { readMode: 'readResources' },
+            },
+        };
+        const sinkNode: DagNode = { id: 'sink_1', data: { label: 'Sink', type: 'SINK' } };
+
+        const invalidRes = validateDagTopology([fhirNode, sinkNode], [{ id: 'e1', source: 'fhir_1', target: 'sink_1' }]);
+        expect(invalidRes.isValid).toBe(false);
+        expect(invalidRes.missingUpstreamNodeIds).toEqual(['fhir_1']);
+        expect(invalidRes.errors[0]).toContain('requires an upstream PubSubIO node');
+
+        const pubSubNode: DagNode = { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } };
+        const validRes = validateDagTopology(
+            [pubSubNode, fhirNode, sinkNode],
+            [
+                { id: 'e0', source: 'pubsub_1', target: 'fhir_1' },
+                { id: 'e1', source: 'fhir_1', target: 'sink_1' },
+            ]
+        );
+        expect(validRes.isValid).toBe(true);
+        expect(validRes.missingUpstreamNodeIds).toEqual([]);
+
+        const fhirSearchNode: DagNode = {
+            ...fhirNode,
+            data: { ...fhirNode.data, properties: { readMode: 'searchResources' } },
+        };
+        const invalidUpstreamRes = validateDagTopology(
+            [pubSubNode, fhirSearchNode, sinkNode],
+            [
+                { id: 'e0', source: 'pubsub_1', target: 'fhir_1' },
+                { id: 'e1', source: 'fhir_1', target: 'sink_1' },
+            ]
+        );
+        expect(invalidUpstreamRes.isValid).toBe(false);
+        expect(invalidUpstreamRes.invalidUpstreamNodeIds).toEqual(['fhir_1']);
+        expect(invalidUpstreamRes.errors[0]).toContain('FhirIO.searchResources() on node "FhirIO Source" (fhir_1) does not accept an upstream connection');
+    });
+
+    it('flags DicomIO.readStudyMetadata() when missing an upstream PubSubIO connection and flags dicomSearch when still connected', () => {
+        const dicomNode: DagNode = {
+            id: 'dicom_1',
+            data: {
+                label: 'DicomIO Source',
+                type: 'SOURCE',
+                beam_transform: 'DicomIO',
+                properties: { readMode: 'readStudyMetadata' },
+            },
+        };
+        const sinkNode: DagNode = { id: 'sink_1', data: { label: 'Sink', type: 'SINK' } };
+
+        const missingRes = validateDagTopology([dicomNode, sinkNode], [{ id: 'e1', source: 'dicom_1', target: 'sink_1' }]);
+        expect(missingRes.isValid).toBe(false);
+        expect(missingRes.missingUpstreamNodeIds).toEqual(['dicom_1']);
+        expect(missingRes.errors[0]).toContain('DicomIO.readStudyMetadata() on node "DicomIO Source" (dicom_1) requires an upstream PubSubIO node');
+
+        const pubSubNode: DagNode = { id: 'pubsub_1', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } };
+        const validRes = validateDagTopology(
+            [pubSubNode, dicomNode, sinkNode],
+            [
+                { id: 'e0', source: 'pubsub_1', target: 'dicom_1' },
+                { id: 'e1', source: 'dicom_1', target: 'sink_1' },
+            ]
+        );
+        expect(validRes.isValid).toBe(true);
+
+        const dicomSearchNode: DagNode = {
+            ...dicomNode,
+            data: { ...dicomNode.data, properties: { readMode: 'dicomSearch' } },
+        };
+        const invalidUpstreamRes = validateDagTopology(
+            [pubSubNode, dicomSearchNode, sinkNode],
+            [
+                { id: 'e0', source: 'pubsub_1', target: 'dicom_1' },
+                { id: 'e1', source: 'dicom_1', target: 'sink_1' },
+            ]
+        );
+        expect(invalidUpstreamRes.isValid).toBe(false);
+        expect(invalidUpstreamRes.invalidUpstreamNodeIds).toEqual(['dicom_1']);
+        expect(invalidUpstreamRes.errors[0]).toContain('DicomIO.dicomSearch() on node "DicomIO Source" (dicom_1) does not accept an upstream connection');
+    });
 });

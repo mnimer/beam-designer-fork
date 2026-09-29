@@ -19,6 +19,7 @@ import * as path from 'path';
 import YAML from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from './constants';
+import { getLatestBeamVersion, FALLBACK_BEAM_VERSION } from './beamVersion';
 import { validateDagTopology } from './dagValidator';
 import {
     redactPipelineYaml,
@@ -55,6 +56,8 @@ export interface PromptAssemblyOptions {
     dataflowRunnerTemplate: string;
     /** Spark runner script template content (Java only, empty for Python) */
     sparkRunnerTemplate: string;
+    /** Optional dynamically resolved Apache Beam SDK version */
+    beamVersion?: string;
 }
 
 /**
@@ -258,6 +261,27 @@ export function resolveLanguageStrategy(languageVal: string): LanguageStrategy {
 }
 
 /**
+ * Deduplicates generated files by filename, preserving the entry with the longest content
+ * when a model emits an incomplete file object followed by a complete retry for the same path.
+ */
+export function deduplicateGeneratedFiles<T extends { filename?: string; content?: string }>(files: T[]): T[] {
+    if (!Array.isArray(files)) {
+        return [];
+    }
+    const byName = new Map<string, T>();
+    for (const file of files) {
+        if (!file || !file.filename || typeof file.content !== 'string') {
+            continue;
+        }
+        const existing = byName.get(file.filename);
+        if (!existing || file.content.length >= (existing.content?.length || 0)) {
+            byName.set(file.filename, file);
+        }
+    }
+    return Array.from(byName.values());
+}
+
+/**
  * Pure prompt assembly: substitutes {{...}} template placeholders with values.
  *
  * NOTE: Uses replacer functions `() => value` for all substitutions.
@@ -277,15 +301,27 @@ export function assemblePrompt(options: PromptAssemblyOptions): string {
         directRunnerTemplate,
         dataflowRunnerTemplate,
         sparkRunnerTemplate,
+        beamVersion,
     } = options;
 
-    return promptTemplate
+    let assembled = promptTemplate
         .replace(/\{\{language\}\}/g, () => language)
         .replace('{{pipeline}}', () => pipelineYaml)
         .replace('{{dockerfile_template}}', () => dockerfileTemplate)
         .replace('{{run_directrunner_template}}', () => directRunnerTemplate)
         .replace('{{run_dataflowrunner_template}}', () => dataflowRunnerTemplate)
         .replace('{{run_sparkrunner_template}}', () => sparkRunnerTemplate);
+
+    if (beamVersion) {
+        assembled = assembled.replace(/\{\{beam_version\}\}/g, () => beamVersion);
+        if (beamVersion !== FALLBACK_BEAM_VERSION) {
+            assembled = assembled.replace(/2\.76\.0/g, () => beamVersion);
+        }
+    } else if (assembled.includes('{{beam_version}}')) {
+        assembled = assembled.replace(/\{\{beam_version\}\}/g, () => FALLBACK_BEAM_VERSION);
+    }
+
+    return assembled;
 }
 
 /**
@@ -346,6 +382,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
     try {
         const resolveProject = getGcloudProjectFn || getGcloudProject;
         const gcloudProjectId = await resolveProject();
+        const beamVersion = await getLatestBeamVersion();
 
         const aiOptions: any = {};
         if (gcloudProjectId) {
@@ -395,6 +432,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
             directRunnerTemplate,
             dataflowRunnerTemplate,
             sparkRunnerTemplate,
+            beamVersion,
         });
 
         // Tell the model the placeholder is inert and must become an env-var read,
@@ -409,8 +447,15 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: responseSchema,
+                maxOutputTokens: 65536,
             },
         });
+
+        const finishReason = response.candidates?.[0]?.finishReason;
+        if (finishReason === 'MAX_TOKENS') {
+            console.warn('[codeGeneration] Warning: Gemini generation reached MAX_TOKENS limit (65536).');
+            outputChannel?.appendLine('[generation] Warning: Gemini response hit MAX_TOKENS limit.');
+        }
 
         // Log successful request and usage data to gemini.log
         try {
@@ -447,6 +492,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
         const writtenForManifest: Array<{ path: string; content: string }> = [];
 
         if (responseObj.files && Array.isArray(responseObj.files)) {
+            responseObj.files = deduplicateGeneratedFiles(responseObj.files);
             // C3 layer 1: only now, with a validated payload in memory, is it
             // safe to delete. Scoped by the manifest -- never "everything in
             // the directory" -- so unknown user files survive by default.

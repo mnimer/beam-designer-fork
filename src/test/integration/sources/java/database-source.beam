@@ -1,0 +1,86 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Database
+      type: SOURCE
+      iconName: Database
+      beam_transform: DatabaseIO
+      properties:
+        engine: postgresql
+        url: jdbc:postgresql://localhost:5432/source_db
+        driverClassName: org.postgresql.Driver
+        database: source_db
+        table: users
+        query: SELECT id, username, email, active, created_at FROM users
+        fetchSize: 10000
+        authMode: none
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformType: normalize_and_reformat
+      system_instructions: Transform incoming PostgreSQL user records to target MySQL
+        account format. Normalize email casing to lowercase, cast boolean active
+        flag to TINYINT integer (1/0) for MySQL schema compatibility, and format
+        timestamp string into ISO format. Output normalized JSON strings ready
+        for structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[DatabaseIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: database-source-java
+  - key: sourceUrl
+    value: jdbc:postgresql://localhost:5432/source_db
+  - key: destUrl
+    value: jdbc:mysql://localhost:3306/dest_db
+  - key: batchSize
+    value: 1000
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/database-source-java
+  needsRebuild: false
