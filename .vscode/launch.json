@@ -13,7 +13,7 @@
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "npm: build"
     },
     {
       "name": "Run Extension (Debug)",
@@ -27,7 +27,7 @@
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "npm: build"
     },
     {
       "name": "Run Extension (No Debug)",
@@ -40,7 +40,7 @@
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "npm: build"
     },
     {
       "name": "Attach to Extension Host",

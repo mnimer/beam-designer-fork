@@ -315,6 +315,51 @@ describe('M4 — Document Model Persistence vs Filesystem Fallback (savePipeline
         expect(syncState.isApplyingEdit).toBe(false); // Reset in finally
     });
 
+    it('skips WorkspaceEdit when open document content is already identical to data (prevents marking clean document dirty on open)', async () => {
+        const filePath = path.join(tempDir, 'unmodified-pipeline.beam');
+        const initialContent = 'nodes: []\nedges: []\n';
+        fs.writeFileSync(filePath, initialContent, 'utf-8');
+
+        const targetUri = {
+            scheme: 'file',
+            fsPath: filePath,
+            toString: () => `file://${filePath}`
+        };
+
+        const openDoc = {
+            uri: targetUri,
+            getText: () => initialContent,
+            positionAt: (offset: number) => ({ line: 0, character: offset }),
+            lineCount: 2
+        };
+        mockState.mockTextDocuments.push(openDoc);
+
+        const syncState: DocumentSyncState = {
+            isApplyingEdit: false,
+            lastSavedContent: null
+        };
+
+        await savePipelineFiles(
+            targetUri as any,
+            initialContent,
+            undefined,
+            'py',
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            syncState
+        );
+
+        // Must NOT call applyEdit when content is byte-identical, avoiding dirtying the tab
+        expect(mockState.mockApplyEdit).not.toHaveBeenCalled();
+        expect(syncState.lastSavedContent).toBe(initialContent);
+        expect(syncState.isApplyingEdit).toBe(false);
+    });
+
     it('falls back to fs.writeFileSync when the document is NOT open in VS Code (extreme / fallback case)', async () => {
         const filePath = path.join(tempDir, 'unopened-pipeline.beam');
         const targetUri = {

@@ -821,10 +821,10 @@ describe('CogniteDataFusionSourceProperties (IO69)', () => {
     ).toBeInTheDocument();
   });
 
-  it('validates cognitedatafusion.beam integration fixture against redactPipelineYaml and classifyKey', () => {
+  it('validates cognitedatafusion-source.beam integration fixture against redactPipelineYaml and classifyKey', () => {
     const beamPath = path.resolve(
       __dirname,
-      '../../../../src/test/integration/cognitedatafusion.beam'
+      '../../../../src/test/integration/sources/java/cognitedatafusion-source.beam'
     );
     const raw = fs.readFileSync(beamPath, 'utf8');
     const parsed = yaml.parse(raw) as {

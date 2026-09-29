@@ -715,10 +715,10 @@ describe('MySQLPostgreSQLOracleSQLServerSourceProperties (IO79)', () => {
       expect(classifyKey('resolveOnWorkers')).toBe('safe');
     });
 
-    it('validates src/test/integration/multidb-yaml.beam fixture with zero redactions and safe/reference keys', () => {
+    it('validates src/test/integration/sources/java/multidb-yaml-source.beam fixture with zero redactions and safe/reference keys', () => {
       const beamPath = path.resolve(
         __dirname,
-        '../../../../src/test/integration/multidb-yaml.beam'
+        '../../../../src/test/integration/sources/java/multidb-yaml-source.beam'
       );
       const rawYaml = fs.readFileSync(beamPath, 'utf-8');
       const redaction = redactPipelineYaml(rawYaml);

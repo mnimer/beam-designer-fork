@@ -526,8 +526,11 @@ describe('TrepWsIOSourceProperties', () => {
     }
   });
 
-  it('validates trepwsio.beam integration fixture against redactPipelineYaml and classifyKey', () => {
-    const beamPath = path.resolve(__dirname, '../../../../src/test/integration/trepwsio.beam');
+  it('validates trepwsio-source.beam integration fixture against redactPipelineYaml and classifyKey', () => {
+    const beamPath = path.resolve(
+      __dirname,
+      '../../../../src/test/integration/sources/java/trepwsio-source.beam'
+    );
     const raw = fs.readFileSync(beamPath, 'utf8');
     const parsed = yaml.parse(raw) as {
       nodes: Array<{ id: string; data?: { properties?: Record<string, unknown> } }>;

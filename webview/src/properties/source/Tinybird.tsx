@@ -221,19 +221,22 @@ export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> =
       {/* D2 Bridge Banner + Docs Link */}
       <div
         role="note"
-        className="flex items-start justify-between gap-2 bg-slate-800/60 p-2 rounded border border-slate-700 text-xs text-slate-300"
+        className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300"
       >
-        <span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-slate-200">Tinybird Source (Pipes &amp; Query HTTP API)</span>
+          <button
+            type="button"
+            onClick={handleOpenDocs}
+            className="text-blue-400 hover:text-blue-300 hover:underline shrink-0 font-semibold cursor-pointer"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
           tinybird-beam is ingest-only; reads are generated as a Beam ParDo over the Tinybird
           Pipes/Query HTTP API (bounded).
-        </span>
-        <button
-          type="button"
-          onClick={handleOpenDocs}
-          className="text-blue-400 hover:underline shrink-0 font-semibold"
-        >
-          Docs ↗
-        </button>
+        </p>
       </div>
 
       {/* Host */}

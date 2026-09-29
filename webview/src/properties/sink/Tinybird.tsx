@@ -173,15 +173,20 @@ export const TinybirdSinkProperties: React.FC<TinybirdSinkPropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Header + Docs Link */}
-      <div className="flex items-center justify-between gap-2 bg-slate-800/60 p-2 rounded border border-slate-700 text-xs text-slate-300">
-        <span>Ingest batches to a Tinybird Data Source via tinybird.beam.WriteToTinybird</span>
-        <button
-          type="button"
-          onClick={handleOpenDocs}
-          className="text-blue-400 hover:underline shrink-0 font-semibold"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-slate-200">Tinybird Sink (WriteToTinybird)</span>
+          <button
+            type="button"
+            onClick={handleOpenDocs}
+            className="text-blue-400 hover:text-blue-300 hover:underline shrink-0 font-semibold cursor-pointer"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Ingest batches to a Tinybird Data Source via tinybird.beam.WriteToTinybird
+        </p>
       </div>
 
       {/* Host */}

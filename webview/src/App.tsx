@@ -232,6 +232,7 @@ function App() {
   // Hook 2: VS Code IPC bridge and message handler (A6)
   const {
     isLoaded,
+    loadRevision,
     samples,
     generatedCode,
     subnetworks,
@@ -269,6 +270,7 @@ function App() {
     jobConfig,
     pipelineConfig,
     isLoaded,
+    loadRevision,
     vscode,
     debounceMs: 2000,
   });

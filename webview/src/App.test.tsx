@@ -437,11 +437,11 @@ edges: []
   });
 
   /**
-   * P6 Finding Test:
-   * Two consecutive debounce ticks with unchanged state produce ONE post, not two;
-   * a tick after a real change does post.
+   * P6 & Unsaved-on-Open Regression Test:
+   * Opening a .beam file via loadPipeline must NOT post savePipeline when no changes are made.
+   * After a real change, two consecutive debounce ticks with identical state produce ONE post, not two.
    */
-  it('P6: two consecutive debounce ticks with unchanged state produce one post, not two; a tick after a real change does post', async () => {
+  it('P6: opening a pipeline does not post savePipeline; after a real change, two consecutive debounce ticks produce one post, not two', async () => {
     vi.useFakeTimers();
     try {
       render(<AppWithProvider />);
@@ -465,27 +465,14 @@ edges: []
       const postMessageSpy = (window as any).vscode.postMessage;
       postMessageSpy.mockClear();
 
-      // First debounce tick (2000ms)
+      // First debounce tick after load (2000ms) with NO user edits
       act(() => {
         vi.advanceTimersByTime(2000);
       });
 
-      // Exactly 1 savePipeline post
-      const saveCalls1 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
-      expect(saveCalls1.length).toBe(1);
-
-      // Trigger a re-render without state change (e.g. toggle minimap)
-      const expandBtn = screen.getByTitle('Expand Navigation Map');
-      fireEvent.click(expandBtn);
-
-      // Second debounce tick
-      act(() => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      // Still exactly 1 savePipeline post! (P6 dirty check skipped second post)
-      const saveCalls2 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
-      expect(saveCalls2.length).toBe(1);
+      // Must NOT post savePipeline on initial load when user has not edited anything
+      const saveCallsOnOpen = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
+      expect(saveCallsOnOpen.length).toBe(0);
 
       // Now introduce a real change: drop a new node
       const reactFlow = screen.getByTestId('react-flow');
@@ -507,14 +494,27 @@ edges: []
         }
       });
 
-      // Next debounce tick
+      // Debounce tick after real change
       act(() => {
         vi.advanceTimersByTime(2000);
       });
 
-      // Real change produced a second savePipeline post
-      const saveCalls3 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
-      expect(saveCalls3.length).toBe(2);
+      // Real change produced 1 savePipeline post
+      const saveCalls1 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
+      expect(saveCalls1.length).toBe(1);
+
+      // Trigger a re-render without state change (e.g. toggle minimap)
+      const expandBtn = screen.getByTitle('Expand Navigation Map');
+      fireEvent.click(expandBtn);
+
+      // Second debounce tick
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Still exactly 1 savePipeline post! (P6 dirty check skipped second post)
+      const saveCalls2 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
+      expect(saveCalls2.length).toBe(1);
     } finally {
       vi.useRealTimers();
     }

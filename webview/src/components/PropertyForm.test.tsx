@@ -1311,3 +1311,90 @@ describe('PropertyForm dispatch for messaging & streaming connectors', () => {
   });
 });
 
+// =========================================================================
+// Node Documentation & Docs Link Across All Property Panels
+// =========================================================================
+
+import { SOURCE_NODES, STEP_NODES, SINK_NODES } from './NodesCard';
+import { getNodeDocumentation } from '../utils/nodeDocumentation';
+
+describe('Node Documentation & Docs Link Across All Property Panels', () => {
+  it('resolves documentation metadata (title, description, docsUrl) and a valid property form for every SOURCE_NODES, STEP_NODES, and SINK_NODES entry', () => {
+    const allPaletteNodes = [
+      ...SOURCE_NODES,
+      ...STEP_NODES,
+      ...SINK_NODES,
+    ];
+
+    for (const item of allPaletteNodes) {
+      const node = {
+        data: {
+          label: item.label,
+          type: item.type,
+          beam_transform: item.beamTransform,
+          properties: {},
+        },
+      };
+
+      const Component = getPropertyFormComponent(node);
+      expect(Component, `Expected property form for ${item.type}:${item.beamTransform}`).toBeDefined();
+
+      const doc = getNodeDocumentation(node);
+      expect(doc, `Expected documentation metadata for ${item.type}:${item.beamTransform}`).toBeDefined();
+      expect(doc!.title.trim().length).toBeGreaterThan(0);
+      expect(doc!.description.trim().length).toBeGreaterThan(10);
+      expect(doc!.docsUrl).toMatch(/^https:\/\//);
+    }
+  });
+
+  it('resolves documentation metadata for every key in PROPERTY_FORM_REGISTRY', () => {
+    for (const key of Object.keys(PROPERTY_FORM_REGISTRY)) {
+      const parts = key.split(':');
+      const node =
+        parts.length === 2
+          ? { data: { type: parts[0], beam_transform: parts[1], properties: {} } }
+          : { data: { beam_transform: key, properties: {} } };
+
+      const doc = getNodeDocumentation(node);
+      expect(doc, `Expected documentation metadata for registry key "${key}"`).toBeDefined();
+      expect(doc!.title.trim().length).toBeGreaterThan(0);
+      expect(doc!.description.trim().length).toBeGreaterThan(10);
+      expect(doc!.docsUrl).toMatch(/^https:\/\//);
+    }
+  });
+
+  it('renders a short description and a single "Docs ↗" link that dispatches openExternal for Source, Step, and Sink panels', () => {
+    const postMessage = vi.fn();
+    (window as unknown as { vscode?: { postMessage: typeof postMessage } }).vscode = { postMessage };
+
+    const sampleNodes = [
+      { data: { label: 'PubSub Source', type: 'SOURCE', beam_transform: 'PubSubIO', properties: {} } },
+      { data: { label: 'ParDo Step', type: 'STEP', beam_transform: 'ParDo', properties: {} } },
+      { data: { label: 'Combine Step', type: 'STEP', beam_transform: 'Combine', properties: {} } },
+      { data: { label: 'Flatten Step', type: 'STEP', beam_transform: 'Flatten', properties: {} } },
+      { data: { label: 'BigQuery Sink', type: 'SINK', beam_transform: 'BigQueryIO', properties: {} } },
+      { data: { label: 'Cloud Bigtable Sink', type: 'SINK', beam_transform: 'CloudBigtable', properties: {} } },
+    ];
+
+    for (const { data } of sampleNodes) {
+      postMessage.mockClear();
+      const doc = getNodeDocumentation({ data });
+      expect(doc).toBeDefined();
+
+      const { unmount } = render(<PropertyForm node={{ data }} onChange={vi.fn()} />);
+
+      expect(screen.getByText(doc!.description)).toBeInTheDocument();
+      const docsButtons = screen.getAllByText('Docs ↗');
+      expect(docsButtons).toHaveLength(1);
+
+      fireEvent.click(docsButtons[0]);
+      expect(postMessage).toHaveBeenCalledWith({
+        command: 'openExternal',
+        url: doc!.docsUrl,
+      });
+
+      unmount();
+    }
+  });
+});
+

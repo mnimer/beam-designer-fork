@@ -2,9 +2,9 @@
  * Integration Test Suites Topology & Schema Unit Test
  *
  * Validates that all generated .beam DAG files across:
- * - src/integration/sources/agent-engine & cloud-run
- * - src/integration/sinks/agent-engine & cloud-run
- * - src/integration/steps/agent-engine & cloud-run
+ * - src/test/integration/sources/java & python
+ * - src/test/integration/sinks/java & python
+ * - src/test/integration/steps/java & python
  *
  * strictly adhere to topological DAG rules via Kahn's algorithm (0 cycles, 0 orphans, valid edges),
  * enforce the required pipeline patterns, and achieve 100% coverage across all 31 Step Node Types.
@@ -47,8 +47,8 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         ...getBeamFiles(path.join(integrationDir, 'steps')),
     ];
 
-    it('contains all expected 268 integration .beam files across sources, sinks, and steps', () => {
-        expect(splitBeamFiles.length).toBe(268);
+    it('contains all expected 225 integration .beam files across sources, sinks, and steps', () => {
+        expect(splitBeamFiles.length).toBe(225);
     });
 
     it('validates every .beam file passes Kahn algorithm with 0 cycles and 0 orphans', () => {
@@ -66,12 +66,26 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         }
     });
 
-    it('enforces properties-only policy (no system_instructions on SOURCE, SINK, or non-ParDo STEP nodes)', () => {
+    it('enforces properties-only policy (no system_instructions on built-in SOURCE, SINK, or non-ParDo STEP nodes)', () => {
+        const CUSTOM_CONNECTOR_TRANSFORMS = new Set([
+            'CloudBigtable',
+            'CloudSQL',
+            'CogniteDataFusion',
+            'KineticaDB',
+            'MySQLPostgreSQLOracleSQLServer',
+            'MySQL',
+            'Pyodbc',
+            'Tinybird',
+            'TrepWsIO',
+        ]);
         for (const filePath of splitBeamFiles) {
             const parsed = yaml.parse(fs.readFileSync(filePath, 'utf-8')) as BeamFileContent;
             for (const node of parsed.nodes) {
                 const isParDo = node.data?.type === 'STEP' && node.data?.beam_transform === 'ParDo';
-                if (!isParDo) {
+                const isCustomConnector = Boolean(
+                    node.data?.beam_transform && CUSTOM_CONNECTOR_TRANSFORMS.has(node.data.beam_transform)
+                );
+                if (!isParDo && !isCustomConnector) {
                     expect(node.data?.system_instructions, `Unexpected system_instructions on ${node.id} in ${filePath}`).toBeUndefined();
                 }
             }
@@ -79,13 +93,13 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
     });
 
     it('enforces SOURCE tests follow IO Connector -> ParDo -> Log Message pattern', () => {
-        const sourceDirs = [
-            path.join(integrationDir, 'sources', 'agent-engine'),
-            path.join(integrationDir, 'sources', 'cloud-run')
+        const sourceSpecs = [
+            { dir: path.join(integrationDir, 'sources', 'java'), expectedCount: 69 },
+            { dir: path.join(integrationDir, 'sources', 'python'), expectedCount: 38 }
         ];
-        for (const dir of sourceDirs) {
+        for (const { dir, expectedCount } of sourceSpecs) {
             const files = getBeamFiles(dir);
-            expect(files.length).toBe(65);
+            expect(files.length).toBe(expectedCount);
             for (const file of files) {
                 const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
                 expect(parsed.nodes.length, `Expected 3 nodes in ${file}`).toBe(3);
@@ -104,13 +118,13 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
     });
 
     it('enforces SINK tests follow Create/GenerateSequence -> ParDo -> IO Connector pattern', () => {
-        const sinkDirs = [
-            path.join(integrationDir, 'sinks', 'agent-engine'),
-            path.join(integrationDir, 'sinks', 'cloud-run')
+        const sinkSpecs = [
+            { dir: path.join(integrationDir, 'sinks', 'java'), expectedCount: 65 },
+            { dir: path.join(integrationDir, 'sinks', 'python'), expectedCount: 35 }
         ];
-        for (const dir of sinkDirs) {
+        for (const { dir, expectedCount } of sinkSpecs) {
             const files = getBeamFiles(dir);
-            expect(files.length).toBe(60);
+            expect(files.length).toBe(expectedCount);
             for (const file of files) {
                 const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
                 expect(parsed.nodes.length, `Expected 3 nodes in ${file}`).toBe(3);
@@ -138,23 +152,25 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
             'WindowInto', 'Flatten', 'Reshuffle'
         ];
 
-        const stepDir = path.join(integrationDir, 'steps', 'agent-engine');
-        const files = getBeamFiles(stepDir);
-        expect(files.length).toBe(9);
+        for (const lang of ['java', 'python']) {
+            const stepDir = path.join(integrationDir, 'steps', lang);
+            const files = getBeamFiles(stepDir);
+            expect(files.length).toBe(9);
 
-        const found = new Set<string>();
-        for (const file of files) {
-            const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
-            for (const n of parsed.nodes) {
-                if (n.data?.beam_transform && ALL_31_STEP_TRANSFORMS.includes(n.data.beam_transform)) {
-                    found.add(n.data.beam_transform);
+            const found = new Set<string>();
+            for (const file of files) {
+                const parsed = yaml.parse(fs.readFileSync(file, 'utf-8')) as BeamFileContent;
+                for (const n of parsed.nodes) {
+                    if (n.data?.beam_transform && ALL_31_STEP_TRANSFORMS.includes(n.data.beam_transform)) {
+                        found.add(n.data.beam_transform);
+                    }
                 }
             }
-        }
 
-        expect(found.size).toBe(ALL_31_STEP_TRANSFORMS.length);
-        for (const transform of ALL_31_STEP_TRANSFORMS) {
-            expect(found.has(transform), `Missing step transform: ${transform}`).toBe(true);
+            expect(found.size).toBe(ALL_31_STEP_TRANSFORMS.length);
+            for (const transform of ALL_31_STEP_TRANSFORMS) {
+                expect(found.has(transform), `Missing step transform in ${lang}: ${transform}`).toBe(true);
+            }
         }
     });
 });

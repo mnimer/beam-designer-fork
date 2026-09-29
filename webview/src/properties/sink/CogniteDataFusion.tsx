@@ -438,17 +438,22 @@ export const CogniteDataFusionSinkProperties: React.FC<CogniteDataFusionSinkProp
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header Row with Documentation Link */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase text-slate-400">
-          Cognite Data Fusion Sink
-        </span>
-        <button
-          type="button"
-          onClick={handleOpenDocs}
-          className="text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-200">
+            Cognite Data Fusion Sink
+          </span>
+          <button
+            type="button"
+            onClick={handleOpenDocs}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Upserts, synchronizes, or deletes industrial assets, events, time series points, files, and RAW rows in Cognite Data Fusion.
+        </p>
       </div>
 
       {/* Connection Group */}

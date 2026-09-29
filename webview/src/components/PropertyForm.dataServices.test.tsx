@@ -16,27 +16,32 @@ import '@testing-library/jest-dom';
 import { NodesCard } from './NodesCard';
 import { PropertyForm, PROPERTY_FORM_REGISTRY, getPropertyFormComponent } from './PropertyForm';
 
-const DATA_SERVICES_CONNECTORS: ReadonlyArray<{ label: string; transform: string }> = [
-  { label: 'Cloud Bigtable (HBase based)', transform: 'CloudBigtable' },
-  { label: 'Cognite Data Fusion', transform: 'CogniteDataFusion' },
-  { label: 'KineticaDB', transform: 'KineticaDB' },
-  { label: 'TrepWsIO', transform: 'TrepWsIO' },
-  { label: 'Cloud SQL', transform: 'CloudSQL' },
-  { label: 'MySQL', transform: 'MySQL' },
-  { label: 'Pyodbc', transform: 'Pyodbc' },
-  { label: 'Tinybird', transform: 'Tinybird' },
-  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', transform: 'MySQLPostgreSQLOracleSQLServer' },
+const DATA_SERVICES_CONNECTORS: ReadonlyArray<{
+  label: string;
+  transform: string;
+  sourceCategory: string;
+  sinkCategory: string;
+}> = [
+  { label: 'Cloud Bigtable (HBase based)', transform: 'CloudBigtable', sourceCategory: 'Database Sources', sinkCategory: 'Database Sinks' },
+  { label: 'Cognite Data Fusion', transform: 'CogniteDataFusion', sourceCategory: 'Data Services Sources', sinkCategory: 'Data Services Sinks' },
+  { label: 'KineticaDB', transform: 'KineticaDB', sourceCategory: 'Database Sources', sinkCategory: 'Database Sinks' },
+  { label: 'TrepWsIO', transform: 'TrepWsIO', sourceCategory: 'Data Services Sources', sinkCategory: 'Data Services Sinks' },
+  { label: 'Cloud SQL', transform: 'CloudSQL', sourceCategory: 'Database Sources', sinkCategory: 'Database Sinks' },
+  { label: 'MySQL', transform: 'MySQL', sourceCategory: 'Database Sources', sinkCategory: 'Database Sinks' },
+  { label: 'Pyodbc', transform: 'Pyodbc', sourceCategory: 'Data Services Sources', sinkCategory: 'Data Services Sinks' },
+  { label: 'Tinybird', transform: 'Tinybird', sourceCategory: 'Data Services Sources', sinkCategory: 'Data Services Sinks' },
+  { label: 'MySQL, PostgreSQL, Oracle, SQL Server', transform: 'MySQLPostgreSQLOracleSQLServer', sourceCategory: 'Database Sources', sinkCategory: 'Database Sinks' },
 ];
 
 const SIDES = [
-  { type: 'SOURCE', tab: 'SOURCES', category: 'Data Services Sources' },
-  { type: 'SINK', tab: 'SINKS', category: 'Data Services Sinks' },
+  { type: 'SOURCE', tab: 'SOURCES' },
+  { type: 'SINK', tab: 'SINKS' },
 ] as const;
 
 describe('Data Services connectors (IO68–IO79) registration', () => {
   for (const side of SIDES) {
     describe(side.type, () => {
-      it(`lists all 9 connectors under "${side.category}" and adds them with the right beamTransform`, () => {
+      it(`lists all 9 connectors under their expected category in "${side.tab}" and adds them with the right beamTransform`, () => {
         const onAddNode = vi.fn();
         render(
           <NodesCard
@@ -49,11 +54,12 @@ describe('Data Services connectors (IO68–IO79) registration', () => {
           />
         );
 
-        const summary = screen.getByText(side.category);
-        const group = summary.closest('details') as HTMLElement;
-        expect(group).not.toBeNull();
+        for (const { label, transform, sourceCategory, sinkCategory } of DATA_SERVICES_CONNECTORS) {
+          const expectedCategory = side.type === 'SOURCE' ? sourceCategory : sinkCategory;
+          const summary = screen.getByText(expectedCategory);
+          const group = summary.closest('details') as HTMLElement;
+          expect(group).not.toBeNull();
 
-        for (const { label, transform } of DATA_SERVICES_CONNECTORS) {
           onAddNode.mockClear();
           fireEvent.click(within(group).getByLabelText(`Add ${label}`));
           expect(onAddNode).toHaveBeenCalledTimes(1);

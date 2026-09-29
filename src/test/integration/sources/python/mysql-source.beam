@@ -1,0 +1,94 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: MySQL Shop Orders
+      type: SOURCE
+      iconName: Database
+      beam_transform: MySQL
+      properties:
+        host: 10.24.0.7
+        port: "3306"
+        database: shop
+        user: beam_reader
+        passwordSecret: shop-mysql-reader-password
+        query: SELECT id, customer_email, country, amount, created_at FROM orders WHERE
+          created_at >= '2026-01-01'
+        splitter: NoSplitter
+      system_instructions: "Use the beam-mysql-connector package (pip:
+        beam-mysql-connector; imports: from beam_mysql.connector.io import
+        ReadFromMySQL and from beam_mysql.connector import splitters). Apply it
+        at the pipeline root as a built-in PTransform: p | 'MySQL Shop Orders'
+        >> ReadFromMySQL(query=<query>, host='10.24.0.7', database='shop',
+        user='beam_reader', password=<resolved>, port=3306,
+        splitter=splitters.NoSplitter()). Do NOT substitute ReadFromJdbc /
+        JdbcIO and do NOT write a custom DoFn for the read. Resolve
+        passwordSecret ONCE at pipeline construction with
+        _access_secret(project_id, 'shop-mysql-reader-password') and pass the
+        resolved value as password=. The query must stay a SELECT statement (the
+        connector rejects anything else). Output elements are dict rows keyed by
+        column name. Add beam-mysql-connector and google-cloud-secret-manager to
+        requirements.txt."
+    width: 190
+    height: 64
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Normalize Order
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Convert each source row dict into a dict with keys:
+        order_id (from id), customer_email (stripped and lower-cased), country
+        (upper-cased), amount (float rounded to 2 decimals) and created_at
+        (formatted as 'YYYY-MM-DD HH:MM:SS' string when it is a datetime,
+        otherwise passed through). Unit-test the DoFn with TestPipeline,
+        beam.Create and assert_that/equal_to without opening MySQL or Secret
+        Manager connections."
+    width: 190
+    height: 64
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[MySQL-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: mysql-source-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/mysql-source-python
+  needsRebuild: false

@@ -571,6 +571,149 @@ describe('NodesCard', () => {
       expect(detailsList[0].open).toBe(false);
     });
 
+    it('constrains tab panels to 90% height with a scrollable container inside', () => {
+      const { container, rerender } = render(
+        <NodesCard
+          activeTab="SOURCES"
+          setActiveTab={vi.fn()}
+          nodesCount={1}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+          isOpen={true}
+        />
+      );
+
+      const outerContainer = container.firstElementChild as HTMLElement;
+      expect(outerContainer).toHaveClass('h-full');
+
+      const slideOutPanel = outerContainer.children[1] as HTMLElement;
+      expect(slideOutPanel).toHaveClass('h-[90%]');
+      expect(slideOutPanel).toHaveClass('max-h-[90%]');
+      expect(slideOutPanel).toHaveClass('overflow-hidden');
+
+      const scrollContainer = slideOutPanel.children[2] as HTMLElement;
+      expect(scrollContainer).toHaveClass('flex-1');
+      expect(scrollContainer).toHaveClass('min-h-0');
+      expect(scrollContainer).toHaveClass('overflow-y-auto');
+
+      rerender(
+        <NodesCard
+          activeTab="SAMPLES"
+          setActiveTab={vi.fn()}
+          nodesCount={1}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+          isOpen={true}
+        />
+      );
+
+      const samplesSlideOutPanel = outerContainer.children[1] as HTMLElement;
+      expect(samplesSlideOutPanel).toHaveClass('h-[90%]');
+      expect(samplesSlideOutPanel).toHaveClass('max-h-[90%]');
+
+      const samplesScrollContainer = samplesSlideOutPanel.children[2] as HTMLElement;
+      expect(samplesScrollContainer).toHaveClass('flex-1');
+      expect(samplesScrollContainer).toHaveClass('min-h-0');
+      expect(samplesScrollContainer).toHaveClass('overflow-y-auto');
+    });
+
+    it('sorts items in each category list alphabetically across SOURCES, STEPS, and SINKS', () => {
+      const { container, rerender } = render(
+        <NodesCard
+          activeTab="SOURCES"
+          setActiveTab={vi.fn()}
+          nodesCount={1}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+        />
+      );
+
+      const assertDetailsListsSorted = () => {
+        const detailsList = container.querySelectorAll('details');
+        expect(detailsList.length).toBeGreaterThan(0);
+        detailsList.forEach((details) => {
+          const itemNodes = details.querySelectorAll('[draggable="true"]');
+          const labels = Array.from(itemNodes).map(
+            (node) => node.getAttribute('aria-label')?.replace(/^Add /, '') || ''
+          );
+          const sortedLabels = [...labels].sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: 'base' })
+          );
+          expect(labels).toEqual(sortedLabels);
+        });
+      };
+
+      assertDetailsListsSorted();
+
+      rerender(
+        <NodesCard
+          activeTab="STEPS"
+          setActiveTab={vi.fn()}
+          nodesCount={1}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+        />
+      );
+      assertDetailsListsSorted();
+
+      rerender(
+        <NodesCard
+          activeTab="SINKS"
+          setActiveTab={vi.fn()}
+          nodesCount={1}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+        />
+      );
+      assertDetailsListsSorted();
+    });
+
+    it('sorts sample items alphabetically by title in the SAMPLES tab', () => {
+      const unsortedSamples = [
+        {
+          id: 'sample-z',
+          filename: 'z-pipeline.beam',
+          title: 'Zebra Pipeline',
+          description: 'Z description',
+          badge: 'Python',
+          content: ''
+        },
+        {
+          id: 'sample-a',
+          filename: 'a-pipeline.beam',
+          title: 'Alpha Pipeline',
+          description: 'A description',
+          badge: 'Java',
+          content: ''
+        },
+        {
+          id: 'sample-m',
+          filename: 'm-pipeline.beam',
+          title: 'Metrics Pipeline',
+          description: 'M description',
+          badge: 'Python',
+          content: ''
+        }
+      ];
+
+      render(
+        <NodesCard
+          activeTab="SAMPLES"
+          setActiveTab={vi.fn()}
+          nodesCount={0}
+          hasPubSubSource={false}
+          onDragStart={mockOnDragStart}
+          samples={unsortedSamples}
+        />
+      );
+
+      const sampleButtons = screen.getAllByTitle(/Click to open .* as a new file tab/i);
+      const renderedTitles = sampleButtons.map((el) => el.getAttribute('title') || '');
+      expect(renderedTitles[0]).toContain('Alpha Pipeline');
+      expect(renderedTitles[1]).toContain('Metrics Pipeline');
+      expect(renderedTitles[2]).toContain('Zebra Pipeline');
+    });
+
     it('renders Healthcare, SaaS & Observability native Source and Sink nodes and omits unsupported directions', () => {
       const { rerender } = render(
         <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
@@ -678,7 +821,55 @@ describe('NodesCard', () => {
       expect(screen.getByText('Pulsar')).toBeInTheDocument();
       expect(screen.queryByText('RabbitMQ')).not.toBeInTheDocument();
     });
+
+    it('groups Cloud Bigtable, Cloud SQL, Cosmos DB, KineticaDB, MySQL, and Multi-DB under Database Sources/Sinks and Hadoop Format & HCatalog under File Sources/Sinks', () => {
+      const { rerender } = render(
+        <NodesCard activeTab="SOURCES" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      const dbSourcesGroup = screen.getByText('Database Sources').closest('details') as HTMLElement;
+      expect(dbSourcesGroup).not.toBeNull();
+      for (const label of [
+        'Cloud Bigtable (HBase based)',
+        'Cloud SQL',
+        'Cosmos DB',
+        'KineticaDB',
+        'MySQL',
+        'MySQL, PostgreSQL, Oracle, SQL Server',
+      ]) {
+        expect(dbSourcesGroup.querySelector(`[aria-label="Add ${label}"]`)).not.toBeNull();
+      }
+
+      const fileSourcesGroup = screen.getByText('File Sources').closest('details') as HTMLElement;
+      expect(fileSourcesGroup).not.toBeNull();
+      for (const label of ['Hadoop Format', 'HCatalog']) {
+        expect(fileSourcesGroup.querySelector(`[aria-label="Add ${label}"]`)).not.toBeNull();
+      }
+
+      rerender(
+        <NodesCard activeTab="SINKS" setActiveTab={vi.fn()} nodesCount={1} hasPubSubSource={false} onDragStart={mockOnDragStart} onAddNode={mockOnAddNode} />
+      );
+
+      const dbSinksGroup = screen.getByText('Database Sinks').closest('details') as HTMLElement;
+      expect(dbSinksGroup).not.toBeNull();
+      for (const label of [
+        'Cloud Bigtable (HBase based)',
+        'Cloud SQL',
+        'KineticaDB',
+        'MySQL',
+        'MySQL, PostgreSQL, Oracle, SQL Server',
+      ]) {
+        expect(dbSinksGroup.querySelector(`[aria-label="Add ${label}"]`)).not.toBeNull();
+      }
+
+      const fileSinksGroup = screen.getByText('File Sinks').closest('details') as HTMLElement;
+      expect(fileSinksGroup).not.toBeNull();
+      for (const label of ['Hadoop Format', 'HCatalog']) {
+        expect(fileSinksGroup.querySelector(`[aria-label="Add ${label}"]`)).not.toBeNull();
+      }
+    });
   });
 });
+
 
 

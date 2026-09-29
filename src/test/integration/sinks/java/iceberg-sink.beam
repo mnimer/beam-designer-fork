@@ -1,0 +1,86 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"event_id": "evt-1", "date": "2026-01-01", "user_id": "u-1",
+            "action": "purchase", "amount": 75.0}'
+          - '{"event_id": "evt-2", "date": "2026-01-01", "user_id": "u-2",
+            "action": "signup", "amount": 0.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Parse each JSON event string into a Beam Row (fields:
+        event_id STRING, date STRING, user_id STRING, action STRING, amount
+        DOUBLE) with setRowSchema applied for Managed.write(Managed.ICEBERG)."
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Iceberg Write
+      type: SINK
+      iconName: Database
+      beam_transform: IcebergIO
+      properties:
+        table: lakehouse.events_processed
+        catalogName: lakehouse
+        catalogType: hadoop
+        warehouseLocation: gs://my-lakehouse/iceberg/warehouse
+        partitionFields: date, action
+        tableProperties: |-
+          write.format.default=parquet
+          write.parquet.compression-codec=zstd
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: iceberg-sink-java
+  - key: INPUT_ICEBERG_TABLE
+    value: lakehouse.events_raw
+  - key: OUTPUT_ICEBERG_TABLE
+    value: lakehouse.events_processed
+  - key: WAREHOUSE_LOCATION
+    value: gs://my-lakehouse/iceberg/warehouse
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/iceberg-sink-java
+  needsRebuild: false

@@ -14,12 +14,9 @@
  *   SDK languages (`BeamSdkLanguage[]`).
  * - Extensible Multi-Language Design: Built to scale beyond Java and Python as
  *   Go and TypeScript SDK support is rolled out across transforms.
- * - Java-Only Connectors: Explicitly marks `ContextualTextIO`, `TikaIO`,
- *   `ThriftIO`, and `XmlIO` as `['Java']` because Apache Beam provides no native
- *   Python SDK modules or stock cross-language expansion services for these four
- *   file connectors.
- * - Zero Python-Only Connectors: All currently registered palette transforms
- *   support Java (`getPythonOnlyTransforms()` returns `[]`).
+ * - Single-Language Connectors: Explicitly marks connectors that only have a
+ *   Java SDK implementation as `['Java']`, and connectors that only have a
+ *   Python implementation as `['Python']`.
  */
 
 import { inferBeamTransform } from './legacyNodeMigration';
@@ -167,7 +164,7 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   SnsIO: {
     beamTransform: 'SnsIO',
     displayName: 'SNS',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   JmsIO: {
     beamTransform: 'JmsIO',
@@ -177,7 +174,7 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   SqsIO: {
     beamTransform: 'SqsIO',
     displayName: 'SQS',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   MqttIO: {
     beamTransform: 'MqttIO',
@@ -187,22 +184,22 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   AmqpIO: {
     beamTransform: 'AmqpIO',
     displayName: 'AMQP',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   RabbitMqIO: {
     beamTransform: 'RabbitMqIO',
     displayName: 'RabbitMQ',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   PulsarIO: {
     beamTransform: 'PulsarIO',
     displayName: 'Pulsar',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   SolaceIO: {
     beamTransform: 'SolaceIO',
     displayName: 'Solace',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   FlinkStreamingImpulseSource: {
     beamTransform: 'FlinkStreamingImpulseSource',
@@ -232,17 +229,17 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   CassandraIO: {
     beamTransform: 'CassandraIO',
     displayName: 'Cassandra',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   HBaseIO: {
     beamTransform: 'HBaseIO',
     displayName: 'HBase',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   KuduIO: {
     beamTransform: 'KuduIO',
     displayName: 'Kudu',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   MongoDbIO: {
     beamTransform: 'MongoDbIO',
@@ -252,12 +249,12 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   RedisIO: {
     beamTransform: 'RedisIO',
     displayName: 'Redis',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   ClickHouseIO: {
     beamTransform: 'ClickHouseIO',
     displayName: 'ClickHouse',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   DatastoreIO: {
     beamTransform: 'DatastoreIO',
@@ -267,27 +264,27 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   DynamoDBIO: {
     beamTransform: 'DynamoDBIO',
     displayName: 'DynamoDB',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   FirestoreIO: {
     beamTransform: 'FirestoreIO',
     displayName: 'Firestore',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   InfluxDbIO: {
     beamTransform: 'InfluxDbIO',
     displayName: 'InfluxDB',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   Neo4jIO: {
     beamTransform: 'Neo4jIO',
     displayName: 'Neo4j',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   SingleStoreDBIO: {
     beamTransform: 'SingleStoreDBIO',
     displayName: 'SingleStoreDB',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   SnowflakeIO: {
     beamTransform: 'SnowflakeIO',
@@ -307,7 +304,7 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   MongoDbGridFSIO: {
     beamTransform: 'MongoDbGridFSIO',
     displayName: 'MongoDB GridFS',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   DatabaseIO: {
     beamTransform: 'DatabaseIO',
@@ -317,22 +314,22 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   ElasticsearchIO: {
     beamTransform: 'ElasticsearchIO',
     displayName: 'Elasticsearch',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   SolrIO: {
     beamTransform: 'SolrIO',
     displayName: 'Solr',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   HadoopFormatIO: {
     beamTransform: 'HadoopFormatIO',
     displayName: 'Hadoop Format',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   HCatalogIO: {
     beamTransform: 'HCatalogIO',
     displayName: 'HCatalog',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   DebeziumIO: {
     beamTransform: 'DebeziumIO',
@@ -342,22 +339,22 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   CdapIO: {
     beamTransform: 'CdapIO',
     displayName: 'CDAP',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   ArrowFlightIO: {
     beamTransform: 'ArrowFlightIO',
     displayName: 'Arrow Flight',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   CosmosIO: {
     beamTransform: 'CosmosIO',
     displayName: 'Azure Cosmos DB',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   SparkReceiverIO: {
     beamTransform: 'SparkReceiverIO',
     displayName: 'Spark Receiver',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   Create: {
     beamTransform: 'Create',
@@ -372,42 +369,42 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   CloudBigtable: {
     beamTransform: 'CloudBigtable',
     displayName: 'Cloud Bigtable (HBase based)',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   CogniteDataFusion: {
     beamTransform: 'CogniteDataFusion',
     displayName: 'Cognite Data Fusion',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   KineticaDB: {
     beamTransform: 'KineticaDB',
     displayName: 'KineticaDB',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   TrepWsIO: {
     beamTransform: 'TrepWsIO',
     displayName: 'TrepWsIO',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   CloudSQL: {
     beamTransform: 'CloudSQL',
     displayName: 'Cloud SQL',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Python'],
   },
   MySQL: {
     beamTransform: 'MySQL',
     displayName: 'MySQL',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Python'],
   },
   Pyodbc: {
     beamTransform: 'Pyodbc',
     displayName: 'Pyodbc',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Python'],
   },
   Tinybird: {
     beamTransform: 'Tinybird',
     displayName: 'Tinybird',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Python'],
   },
   MySQLPostgreSQLOracleSQLServer: {
     beamTransform: 'MySQLPostgreSQLOracleSQLServer',
@@ -421,12 +418,12 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   FhirIO: {
     beamTransform: 'FhirIO',
     displayName: 'FhirIO',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   HL7v2IO: {
     beamTransform: 'HL7v2IO',
     displayName: 'HL7v2IO',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   DicomIO: {
     beamTransform: 'DicomIO',
@@ -440,7 +437,7 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   GoogleAdsIO: {
     beamTransform: 'GoogleAdsIO',
     displayName: 'GoogleAdsIO',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   RequestResponseIO: {
     beamTransform: 'RequestResponseIO',
@@ -454,7 +451,7 @@ export const NODE_LANGUAGE_SUPPORT_REGISTRY: Readonly<Record<string, NodeLanguag
   SplunkIO: {
     beamTransform: 'SplunkIO',
     displayName: 'SplunkIO',
-    supportedLanguages: ['Java', 'Python'],
+    supportedLanguages: ['Java'],
   },
   DatadogIO: {
     beamTransform: 'DatadogIO',

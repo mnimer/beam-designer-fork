@@ -163,16 +163,21 @@ export const MySQLSinkProperties: React.FC<MySQLSinkPropertiesProps> = ({ node, 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase text-slate-400">MySQL Sink (WriteToMySQL)</span>
-        <button
-          type="button"
-          onClick={handleOpenDocs}
-          className="text-xs text-blue-400 hover:text-blue-300 underline focus:outline-none"
-          aria-label="Open MySQL connector documentation"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-200">MySQL Sink (WriteToMySQL)</span>
+          <button
+            type="button"
+            onClick={handleOpenDocs}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0 focus:outline-none"
+            aria-label="Open MySQL connector documentation"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Writes batched dictionary records into a MySQL database table (beam-mysql-connector).
+        </p>
       </div>
 
       {/* Host */}

@@ -476,10 +476,10 @@ describe('KineticaDBSourceProperties (IO70)', () => {
       }
     });
 
-    it('validates src/test/integration/kineticadb.beam fixture with zero redactions and safe/reference keys', () => {
+    it('validates src/test/integration/sources/java/kineticadb-source.beam fixture with zero redactions and safe/reference keys', () => {
       const beamPath = path.resolve(
         __dirname,
-        '../../../../src/test/integration/kineticadb.beam'
+        '../../../../src/test/integration/sources/java/kineticadb-source.beam'
       );
       const rawYaml = fs.readFileSync(beamPath, 'utf-8');
       const redaction = redactPipelineYaml(rawYaml);

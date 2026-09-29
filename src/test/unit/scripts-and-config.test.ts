@@ -135,7 +135,7 @@ describe('VS Code Launch and Task Configuration (Timeout Prevention)', () => {
     const launchConfigPath = path.join(rootDir, '.vscode', 'launch.json');
     const tasksConfigPath = path.join(rootDir, '.vscode', 'tasks.json');
 
-    it('launch.json exists and uses npm: compile preLaunchTask to avoid heavy webview build timeouts (simple case)', () => {
+    it('launch.json exists and uses npm: build preLaunchTask to build both webview and extension (simple case)', () => {
         expect(fs.existsSync(launchConfigPath)).toBe(true);
         const launchConfig = JSON.parse(fs.readFileSync(launchConfigPath, 'utf-8')) as {
             configurations: LaunchConfigEntry[];
@@ -144,8 +144,7 @@ describe('VS Code Launch and Task Configuration (Timeout Prevention)', () => {
 
         const runConfig = launchConfig.configurations.find((c: LaunchConfigEntry) => c.name === 'Run Extension');
         expect(runConfig).toBeDefined();
-        // preLaunchTask MUST be npm: compile, never npm: build which triggers Vite production bundling
-        expect(runConfig?.preLaunchTask).toBe('npm: compile');
+        expect(runConfig?.preLaunchTask).toBe('npm: build');
     });
 
     it('launch.json sets noDebug: true and provides attach configuration to prevent macOS debug socket timeouts (extreme case)', () => {

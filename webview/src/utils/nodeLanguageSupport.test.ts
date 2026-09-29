@@ -22,23 +22,69 @@ describe('nodeLanguageSupport registry & diagram validation', () => {
     }
   });
 
-  it('identifies the exact 4 Java-only file connectors and 1 Python-only connector (FlinkStreamingImpulseSource)', () => {
+  it('identifies the exact 37 Java-only connectors and 5 Python-only connectors', () => {
     expect(getJavaOnlyTransforms()).toEqual([
+      'AmqpIO',
+      'ArrowFlightIO',
+      'CassandraIO',
+      'CdapIO',
+      'ClickHouseIO',
+      'CloudBigtable',
+      'CogniteDataFusion',
       'ContextualTextIO',
+      'CosmosIO',
+      'DynamoDBIO',
+      'ElasticsearchIO',
+      'FhirIO',
+      'FirestoreIO',
+      'GoogleAdsIO',
+      'HBaseIO',
+      'HCatalogIO',
+      'HL7v2IO',
+      'HadoopFormatIO',
+      'InfluxDbIO',
+      'KineticaDB',
+      'KuduIO',
+      'MongoDbGridFSIO',
+      'Neo4jIO',
+      'PulsarIO',
+      'RabbitMqIO',
+      'RedisIO',
+      'SingleStoreDBIO',
+      'SnsIO',
+      'SolaceIO',
+      'SolrIO',
+      'SparkReceiverIO',
+      'SplunkIO',
+      'SqsIO',
       'ThriftIO',
       'TikaIO',
+      'TrepWsIO',
       'XmlIO',
     ]);
-    expect(getPythonOnlyTransforms()).toEqual(['FlinkStreamingImpulseSource']);
+    expect(getPythonOnlyTransforms()).toEqual([
+      'CloudSQL',
+      'FlinkStreamingImpulseSource',
+      'MySQL',
+      'Pyodbc',
+      'Tinybird',
+    ]);
 
     expect(isJavaOnlyTransform('TikaIO')).toBe(true);
     expect(isJavaOnlyTransform('ContextualTextIO')).toBe(true);
+    expect(isJavaOnlyTransform('FhirIO')).toBe(true);
+    expect(isJavaOnlyTransform('HL7v2IO')).toBe(true);
     expect(isJavaOnlyTransform('ThriftIO')).toBe(true);
     expect(isJavaOnlyTransform('XmlIO')).toBe(true);
+    expect(isJavaOnlyTransform('CassandraIO')).toBe(true);
+    expect(isJavaOnlyTransform('FirestoreIO')).toBe(true);
+    expect(isJavaOnlyTransform('SplunkIO')).toBe(true);
     expect(isJavaOnlyTransform('IcebergIO')).toBe(false);
     expect(isJavaOnlyTransform('ParquetIO')).toBe(false);
     expect(isPythonOnlyTransform('TikaIO')).toBe(false);
     expect(isPythonOnlyTransform('FlinkStreamingImpulseSource')).toBe(true);
+    expect(isPythonOnlyTransform('CloudSQL')).toBe(true);
+    expect(isPythonOnlyTransform('Tinybird')).toBe(true);
   });
 
   it('validates a diagram with Java-only nodes as invalid when Python is selected', () => {

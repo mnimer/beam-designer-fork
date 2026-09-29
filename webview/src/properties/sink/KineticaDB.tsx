@@ -125,18 +125,23 @@ export const KineticaDBSinkProperties: React.FC<KineticaDBSinkPropertiesProps> =
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header Docs Link */}
-      <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-800/40 px-2.5 py-1.5 rounded border border-slate-700/50">
-        <span>
-          Transform: <code className="text-slate-300">KineticaIO.write()</code>
-        </span>
-        <button
-          type="button"
-          aria-label="Open KineticaIO documentation"
-          onClick={openKineticaDocs}
-          className="text-blue-400 hover:text-blue-300 font-semibold"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-200">
+            Transform: <code className="text-slate-300">KineticaIO.write()</code>
+          </span>
+          <button
+            type="button"
+            aria-label="Open KineticaIO documentation"
+            onClick={openKineticaDocs}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Inserts typed RecordObject entities into an existing Kinetica GPU-accelerated database table.
+        </p>
       </div>
 
       {/* Section 1: Connection */}

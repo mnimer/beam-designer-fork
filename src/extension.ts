@@ -2210,25 +2210,32 @@ export async function savePipelineFiles(
 
     if (openDoc) {
         // Path A: Document is open in VS Code editor.
-        // Update via WorkspaceEdit to preserve undo history and dirty state.
-        if (syncState) {
-            syncState.isApplyingEdit = true;
-            syncState.lastSavedContent = data;
-        }
-        try {
-            const startPos = typeof openDoc.positionAt === 'function'
-                ? openDoc.positionAt(0)
-                : new vscode.Position(0, 0);
-            const endPos = typeof openDoc.positionAt === 'function'
-                ? openDoc.positionAt(openDoc.getText().length)
-                : new vscode.Position(openDoc.lineCount || 0, 0);
-            const fullRange = new vscode.Range(startPos, endPos);
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(openDoc.uri, fullRange, data);
-            await vscode.workspace.applyEdit(edit);
-        } finally {
+        // Skip WorkspaceEdit when content is already identical so opening a clean .beam file does not mark it dirty.
+        if (openDoc.getText() === data) {
             if (syncState) {
-                syncState.isApplyingEdit = false;
+                syncState.lastSavedContent = data;
+            }
+        } else {
+            // Update via WorkspaceEdit to preserve undo history and dirty state.
+            if (syncState) {
+                syncState.isApplyingEdit = true;
+                syncState.lastSavedContent = data;
+            }
+            try {
+                const startPos = typeof openDoc.positionAt === 'function'
+                    ? openDoc.positionAt(0)
+                    : new vscode.Position(0, 0);
+                const endPos = typeof openDoc.positionAt === 'function'
+                    ? openDoc.positionAt(openDoc.getText().length)
+                    : new vscode.Position(openDoc.lineCount || 0, 0);
+                const fullRange = new vscode.Range(startPos, endPos);
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(openDoc.uri, fullRange, data);
+                await vscode.workspace.applyEdit(edit);
+            } finally {
+                if (syncState) {
+                    syncState.isApplyingEdit = false;
+                }
             }
         }
     } else {

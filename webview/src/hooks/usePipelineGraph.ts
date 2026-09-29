@@ -278,17 +278,17 @@ export function usePipelineGraph({
   );
 
   // Computes topological columns using Kahn's algorithm and positions nodes left-to-right
-  const onLayout = useCallback(() => {
+  const computeLayoutedNodes = useCallback((targetNodes: PipelineNode[], targetEdges: Edge[]): PipelineNode[] => {
     // 1. Build adjacency lists
     const adj: Record<string, string[]> = {};
     const inDegree: Record<string, number> = {};
 
-    nodes.forEach((n) => {
+    targetNodes.forEach((n) => {
       adj[n.id] = [];
       inDegree[n.id] = 0;
     });
 
-    edges.forEach((e) => {
+    targetEdges.forEach((e) => {
       if (adj[e.source] && adj[e.target] !== undefined) {
         adj[e.source].push(e.target);
         inDegree[e.target]++;
@@ -300,7 +300,7 @@ export function usePipelineGraph({
     const queue: string[] = [];
 
     // Find all root nodes (in-degree = 0)
-    nodes.forEach((n) => {
+    targetNodes.forEach((n) => {
       if (inDegree[n.id] === 0) {
         queue.push(n.id);
         ranks[n.id] = 0;
@@ -321,7 +321,7 @@ export function usePipelineGraph({
     }
 
     // If there are leftover nodes due to cycles, assign fallback ranks
-    nodes.forEach((n) => {
+    targetNodes.forEach((n) => {
       if (ranks[n.id] === undefined) {
         if (n.data?.type === 'SOURCE') ranks[n.id] = 0;
         else if (n.data?.type === 'SINK') ranks[n.id] = 2;
@@ -331,14 +331,14 @@ export function usePipelineGraph({
 
     // 3. Group nodes by their calculated column rank
     const columns: Record<number, string[]> = {};
-    nodes.forEach((n) => {
+    targetNodes.forEach((n) => {
       const r = ranks[n.id];
       if (!columns[r]) columns[r] = [];
       columns[r].push(n.id);
     });
 
     // 4. Calculate new positions
-    const newNodes = nodes.map((node) => {
+    return targetNodes.map((node) => {
       const rank = ranks[node.id];
       const colNodes = columns[rank];
       const index = colNodes.indexOf(node.id);
@@ -359,17 +359,22 @@ export function usePipelineGraph({
         position: { x, y },
       };
     });
+  }, []);
 
-    takeSnapshot();
-    setNodes(newNodes);
-
-    // Auto fit view after positioning
+  const triggerFitView = useCallback(() => {
     if (fitView) {
       setTimeout(() => {
         fitView({ duration: 300, padding: 1 });
       }, 100);
     }
-  }, [nodes, edges, setNodes, fitView, takeSnapshot]);
+  }, [fitView]);
+
+  const onLayout = useCallback(() => {
+    const newNodes = computeLayoutedNodes(nodes, edges);
+    takeSnapshot();
+    setNodes(newNodes);
+    triggerFitView();
+  }, [nodes, edges, computeLayoutedNodes, setNodes, takeSnapshot, triggerFitView]);
 
   const onDragStart = useCallback(
     (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
@@ -503,7 +508,8 @@ export function usePipelineGraph({
   );
 
   /**
-   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem.
+   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem,
+   * and triggers auto-layout + fitView so the newly added node is immediately visible on screen.
    */
   const handleAddNode = useCallback(
     (label: string, type: string, iconName: string, beamTransform?: string) => {
@@ -548,10 +554,15 @@ export function usePipelineGraph({
           target: readMatchesNode.id,
         };
 
+        const nextNodes = nodes.concat([matchNode, readMatchesNode]);
+        const nextEdges = edges.concat(edge);
+        const layoutedNodes = computeLayoutedNodes(nextNodes, nextEdges);
+
         takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
+        setNodes(layoutedNodes);
+        setEdges(nextEdges);
         setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+        triggerFitView();
         return;
       }
 
@@ -567,40 +578,47 @@ export function usePipelineGraph({
         },
       };
 
-      takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-
+      let autoEdge: Edge | null = null;
       if (type === 'STEP') {
         if (label === 'Parse Message') {
           const pubSubSource = nodes.find(
             (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
           );
           if (pubSubSource) {
-            const newEdge: Edge = {
+            autoEdge = {
               id: `e-${pubSubSource.id}-${newNode.id}`,
               source: pubSubSource.id,
               target: newNode.id,
             };
-            setEdges((eds) => eds.concat(newEdge));
           }
         } else {
           const hasStep = nodes.some((n) => n.data?.type === 'STEP');
           if (!hasStep) {
             const sourceNode = nodes.find((n) => n.data?.type === 'SOURCE');
             if (sourceNode) {
-              const newEdge: Edge = {
+              autoEdge = {
                 id: `e-${sourceNode.id}-${newNode.id}`,
                 source: sourceNode.id,
                 target: newNode.id,
               };
-              setEdges((eds) => eds.concat(newEdge));
             }
           }
         }
       }
+
+      const nextNodes = nodes.concat(newNode);
+      const nextEdges = autoEdge ? edges.concat(autoEdge) : edges;
+      const layoutedNodes = computeLayoutedNodes(nextNodes, nextEdges);
+
+      takeSnapshot();
+      setNodes(layoutedNodes);
+      if (autoEdge) {
+        setEdges(nextEdges);
+      }
+      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      triggerFitView();
     },
-    [nodes, setNodes, setEdges, takeSnapshot, setPipelineConfig]
+    [nodes, edges, computeLayoutedNodes, setNodes, setEdges, takeSnapshot, setPipelineConfig, triggerFitView]
   );
 
   // Deletes currently selected node or edge and records undo snapshot

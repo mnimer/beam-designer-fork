@@ -174,6 +174,8 @@ import { TinybirdSourceProperties } from '../properties/source/Tinybird';
 import { TinybirdSinkProperties } from '../properties/sink/Tinybird';
 import { MySQLPostgreSQLOracleSQLServerSourceProperties } from '../properties/source/MySQLPostgreSQLOracleSQLServer';
 import { MySQLPostgreSQLOracleSQLServerSinkProperties } from '../properties/sink/MySQLPostgreSQLOracleSQLServer';
+import { NodeDocsCard } from './common/NodeDocsCard';
+import { hasInlineNodeDocsCard } from '../utils/nodeDocumentation';
 
 export interface PropertyFormProps {
   node: any;
@@ -462,6 +464,16 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
   'Reshuffle': OtherProperties,
   'STEP:ReShuffle': OtherProperties,
   'ReShuffle': OtherProperties,
+  'STEP:Keys': OtherProperties,
+  'Keys': OtherProperties,
+  'STEP:KvSwap': OtherProperties,
+  'KvSwap': OtherProperties,
+  'KV Swap': OtherProperties,
+  'STEP:ToString': OtherProperties,
+  'ToString': OtherProperties,
+  'To String': OtherProperties,
+  'STEP:Values': OtherProperties,
+  'Values': OtherProperties,
 };
 
 /**
@@ -529,11 +541,14 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   }
 
   return (
-    <Component
-      node={node}
-      onChange={onChange}
-      onAddKVMapper={onAddKVMapper}
-      onAddPubSubSource={onAddPubSubSource}
-    />
+    <div className="flex-1 flex flex-col gap-4">
+      {!hasInlineNodeDocsCard(node) && <NodeDocsCard node={node} />}
+      <Component
+        node={node}
+        onChange={onChange}
+        onAddKVMapper={onAddKVMapper}
+        onAddPubSubSource={onAddPubSubSource}
+      />
+    </div>
   );
 };

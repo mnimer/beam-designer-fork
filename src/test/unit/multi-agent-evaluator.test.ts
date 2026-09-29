@@ -36,7 +36,7 @@ import {
     resetResolvedSecurityModelForTesting
 } from '../integration/evaluators/security-evaluator';
 import { formatFilesWithLineNumbers } from '../integration/evaluators/format-utils';
-import { synchronizePipelineLanguage } from '../integration/codegen-runner';
+import { synchronizePipelineLanguage, parseGcloudProjectFromIni } from '../integration/codegen-runner';
 import {
     DeterministicGateResult,
     EvaluatorFinding,
@@ -238,6 +238,16 @@ public class WordCountPipelineTest {
         it('passes clean files without placeholders (simple condition)', () => {
             const files = [{ filename: 'pipeline.py', content: 'x = 10\ny = 20' }];
             expect(scanForUnreplacedPlaceholders(files).length).toBe(0);
+        });
+
+        it('does not falsely flag Python f-string escaped braces {{{driver}}} as Mustache placeholders (Directive P14)', () => {
+            const files = [
+                {
+                    filename: 'src/pyodbc_sink.py',
+                    content: 'conn_str = f"DRIVER={{{driver}}};SERVER={server};PORT={port};"\n'
+                }
+            ];
+            expect(scanForUnreplacedPlaceholders(files)).toEqual([]);
         });
     });
 
@@ -628,6 +638,12 @@ nodes: []
         expect(pythonYaml).toContain('language: Python');
         expect(pythonYaml).not.toContain('language: Java');
     });
+
+    it('extracts project ID synchronously from gcloud config_default INI content', () => {
+        const iniContent = `[core]\naccount = user@google.com\nproject = my-gcp-vertex-project\n\n[compute]\nregion = us-central1\n`;
+        expect(parseGcloudProjectFromIni(iniContent)).toBe('my-gcp-vertex-project');
+        expect(parseGcloudProjectFromIni('[core]\naccount = user@google.com\n')).toBeUndefined();
+    });
 });
 
 describe('Arbiter False-Positive Reconciliation', () => {
@@ -829,5 +845,104 @@ describe('End-to-End Orchestration with Mocked Model Calls', () => {
         expect(result.specialistResults.PipelineSpecificationAgent).toBeDefined();
         expect(result.specialistResults.SecurityAndHardeningAgent).toBeDefined();
         expect(result.specialistResults.PackagingAndDeployabilityAgent).toBeDefined();
+        // Only the 4 specialist sub-agents should be invoked in parallel on a clean pass (no ping calls, no redundant 5th arbiter LLM call)
+        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(4);
+    });
+
+    it('invokes Lead Arbiter LLM when a specialist reports findings', async () => {
+        const mockAi: any = {
+            models: {
+                generateContent: vi.fn().mockImplementation((args: any) => {
+                    const promptText = args.contents;
+                    if (promptText.includes('Beam Architecture Evaluator Agent')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: false,
+                                summary: 'Missing windowing',
+                                findings: [
+                                    {
+                                        id: 'ARCH-WIN-1',
+                                        category: 'ARCHITECTURE',
+                                        severity: 'CRITICAL',
+                                        file: 'pipeline.py',
+                                        description: 'Missing windowing before GroupByKey',
+                                        rationale: 'Unbounded aggregation requires window'
+                                    }
+                                ]
+                            })
+                        });
+                    }
+                    if (promptText.includes('Pipeline Specification & Property Conformance')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Spec clean',
+                                requirementVerifications: [],
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Security & Container Hardening')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Security clean',
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Packaging & Runtime Deployability')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                passed: true,
+                                summary: 'Packaging clean',
+                                findings: []
+                            })
+                        });
+                    }
+                    if (promptText.includes('Lead Arbiter')) {
+                        return Promise.resolve({
+                            text: JSON.stringify({
+                                isGood: false,
+                                explanation: 'Critical missing windowing confirmed.',
+                                rejectedFindingIds: [],
+                                rejectedFindings: [],
+                                promptRemediationDirectives: [
+                                    {
+                                        targetPromptFile: 'code-gen-prompt-python.txt',
+                                        targetSection: 'Windowing',
+                                        recommendedRuleText: 'Apply windowing before GroupByKey.',
+                                        rationale: 'Prevents unbounded aggregation errors.'
+                                    }
+                                ]
+                            })
+                        });
+                    }
+                    return Promise.resolve({ text: '{}' });
+                })
+            }
+        };
+
+        const files = [
+            {
+                filename: 'pipeline.py',
+                content: 'print("hello world")'
+            }
+        ];
+
+        const result = await runMultiAgentEvaluation(
+            mockAi,
+            'Python',
+            'nodes: []',
+            'system prompt',
+            files
+        );
+
+        expect(result.isGood).toBe(false);
+        expect(result.hardVetoTriggered).toBe(true);
+        expect(result.promptRemediationDirectives.length).toBe(1);
+        // 4 specialist sub-agents + 1 Lead Arbiter call = 5 calls total
+        expect(mockAi.models.generateContent).toHaveBeenCalledTimes(5);
     });
 });
+

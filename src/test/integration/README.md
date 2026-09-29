@@ -9,19 +9,19 @@ This directory contains **live end-to-end integration tests** that validate the 
 
 ## Directory Architecture
 
-The integration test suite is partitioned into modular pipeline domains, each sub-divided into two execution target profiles: `agent-engine` (Vertex AI Agent Engine) and `cloud-run` (Cloud Run containerized services/jobs):
+The integration test suite is partitioned into modular pipeline domains, each sub-divided by target language (`java` and `python`):
 
 ```
 src/test/integration/
 ├── sources/
-│   ├── agent-engine/     # 65 Source IO connector tests (Agent Engine runtime)
-│   └── cloud-run/        # 65 Source IO connector tests (Cloud Run runtime)
+│   ├── java/             # 69 Source IO connector tests supporting Java
+│   └── python/           # 38 Source IO connector tests supporting Python
 ├── sinks/
-│   ├── agent-engine/     # 60 Sink IO connector tests (Agent Engine runtime)
-│   └── cloud-run/        # 60 Sink IO connector tests (Cloud Run runtime)
+│   ├── java/             # 65 Sink IO connector tests supporting Java
+│   └── python/           # 35 Sink IO connector tests supporting Python
 ├── steps/
-│   ├── agent-engine/     # 9 Modular Step suites covering all 31 Step Types (Agent Engine)
-│   └── cloud-run/        # 9 Modular Step suites covering all 31 Step Types (Cloud Run)
+│   ├── java/             # 9 Modular Step suites covering all 31 Step Types (Java)
+│   └── python/           # 9 Modular Step suites covering all 31 Step Types (Python)
 ├── evaluators/           # Specialist multi-agent evaluators
 ├── codegen-runner.ts     # E2E test coordinator and dynamic pipeline loader
 ├── test-reporter.ts      # Markdown test scorecard and prompt directive generator
@@ -107,65 +107,55 @@ npm run test:integration
 ```
 
 ### 2. Run by Category (Sources, Sinks, or Steps)
-Target an entire domain across both `agent-engine` and `cloud-run`:
+Target an entire domain across both `java` and `python`:
 ```bash
-# Run all Source tests (32 suites)
+# Run all Source tests
 npm run test:integration:sources
 
-# Run all Sink tests (28 suites)
+# Run all Sink tests
 npm run test:integration:sinks
 
-# Run all Step tests (18 suites)
+# Run all Step tests
 npm run test:integration:steps
 ```
 
-### 3. Run by Target Environment (`agent-engine` vs. `cloud-run`)
-Target an execution profile across all domains:
+### 3. Run by Target Language (`java` vs. `python`)
+Target a language across all domains:
 ```bash
-# Run all Agent Engine tests (sources, sinks, steps)
-npm run test:integration:agent-engine
+# Run all Java tests (sources, sinks, steps)
+npm run test:integration:java
 
-# Run all Cloud Run tests (sources, sinks, steps)
-npm run test:integration:cloud-run
+# Run all Python tests (sources, sinks, steps)
+npm run test:integration:python
 ```
 
 ### 4. Run a Specific Sub-Folder
-Target a specific domain and deployment profile combination:
+Target a specific domain and language combination:
 ```bash
 # Sources
-npm run test:integration:sources:agent-engine
-npm run test:integration:sources:cloud-run
+npm run test:integration:sources:java
+npm run test:integration:sources:python
 
 # Sinks
-npm run test:integration:sinks:agent-engine
-npm run test:integration:sinks:cloud-run
+npm run test:integration:sinks:java
+npm run test:integration:sinks:python
 
 # Steps
-npm run test:integration:steps:agent-engine
-npm run test:integration:steps:cloud-run
+npm run test:integration:steps:java
+npm run test:integration:steps:python
 ```
 
 ### 5. Run a Single Test File
 Run an individual connector or step pipeline directly:
 ```bash
-# Run BigQuery Source test on Agent Engine
-npx vitest run --config vitest.integration.config.mts src/test/integration/sources/agent-engine/bigquery-source.test.ts
+# Run BigQuery Source test for Java
+npx vitest run --config vitest.integration.config.mts src/test/integration/sources/java/bigquery-source.test.ts
 
-# Run Kafka Sink test on Cloud Run
-npx vitest run --config vitest.integration.config.mts src/test/integration/sinks/cloud-run/kafka-sink.test.ts
+# Run Kafka Sink test for Python
+npx vitest run --config vitest.integration.config.mts src/test/integration/sinks/python/kafka-sink.test.ts
 
-# Run Windowing & Grouping Steps test
-npx vitest run --config vitest.integration.config.mts src/test/integration/steps/agent-engine/windowing-kv-groupby.test.ts
-```
-
-### 6. Filter by Target Language (`Java` or `Python`)
-Use Vitest's `-t` flag to test only one language:
-```bash
-# Test only Java generation
-npx vitest run --config vitest.integration.config.mts src/test/integration/sources/agent-engine/pubsub-source.test.ts -t "Java"
-
-# Test only Python generation
-npx vitest run --config vitest.integration.config.mts src/test/integration/sources/agent-engine/pubsub-source.test.ts -t "Python"
+# Run Windowing & Grouping Steps test for Java
+npx vitest run --config vitest.integration.config.mts src/test/integration/steps/java/windowing-kv-groupby.test.ts
 ```
 
 ### 7. Interactive Watch Mode

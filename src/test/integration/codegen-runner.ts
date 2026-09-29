@@ -19,11 +19,14 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { execFile } from 'child_process';
 import * as yaml from 'yaml';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../constants';
+import { getLatestBeamVersion, getCachedBeamVersion, FALLBACK_BEAM_VERSION } from '../../beamVersion';
 import { runMultiAgentEvaluation, formatEvaluationReport } from './evaluators/multi-agent-evaluator';
+import { checkJavaStructure, checkPythonSyntax } from './evaluators/deterministic-gate';
 import { MultiAgentEvaluationResult, generateContentWithRetry } from './evaluators/types';
 import { recordAndSaveTestReport } from './test-reporter';
 
@@ -31,6 +34,27 @@ export interface GeneratedFile {
     filename: string;
     content: string;
     executable?: boolean;
+}
+
+/**
+ * Deduplicates generated files by filename, keeping the entry with the longest content
+ * when a model emits a prematurely closed file object followed by a complete file entry.
+ */
+export function deduplicateGeneratedFiles(files: GeneratedFile[]): GeneratedFile[] {
+    if (!Array.isArray(files)) {
+        return [];
+    }
+    const byName = new Map<string, GeneratedFile>();
+    for (const file of files) {
+        if (!file || !file.filename || typeof file.content !== 'string') {
+            continue;
+        }
+        const existing = byName.get(file.filename);
+        if (!existing || file.content.length >= existing.content.length) {
+            byName.set(file.filename, file);
+        }
+    }
+    return Array.from(byName.values());
 }
 
 export interface EvaluationResult {
@@ -97,13 +121,70 @@ export function loadBeamPipeline(filePath: string): string {
     throw new Error(`Could not locate .beam pipeline file: ${filePath}`);
 }
 
+let cachedGcloudProject: string | undefined;
+
+/**
+ * Extracts the active GCP project ID from a gcloud configuration INI string.
+ */
+export function parseGcloudProjectFromIni(iniContent: string): string | undefined {
+    const match = iniContent.match(/^\s*project\s*=\s*([^\s#\r\n]+)/m);
+    return match?.[1]?.trim() || undefined;
+}
+
+/**
+ * Attempts to read the active GCP project ID directly from local gcloud config files
+ * without spawning a subprocess.
+ */
+export function readGcloudProjectFromDisk(): string | undefined {
+    const envProject = process.env.GOOGLE_CLOUD_PROJECT || process.env.PROJECT_ID || process.env.GCLOUD_PROJECT;
+    if (envProject && envProject.trim()) {
+        return envProject.trim();
+    }
+
+    const configDir = process.env.CLOUDSDK_CONFIG || path.join(os.homedir(), '.config', 'gcloud');
+    let activeConfigName = 'default';
+    const activeConfigPath = path.join(configDir, 'active_config');
+    try {
+        if (fs.existsSync(activeConfigPath)) {
+            const rawActive = fs.readFileSync(activeConfigPath, 'utf-8').trim();
+            if (rawActive) {
+                activeConfigName = rawActive;
+            }
+        }
+        const configFilePath = path.join(configDir, 'configurations', `config_${activeConfigName}`);
+        if (fs.existsSync(configFilePath)) {
+            const parsed = parseGcloudProjectFromIni(fs.readFileSync(configFilePath, 'utf-8'));
+            if (parsed) {
+                return parsed;
+            }
+        }
+    } catch {
+        // Fallback to CLI
+    }
+    return undefined;
+}
+
 export function getGcloudProject(): Promise<string | undefined> {
+    if (cachedGcloudProject) {
+        return Promise.resolve(cachedGcloudProject);
+    }
+
+    const diskProject = readGcloudProjectFromDisk();
+    if (diskProject) {
+        cachedGcloudProject = diskProject;
+        return Promise.resolve(diskProject);
+    }
+
     return new Promise((resolve) => {
-        execFile('gcloud', ['config', 'get-value', 'project'], { timeout: 5000 }, (error, stdout) => {
+        execFile('gcloud', ['config', 'get-value', 'project'], { timeout: 15000 }, (error, stdout) => {
             if (error || !stdout) {
                 resolve(undefined);
             } else {
-                resolve(stdout.trim() || undefined);
+                const resolved = stdout.trim() || undefined;
+                if (resolved) {
+                    cachedGcloudProject = resolved;
+                }
+                resolve(resolved);
             }
         });
     });
@@ -157,7 +238,7 @@ export function synchronizePipelineLanguage(yamlContent: string, targetLanguage:
 /**
  * Builds the exact same prompt used by the extension for a given language and pipeline YAML.
  */
-export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string): string {
+export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string, beamVersion?: string): string {
     const langSubfolder = language.toLowerCase() === 'java' ? 'java' : 'python';
     const promptFile = langSubfolder === 'java' ? 'code-gen-prompt-java.txt' : 'code-gen-prompt-python.txt';
     const promptTemplate = readResource(promptFile);
@@ -172,13 +253,22 @@ export function buildCodeGenPrompt(language: 'Java' | 'Python', yamlData: string
         sparkRunnerSection = `### 'run_sparkrunner.sh' Template\n\`\`\`\n${sparkRunnerTemplate}\n\`\`\``;
     }
 
-    return promptTemplate
-        .replace(/\{\{language\}\}/g, language)
-        .replace('{{pipeline}}', yamlData)
-        .replace('{{dockerfile_template}}', dockerfileTemplate)
-        .replace('{{run_directrunner_template}}', directRunnerTemplate)
-        .replace('{{run_dataflowrunner_template}}', dataflowRunnerTemplate)
-        .replace('{{sparkrunner_template_section}}', sparkRunnerSection);
+    const effectiveBeamVersion = beamVersion || getCachedBeamVersion();
+
+    let assembled = promptTemplate
+        .replace(/\{\{language\}\}/g, () => language)
+        .replace('{{pipeline}}', () => yamlData)
+        .replace('{{dockerfile_template}}', () => dockerfileTemplate)
+        .replace('{{run_directrunner_template}}', () => directRunnerTemplate)
+        .replace('{{run_dataflowrunner_template}}', () => dataflowRunnerTemplate)
+        .replace('{{sparkrunner_template_section}}', () => sparkRunnerSection)
+        .replace(/\{\{beam_version\}\}/g, () => effectiveBeamVersion);
+
+    if (effectiveBeamVersion !== FALLBACK_BEAM_VERSION) {
+        assembled = assembled.replace(/2\.76\.0/g, () => effectiveBeamVersion);
+    }
+
+    return assembled;
 }
 
 /**
@@ -234,19 +324,46 @@ export async function createGeminiClient(): Promise<GoogleGenAI> {
 }
 
 /**
+ * Checks whether generated source files suffer from premature string closure / truncation.
+ */
+async function hasTruncatedSourceFile(files: GeneratedFile[], language: 'Java' | 'Python'): Promise<string | null> {
+    if (language === 'Java') {
+        for (const f of files) {
+            if (f.filename.endsWith('.java')) {
+                const structErr = checkJavaStructure(f.filename, f.content);
+                if (structErr) {
+                    return structErr;
+                }
+            }
+        }
+    } else {
+        for (const f of files) {
+            if (f.filename.endsWith('.py') && !f.filename.endsWith('__init__.py')) {
+                const pyErr = await checkPythonSyntax(f.filename, f.content);
+                if (pyErr) {
+                    return pyErr;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
  * Executes an end-to-end code generation and validation test for a pipeline YAML across specified languages.
  */
 export async function runPipelineIntegrationTest(config: PipelineTestConfig): Promise<{ [key: string]: boolean }> {
     const languages = config.languages || ['Java', 'Python'];
     const ai = await createGeminiClient();
+    const beamVersion = await getLatestBeamVersion();
     const results: { [key: string]: boolean } = {};
 
     console.log(`\n======================================================`);
     console.log(`🧪 Running Pipeline Integration Test: ${config.testName}`);
-    console.log(`🤖 Using Gemini Model: ${DEFAULT_GEMINI_MODEL}`);
+    console.log(`🤖 Using Gemini Model: ${DEFAULT_GEMINI_MODEL} (Beam SDK: ${beamVersion})`);
     console.log(`======================================================`);
 
-    for (const language of languages) {
+    await Promise.all(languages.map(async (language) => {
         console.log(`\n------------------------------------------------------`);
         console.log(`▶ Testing ${language} Pipeline Code Generation`);
         console.log(`------------------------------------------------------`);
@@ -259,27 +376,45 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
 
             // Synchronize pipeline language with current target language
             const pipelineContent = synchronizePipelineLanguage(rawContent, language);
-            const prompt = buildCodeGenPrompt(language, pipelineContent);
+            const prompt = buildCodeGenPrompt(language, pipelineContent, beamVersion);
             const responseSchema = JSON.parse(readResource('code-gen-schema.json'));
 
             console.log(`1. Generating ${language} code via Gemini (${DEFAULT_GEMINI_MODEL})...`);
             const startTime = Date.now();
-            const response = await generateContentWithRetry(ai, {
-                model: DEFAULT_GEMINI_MODEL,
-                contents: prompt,
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: responseSchema
-                }
-            });
-            console.log(`   Generated in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+            let files: GeneratedFile[] = [];
 
-            if (!response.text) {
-                throw new Error(`Empty response received from Gemini during ${language} generation`);
+            for (let genAttempt = 1; genAttempt <= 2; genAttempt++) {
+                const response = await generateContentWithRetry(ai, {
+                    model: DEFAULT_GEMINI_MODEL,
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: responseSchema,
+                        maxOutputTokens: 65536
+                    }
+                });
+                console.log(`   Generated in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+
+                const finishReason = response.candidates?.[0]?.finishReason;
+                if (finishReason === 'MAX_TOKENS') {
+                    console.warn(`   [CodeGen] ⚠️ Gemini response hit MAX_TOKENS limit on attempt ${genAttempt}.`);
+                }
+
+                if (!response.text) {
+                    throw new Error(`Empty response received from Gemini during ${language} generation`);
+                }
+
+                const parsed = JSON.parse(response.text);
+                files = deduplicateGeneratedFiles(parsed.files || []);
+
+                const truncationErr = await hasTruncatedSourceFile(files, language);
+                if ((finishReason === 'MAX_TOKENS' || truncationErr) && genAttempt < 2) {
+                    console.warn(`   [CodeGen] ⚠️ Structural/truncation issue detected (${truncationErr || finishReason}). Retrying generation once...`);
+                    continue;
+                }
+                break;
             }
 
-            const parsed = JSON.parse(response.text);
-            const files: GeneratedFile[] = parsed.files || [];
             console.log(`   Generated ${files.length} files:`, files.map(f => f.filename).join(', '));
 
             const fileExt = language.toLowerCase() === 'python' ? '.py' : '.java';
@@ -337,7 +472,7 @@ export async function runPipelineIntegrationTest(config: PipelineTestConfig): Pr
             console.log(`\n📄 Test report updated: ${reportPath}`);
             results[language] = false;
         }
-    }
+    }));
 
     console.log(`\n======================================================`);
     console.log(`📊 SUMMARY: ${config.testName}`);

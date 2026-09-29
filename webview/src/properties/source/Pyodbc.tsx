@@ -168,15 +168,20 @@ export const PyodbcSourceProperties: React.FC<PyodbcSourcePropertiesProps> = ({ 
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
-      <div className="flex items-center justify-between p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
-        <span>Pyodbc Source (ReadFromDB / pyodbc)</span>
-        <button
-          type="button"
-          onClick={openPyodbcDocs}
-          className="text-blue-400 hover:text-blue-300 font-semibold"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-200">Pyodbc Source (ReadFromDB / pyodbc)</span>
+          <button
+            type="button"
+            onClick={openPyodbcDocs}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Queries an ODBC-compliant database from Python Beam pipelines using pyodbc drivers.
+        </p>
       </div>
 
       {/* S1: ODBC Driver */}

@@ -390,18 +390,23 @@ export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header Docs Link */}
-      <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-800/40 px-2.5 py-1.5 rounded border border-slate-700/50">
-        <span>
-          Beam YAML transform: <code className="text-slate-300">{flavor.readTransform}</code>
-        </span>
-        <button
-          type="button"
-          aria-label={`Open ${flavor.readTransform} documentation`}
-          onClick={() => openMultiDbDocs(`readfrom${flavor.anchor}`)}
-          className="text-blue-400 hover:text-blue-300 font-semibold"
-        >
-          Docs ↗
-        </button>
+      <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-200">
+            Beam YAML transform: <code className="text-slate-300">{flavor.readTransform}</code>
+          </span>
+          <button
+            type="button"
+            aria-label={`Open ${flavor.readTransform} documentation`}
+            onClick={() => openMultiDbDocs(`readfrom${flavor.anchor}`)}
+            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
+          >
+            Docs ↗
+          </button>
+        </div>
+        <p className="text-slate-400">
+          Reads rows from MySQL, PostgreSQL, Oracle, or SQL Server via Beam YAML standard JDBC schema transforms.
+        </p>
       </div>
 
       {/* 1. Database Type Selector */}
