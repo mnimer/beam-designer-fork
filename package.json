@@ -232,5 +232,9 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "undici-types": "^8.3.0",
     "yaml": "^2.9.0"
+  },
+  "overrides": {
+    "@textlint/linter-formatter": "15.7.1",
+    "@textlint/resolver": "15.7.1"
   }
 }
