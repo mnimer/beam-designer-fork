@@ -23,8 +23,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
 /**
  * Secret item interface for normalized Secret Manager secrets.
@@ -155,73 +158,64 @@ const MongoDbSinkAdvancedSection: React.FC<MongoDbSinkAdvancedSectionProps> = ({
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggleAdvanced}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
-
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          {/* SSL Options */}
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoSinkSslEnabled"
-                type="checkbox"
-                name="sslEnabled"
-                checked={sslEnabled}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>SSL / TLS Enabled</span>
-              <InfoTooltip text="Enables SSL/TLS encrypted connection to MongoDB cluster." />
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoSinkSslInvalidHostNameAllowed"
-                type="checkbox"
-                name="sslInvalidHostNameAllowed"
-                checked={sslInvalidHostNameAllowed}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Allow Invalid Hostname</span>
-              <InfoTooltip text="Configures whether invalid hostnames are allowed in SSL connections (Java: withSslInvalidHostNameAllowed)." />
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoSinkRetryWrites"
-                type="checkbox"
-                name="retryWrites"
-                checked={retryWrites}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Retry Writes</span>
-              <InfoTooltip text="Configures driver automatic retry of failed write operations (specified in connection URI: retryWrites=true)." />
-            </label>
-          </div>
-
-          {/* Max Connection Idle Time */}
-          <PropertyField
-            id="mongoSinkMaxConnectionIdleTime"
-            name="maxConnectionIdleTime"
-            label="Max Connection Idle Time (ms)"
-            type="number"
-            value={maxConnectionIdleTime}
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggleAdvanced}
+    >
+      {/* SSL Options */}
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoSinkSslEnabled"
+            type="checkbox"
+            name="sslEnabled"
+            checked={sslEnabled}
             onChange={onChange}
-            placeholder="0 (Unlimited)"
-            min={0}
-            tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed (withMaxConnectionIdleTime)."
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
           />
-        </div>
-      )}
-    </div>
+          <span>SSL / TLS Enabled</span>
+          <InfoTooltip text="Enables SSL/TLS encrypted connection to MongoDB cluster." />
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoSinkSslInvalidHostNameAllowed"
+            type="checkbox"
+            name="sslInvalidHostNameAllowed"
+            checked={sslInvalidHostNameAllowed}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Allow Invalid Hostname</span>
+          <InfoTooltip text="Configures whether invalid hostnames are allowed in SSL connections (Java: withSslInvalidHostNameAllowed)." />
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoSinkRetryWrites"
+            type="checkbox"
+            name="retryWrites"
+            checked={retryWrites}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Retry Writes</span>
+          <InfoTooltip text="Configures driver automatic retry of failed write operations (specified in connection URI: retryWrites=true)." />
+        </label>
+      </div>
+
+      {/* Max Connection Idle Time */}
+      <PropertyField
+        id="mongoSinkMaxConnectionIdleTime"
+        name="maxConnectionIdleTime"
+        label="Max Connection Idle Time (ms)"
+        type="number"
+        value={maxConnectionIdleTime}
+        onChange={onChange}
+        placeholder="0 (Unlimited)"
+        min={0}
+        tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed (withMaxConnectionIdleTime)."
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -301,12 +295,7 @@ export const MongoDbIOSinkProperties: React.FC<MongoDbIOSinkPropertiesProps> = (
   const isKeyFieldsEmpty = writeMode === 'upsert' && !keyFields.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -335,21 +324,6 @@ export const MongoDbIOSinkProperties: React.FC<MongoDbIOSinkPropertiesProps> = (
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    // NOTE: Write directly to properties.system_instructions
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -538,21 +512,18 @@ export const MongoDbIOSinkProperties: React.FC<MongoDbIOSinkPropertiesProps> = (
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="mongoSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom instructions passed to the LLM code generator when synthesizing Beam pipeline code for Java (MongoDbIO.write()) or Python (WriteToMongoDB)."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom instructions passed to the LLM code generator when synthesizing Beam pipeline code for Java (MongoDbIO.write()) or Python (WriteToMongoDB)."
         placeholder="e.g. Convert elements to org.bson.Document, apply upsert key configuration, and write to MongoDB"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

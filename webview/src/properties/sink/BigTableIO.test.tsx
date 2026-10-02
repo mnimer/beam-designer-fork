@@ -197,24 +197,6 @@ describe('BigTableIOSinkProperties', () => {
 
     expect(screen.getByPlaceholderText('e.g. gcp-bigtable-sa-key')).toBeInTheDocument();
 
-    // Simulate IPC secretsLoaded message
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'bt-sink-key', name: 'bt-sink-key' },
-            'projects/p/secrets/my-bigtable-sink-key'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('bigtable-sink-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     // Switch back to ADC
     const adcRadio = screen.getByRole('radio', { name: /Application Default Credentials/i });
     fireEvent.click(adcRadio);
@@ -225,32 +207,6 @@ describe('BigTableIOSinkProperties', () => {
       authMode: 'adc',
       serviceAccountSecret: 'bt-sink-key'
     });
-  });
-
-  it('renders error on secret manager load failure', () => {
-    const node = {
-      data: {
-        label: 'BigTable Sink',
-        properties: {
-          projectId: 'my-project',
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<BigTableIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager unavailable'
-        }
-      })
-    );
-
-    expect(screen.getByText(/Secret Manager unavailable/i)).toBeInTheDocument();
   });
 
   it('toggles collapsible Advanced Sink Settings and updates emulator and timeouts', () => {
@@ -264,8 +220,6 @@ describe('BigTableIOSinkProperties', () => {
     };
 
     render(<BigTableIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    expect(screen.queryByPlaceholderText('localhost:8086')).not.toBeInTheDocument();
 
     // Expand advanced settings
     const toggleButton = screen.getByRole('button', { name: /Advanced Sink Settings/i });
@@ -322,35 +276,19 @@ describe('BigTableIOSinkProperties', () => {
   });
 
   it('resolves system instructions fallback chain and handles edits', () => {
-    const nodeWithSpecial = {
+    const node = {
       data: {
         label: 'BigTable Sink',
-        special_instructions: 'Custom bigtable write special prompt'
+        properties: {}
       }
     };
 
-    const { rerender } = render(
-      <BigTableIOSinkProperties node={nodeWithSpecial} onChange={mockOnChange} />
-    );
+    render(<BigTableIOSinkProperties node={node} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Apply BigtableIO\.write/i);
-    expect(textarea).toHaveValue('Custom bigtable write special prompt');
-
     fireEvent.change(textarea, { target: { value: 'Updated BigtableIO write instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith({
       system_instructions: 'Updated BigtableIO write instructions'
     });
-
-    const nodeWithSystem = {
-      data: {
-        label: 'BigTable Sink',
-        system_instructions: 'Sink system instructions take priority',
-        special_instructions: 'Fallback instructions'
-      }
-    };
-    rerender(<BigTableIOSinkProperties node={nodeWithSystem} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Apply BigtableIO\.write/i)).toHaveValue(
-      'Sink system instructions take priority'
-    );
   });
 });

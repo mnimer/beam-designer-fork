@@ -23,8 +23,11 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -35,6 +38,9 @@ export type SnowflakeWriteDisposition = 'APPEND' | 'TRUNCATE' | 'EMPTY';
 export type SnowflakeCreateDisposition = 'CREATE_IF_NEEDED' | 'CREATE_NEVER';
 export type SnowflakeAuthMode = 'username_password' | 'key_pair' | 'oauth';
 
+/**
+ * Props for the SnowflakeIOSinkProperties component.
+ */
 export interface SnowflakeIOSinkPropertiesProps {
   node: {
     data: {
@@ -74,6 +80,9 @@ export interface SnowflakeIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SnowflakeSinkConnectionCard component.
+ */
 interface SnowflakeSinkConnectionCardProps {
   serverName: string;
   database: string;
@@ -189,6 +198,9 @@ const SnowflakeSinkConnectionCard: React.FC<SnowflakeSinkConnectionCardProps> = 
   );
 };
 
+/**
+ * Props for the SnowflakeSinkStagingCard component.
+ */
 interface SnowflakeSinkStagingCardProps {
   stagingBucketName: string;
   storageIntegrationName: string;
@@ -245,6 +257,9 @@ const SnowflakeSinkStagingCard: React.FC<SnowflakeSinkStagingCardProps> = ({
   );
 };
 
+/**
+ * Props for the SnowflakeSinkDispositionsCard component.
+ */
 interface SnowflakeSinkDispositionsCardProps {
   writeDisposition: SnowflakeWriteDisposition;
   createDisposition: SnowflakeCreateDisposition;
@@ -272,7 +287,7 @@ const SnowflakeSinkDispositionsCard: React.FC<SnowflakeSinkDispositionsCardProps
         <InfoTooltip text="Controls write disposition, table auto-creation, and staged file formatting." />
       </label>
 
-      <div className="grid grid-cols-2 gap-2 mt-1">
+      <div className="grid grid-cols-2 items-end gap-2 mt-1">
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="snowflakeSinkWriteDisposition"
@@ -352,6 +367,9 @@ const SnowflakeSinkDispositionsCard: React.FC<SnowflakeSinkDispositionsCardProps
   );
 };
 
+/**
+ * Props for the SnowflakeSinkAuthCard component.
+ */
 interface SnowflakeSinkAuthCardProps {
   authMode: SnowflakeAuthMode;
   usernameSecret: string;
@@ -498,6 +516,9 @@ const SnowflakeSinkAuthCard: React.FC<SnowflakeSinkAuthCardProps> = ({
   );
 };
 
+/**
+ * Props for the SnowflakeSinkAdvancedCard component.
+ */
 interface SnowflakeSinkAdvancedCardProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -519,58 +540,49 @@ const SnowflakeSinkAdvancedCard: React.FC<SnowflakeSinkAdvancedCardProps> = ({
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="snowflakeSinkFlushRowLimit"
+          name="flushRowLimit"
+          label="Flush Row Limit"
+          type="number"
+          value={flushRowLimit}
+          onChange={onChange}
+          placeholder="e.g. 10000"
+          tooltip="Maximum number of rows buffered before flushing to a staged file. Maps to withFlushRowLimit()."
+          min={0}
+        />
+        <PropertyField
+          id="snowflakeSinkLoginTimeout"
+          name="loginTimeout"
+          label="Login Timeout (Seconds)"
+          type="number"
+          value={loginTimeout}
+          onChange={onChange}
+          placeholder="e.g. 60"
+          tooltip="Login timeout duration in seconds for DataSourceConfiguration.withLoginTimeout()."
+          min={0}
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="snowflakeSinkFlushRowLimit"
-              name="flushRowLimit"
-              label="Flush Row Limit"
-              type="number"
-              value={flushRowLimit}
-              onChange={onChange}
-              placeholder="e.g. 10000"
-              tooltip="Maximum number of rows buffered before flushing to a staged file. Maps to withFlushRowLimit()."
-              min={0}
-            />
-            <PropertyField
-              id="snowflakeSinkLoginTimeout"
-              name="loginTimeout"
-              label="Login Timeout (Seconds)"
-              type="number"
-              value={loginTimeout}
-              onChange={onChange}
-              placeholder="e.g. 60"
-              tooltip="Login timeout duration in seconds for DataSourceConfiguration.withLoginTimeout()."
-              min={0}
-            />
-          </div>
-
-          <PropertyField
-            id="snowflakeSinkExtraParameters"
-            name="extraParameters"
-            label="Extra Session / JDBC Parameters"
-            type="textarea"
-            rows={2}
-            value={extraParameters}
-            onChange={onChange}
-            placeholder="CLIENT_SESSION_KEEP_ALIVE=true"
-            tooltip="Additional session connection parameters."
-            mono={true}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="snowflakeSinkExtraParameters"
+        name="extraParameters"
+        label="Extra Session / JDBC Parameters"
+        type="textarea"
+        rows={2}
+        value={extraParameters}
+        onChange={onChange}
+        placeholder="CLIENT_SESSION_KEEP_ALIVE=true"
+        tooltip="Additional session connection parameters."
+        mono={true}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -620,12 +632,7 @@ export const SnowflakeIOSinkProperties: React.FC<SnowflakeIOSinkPropertiesProps>
   const isStorageIntegrationEmpty = !storageIntegrationName.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -653,20 +660,6 @@ export const SnowflakeIOSinkProperties: React.FC<SnowflakeIOSinkPropertiesProps>
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -728,19 +721,19 @@ export const SnowflakeIOSinkProperties: React.FC<SnowflakeIOSinkPropertiesProps>
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="snowflakeSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
-        placeholder="Custom prompt instructions for generating the Apache Beam SnowflakeIO sink step..."
+        rows={4}
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        placeholder="Custom prompt instructions for generating the Apache Beam SnowflakeIO sink step..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

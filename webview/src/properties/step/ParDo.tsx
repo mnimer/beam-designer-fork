@@ -18,7 +18,11 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 
+/**
+ * React Flow node shape for the ParDo step transform.
+ */
 interface ParDoNode {
   data: {
     system_instructions?: string;
@@ -34,6 +38,9 @@ interface ParDoNode {
   };
 }
 
+/**
+ * Props for the {@link ParDoProperties} component.
+ */
 interface ParDoPropertiesProps {
   node: ParDoNode;
   onChange: (properties: any) => void;
@@ -41,6 +48,12 @@ interface ParDoPropertiesProps {
 
 const DEFAULT_SYSTEM_INSTRUCTIONS = 'Wrap the generated code in a try/catch, returning all errors to a separate pcollection';
 
+/**
+ * Property configuration panel for the Apache Beam ParDo generic processing transform.
+ *
+ * @param props The selected ParDo node and change notification callback.
+ * @returns The rendered ParDo properties panel.
+ */
 export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange }) => {
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
@@ -73,22 +86,6 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
     });
   };
 
-  /**
-   * Handle changes to the System Instructions textarea
-   * Updates system_instructions property and preserves code generation prompt
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // Get updated system instructions text from event
-    const newInstructions = e.target.value;
-
-    // Propagate changes up to parent component
-    onChange({
-      ...properties,
-      codeGenerationPrompt,
-      system_instructions: newInstructions,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Code Generation Prompt Section at Top */}
@@ -109,22 +106,20 @@ export const ParDoProperties: React.FC<ParDoPropertiesProps> = ({ node, onChange
         </div>
       </PropertyField>
 
-      {/* Flexible Spacer taking up all free space to bottom-align System Instructions */}
-      <div className="flex-1 min-h-4" />
-
       {/* System Instructions Section at Bottom */}
-      <PropertyField
+      <SystemInstructionsField
         id="pardoSystemInstructions"
-        name="system_instructions"
+        value={systemInstructions}
         label="System Instructions"
         tooltip="System-level instructions injected into the LLM prompt (e.g. error handling, dead-letter routing, schema constraints)."
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
-        value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter system instructions..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            codeGenerationPrompt,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -49,6 +49,9 @@ export function getNonce(): string {
  * - img-src ${cspSource} data:
  * - font-src ${cspSource} data:
  * - connect-src 'none'
+ * - base-uri 'none'
+ * - form-action 'none'
+ * (frame-ancestors is intentionally omitted: it is ignored in <meta> CSP; VS Code controls webview framing.)
  * 
  * @param rawHtml The raw index.html template content.
  * @param opts Configuration options containing asset URIs, cspSource, and nonce.
@@ -108,7 +111,9 @@ export function buildWebviewHtml(rawHtml: string, opts: WebviewHtmlOptions): str
         `style-src ${opts.cspSource} 'unsafe-inline'`,
         `img-src ${opts.cspSource} data:`,
         `font-src ${opts.cspSource} data:`,
-        `connect-src 'none'`
+        `connect-src 'none'`,
+        `base-uri 'none'`,
+        `form-action 'none'`
     ];
     const cspContent = cspDirectives.join('; ') + ';';
     const cspMetaTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`;

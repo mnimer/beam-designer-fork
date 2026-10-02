@@ -37,11 +37,16 @@
 import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * React Flow node shape for the Azure Blob Store sink panel, including its persisted configuration data.
+ */
 export interface AzureBlobStoreFileSystemSinkNode {
   data: {
     label: string;
@@ -70,6 +75,9 @@ export interface AzureBlobStoreFileSystemSinkNode {
   };
 }
 
+/**
+ * Props for the AzureBlobStoreFileSystemSinkProperties component.
+ */
 export interface AzureBlobStoreFileSystemSinkPropertiesProps {
   node: AzureBlobStoreFileSystemSinkNode;
   onChange: (properties: any) => void;
@@ -149,12 +157,7 @@ export const AzureBlobStoreFileSystemSinkProperties: React.FC<AzureBlobStoreFile
   const isStorageAccountInvalid = isStorageAccountRequired && !storageAccount.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -170,15 +173,6 @@ export const AzureBlobStoreFileSystemSinkProperties: React.FC<AzureBlobStoreFile
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   /**
    * Toggles the sharding options accordion state
@@ -444,23 +438,21 @@ export const AzureBlobStoreFileSystemSinkProperties: React.FC<AzureBlobStoreFile
         />
       </CollapsibleSection>
 
-      {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="azureSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this AzureBlobStoreFileSystem writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write Parquet output shards to azfs://account/container/output/ with 2 shards."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="azureSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this AzureBlobStoreFileSystem writer step."
+        placeholder="e.g. Write Parquet output shards to azfs://account/container/output/ with 2 shards."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

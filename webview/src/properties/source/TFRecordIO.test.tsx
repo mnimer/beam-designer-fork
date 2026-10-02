@@ -5,8 +5,8 @@
  * 
  * Purpose:
  * Unit tests validating TFRecordIOSourceProperties component functionality,
- * form change callbacks, validation states, accordion toggling, dynamic extension
- * GCS bucket discovery IPC, and code generation instructions.
+ * form change callbacks, validation states, accordion toggling,
+ * and code generation instructions.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TFRecordIOSourceProperties } from './TFRecordIO';
 
@@ -150,105 +150,6 @@ describe('TFRecordIOSourceProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<TFRecordIOSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<TFRecordIOSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<TFRecordIOSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<TFRecordIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['lakehouse-data', 'gs://archive-records']
-          }
-        })
-      );
-    });
-
-    // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
-    const filePatternInput = container.querySelector('#tfrecordSourceFilePattern') as HTMLInputElement;
-    const datalist = document.getElementById((filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list'))!);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://lakehouse-data/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://archive-records');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          filePattern: 'gs://bucket/data.tfrecord'
-        }
-      }
-    };
-
-    render(<TFRecordIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
 
   it('never renders coder, minBundleSize, or ZLIB compression option', () => {
     const mockNode: any = {

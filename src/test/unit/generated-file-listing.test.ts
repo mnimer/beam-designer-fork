@@ -22,52 +22,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-vi.mock('vscode', () => {
-    class MockTreeItem {
-        constructor(public label: string, public collapsibleState: number = 0) {}
-    }
-    class MockEventEmitter {
-        public fire = vi.fn();
-        public event = vi.fn();
-    }
-    return {
-        TreeItem: MockTreeItem,
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: MockEventEmitter,
-        ThemeIcon: class { constructor(public id: string) {} },
-        ThemeColor: class { constructor(public id: string) {} },
-        MarkdownString: class { constructor(public value: string) {} },
-        Position: class { constructor(public line: number, public character: number) {} },
-        Range: class { constructor(public start: any, public end: any) {} },
-        WorkspaceEdit: class { public replace = vi.fn(); },
-        workspace: {
-            textDocuments: [],
-            openTextDocument: vi.fn(),
-            applyEdit: vi.fn().mockResolvedValue(true),
-            workspaceFolders: [{ uri: { fsPath: '/workspace' }, name: 'workspace' }],
-            findFiles: vi.fn().mockResolvedValue([]),
-            onDidChangeTextDocument: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-            getConfiguration: vi.fn(() => ({ get: vi.fn() }))
-        },
-        window: {
-            showTextDocument: vi.fn(),
-            showErrorMessage: vi.fn(),
-            showInformationMessage: vi.fn(),
-            setStatusBarMessage: vi.fn(),
-            registerTreeDataProvider: vi.fn(),
-            showSaveDialog: vi.fn(),
-            showOpenDialog: vi.fn(),
-            createOutputChannel: vi.fn(() => ({ appendLine: vi.fn(), show: vi.fn() })),
-            registerCustomEditorProvider: vi.fn()
-        },
-        Uri: {
-            file: vi.fn((f: string) => ({ scheme: 'file', fsPath: f, toString: () => `file://${f}` })),
-            parse: vi.fn((f: string) => ({ scheme: 'file', fsPath: f, toString: () => f })),
-        },
-        commands: { registerCommand: vi.fn(), executeCommand: vi.fn() },
-        env: { openExternal: vi.fn() }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock());
 
 import {
     handleReadFolderFiles,

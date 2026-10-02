@@ -259,5 +259,43 @@ describe('usePipelineGraph', () => {
     expect(fitView).toHaveBeenCalledWith({ duration: 300, padding: 1 });
     vi.useRealTimers();
   });
+
+  it('keeps both nodes when adding two nodes back-to-back in the same act()', () => {
+    const takeSnapshot = vi.fn();
+    const setPipelineConfig = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePipelineGraph({ takeSnapshot, setPipelineConfig })
+    );
+
+    act(() => {
+      result.current.handleAddNode('Source 1', 'SOURCE', 'Radio');
+      result.current.handleAddNode('Source 2', 'SOURCE', 'Radio');
+    });
+
+    expect(result.current.nodes).toHaveLength(2);
+    expect(result.current.nodes.map((n) => n.data.label)).toEqual(['Source 1', 'Source 2']);
+    expect(result.current.nodes[0].id).not.toBe(result.current.nodes[1].id);
+  });
+
+  it('keeps all nodes and edges when adding a regular node and a FileIO pair back-to-back in the same act()', () => {
+    const takeSnapshot = vi.fn();
+    const setPipelineConfig = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePipelineGraph({ takeSnapshot, setPipelineConfig })
+    );
+
+    act(() => {
+      result.current.handleAddNode('PubSub', 'SOURCE', 'Radio', 'PubSubIO');
+      result.current.handleAddNode('FileIO', 'SOURCE', 'Folder', 'FileIO');
+    });
+
+    // 1 PubSub + 2 FileIO nodes = 3 nodes
+    expect(result.current.nodes).toHaveLength(3);
+    const ids = new Set(result.current.nodes.map((n) => n.id));
+    expect(ids.size).toBe(3);
+    expect(result.current.edges).toHaveLength(1);
+  });
 });
 

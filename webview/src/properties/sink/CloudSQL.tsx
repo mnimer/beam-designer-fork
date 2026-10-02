@@ -29,8 +29,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 export const CLOUD_SQL_DOC_URL = 'https://github.com/jccatrinck/dataflow-cloud-sql-python';
 export const CLOUD_SQL_DB_DOC_URL =
@@ -75,6 +79,9 @@ function validateUpdateIgnores(raw: string): string | null {
   return null;
 }
 
+/**
+ * Props for the CloudSQLSinkProperties component.
+ */
 export interface CloudSQLSinkPropertiesProps {
   node: {
     data: {
@@ -97,8 +104,13 @@ export interface CloudSQLSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the Cloud SQL sink node. Configures database connection, table, credentials, and update rules.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CloudSQLSinkProperties: React.FC<CloudSQLSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const cloudSqlInstance = properties.cloudSqlInstance || '';
   const dbDriver = properties.dbDriver || DEFAULT_DB_DRIVER;
@@ -157,34 +169,7 @@ export const CloudSQLSinkProperties: React.FC<CloudSQLSinkPropertiesProps> = ({ 
 
   const updateIgnoresError = validateUpdateIgnores(updateIgnores);
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value,
-    });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
-  const handleOpenDocs = () => {
-    const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-    if (vscodeApi) {
-      vscodeApi.postMessage({ command: 'openExternal', url: CLOUD_SQL_DOC_URL });
-    }
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -192,14 +177,11 @@ export const CloudSQLSinkProperties: React.FC<CloudSQLSinkPropertiesProps> = ({ 
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">Cloud SQL (PostgreSQL) Sink</span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
+          <ExternalDocsLink
+            url={CLOUD_SQL_DOC_URL}
+            ariaLabel="Open Cloud SQL connector documentation"
             className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0 focus:outline-none"
-            aria-label="Open Cloud SQL connector documentation"
-          >
-            Docs ↗
-          </button>
+          />
         </div>
         <p className="text-slate-400">
           Writes batched rows into a Google Cloud SQL for PostgreSQL table via the Cloud SQL Connector or Auth Proxy.
@@ -332,23 +314,18 @@ export const CloudSQLSinkProperties: React.FC<CloudSQLSinkPropertiesProps> = ({ 
         placeholder="created_at, created_by"
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="cloudSqlSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Cloud SQL sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="cloudSqlSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Cloud SQL sink code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -6,7 +6,7 @@
  * Purpose:
  * Validates SpannerIOSourceProperties form rendering, hydration, property change dispatching,
  * query vs table read mode switching and validation, timestamp bound mode handling,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, Secret Manager authentication, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -208,7 +208,7 @@ describe('SpannerIOSourceProperties', () => {
     );
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets in datalist', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'Spanner Source',
@@ -223,54 +223,6 @@ describe('SpannerIOSourceProperties', () => {
 
     const secretInput = screen.getByPlaceholderText('e.g. spanner-sa-key');
     expect(secretInput).toHaveValue('spanner-key');
-
-    // Simulate secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/spanner-sa-secret',
-            { id: 'spanner-key-secret', name: 'spanner-key-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#spanner-source-secret-options option[value="spanner-sa-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#spanner-source-secret-options option[value="spanner-key-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Spanner Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<SpannerIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager')).toBeInTheDocument();
   });
 
   it('toggles Advanced Source Settings and updates host, database role, and rpc priority', () => {
@@ -320,69 +272,6 @@ describe('SpannerIOSourceProperties', () => {
     expect(screen.getByText('Spanner database ID is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <SpannerIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <SpannerIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <SpannerIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <SpannerIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

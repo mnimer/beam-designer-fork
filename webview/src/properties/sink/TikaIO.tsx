@@ -22,10 +22,15 @@
 import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * Node definition for TikaIO sink configuration.
+ */
 export interface TikaIOSinkNode {
   data: {
     label: string;
@@ -45,6 +50,9 @@ export interface TikaIOSinkNode {
   };
 }
 
+/**
+ * Props for the TikaIOSinkProperties component.
+ */
 export interface TikaIOSinkPropertiesProps {
   node: TikaIOSinkNode;
   onChange: (properties: any) => void;
@@ -75,12 +83,7 @@ export const TikaIOSinkProperties: React.FC<TikaIOSinkPropertiesProps> = ({ node
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback cascade
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles input, textarea, and select changes for form fields.
@@ -92,16 +95,6 @@ export const TikaIOSinkProperties: React.FC<TikaIOSinkPropertiesProps> = ({ node
     onChange({
       ...properties,
       [name]: value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions for pipeline code generation
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -205,22 +198,21 @@ export const TikaIOSinkProperties: React.FC<TikaIOSinkPropertiesProps> = ({ node
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="tikaSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this sink step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Format ParseResult content and metadata as JSON strings and write via TextIO.write()."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="tikaSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this sink step."
+        placeholder="e.g. Format ParseResult content and metadata as JSON strings and write via TextIO.write()."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="resize-y h-24"
+        helperText="Additional guidance appended to prompt when synthesizing Java code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

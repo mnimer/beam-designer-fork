@@ -3,16 +3,16 @@
  *
  * Author: Mike Nimer <mikenimer@google.com>
  *
- * Covers 100% of statements, branches, functions, and lines in `source/Tinybird.tsx`,
+ * Covers statements, branches, functions, and lines in `source/Tinybird.tsx`,
  * including Pipe mode, SQL mode, Query Parameters, Response Formats, Pagination,
- * Secret Manager discovery, and credential redaction key classification checks.
+ * and credential redaction key classification checks.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TinybirdSourceProperties } from './Tinybird';
-import { TINYBIRD_DOCS_URL, TINYBIRD_HOSTS, DEFAULT_TINYBIRD_HOST } from '../sink/Tinybird';
+import { TINYBIRD_HOSTS, DEFAULT_TINYBIRD_HOST } from '../sink/Tinybird';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
 describe('TinybirdSourceProperties', () => {
@@ -72,7 +72,7 @@ describe('TinybirdSourceProperties', () => {
     expect(classifyKey('tokenSecret')).toBe('reference');
   });
 
-  it('renders defaults with D2 bridge banner and populates host & secret datalists', () => {
+  it('renders defaults with D2 bridge banner and populates host datalist', () => {
     const { unmount } = renderPanel(undefined);
     expect(screen.getByRole('note')).toHaveTextContent(/tinybird-beam is ingest-only/i);
     expect(screen.getByLabelText(/Tinybird API Host/i, { selector: 'input' })).toHaveValue(
@@ -98,35 +98,6 @@ describe('TinybirdSourceProperties', () => {
 
     renderPanel({ format: 'unknown-format' });
     expect(screen.getByLabelText(/Response Format/i)).toHaveValue('json');
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: ['tb-read-token'],
-          },
-        })
-      );
-    });
-    const secretDatalist = document.getElementById('tinybirdSourceTokenSecret-secret-options');
-    expect(secretDatalist).not.toBeNull();
-    expect(
-      Array.from(secretDatalist!.querySelectorAll('option')).map((o) => o.getAttribute('value'))
-    ).toEqual(['tb-read-token']);
-  });
-
-  it('opens primary documentation via Docs button when vscode API is present and no-ops when absent', () => {
-    renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-    expect(postMessageMock).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: TINYBIRD_DOCS_URL,
-    });
-
-    delete (window as unknown as { vscode?: unknown }).vscode;
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
   });
 
   it('validates and updates host, tokenSecret, Pipe mode, and SQL mode fields', () => {
@@ -498,51 +469,9 @@ describe('TinybirdSourceProperties', () => {
     expect(screen.queryByLabelText(/Paginate Results/i)).not.toBeInTheDocument();
   });
 
-  it('supports the 4-level system_instructions fallback chain and emits updates', () => {
+  it('updates system_instructions when code generation instructions textarea changes', () => {
     const onChange = vi.fn();
-    const { rerender } = renderPanel(
-      { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-      { system_instructions: 'data-sys', special_instructions: 'data-spec' },
-      onChange
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-sys');
-
-    rerender(
-      <TinybirdSourceProperties
-        node={{
-          data: {
-            special_instructions: 'data-spec',
-            properties: { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-spec');
-
-    rerender(
-      <TinybirdSourceProperties
-        node={{
-          data: {
-            properties: { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-sys');
-
-    rerender(
-      <TinybirdSourceProperties
-        node={{
-          data: {
-            properties: { special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-spec');
+    renderPanel({}, {}, onChange);
 
     fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {
       target: { value: 'updated tinybird source instructions' },

@@ -3,6 +3,11 @@
  */
 import { describe, it, expect } from 'vitest';
 
+/**
+ * Runs all Python sink integration tests sequentially.
+ *
+ * @returns Promise that resolves when all test suites finish executing.
+ */
 export async function runAllSinksPythonTests(): Promise<void> {
     console.log('Running all Sink integration tests for python...');
     await (await import('./bigquery-sink.test')).runBigquerySinkTest();

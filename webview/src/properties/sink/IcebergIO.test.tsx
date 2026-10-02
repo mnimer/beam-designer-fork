@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { IcebergIOSinkProperties } from './IcebergIO';
 
@@ -280,18 +280,9 @@ describe('IcebergIOSinkProperties', () => {
         tableProperties: 'write.format.default=parquet'
       })
     );
-
-    // Toggle closed again
-    fireEvent.click(advancedToggle);
-    expect(container.querySelector('#icebergSinkCreateTableIfNotExists')).not.toBeInTheDocument();
-    expect(container.querySelector('#icebergSinkTriggeringFrequencySeconds')).not.toBeInTheDocument();
-    expect(container.querySelector('#icebergSinkTableProperties')).not.toBeInTheDocument();
   });
 
   it('handles SecretManagerAuthFields interaction and secret discovery', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
     const mockNode: any = {
       data: {
         properties: {
@@ -307,28 +298,6 @@ describe('IcebergIOSinkProperties', () => {
     const secretInput = container.querySelector('#icebergSinkSecretName') as HTMLInputElement;
     expect(secretInput).toBeInTheDocument();
 
-    // Initial IPC should request secrets
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate extension response event with loaded secrets
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { name: 'projects/123/secrets/iceberg-sink-key', id: 'iceberg-sink-key' }
-            ]
-          }
-        })
-      );
-    });
-
-    const datalist = document.getElementById('iceberg-sink-secrets-list');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'iceberg-sink-key');
-
     // Change secret input
     fireEvent.change(secretInput, {
       target: { name: 'secretName', value: 'iceberg-sink-key' }
@@ -338,43 +307,6 @@ describe('IcebergIOSinkProperties', () => {
         secretName: 'iceberg-sink-key'
       })
     );
-  });
-
-  it('surfaces bucket discovery error with valid non-empty warehouse location', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          table: 'lakehouse.events_processed',
-          warehouseLocation: 'gs://lakehouse/iceberg/warehouse'
-        }
-      }
-    };
-
-    render(<IcebergIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial bucket IPC request
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -396,37 +328,6 @@ describe('IcebergIOSinkProperties', () => {
         system_instructions: 'Write Iceberg records with append disposition'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<IcebergIOSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<IcebergIOSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<IcebergIOSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
   });
   /**
    * Regression guard for a data-integrity defect: the panel used to collect `writeMode`

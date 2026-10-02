@@ -22,6 +22,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -40,6 +42,7 @@ export function resolveAuthMode(_authMode?: string, _password?: string): JdbcAut
   return 'secretManager';
 }
 
+/** Preset mapping driver label to class name and sample JDBC connection URL. */
 export interface JdbcDriverPreset {
   label: string;
   driverClass: string;
@@ -87,6 +90,7 @@ export function getJdbcUrlExample(driverClass?: string): string {
   return 'jdbc:<driver>://<host>:<port>/<database>';
 }
 
+/** React Flow node shape for the JdbcIO source panel, including its persisted configuration data. */
 interface JdbcIOSourceNode {
   data: {
     label: string;
@@ -121,11 +125,17 @@ interface JdbcIOSourceNode {
   };
 }
 
+/** Props for the {@link JdbcIOSourceProperties} component. */
 interface JdbcIOSourcePropertiesProps {
   node: JdbcIOSourceNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the JdbcIO source node. Configures JDBC driver, connection URL, credentials, and SQL queries.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ node, onChange }) => {
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
@@ -158,12 +168,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   const isTableNameInvalid = selectType === 'table' && !tableName.trim();
 
   // System instructions text with default fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const exampleUrl = getJdbcUrlExample(driverClassName);
 
@@ -198,17 +203,6 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
     }
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   return (
@@ -405,7 +399,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       )}
 
       {/* Fetch Size & Parallel Reads */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 items-end gap-2">
         <div className="flex flex-col gap-2">
           <label htmlFor="jdbcFetchSize" className="flex items-center text-xs font-bold uppercase text-slate-500">
             <span>Fetch Size</span>
@@ -475,7 +469,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 items-end gap-2">
               <div className="flex flex-col gap-1">
                 <label htmlFor="jdbcLowerBound" className="text-xs font-semibold text-slate-400">
                   Lower Bound
@@ -524,24 +518,18 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="jdbcSourceSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="jdbcSourceSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for JDBC read code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="jdbcSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for JDBC read code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

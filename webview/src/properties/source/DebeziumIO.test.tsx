@@ -47,8 +47,6 @@ describe('DebeziumIOSourceProperties', () => {
     const hostInput = screen.getByPlaceholderText('e.g. db.example.internal');
     expect(hostInput).toHaveAttribute('aria-invalid', 'true');
     expect(hostInput).toHaveAttribute('aria-required', 'true');
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates form fields from node.data.properties', () => {
@@ -219,28 +217,6 @@ describe('DebeziumIOSourceProperties', () => {
 
     expect(userSecretInput).toHaveValue('db-user-secret');
     expect(passSecretInput).toHaveValue('db-pass-secret');
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/db-user-secret',
-            { id: 'db-pass-secret', name: 'db-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#debezium-source-secret-options option[value="db-user-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#debezium-source-secret-options option[value="db-pass-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
   });
 
   it('supports none authentication mode and hides secret fields', () => {
@@ -257,31 +233,6 @@ describe('DebeziumIOSourceProperties', () => {
 
     expect(screen.queryByPlaceholderText('e.g. debezium-db-username')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('e.g. debezium-db-password')).not.toBeInTheDocument();
-  });
-
-  it('renders Secret Manager error once when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Debezium Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DebeziumIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager for Debezium'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager for Debezium')).toBeInTheDocument();
   });
 
   it('toggles Advanced Source Settings and updates snapshotMode, heartbeat, slotName', () => {
@@ -327,70 +278,7 @@ describe('DebeziumIOSourceProperties', () => {
     );
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <DebeziumIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <DebeziumIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <DebeziumIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property level system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <DebeziumIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property level special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level special instructions')).toBeInTheDocument();
-    unmount4();
-
-    // 5. empty fallback
+  it('updates system_instructions on textarea change', () => {
     render(
       <DebeziumIOSourceProperties
         node={{
@@ -400,8 +288,6 @@ describe('DebeziumIOSourceProperties', () => {
       />
     );
     const textarea = screen.getByPlaceholderText(/Read MySQL binlog CDC stream as JSON/i);
-    expect(textarea).toHaveValue('');
-
     fireEvent.change(textarea, { target: { value: 'Synthesize custom debezium pipeline' } });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({

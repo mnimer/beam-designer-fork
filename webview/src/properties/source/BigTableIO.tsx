@@ -26,17 +26,22 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for BigTable authentication. */
 export interface SecretItem {
   id: string;
   name: string;
   fullName?: string;
 }
 
+/** Props for the {@link BigTableIOSourceProperties} component. */
 export interface BigTableIOSourcePropertiesProps {
   node: {
     data: {
@@ -103,12 +108,7 @@ export const BigTableIOSourceProperties: React.FC<BigTableIOSourcePropertiesProp
   const isTableEmpty = !tableId.trim();
 
   // Verbatim system instruction fallback chain
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -134,18 +134,6 @@ export const BigTableIOSourceProperties: React.FC<BigTableIOSourcePropertiesProp
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -322,92 +310,80 @@ export const BigTableIOSourceProperties: React.FC<BigTableIOSourcePropertiesProp
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        {/* Emulator Host Override */}
+        <PropertyField
+          id="bigtableSourceEmulatorHost"
+          name="emulatorHost"
+          label="Emulator Host"
+          tooltip="Bigtable emulator host (e.g. localhost:8086) for local integration testing (withEmulator)."
+          value={emulatorHost}
+          onChange={handleChange}
+          placeholder="localhost:8086"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            {/* Emulator Host Override */}
-            <PropertyField
-              id="bigtableSourceEmulatorHost"
-              name="emulatorHost"
-              label="Emulator Host"
-              tooltip="Bigtable emulator host (e.g. localhost:8086) for local integration testing (withEmulator)."
-              value={emulatorHost}
-              onChange={handleChange}
-              placeholder="localhost:8086"
-              mono={true}
-            />
+        {/* Attempt and Operation Timeouts */}
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="bigtableSourceAttemptTimeoutMs"
+            name="attemptTimeoutMs"
+            label="Attempt Timeout (ms)"
+            type="number"
+            min={1}
+            value={attemptTimeoutMs}
+            onChange={handleChange}
+            placeholder="e.g. 20000"
+            tooltip="Timeout in milliseconds for each individual RPC call attempt to Bigtable (withAttemptTimeout)."
+            mono={true}
+          />
+          <PropertyField
+            id="bigtableSourceOperationTimeoutMs"
+            name="operationTimeoutMs"
+            label="Operation Timeout (ms)"
+            type="number"
+            min={1}
+            value={operationTimeoutMs}
+            onChange={handleChange}
+            placeholder="e.g. 60000"
+            tooltip="Total timeout in milliseconds for the overall Bigtable operation including retries (withOperationTimeout)."
+            mono={true}
+          />
+        </div>
 
-            {/* Attempt and Operation Timeouts */}
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="bigtableSourceAttemptTimeoutMs"
-                name="attemptTimeoutMs"
-                label="Attempt Timeout (ms)"
-                type="number"
-                min={1}
-                value={attemptTimeoutMs}
-                onChange={handleChange}
-                placeholder="e.g. 20000"
-                tooltip="Timeout in milliseconds for each individual RPC call attempt to Bigtable (withAttemptTimeout)."
-                mono={true}
-              />
-              <PropertyField
-                id="bigtableSourceOperationTimeoutMs"
-                name="operationTimeoutMs"
-                label="Operation Timeout (ms)"
-                type="number"
-                min={1}
-                value={operationTimeoutMs}
-                onChange={handleChange}
-                placeholder="e.g. 60000"
-                tooltip="Total timeout in milliseconds for the overall Bigtable operation including retries (withOperationTimeout)."
-                mono={true}
-              />
-            </div>
-
-            {/* Validation Toggle */}
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                id="bigtableSourceWithoutValidation"
-                type="checkbox"
-                name="withoutValidation"
-                checked={withoutValidation}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
-              />
-              <label htmlFor="bigtableSourceWithoutValidation" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Disable Pipeline Graph Validation</span>
-                <InfoTooltip text="Bypasses table existence and permission checks during graph submission (withoutValidation)." />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        {/* Validation Toggle */}
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            id="bigtableSourceWithoutValidation"
+            type="checkbox"
+            name="withoutValidation"
+            checked={withoutValidation}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
+          />
+          <label htmlFor="bigtableSourceWithoutValidation" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+            <span>Disable Pipeline Graph Validation</span>
+            <InfoTooltip text="Bypasses table existence and permission checks during graph submission (withoutValidation)." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="bigtableSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing BigtableIO read pipelines (emits PCollection<com.google.bigtable.v2.Row>)."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing BigtableIO read pipelines (emits PCollection<com.google.bigtable.v2.Row>)."
         placeholder="e.g. Apply BigtableIO.read().withProjectId(...).withInstanceId(...).withTableId(...) emitting com.google.bigtable.v2.Row"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

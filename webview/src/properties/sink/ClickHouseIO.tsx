@@ -23,15 +23,24 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for ClickHouse authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
   fullName?: string;
 }
 
+/**
+ * Props for the ClickHouseIOSinkProperties component.
+ */
 export interface ClickHouseIOSinkPropertiesProps {
   node: {
     data: {
@@ -103,12 +112,7 @@ export const ClickHouseIOSinkProperties: React.FC<ClickHouseIOSinkPropertiesProp
   const isTableEmpty = !String(table).trim();
 
   // NOTE: Fallback chain for system instructions per architecture spec
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a single property key and invokes the parent onChange callback.
@@ -144,18 +148,6 @@ export const ClickHouseIOSinkProperties: React.FC<ClickHouseIOSinkPropertiesProp
     }
   };
 
-  /**
-   * Handles user updates to system_instructions.
-   *
-   * @param e - React change event from the instructions textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: system_instructions are stored in node properties for code generation prompt guidance
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -393,79 +385,66 @@ export const ClickHouseIOSinkProperties: React.FC<ClickHouseIOSinkPropertiesProp
       </div>
 
       {/* Collapsible Advanced Sink Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Sink Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Sink Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <PropertyField
+          id="clickhouseSinkSocketTimeout"
+          name="socketTimeout"
+          label="Socket Timeout (ms)"
+          type="number"
+          tooltip="ClickHouse socket timeout in milliseconds for sink client."
+          value={socketTimeout}
+          onChange={handleChange}
+          placeholder="30000"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <PropertyField
-              id="clickhouseSinkSocketTimeout"
-              name="socketTimeout"
-              label="Socket Timeout (ms)"
-              type="number"
-              tooltip="ClickHouse socket timeout in milliseconds for sink client."
-              value={socketTimeout}
-              onChange={handleChange}
-              placeholder="30000"
-              mono={true}
-            />
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="clickhouseSinkCompress"
+            type="checkbox"
+            name="compress"
+            checked={compress}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
+          />
+          <label
+            htmlFor="clickhouseSinkCompress"
+            className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer"
+          >
+            <span>Enable Compression</span>
+            <InfoTooltip text="Enables HTTP transport compression when streaming insert blocks to ClickHouse." />
+          </label>
+        </div>
 
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="clickhouseSinkCompress"
-                type="checkbox"
-                name="compress"
-                checked={compress}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
-              />
-              <label
-                htmlFor="clickhouseSinkCompress"
-                className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer"
-              >
-                <span>Enable Compression</span>
-                <InfoTooltip text="Enables HTTP transport compression when streaming insert blocks to ClickHouse." />
-              </label>
-            </div>
+        <PropertyField
+          id="clickhouseSinkExtraJdbcProperties"
+          name="extraJdbcProperties"
+          label="Extra JDBC / HTTP Properties"
+          type="textarea"
+          rows={3}
+          tooltip="Additional ClickHouse connection properties as key=value pairs per line passed to withProperties()."
+          value={extraJdbcProperties}
+          onChange={handleChange}
+          placeholder="ssl=true&#10;sslmode=strict"
+          mono={true}
+        />
+      </CollapsibleSection>
 
-            <PropertyField
-              id="clickhouseSinkExtraJdbcProperties"
-              name="extraJdbcProperties"
-              label="Extra JDBC / HTTP Properties"
-              type="textarea"
-              rows={3}
-              tooltip="Additional ClickHouse connection properties as key=value pairs per line passed to withProperties()."
-              value={extraJdbcProperties}
-              onChange={handleChange}
-              placeholder="ssl=true&#10;sslmode=strict"
-              mono={true}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="clickhouseSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator. Explicitly emphasizes that ClickHouseIO.write requires a PCollection<Row> with an attached Schema."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator. Explicitly emphasizes that ClickHouseIO.write requires a PCollection<Row> with an attached Schema."
         placeholder="e.g. Ingest PCollection<Row> with schema matching destination ClickHouse table using ClickHouseIO.write(url, table).withMaxInsertBlockSize(100000)"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

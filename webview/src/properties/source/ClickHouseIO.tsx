@@ -21,19 +21,24 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for ClickHouse authentication. */
 export interface SecretItem {
   id: string;
   name: string;
   fullName?: string;
 }
 
+/** Props for the {@link ClickHouseIOSourceProperties} component. */
 export interface ClickHouseIOSourcePropertiesProps {
   node: {
     data: {
@@ -121,12 +126,7 @@ export const ClickHouseIOSourceProperties: React.FC<ClickHouseIOSourceProperties
   const isQueryEmpty = !String(query).trim();
 
   // NOTE: Fallback chain for system instructions per architecture spec
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a single property key and invokes the parent onChange callback.
@@ -170,19 +170,6 @@ export const ClickHouseIOSourceProperties: React.FC<ClickHouseIOSourceProperties
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Handles user updates to system_instructions.
-   *
-   * @param e - React change event from the instructions textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: system_instructions are stored in node properties for code generation prompt guidance
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -445,92 +432,80 @@ export const ClickHouseIOSourceProperties: React.FC<ClickHouseIOSourceProperties
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="clickhouseSourceSocketTimeout"
+            name="socketTimeout"
+            label="Socket Timeout (ms)"
+            type="number"
+            tooltip="ClickHouse JDBC socket timeout in milliseconds (socket_timeout)."
+            value={socketTimeout}
+            onChange={handleChange}
+            placeholder="30000"
+            mono={true}
+          />
+          <PropertyField
+            id="clickhouseSourceConnectionTimeout"
+            name="connectionTimeout"
+            label="Connection Timeout (ms)"
+            type="number"
+            tooltip="ClickHouse JDBC connection timeout in milliseconds (connection_timeout)."
+            value={connectionTimeout}
+            onChange={handleChange}
+            placeholder="10000"
+            mono={true}
+          />
+        </div>
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="clickhouseSourceSocketTimeout"
-                name="socketTimeout"
-                label="Socket Timeout (ms)"
-                type="number"
-                tooltip="ClickHouse JDBC socket timeout in milliseconds (socket_timeout)."
-                value={socketTimeout}
-                onChange={handleChange}
-                placeholder="30000"
-                mono={true}
-              />
-              <PropertyField
-                id="clickhouseSourceConnectionTimeout"
-                name="connectionTimeout"
-                label="Connection Timeout (ms)"
-                type="number"
-                tooltip="ClickHouse JDBC connection timeout in milliseconds (connection_timeout)."
-                value={connectionTimeout}
-                onChange={handleChange}
-                placeholder="10000"
-                mono={true}
-              />
-            </div>
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="clickhouseSourceCompress"
+            type="checkbox"
+            name="compress"
+            checked={compress}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
+          />
+          <label
+            htmlFor="clickhouseSourceCompress"
+            className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer"
+          >
+            <span>Enable Compression</span>
+            <InfoTooltip text="Enables LZ4 transport compression (compress=1) for query data transfer between ClickHouse and Beam workers." />
+          </label>
+        </div>
 
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="clickhouseSourceCompress"
-                type="checkbox"
-                name="compress"
-                checked={compress}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0 cursor-pointer"
-              />
-              <label
-                htmlFor="clickhouseSourceCompress"
-                className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer"
-              >
-                <span>Enable Compression</span>
-                <InfoTooltip text="Enables LZ4 transport compression (compress=1) for query data transfer between ClickHouse and Beam workers." />
-              </label>
-            </div>
-
-            <PropertyField
-              id="clickhouseSourceExtraJdbcProperties"
-              name="extraJdbcProperties"
-              label="Extra JDBC Properties"
-              type="textarea"
-              rows={3}
-              tooltip="Additional ClickHouse JDBC connection parameters specified as key=value pairs per line."
-              value={extraJdbcProperties}
-              onChange={handleChange}
-              placeholder="ssl=true&#10;sslmode=strict&#10;max_execution_time=60"
-              mono={true}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <PropertyField
+          id="clickhouseSourceExtraJdbcProperties"
+          name="extraJdbcProperties"
+          label="Extra JDBC Properties"
+          type="textarea"
+          rows={3}
+          tooltip="Additional ClickHouse JDBC connection parameters specified as key=value pairs per line."
+          value={extraJdbcProperties}
+          onChange={handleChange}
+          placeholder="ssl=true&#10;sslmode=strict&#10;max_execution_time=60"
+          mono={true}
+        />
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="clickhouseSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator. Explicitly notes that reading uses JdbcIO with ClickHouse JDBC driver (ClickHouseIO is write-only)."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator. Explicitly notes that reading uses JdbcIO with ClickHouse JDBC driver (ClickHouseIO is write-only)."
         placeholder="e.g. Read ClickHouse records via JdbcIO using com.clickhouse.jdbc.ClickHouseDriver and map ResultSet to Beam Rows (ClickHouseIO is write-only; do not use ClickHouseIO.read)"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

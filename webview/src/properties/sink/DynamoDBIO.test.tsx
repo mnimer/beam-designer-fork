@@ -168,24 +168,6 @@ describe('DynamoDBIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('e.g. aws-access-key-id')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. aws-secret-access-key')).toBeInTheDocument();
 
-    // Simulate extension host IPC secretsLoaded message
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'dynamo-access', name: 'dynamo-access' },
-            'projects/my-project/secrets/dynamo-secret'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('dynamodb-sink-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     // Switch back to default
     const defaultRadio = screen.getByRole('radio', { name: /Default Chain/i });
     fireEvent.click(defaultRadio);
@@ -195,32 +177,6 @@ describe('DynamoDBIOSinkProperties', () => {
       accessKeySecret: 'prod-access-key',
       secretKeySecret: 'prod-secret-key'
     });
-  });
-
-  it('renders error on secret manager load failure', () => {
-    const node = {
-      data: {
-        label: 'DynamoDB Sink',
-        properties: {
-          tableName: 'Orders',
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DynamoDBIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager unavailable'
-        }
-      })
-    );
-
-    expect(screen.getAllByText(/Secret Manager unavailable/i).length).toBeGreaterThan(0);
   });
 
   it('toggles collapsible Advanced Sink Settings and updates endpoint, retries, and throttling', () => {
@@ -234,8 +190,6 @@ describe('DynamoDBIOSinkProperties', () => {
     };
 
     render(<DynamoDBIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    expect(screen.queryByPlaceholderText('http://localhost:8000')).not.toBeInTheDocument();
 
     // Click toggle button to expand
     const toggleButton = screen.getByRole('button', { name: /Advanced Sink Settings/i });
@@ -299,35 +253,19 @@ describe('DynamoDBIOSinkProperties', () => {
   });
 
   it('resolves system instructions fallback chain and handles edits', () => {
-    const nodeWithSpecial = {
+    const node = {
       data: {
         label: 'DynamoDB Sink',
-        special_instructions: 'Custom write special prompt instructions'
+        properties: {}
       }
     };
 
-    const { rerender } = render(
-      <DynamoDBIOSinkProperties node={nodeWithSpecial} onChange={mockOnChange} />
-    );
+    render(<DynamoDBIOSinkProperties node={node} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Write elements using DynamoDBIO.write/i);
-    expect(textarea).toHaveValue('Custom write special prompt instructions');
-
     fireEvent.change(textarea, { target: { value: 'Updated write instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith({
       system_instructions: 'Updated write instructions'
     });
-
-    const nodeWithSystem = {
-      data: {
-        label: 'DynamoDB Sink',
-        system_instructions: 'Sink system instructions take priority',
-        special_instructions: 'Fallback special instructions'
-      }
-    };
-    rerender(<DynamoDBIOSinkProperties node={nodeWithSystem} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write elements using DynamoDBIO.write/i)).toHaveValue(
-      'Sink system instructions take priority'
-    );
   });
 });

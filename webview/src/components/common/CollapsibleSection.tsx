@@ -28,6 +28,9 @@
 import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+/**
+ * Props for the {@link CollapsibleSection} component.
+ */
 export interface CollapsibleSectionProps {
   /**
    * Section heading rendered inside the toggle button.

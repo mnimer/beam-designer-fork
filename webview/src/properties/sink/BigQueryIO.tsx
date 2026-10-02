@@ -16,8 +16,14 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { BigQuerySchemaEditor, type BigQueryField, jsonToFields, stringToFields } from './BigQuerySchemaEditor';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Props for the BigQuery sink property panel component.
+ */
 interface BigQuerySinkPropertiesProps {
   node: any;
   onChange: (properties: any) => void;
@@ -66,53 +72,21 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     });
   };
 
-  const [datasets, setDatasets] = React.useState<string[]>([]);
-  const [tables, setTables] = React.useState<string[]>([]);
-  const [datasetError, setDatasetError] = React.useState<string | null>(null);
-  const [tableError, setTableError] = React.useState<string | null>(null);
+  const { items: datasets, error: datasetError } = useAssetLoader<string>('datasets', {
+    onLoaded: (_items, message) => {
+      if (message?.projectId) {
+        onChange({ ...propertiesRef.current, projectId: message.projectId });
+      }
+    }
+  });
+  const { items: tables, error: tableError } = useAssetLoader<string>('tables', {
+    params: { dataset: properties.dataset }
+  });
 
   const isTableInvalid = !table.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for datasets and tables loaded messages from extension host.
-  // Uses propertiesRef to guarantee async datasetsLoaded does not overwrite newer user input.
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === 'datasetsLoaded') {
-        setDatasets(message.datasets || []);
-        setDatasetError(message.error || null);
-        if (message.projectId) {
-          onChange({ ...propertiesRef.current, projectId: message.projectId });
-        }
-      } else if (message.command === 'tablesLoaded') {
-        setTables(message.tables || []);
-        setTableError(message.error || null);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getDatasets' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  React.useEffect(() => {
-    const vscode = (window as any).vscode;
-    if (vscode && properties.dataset) {
-      vscode.postMessage({ command: 'getTables', dataset: properties.dataset });
-    }
-  }, [properties.dataset]);
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -121,13 +95,6 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     } else {
       onChange({ ...properties, [name]: value });
     }
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -332,23 +299,18 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
         </>
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="bigQuerySinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for BigQuery sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="bigQuerySinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for BigQuery sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

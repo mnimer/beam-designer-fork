@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   ThriftIOSinkProperties,
@@ -214,108 +214,6 @@ describe('ThriftIOSinkProperties', () => {
         system_instructions: 'Configure ThriftIO sink with 5 shards and TCompactProtocol'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special sink instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<ThriftIOSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System sink instructions from properties'
-        }
-      }
-    };
-    rerender(<ThriftIOSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System sink instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special sink instructions from properties'
-        }
-      }
-    };
-    rerender(<ThriftIOSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<ThriftIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['export-lakehouse', 'gs://sink-thrift']
-          }
-        })
-      );
-    });
-
-    // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
-    const toInput = container.querySelector('#thriftSinkTo') as HTMLInputElement;
-    const datalistId = toInput.getAttribute('data-list') || toInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = document.getElementById(datalistId!) || container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://export-lakehouse/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://sink-thrift');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'gs://bucket/out'
-        }
-      }
-    };
-
-    render(<ThriftIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
   });
 
   it('never renders recordClass, shardTemplate, expansionService, or XZ compression', () => {

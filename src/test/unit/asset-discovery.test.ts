@@ -12,56 +12,29 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, ExecFileException } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 // Shared mock holder for vscode configuration getter
 let mockConfigValues: Record<string, string | undefined> = {};
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [
-                {
-                    uri: { fsPath: '/Users/me/ws/mypipeline' },
-                    name: 'mypipeline'
-                }
-            ],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn((section?: string) => ({
-                get: (key: string) => {
-                    const fullKey = section ? `${section}.${key}` : key;
-                    return mockConfigValues[fullKey] ?? mockConfigValues[key];
-                }
-            }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            createOutputChannel: vi.fn().mockReturnValue({
-                appendLine: vi.fn()
-            })
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: [
+            {
+                uri: { fsPath: '/Users/me/ws/mypipeline' },
+                name: 'mypipeline'
+            }
+        ],
+        getConfiguration: vi.fn((section?: string) => ({
+            get: (key: string) => {
+                const fullKey = section ? `${section}.${key}` : key;
+                return mockConfigValues[fullKey] ?? mockConfigValues[key];
+            }
+        }))
+    }
+}));
 
 vi.mock('child_process', () => {
     return {
@@ -285,11 +258,18 @@ describe('A2, M6, M8 — Asset Discovery, CLI Resolution, and Error Surfacing', 
         const fallback = resolveCli('gcloud');
         expect(fallback).not.toBe('   ');
 
-        // When setting is not configured, should resolve via PATH or candidate directories
+        // When setting is not configured, should resolve via PATH: put a fake
+        // gcloud on an isolated PATH so this branch is always exercised.
         mockConfigValues['dataflowDesigner.gcloudPath'] = undefined;
-        const resolvedDefault = resolveCli('gcloud');
-        if (resolvedDefault) {
-            expect(resolvedDefault).toMatch(/gcloud(\.cmd|\.exe)?$/);
+        const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-gcloud-'));
+        const exeName = process.platform === 'win32' ? 'gcloud.cmd' : 'gcloud';
+        const fakeGcloud = path.join(binDir, exeName);
+        fs.writeFileSync(fakeGcloud, '#!/bin/sh\n', { mode: 0o755 });
+        try {
+            process.env.PATH = binDir;
+            expect(resolveCli('gcloud')).toBe(fakeGcloud);
+        } finally {
+            fs.rmSync(binDir, { recursive: true, force: true });
         }
 
         // findGcloudPath falls back to 'gcloud' string even if not present on disk

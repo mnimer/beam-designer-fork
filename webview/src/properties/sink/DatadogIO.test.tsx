@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DatadogIOSinkProperties, DATADOG_INTAKE_PRESETS } from './DatadogIO';
 
@@ -111,35 +111,6 @@ describe('DatadogIOSinkProperties', () => {
     );
 
     expect(container.querySelector('input[name="apiKeySecret"]')).not.toBeInTheDocument();
-  });
-
-  it('requests secrets via vscode.postMessage(getSecrets) and populates datalist', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    render(
-      <DatadogIOSinkProperties
-        node={{ data: { label: 'Datadog', properties: { authMode: 'secretManager' } } }}
-        onChange={vi.fn()}
-      />
-    );
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ name: 'projects/123/secrets/datadog-api-key', id: 'datadog-api-key' }],
-          },
-        })
-      );
-    });
-
-    const datalist = document.getElementById('datadog-sink-secrets-list');
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'datadog-api-key');
   });
 
   it('updates system_instructions when code generation instructions textarea is edited', () => {

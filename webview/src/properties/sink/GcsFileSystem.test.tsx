@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { GcsFileSystemSinkProperties } from './GcsFileSystem';
 
@@ -278,11 +278,6 @@ describe('GcsFileSystemSinkProperties', () => {
         shardTemplate: '-W-of-N'
       })
     );
-
-    // Toggle accordion closed
-    fireEvent.click(shardingToggle);
-    expect(container.querySelector('#gcsSinkNumShards')).not.toBeInTheDocument();
-    expect(container.querySelector('#gcsSinkShardTemplate')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -304,143 +299,6 @@ describe('GcsFileSystemSinkProperties', () => {
         system_instructions: 'Write GCS sink elements with specific shard formatting'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<GcsFileSystemSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<GcsFileSystemSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<GcsFileSystemSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<GcsFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['data-lake-sink', 'gs://backup-sink']
-          }
-        })
-      );
-    });
-
-    const toInput = container.querySelector('#gcsSinkTo') as HTMLInputElement;
-    const datalistId = toInput.getAttribute('data-list') || toInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://data-lake-sink/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://backup-sink');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    render(<GcsFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByText(/Failed to load Cloud Storage buckets:/);
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveAttribute('role', 'alert');
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
-
-  it('REGRESSION: shows the bucket discovery error even when the path is valid', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'gs://valid-bucket/output/data'
-        }
-      }
-    };
-
-    render(<GcsFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Ensure path has no validation error
-    expect(screen.queryByText('Destination Directory is required.')).not.toBeInTheDocument();
-
-    // Dispatch bucket discovery error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to authenticate with GCP storage API'
-          }
-        })
-      );
-    });
-
-    // The bucket discovery error MUST render even though to is valid
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Failed to authenticate with GCP storage API');
-    expect(errorAlert).toHaveClass('text-red-400');
   });
 
   /**

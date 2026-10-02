@@ -42,12 +42,17 @@
 import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 
+/**
+ * React Flow node shape for the Iceberg sink panel, including its persisted configuration data.
+ */
 export interface IcebergIOSinkNode {
   data: {
     label: string;
@@ -72,6 +77,9 @@ export interface IcebergIOSinkNode {
   };
 }
 
+/**
+ * Props for the IcebergIOSinkProperties component.
+ */
 export interface IcebergIOSinkPropertiesProps {
   node: IcebergIOSinkNode;
   onChange: (properties: any) => void;
@@ -119,12 +127,7 @@ export const IcebergIOSinkProperties: React.FC<IcebergIOSinkPropertiesProps> = (
   const showCatalogUri = catalogType === 'rest' || catalogType === 'hive';
 
   // System instructions text with fallback hierarchy
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input and select changes for form fields.
@@ -136,16 +139,6 @@ export const IcebergIOSinkProperties: React.FC<IcebergIOSinkPropertiesProps> = (
     onChange({
       ...properties,
       [name]: value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions for code generation
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -341,22 +334,16 @@ export const IcebergIOSinkProperties: React.FC<IcebergIOSinkPropertiesProps> = (
       />
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="icebergSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline sink code for this Iceberg writer step via Managed I/O."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write PCollection<Row> to Iceberg table in append mode, partitioned by date."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="icebergSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline sink code for this Iceberg writer step via Managed I/O."
+        placeholder="e.g. Write PCollection<Row> to Iceberg table in append mode, partitioned by date."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

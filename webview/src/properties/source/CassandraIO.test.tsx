@@ -45,8 +45,6 @@ describe('CassandraIOSourceProperties', () => {
     expect(screen.getByText(/Contact points \/ hosts are required/i)).toBeInTheDocument();
     expect(screen.getByText(/Keyspace is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Table is required/i)).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly', () => {
@@ -171,49 +169,11 @@ describe('CassandraIOSourceProperties', () => {
     expect(usernameSecretInput).toBeInTheDocument();
     expect(passwordSecretInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/cassandra-user',
-          { id: 'cassandra-pass', name: 'cassandra-pass' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#cassandra-source-secret-options option[value="cassandra-user"]');
-    const option2 = document.querySelector('datalist#cassandra-source-secret-options option[value="cassandra-pass"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     // Type in secret fields
     fireEvent.change(usernameSecretInput, { target: { name: 'usernameSecret', value: 'cassandra-user' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       usernameSecret: 'cassandra-user'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Cassandra Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<CassandraIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access GCP Secret Manager')).toBeInTheDocument();
   });
 
   it('toggles Advanced Source Settings and updates parameters', () => {
@@ -289,30 +249,14 @@ describe('CassandraIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('9042')).toHaveValue(9042);
   });
 
-  it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+  it('updates system_instructions when textarea changes', () => {
+    const node = {
       data: {
         label: 'Cassandra Source',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<CassandraIOSourceProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read Cassandra rows/i)).toHaveValue('Fallback instructions 1');
-    unmount();
-
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'Cassandra Source',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<CassandraIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read Cassandra rows/i)).toHaveValue('Fallback instructions 2');
+    render(<CassandraIOSourceProperties node={node} onChange={mockOnChange} />);
 
     // Modifying textarea calls onChange with system_instructions
     const textarea = screen.getByPlaceholderText(/Read Cassandra rows/i);

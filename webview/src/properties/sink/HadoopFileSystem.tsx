@@ -31,11 +31,16 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * React Flow node shape for the Hadoop File System sink panel, including its persisted configuration data.
+ */
 export interface HadoopFileSystemSinkNode {
   data: {
     label: string;
@@ -65,6 +70,9 @@ export interface HadoopFileSystemSinkNode {
   };
 }
 
+/**
+ * Props for the HadoopFileSystemSinkProperties component.
+ */
 export interface HadoopFileSystemSinkPropertiesProps {
   node: HadoopFileSystemSinkNode;
   onChange: (properties: any) => void;
@@ -90,6 +98,11 @@ export const HADOOP_SINK_COMPRESSION_TYPES: SelectFieldOption[] = [
   { value: 'ZSTD', label: 'ZSTD (.zst)' }
 ];
 
+/**
+ * Dedicated property panel for the Hadoop File System sink node. Configures NameNode connection, authentication, and file formats.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const HadoopFileSystemSinkProperties: React.FC<HadoopFileSystemSinkPropertiesProps> = ({
   node,
   onChange
@@ -117,12 +130,7 @@ export const HadoopFileSystemSinkProperties: React.FC<HadoopFileSystemSinkProper
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -138,15 +146,6 @@ export const HadoopFileSystemSinkProperties: React.FC<HadoopFileSystemSinkProper
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   /**
    * Toggles the advanced sharding accordion state
@@ -381,23 +380,21 @@ export const HadoopFileSystemSinkProperties: React.FC<HadoopFileSystemSinkProper
         />
       </CollapsibleSection>
 
-      {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="hadoopSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this HadoopFileSystem writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write records to HDFS destination using TextIO.write().to(...) with custom replication and shard naming."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="hadoopSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this HadoopFileSystem writer step."
+        placeholder="e.g. Write records to HDFS destination using TextIO.write().to(...) with custom replication and shard naming."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

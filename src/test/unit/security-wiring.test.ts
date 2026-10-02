@@ -29,12 +29,27 @@ import * as path from 'path';
 
 const SRC_DIR = path.resolve(__dirname, '../..');
 
-/** Reads every non-test TypeScript file directly under src/ as { file, text }. */
-const productionSources = (): Array<{ file: string; text: string }> =>
-    fs
-        .readdirSync(SRC_DIR)
-        .filter((f) => f.endsWith('.ts'))
-        .map((f) => ({ file: f, text: fs.readFileSync(path.join(SRC_DIR, f), 'utf-8') }));
+/** Reads every non-test TypeScript file under src/ as { file, text }. */
+const productionSources = (): Array<{ file: string; text: string }> => {
+    const collect = (dir: string): Array<{ file: string; text: string }> => {
+        const results: Array<{ file: string; text: string }> = [];
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.isDirectory()) {
+                if (entry.name !== 'test') {
+                    results.push(...collect(path.join(dir, entry.name)));
+                }
+            } else if (entry.name.endsWith('.ts')) {
+                const fullPath = path.join(dir, entry.name);
+                results.push({
+                    file: path.relative(SRC_DIR, fullPath),
+                    text: fs.readFileSync(fullPath, 'utf-8')
+                });
+            }
+        }
+        return results;
+    };
+    return collect(SRC_DIR);
+};
 
 describe('security wiring — C2 credential redaction reaches the Gemini call', () => {
     // Locate whichever file actually performs the model call, wherever it now lives.

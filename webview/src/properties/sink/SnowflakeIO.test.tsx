@@ -182,64 +182,20 @@ describe('SnowflakeIOSinkProperties', () => {
     );
   });
 
-  it('receives IPC secrets in sink datalist', () => {
+  it('supports Secret Manager authentication mode in sink', () => {
     const node = {
       data: {
         label: 'Snowflake Sink',
         properties: {
-          authMode: 'username_password' as const
+          authMode: 'username_password' as const,
+          passwordSecret: 'snowflake-sink-pw'
         }
       }
     };
 
     render(<SnowflakeIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/snowflake-sink-pw',
-            { id: 'snowflake-sink-key', name: 'snowflake-sink-key' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#snowflake-sink-secret-options option[value="snowflake-sink-pw"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#snowflake-sink-secret-options option[value="snowflake-sink-key"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Snowflake Sink',
-        properties: {
-          authMode: 'username_password' as const
-        }
-      }
-    };
-
-    render(<SnowflakeIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager connection timed out'
-        }
-      })
-    );
-
-    expect(screen.getByText('Secret Manager connection timed out')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('e.g. snowflake-password')).toHaveValue('snowflake-sink-pw');
   });
 
   it('toggles Advanced Sink Settings and updates flush row limit and login timeout', () => {
@@ -287,69 +243,6 @@ describe('SnowflakeIOSinkProperties', () => {
     expect(screen.getByText('Destination table name is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <SnowflakeIOSinkProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <SnowflakeIOSinkProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <SnowflakeIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <SnowflakeIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

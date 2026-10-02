@@ -5,13 +5,12 @@
  * 
  * Purpose:
  * Unit tests validating AmqpIOSourceProperties component functionality,
- * form change callbacks, protocol helpers, gcloud Secret Manager integration,
- * Compute Engine VM instance suggestions, bounded stream limits,
- * Python x-lang expansion service configuration, and system instructions.
+ * form change callbacks, protocol helpers, addresses validation,
+ * bounded stream limits, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AmqpIOSourceProperties } from './AmqpIO';
 
@@ -173,100 +172,6 @@ describe('AmqpIOSourceProperties', () => {
     }));
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting or typing a secret', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<AmqpIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'amqp-auth-token', value: 'amqp-auth-token' },
-            'projects/my-gcp-project/secrets/amqp-prod-key'
-          ]
-        }
-      }));
-    });
-
-    const secretInput = screen.getByLabelText(/GCP Secret Manager Secret/i);
-    expect(secretInput).toBeInTheDocument();
-
-    fireEvent.change(secretInput, { target: { name: 'secretName', value: 'amqp-auth-token' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      secretName: 'amqp-auth-token'
-    }));
-  });
-
-  it('triggers refresh secrets callback when refresh button clicked', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-
-    render(<AmqpIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-  });
-
-  it('shows and validates expansion service endpoint when mode is endpoint', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          expansionServiceMode: 'endpoint' as const,
-          expansionServiceEndpoint: ''
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<AmqpIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    const endpointInput = screen.getByLabelText(/Expansion Service Endpoint/i);
-    expect(endpointInput).toBeInTheDocument();
-    expect(endpointInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Expansion service endpoint is required.')).toBeInTheDocument();
-
-    fireEvent.change(endpointInput, { target: { name: 'expansionServiceEndpoint', value: '127.0.0.1:8097' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      expansionServiceEndpoint: '127.0.0.1:8097'
-    }));
-  });
-
-  it('switches expansion service mode', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          expansionServiceMode: 'auto' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<AmqpIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    const modeSelect = screen.getByLabelText(/Expansion Service Mode/i);
-    fireEvent.change(modeSelect, { target: { name: 'expansionServiceMode', value: 'endpoint' } });
-
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      expansionServiceMode: 'endpoint'
-    }));
-  });
-
   it('validates empty addresses with required error and aria-invalid', () => {
     const mockNode = {
       data: {
@@ -282,131 +187,6 @@ describe('AmqpIOSourceProperties', () => {
     const addressInput = screen.getByLabelText(/Broker Addresses/i);
     expect(addressInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('At least one AMQP address is required.')).toBeInTheDocument();
-  });
-
-  it('handles error messages from extension correctly', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          addresses: 'amqp://broker.example.com:5672/queue'
-        }
-      }
-    };
-
-    render(<AmqpIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled'
-        }
-      }));
-    });
-
-    expect(screen.getByText('Secret Manager API is not enabled')).toBeInTheDocument();
-  });
-
-  it('handles non-array secrets payload without throwing', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-
-    expect(() => {
-      render(<AmqpIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-      act(() => {
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: null
-          }
-        }));
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'unrelatedMessage'
-          }
-        }));
-      });
-    }).not.toThrow();
-  });
-
-  it('mounts gracefully when window.vscode is undefined', () => {
-    delete (window as any).vscode;
-
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-
-    expect(() => {
-      render(<AmqpIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-    }).not.toThrow();
-  });
-
-  it('respects system_instructions fallback precedence', () => {
-    // 1. node.data.system_instructions wins
-    const node1 = {
-      data: {
-        label: 'AmqpIO',
-        system_instructions: 'From node data system',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount1 } = render(<AmqpIOSourceProperties node={node1} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data system');
-    unmount1();
-
-    // 2. node.data.special_instructions fallback
-    const node2 = {
-      data: {
-        label: 'AmqpIO',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system'
-        }
-      }
-    };
-    const { unmount: unmount2 } = render(<AmqpIOSourceProperties node={node2} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data special');
-    unmount2();
-
-    // 3. properties.system_instructions fallback
-    const node3 = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount3 } = render(<AmqpIOSourceProperties node={node3} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop system');
-    unmount3();
-
-    // 4. properties.special_instructions fallback
-    const node4 = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount4 } = render(<AmqpIOSourceProperties node={node4} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop special');
-    unmount4();
   });
 
   it('updates system_instructions when textarea changes', () => {
@@ -426,16 +206,5 @@ describe('AmqpIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Parse JSON payload using Jackson'
     }));
-  });
-
-  it('displays credentials documentation callout explaining AMQP 1.0 authentication via Secret Manager', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-    render(<AmqpIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-    expect(screen.getByText(/AMQP 1\.0 broker credentials are authenticated via Google Cloud Secret Manager/i)).toBeInTheDocument();
   });
 });

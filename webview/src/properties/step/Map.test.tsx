@@ -6,7 +6,7 @@
  * Purpose:
  * Comprehensive unit test suite for MapProperties step component.
  * Validates simple conditions, extreme conditions, failure conditions,
- * input modifications, and instruction fallback hierarchy.
+ * and input modifications.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -206,80 +206,4 @@ describe('MapProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ system_instructions: '' }));
   });
 
-  // Instruction hierarchy: verifies fallback precedence
-  describe('system_instructions fallback precedence', () => {
-    it('prioritizes node.data.system_instructions over other instruction fields', () => {
-      const mockNode = {
-        data: {
-          label: 'Map',
-          system_instructions: 'node sys inst',
-          special_instructions: 'node spec inst',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<MapProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node sys inst');
-    });
-
-    it('falls back to node.data.special_instructions if node system_instructions is undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Map',
-          special_instructions: 'node spec inst',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<MapProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node spec inst');
-    });
-
-    it('falls back to properties.system_instructions if node-level fields are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Map',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<MapProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop sys inst');
-    });
-
-    it('falls back to properties.special_instructions when other fields are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Map',
-          properties: {
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<MapProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop spec inst');
-    });
-
-    it('defaults to empty string when no instructions are defined', () => {
-      const mockNode = {
-        data: {
-          label: 'Map',
-          properties: {}
-        }
-      };
-      const { container } = render(<MapProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#mapSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('');
-    });
-  });
 });

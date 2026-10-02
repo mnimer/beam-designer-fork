@@ -17,6 +17,9 @@
 import React, { useState, useEffect } from 'react';
 import { List, FileCode, Code, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 
+/**
+ * Individual field definition within a tabular schema.
+ */
 export interface SchemaField {
   name: string;
   type: string;
@@ -60,6 +63,9 @@ export const BEAM_SCHEMA_TYPES = [
   'RECORD'
 ] as const;
 
+/**
+ * Props for the {@link SchemaEditor} component.
+ */
 export interface SchemaEditorProps {
   fields?: SchemaField[];
   types?: readonly string[];
@@ -165,6 +171,12 @@ export function resolveSchemaFields(properties: Record<string, any>): SchemaFiel
   return [];
 }
 
+/**
+ * Multi-mode tabular schema editor supporting interactive builder rows, raw JSON, and compact string representations.
+ *
+ * @param props Component properties controlling field list, supported types, titles, element ids, and change callbacks.
+ * @returns Rendered schema editor panel.
+ */
 export const SchemaEditor: React.FC<SchemaEditorProps> = ({
   fields = [],
   types = BIGQUERY_TYPES,

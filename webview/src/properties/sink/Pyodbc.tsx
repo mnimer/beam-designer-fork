@@ -18,7 +18,11 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 const PYODBC_DOCS_URL = 'https://github.com/314e/beam-pyodbc-connector';
 
@@ -33,13 +37,13 @@ const HOST_RE = /^[A-Za-z0-9._\-\\[\]:]+$/;
 const CREDENTIAL_KEYS = new Set(['pwd', 'password', 'uid', 'user', 'user id', 'username']);
 const DEDICATED_KEYS = new Set(['driver', 'dsn', 'server', 'database', 'port']);
 
-function openPyodbcDocs(): void {
-  const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscode) {
-    vscode.postMessage({ command: 'openExternal', url: PYODBC_DOCS_URL });
-  }
-}
 
+/**
+ * Resolves standard default port number for known ODBC database drivers.
+ *
+ * @param driver The ODBC driver name.
+ * @returns Default port string or description.
+ */
 function getPyodbcDefaultPort(driver: string): string {
   if (/sql server/i.test(driver)) {
     return '1433';
@@ -53,6 +57,12 @@ function getPyodbcDefaultPort(driver: string): string {
   return 'driver default';
 }
 
+/**
+ * Validates the ODBC driver name string.
+ *
+ * @param v The driver name.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateDriver(v: string): string | null {
   const trimmed = v.trim();
   if (!trimmed) {
@@ -64,6 +74,12 @@ function validateDriver(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates the database host name or IP address.
+ *
+ * @param v The host string.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateHost(v: string): string | null {
   const trimmed = v.trim();
   if (!trimmed) {
@@ -75,6 +91,12 @@ function validateHost(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates an optional network port number.
+ *
+ * @param v The port value.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validatePort(v: string | number): string | null {
   const s = String(v).trim();
   if (!s) {
@@ -90,6 +112,12 @@ function validatePort(v: string | number): string | null {
   return null;
 }
 
+/**
+ * Validates extra connection attributes to prevent plaintext credentials or duplicates.
+ *
+ * @param v The extra attributes semicolon-separated string.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateExtraAttributes(v: string): string | null {
   if (!v.trim()) {
     return null;
@@ -115,6 +143,12 @@ function validateExtraAttributes(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates the target database table name.
+ *
+ * @param v The table name.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateTable(v: string): string | null {
   const trimmed = v.trim();
   if (!trimmed) {
@@ -126,6 +160,12 @@ function validateTable(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates optional batch size value.
+ *
+ * @param v The batch size value.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateBatchSize(v: string | number): string | null {
   const s = String(v).trim();
   if (!s) {
@@ -137,6 +177,9 @@ function validateBatchSize(v: string | number): string | null {
   return null;
 }
 
+/**
+ * Props for the PyodbcSinkProperties component.
+ */
 export interface PyodbcSinkPropertiesProps {
   node: {
     data: {
@@ -148,8 +191,13 @@ export interface PyodbcSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the PyODBC sink node. Configures ODBC driver, host, database, table, credentials, and extra connection attributes.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const PyodbcSinkProperties: React.FC<PyodbcSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const driver = String(properties.driver ?? '');
   const host = String(properties.host ?? '');
@@ -161,13 +209,7 @@ export const PyodbcSinkProperties: React.FC<PyodbcSinkPropertiesProps> = ({ node
   const extraAttributes = String(properties.extraAttributes ?? '');
   const batchSize = (properties.batchSize as string | number | undefined) ?? '';
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const driverError = validateDriver(driver);
   const hostError = validateHost(host);
@@ -179,26 +221,13 @@ export const PyodbcSinkProperties: React.FC<PyodbcSinkPropertiesProps> = ({ node
   const extraAttributesError = validateExtraAttributes(extraAttributes);
   const batchSizeError = validateBatchSize(batchSize);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      [e.target.name]: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">Pyodbc Sink (WriteToDB / pyodbc)</span>
-          <button
-            type="button"
-            onClick={openPyodbcDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={PYODBC_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Writes batched rows into an ODBC-compliant database table from Python Beam pipelines using pyodbc.
@@ -341,24 +370,19 @@ export const PyodbcSinkProperties: React.FC<PyodbcSinkPropertiesProps> = ({ node
         placeholder="1000"
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* K10: Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="pyodbcSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          mono={false}
-          tooltip="Custom instructions for LLM code generation for this Pyodbc sink node."
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter custom instructions for pyodbc write code generation..."
-        />
-      </div>
+      <SystemInstructionsField
+        id="pyodbcSinkSystemInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions for LLM code generation for this Pyodbc sink node."
+        placeholder="Enter custom instructions for pyodbc write code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

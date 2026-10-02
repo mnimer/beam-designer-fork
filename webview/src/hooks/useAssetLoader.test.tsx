@@ -268,4 +268,68 @@ describe('useAssetLoader', () => {
     expect(mockPostMessage).not.toHaveBeenCalled();
     expect(screen.getByTestId('count')).toHaveTextContent('1');
   });
+
+  describe('F11 request correlation via echoed requestParams', () => {
+    const TablesFor = ({ dataset, testId }: { dataset: string; testId: string }) => {
+      const { items, loading } = useAssetLoader<string>('tables', { dataset });
+      return (
+        <div>
+          <span data-testid={`${testId}-loading`}>{String(loading)}</span>
+          <span data-testid={`${testId}-items`}>{items.join(',')}</span>
+        </div>
+      );
+    };
+
+    it('only updates the listener whose params match the echoed request', () => {
+      render(
+        <>
+          <TablesFor dataset="ds_a" testId="a" />
+          <TablesFor dataset="ds_b" testId="b" />
+        </>
+      );
+
+      dispatch({ command: 'tablesLoaded', tables: ['a1'], requestParams: { dataset: 'ds_a' } });
+      expect(screen.getByTestId('a-items')).toHaveTextContent('a1');
+      expect(screen.getByTestId('a-loading')).toHaveTextContent('false');
+      expect(screen.getByTestId('b-items')).toHaveTextContent('');
+      expect(screen.getByTestId('b-loading')).toHaveTextContent('true');
+
+      dispatch({ command: 'tablesLoaded', tables: ['b1'], requestParams: { dataset: 'ds_b' } });
+      expect(screen.getByTestId('a-items')).toHaveTextContent('a1');
+      expect(screen.getByTestId('b-items')).toHaveTextContent('b1');
+    });
+
+    it('drops a late response for a previous parent selection', () => {
+      const Switcher = () => {
+        const [dataset, setDataset] = useState('ds_old');
+        return (
+          <div>
+            <button type="button" onClick={() => setDataset('ds_new')}>Switch</button>
+            <TablesFor dataset={dataset} testId="s" />
+          </div>
+        );
+      };
+      render(<Switcher />);
+      fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+
+      dispatch({ command: 'tablesLoaded', tables: ['new1'], requestParams: { dataset: 'ds_new' } });
+      // The slower response for the old dataset arrives last and must be ignored.
+      dispatch({ command: 'tablesLoaded', tables: ['old1'], requestParams: { dataset: 'ds_old' } });
+
+      expect(screen.getByTestId('s-items')).toHaveTextContent('new1');
+      expect(screen.getByTestId('s-loading')).toHaveTextContent('false');
+    });
+
+    it('still accepts responses without requestParams (legacy senders)', () => {
+      render(<TablesFor dataset="ds_a" testId="l" />);
+      dispatch({ command: 'tablesLoaded', tables: ['x'] });
+      expect(screen.getByTestId('l-items')).toHaveTextContent('x');
+    });
+
+    it('does not add fields to the request message', () => {
+      render(<TablesFor dataset="ds_a" testId="r" />);
+      expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getTables', dataset: 'ds_a' });
+    });
+  });
 });
+

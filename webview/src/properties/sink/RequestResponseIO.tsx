@@ -22,6 +22,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -40,6 +42,9 @@ export const SINK_CODER_OPTIONS = [
   { value: 'SerializableCoder', label: 'SerializableCoder (Java POJO / Python Pickle)' },
 ];
 
+/**
+ * React Flow node shape for the RequestResponseIO sink panel, including its persisted configuration data.
+ */
 export interface RequestResponseIOSinkNode {
   data: {
     label: string;
@@ -68,6 +73,9 @@ export interface RequestResponseIOSinkNode {
   };
 }
 
+/**
+ * Props for the RequestResponseIOSinkProperties component.
+ */
 export interface RequestResponseIOSinkPropertiesProps {
   node: RequestResponseIOSinkNode;
   onChange: (properties: any) => void;
@@ -104,12 +112,7 @@ export const RequestResponseIOSinkProperties: React.FC<RequestResponseIOSinkProp
   const isEndpointInvalid = !endpointUrl.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, number, and select input changes.
@@ -137,16 +140,6 @@ export const RequestResponseIOSinkProperties: React.FC<RequestResponseIOSinkProp
     });
   };
 
-  /**
-   * Handles code generation instructions textarea change.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Caller Web API Endpoint URL */}
@@ -164,7 +157,7 @@ export const RequestResponseIOSinkProperties: React.FC<RequestResponseIOSinkProp
       />
 
       {/* HTTP Method & Coders */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 items-end gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor="rrioSinkHttpMethod" className="flex items-center text-xs font-bold uppercase text-slate-500">
             <span>HTTP Method</span>
@@ -363,24 +356,20 @@ export const RequestResponseIOSinkProperties: React.FC<RequestResponseIOSinkProp
         </div>
       </details>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="rrioSinkInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling Result.getFailures() dead-letter output)." />
-        </label>
-        <textarea
-          id="rrioSinkInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. POST JSON payloads via Caller<String, String> and log ApiIOError failures from Result.getFailures()..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="rrioSinkInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling Result.getFailures() dead-letter output)."
+        placeholder="e.g. POST JSON payloads via Caller<String, String> and log ApiIOError failures from Result.getFailures()..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -116,8 +116,6 @@ export function checkJsonSyntax(filename: string, content: string): string | nul
 /**
  * Checks Java file for structural syntax: balanced braces, matching class name.
  *
- * Author: Mike Nimer <mikenimer@google.com>
- *
  * Logic flow:
  * - Scans source code character-by-character while tracking parsing state.
  * - Filters out line comments (`//...`) and block comments (`/* ... * /`).

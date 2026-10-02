@@ -32,7 +32,10 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 const CLOUD_BIGTABLE_DOCS_URL = 'https://cloud.google.com/bigtable/docs/hbase-dataflow-java';
@@ -77,11 +80,17 @@ const RESERVED_SINK_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'google.bigtable.enable.bulk.mutation.flow.control',
 ]);
 
+/**
+ * Custom configuration key-value entry for Cloud Bigtable sink options.
+ */
 export interface CloudBigtableSinkConfigEntry {
   key: string;
   value: string;
 }
 
+/**
+ * Props for the CloudBigtableSinkProperties component.
+ */
 export interface CloudBigtableSinkPropertiesProps {
   node: {
     data: {
@@ -93,6 +102,12 @@ export interface CloudBigtableSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Validates a Google Cloud project ID string.
+ *
+ * @param value The candidate project ID.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateProjectId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -104,6 +119,12 @@ function validateProjectId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates a Cloud Bigtable instance ID string.
+ *
+ * @param value The candidate instance ID.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateInstanceId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -115,6 +136,12 @@ function validateInstanceId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates a Cloud Bigtable table ID string.
+ *
+ * @param value The candidate table ID.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateTableId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -129,6 +156,12 @@ function validateTableId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates an optional Cloud Bigtable app profile ID string.
+ *
+ * @param value The candidate app profile ID.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateAppProfileId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -140,6 +173,14 @@ function validateAppProfileId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates a custom configuration key-value entry for the Bigtable sink.
+ *
+ * @param entry The config entry to validate.
+ * @param index Index of the entry within the full config list.
+ * @param allEntries Full list of configured entries for duplicate detection.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateConfigEntry(
   entry: CloudBigtableSinkConfigEntry,
   index: number,
@@ -170,6 +211,11 @@ function validateConfigEntry(
   return null;
 }
 
+/**
+ * Dedicated property panel for the Cloud Bigtable sink node. Configures target instance, table, write mode, and credentials.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
 
@@ -184,13 +230,7 @@ export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesPr
     ? (properties.configuration as CloudBigtableSinkConfigEntry[])
     : [];
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Dynamic asset discovery (R2 PubSubIO datalist pattern)
   const { items: projects, loading: projectsLoading, error: projectsError } = useAssetLoader<string>('projects');
@@ -214,12 +254,6 @@ export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesPr
   const appProfileValidationError = validateAppProfileId(appProfileId);
   const tableValidationError = writeMode === 'singleTable' ? validateTableId(tableId) : null;
 
-  const openDocs = () => {
-    const vscode = (window as unknown as { vscode?: { postMessage?: (msg: unknown) => void } }).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({ command: 'openExternal', url: CLOUD_BIGTABLE_DOCS_URL });
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -264,12 +298,6 @@ export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesPr
     onChange(nextProps);
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -277,13 +305,7 @@ export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesPr
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">Cloud Bigtable (HBase) Sink</span>
-          <button
-            type="button"
-            onClick={openDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={CLOUD_BIGTABLE_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Writes HBase Put and Delete mutations to a Google Cloud Bigtable table (CloudBigtableIO.writeToTable).
@@ -485,23 +507,18 @@ export const CloudBigtableSinkProperties: React.FC<CloudBigtableSinkPropertiesPr
         </button>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="cbtSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Cloud Bigtable (HBase) sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="cbtSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Cloud Bigtable (HBase) sink code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

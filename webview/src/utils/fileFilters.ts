@@ -1,8 +1,6 @@
 /**
  * File and directory filtering utilities for Apache Beam Designer.
  * 
- * Author: Mike Nimer <mikenimer@google.com>
- * 
  * Purpose:
  * Centralizes directory and file exclusion logic so virtual environments (venv, .venv),
  * package dependencies (node_modules, site-packages), build outputs (target, dist, build),

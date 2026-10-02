@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TFRecordIOSinkProperties } from './TFRecordIO';
 
@@ -181,106 +181,6 @@ describe('TFRecordIOSinkProperties', () => {
         system_instructions: 'Configure TFRecordIO sink to write 10 shards with DEFLATE compression'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special sink instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<TFRecordIOSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System sink instructions from properties'
-        }
-      }
-    };
-    rerender(<TFRecordIOSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System sink instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special sink instructions from properties'
-        }
-      }
-    };
-    rerender(<TFRecordIOSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<TFRecordIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['export-lakehouse', 'gs://sink-records']
-          }
-        })
-      );
-    });
-
-    // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
-    const toInput = container.querySelector('#tfrecordSinkTo') as HTMLInputElement;
-    const datalist = document.getElementById((toInput.getAttribute('data-list') || toInput.getAttribute('list'))!);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://export-lakehouse/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://sink-records');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'gs://bucket/output/'
-        }
-      }
-    };
-
-    render(<TFRecordIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Storage API Error: 500 Internal Server Error'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Storage API Error: 500 Internal Server Error');
-    expect(errorAlert).toHaveClass('text-red-400');
   });
 
   it('never renders coder or offers AUTO or ZLIB compression on sink, and defaults AUTO to UNCOMPRESSED', () => {

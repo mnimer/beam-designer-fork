@@ -34,11 +34,14 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/** React Flow node shape for the AzureBlobStoreFileSystem source panel, including its persisted configuration data. */
 export interface AzureBlobStoreFileSystemSourceNode {
   data: {
     label: string;
@@ -65,6 +68,7 @@ export interface AzureBlobStoreFileSystemSourceNode {
   };
 }
 
+/** Props for the {@link AzureBlobStoreFileSystemSourceProperties} component. */
 export interface AzureBlobStoreFileSystemSourcePropertiesProps {
   node: AzureBlobStoreFileSystemSourceNode;
   onChange: (properties: any) => void;
@@ -134,12 +138,7 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
   const isStorageAccountInvalid = isStorageAccountRequired && !storageAccount.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -152,16 +151,6 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -410,22 +399,21 @@ export const AzureBlobStoreFileSystemSourceProperties: React.FC<AzureBlobStoreFi
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="azureSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this AzureBlobStoreFileSystem reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read Parquet files from Azure Blob Storage azfs://account/container/data/ with Managed Identity authentication."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="azureSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this AzureBlobStoreFileSystem reader step."
+        placeholder="e.g. Read Parquet files from Azure Blob Storage azfs://account/container/data/ with Managed Identity authentication."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="resize-y h-24"
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

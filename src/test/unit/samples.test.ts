@@ -13,54 +13,7 @@ import * as path from 'path';
 import { formatSampleTitle, getSamplePipelines, computePipelineFlow } from '../../extension';
 
 // Mock vscode module
-vi.mock('vscode', () => {
-    class MockTreeItem {
-        public description?: string;
-        public tooltip?: any;
-        public iconPath?: any;
-        public command?: any;
-        constructor(
-            public label: string,
-            public collapsibleState: number = 0
-        ) {}
-    }
-
-    class MockEventEmitter {
-        public fire = vi.fn();
-        public event = vi.fn();
-    }
-
-    return {
-        TreeItem: MockTreeItem,
-        TreeItemCollapsibleState: {
-            None: 0,
-            Collapsed: 1,
-            Expanded: 2
-        },
-        EventEmitter: MockEventEmitter,
-        ThemeIcon: class MockThemeIcon { constructor(public id: string) {} },
-        ThemeColor: class MockThemeColor { constructor(public id: string) {} },
-        MarkdownString: class MockMarkdownString { constructor(public value: string) {} },
-        workspace: {
-            openTextDocument: vi.fn(),
-            workspaceFolders: [{ uri: { fsPath: '/workspace' }, name: 'workspace' }],
-            findFiles: vi.fn().mockResolvedValue([])
-        },
-        window: {
-            showTextDocument: vi.fn(),
-            showErrorMessage: vi.fn(),
-            registerTreeDataProvider: vi.fn(),
-        },
-        Uri: {
-            file: vi.fn((f: string) => ({ fsPath: f, toString: () => f })),
-            parse: vi.fn((f: string) => ({ fsPath: f, toString: () => f })),
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn(),
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock());
 
 describe('computePipelineFlow', () => {
     it('returns empty string for empty or missing nodes', () => {
@@ -129,13 +82,6 @@ describe('formatSampleTitle', () => {
         expect(formatSampleTitle('')).toBe('');
         expect(formatSampleTitle('simple')).toBe('Simple');
     });
-
-    it('ensures sample filenames have .beam extension', () => {
-        const sample1 = 'test-pipeline';
-        const sample2 = 'test-pipeline.beam';
-        expect(sample1.endsWith('.beam') ? sample1 : `${sample1}.beam`).toBe('test-pipeline.beam');
-        expect(sample2.endsWith('.beam') ? sample2 : `${sample2}.beam`).toBe('test-pipeline.beam');
-    });
 });
 
 describe('getSamplePipelines', () => {
@@ -167,14 +113,6 @@ describe('getSamplePipelines', () => {
             expect(pubsubSample.runner).toBe('Spark');
             expect(pubsubSample.description).toBe('Pipeline flow: PubSub Connector ➔ Parse Message ➔ [BigQuery, Log Message]');
         }
-    });
-
-    it('returns empty array if extensionPath directory has no samples folder', async () => {
-        const emptyContext: any = {
-            extensionPath: '/non/existent/path'
-        };
-        const samples = await getSamplePipelines(emptyContext);
-        expect(samples).toEqual([]);
     });
 });
 

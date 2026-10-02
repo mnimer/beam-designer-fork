@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ContextualTextIOSinkProperties } from './ContextualTextIO';
 
@@ -295,116 +295,5 @@ describe('ContextualTextIOSinkProperties', () => {
         system_instructions: 'Write sharded outputs using gzip compression codec'
       })
     );
-  });
-
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Sink',
-        properties: {}
-      }
-    };
-
-    const { container } = render(
-      <ContextualTextIOSinkProperties node={mockNode} onChange={mockOnChange} />
-    );
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['output-bucket-primary', 'backup-bucket']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to to field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://output-bucket-primary/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://backup-bucket/');
-  });
-
-  it('surfaces bucket loading error inline with role="alert" when destination path is valid and non-empty (regression guard)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Sink',
-        properties: {
-          to: 'gs://valid-output/path'
-        }
-      }
-    };
-
-    render(<ContextualTextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS Sink API error: 500 Internal'
-          }
-        })
-      );
-    });
-
-    // Verify error is rendered with role="alert" despite valid, non-empty destination
-    const alertElement = screen.getByRole('alert');
-    expect(alertElement).toBeInTheDocument();
-    expect(alertElement).toHaveTextContent(
-      'Failed to load Cloud Storage buckets: GCS Sink API error: 500 Internal'
-    );
-    expect(screen.queryByText('Destination file prefix is required.')).not.toBeInTheDocument();
-  });
-
-  it('surfaces discovery error alongside to validation error when destination path is empty', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Sink',
-        properties: {
-          to: ''
-        }
-      }
-    };
-
-    render(<ContextualTextIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Authentication failure'
-          }
-        })
-      );
-    });
-
-    expect(
-      screen.getByText(/Failed to load Cloud Storage buckets: Authentication failure/i)
-    ).toBeInTheDocument();
   });
 });

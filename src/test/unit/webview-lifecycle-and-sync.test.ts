@@ -33,14 +33,35 @@ const { mockState } = vi.hoisted(() => {
 });
 
 vi.mock('vscode', () => {
+    /**
+     * Mock representation of a vscode.Position.
+     */
     class MockPosition {
+        /**
+         * Creates a mock position with line and character coordinates.
+         *
+         * @param line Zero-based line value.
+         * @param character Zero-based character value.
+         */
         constructor(public line: number, public character: number) {}
     }
 
+    /**
+     * Mock representation of a vscode.Range.
+     */
     class MockRange {
+        /**
+         * Creates a mock range with start and end positions.
+         *
+         * @param start The start position.
+         * @param end The end position.
+         */
         constructor(public start: MockPosition, public end: MockPosition) {}
     }
 
+    /**
+     * Mock representation of a vscode.WorkspaceEdit.
+     */
     class MockWorkspaceEdit {
         public replace = vi.fn();
     }

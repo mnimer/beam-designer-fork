@@ -25,10 +25,15 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Secret item representing AWS credentials in Secret Manager.
+ */
 export interface SqsSecretItem {
   name: string;
   id: string;
@@ -49,6 +54,9 @@ export const AWS_REGIONS = [
   { value: 'custom', label: 'Custom Region...' },
 ];
 
+/**
+ * Node definition for SqsIO sink configuration.
+ */
 export interface SqsIOSinkNode {
   data: {
     label: string;
@@ -71,6 +79,9 @@ export interface SqsIOSinkNode {
   };
 }
 
+/**
+ * Props for the SqsIOSinkProperties component.
+ */
 export interface SqsIOSinkPropertiesProps {
   node: SqsIOSinkNode;
   onChange: (properties: any) => void;
@@ -103,12 +114,7 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
   const isInvalid = !queueUrl.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text and select input changes
@@ -122,16 +128,6 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
     onChange({
       ...properties,
       [name]: finalValue,
-    });
-  };
-
-  /**
-   * Handles code generation instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
     });
   };
 
@@ -261,24 +257,20 @@ export const SqsIOSinkProperties: React.FC<SqsIOSinkPropertiesProps> = ({ node, 
         placeholder="http://localhost:4566"
       />
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="sqsSinkInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. formatting elements into SendMessageRequest or handling FIFO messageGroupId)." />
-        </label>
-        <textarea
-          id="sqsSinkInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Map String or POJO elements into SendMessageRequest with body and custom attributes..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="sqsSinkInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. formatting elements into SendMessageRequest or handling FIFO messageGroupId)."
+        placeholder="e.g. Map String or POJO elements into SendMessageRequest with body and custom attributes..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

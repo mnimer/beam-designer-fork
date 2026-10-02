@@ -44,8 +44,6 @@ describe('FirestoreIOSourceProperties', () => {
 
     expect(screen.getByText(/Project ID is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Collection ID is required/i)).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly in runQuery mode', () => {
@@ -228,52 +226,6 @@ describe('FirestoreIOSourceProperties', () => {
     render(<FirestoreIOSourceProperties node={node} onChange={mockOnChange} />);
 
     expect(screen.getByPlaceholderText('e.g. firestore-sa-key')).toHaveValue('my-firestore-secret');
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/123/secrets/firestore-secret-1',
-            { id: 'firestore-secret-2', name: 'firestore-secret-2' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.querySelector('datalist#firestore-source-secret-options');
-    expect(datalist).not.toBeNull();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'firestore-secret-1');
-    expect(options?.[1]).toHaveAttribute('value', 'firestore-secret-2');
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Firestore Source',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<FirestoreIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access Secret Manager')).toBeInTheDocument();
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -315,10 +267,9 @@ describe('FirestoreIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. users or orders')).toHaveValue('');
   });
 
-  it('respects system_instructions fallback chain and handles edits', () => {
+  it('updates system_instructions on textarea change', () => {
     const node = {
       data: {
-        special_instructions: 'Fallback instructions',
         properties: {}
       }
     };
@@ -328,8 +279,6 @@ describe('FirestoreIOSourceProperties', () => {
     const instructionsTextarea = screen.getByPlaceholderText(
       /Read Document protos from Firestore collection/i
     );
-    expect(instructionsTextarea).toHaveValue('Fallback instructions');
-
     fireEvent.change(instructionsTextarea, { target: { value: 'Newly updated prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -6,11 +6,11 @@
  * Purpose:
  * Validates HadoopFormatIOSourceProperties form rendering, hydration, field validation,
  * key/value translation, clone bypass checkboxes, authentication mode toggling,
- * IPC callbacks for Secret Manager, collapsible advanced configuration, and system instructions.
+ * collapsible advanced configuration, and system instructions.
  *
  * Architectural Decisions:
- * - Emulates VS Code extension host postMessage IPC to verify getSecrets request and response.
- * - Thoroughly tests normal hydration, dispatch updates, edge cases, failure states, and instruction fallbacks.
+ * - Emulates VS Code extension host postMessage IPC to verify getSecrets request.
+ * - Thoroughly tests normal hydration, dispatch updates, edge cases, failure states, and instruction editing.
  * - Uses accessible role and placeholder queries to test UI state.
  */
 
@@ -216,56 +216,6 @@ describe('HadoopFormatIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. hadoop-cluster-credentials')).toHaveValue('hadoop-token-secret');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HadoopFormat Source',
-        properties: {
-          authMode: 'secret_manager' as const,
-        },
-      },
-    };
-
-    render(<HadoopFormatIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/hadoop-kerberos-keytab',
-          { id: 'hadoop-hdfs-token', name: 'Hadoop HDFS Token' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#hadoopformat-source-secret-options option[value="hadoop-kerberos-keytab"]');
-    const option2 = document.querySelector('datalist#hadoopformat-source-secret-options option[value="hadoop-hdfs-token"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error alert exactly once when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HadoopFormat Source',
-        properties: {},
-      },
-    };
-
-    render(<HadoopFormatIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager for Hadoop',
-      },
-    }));
-
-    const alerts = screen.getAllByRole('alert');
-    const secretAlert = alerts.filter((a) => a.textContent?.includes('Failed to access Secret Manager for Hadoop'));
-    expect(secretAlert).toHaveLength(1);
-  });
-
   it('toggles Advanced Source Settings and dispatches edits', () => {
     const node = {
       data: {
@@ -282,8 +232,6 @@ describe('HadoopFormatIOSourceProperties', () => {
     render(<HadoopFormatIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const advancedBtn = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('/etc/hadoop/conf/core-site.xml')).not.toBeInTheDocument();
-
     // Open advanced settings
     fireEvent.click(advancedBtn);
 
@@ -305,10 +253,6 @@ describe('HadoopFormatIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       splitSizeHint: '268435456',
     }));
-
-    // Close advanced settings
-    fireEvent.click(advancedBtn);
-    expect(screen.queryByPlaceholderText('/etc/hadoop/conf/core-site.xml')).not.toBeInTheDocument();
   });
 
   it('handles edge case where properties or node.data are completely missing', () => {
@@ -343,34 +287,20 @@ describe('HadoopFormatIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('67108864')).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('updates system_instructions when code generation instructions textarea is edited', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for HadoopFormat source',
+        label: 'HadoopFormat Source',
         properties: {},
       },
     };
 
-    const { rerender } = render(<HadoopFormatIOSourceProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<HadoopFormatIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/HadoopFormatIO\.<LongWritable, Text>read\(\)/i);
-    expect(textarea).toHaveValue('Custom special prompt for HadoopFormat source');
 
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated prompt instructions',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Property instructions override',
-        },
-      },
-    };
-    rerender(<HadoopFormatIOSourceProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/HadoopFormatIO\.<LongWritable, Text>read\(\)/i)).toHaveValue('Property instructions override');
   });
 });

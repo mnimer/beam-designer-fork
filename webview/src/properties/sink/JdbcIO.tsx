@@ -23,10 +23,15 @@ import { JDBC_DRIVER_PRESETS, getJdbcUrlExample } from '../source/JdbcIO';
 import type { JdbcAuthMode } from '../source/JdbcIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * React Flow node shape for the JDBC sink panel, including its persisted configuration data.
+ */
 interface JdbcIOSinkNode {
   data: {
     label: string;
@@ -56,11 +61,19 @@ interface JdbcIOSinkNode {
   };
 }
 
+/**
+ * Props for the JdbcIOSinkProperties component.
+ */
 interface JdbcIOSinkPropertiesProps {
   node: JdbcIOSinkNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the JDBC sink node. Configures database URL, driver class, SQL statement or table, and credentials.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node, onChange }) => {
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
@@ -88,12 +101,7 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
   const isTableNameInvalid = selectType === 'table' && !tableName.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const exampleUrl = getJdbcUrlExample(driverClassName);
 
@@ -128,17 +136,6 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
     }
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   return (
@@ -368,24 +365,18 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
         </label>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="jdbcSinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="jdbcSinkSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for JDBC write code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="jdbcSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for JDBC write code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

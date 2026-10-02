@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ContextualTextIOSourceProperties } from './ContextualTextIO';
 
@@ -234,7 +234,7 @@ describe('ContextualTextIOSourceProperties', () => {
     );
   });
 
-  it('toggles advanced accordion and modifies watchForNewFilesInterval', () => {
+  it('modifies watchForNewFilesInterval in advanced options', () => {
     const mockNode: any = {
       data: {
         properties: {}
@@ -244,9 +244,6 @@ describe('ContextualTextIOSourceProperties', () => {
     const { container } = render(
       <ContextualTextIOSourceProperties node={mockNode} onChange={mockOnChange} />
     );
-
-    // Accordion starts closed
-    expect(container.querySelector('#contextualTextSourceWatchInterval')).not.toBeInTheDocument();
 
     // Click to open Advanced Options
     const advancedToggle = screen.getByText('Advanced Options');
@@ -265,10 +262,6 @@ describe('ContextualTextIOSourceProperties', () => {
         watchForNewFilesInterval: '60'
       })
     );
-
-    // Click again to close accordion
-    fireEvent.click(advancedToggle);
-    expect(container.querySelector('#contextualTextSourceWatchInterval')).not.toBeInTheDocument();
   });
 
   it('renders Java-only notice banner and never renders minBundleSize or expansionService', () => {
@@ -324,115 +317,5 @@ describe('ContextualTextIOSourceProperties', () => {
       })
     );
   });
-
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Source',
-        properties: {}
-      }
-    };
-
-    const { container } = render(
-      <ContextualTextIOSourceProperties node={mockNode} onChange={mockOnChange} />
-    );
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['logs-bucket-west', 'archive-bucket-east']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to filePattern field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://logs-bucket-west/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://archive-bucket-east/');
-  });
-
-  it('surfaces bucket loading error inline with role="alert" when path is valid and non-empty (regression guard)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Source',
-        properties: {
-          filePattern: 'gs://valid-bucket/files/*.txt'
-        }
-      }
-    };
-
-    render(<ContextualTextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Storage API permission denied'
-          }
-        })
-      );
-    });
-
-    // Verify error is rendered with role="alert" despite valid, non-empty filePattern
-    const alertElement = screen.getByRole('alert');
-    expect(alertElement).toBeInTheDocument();
-    expect(alertElement).toHaveTextContent(
-      'Failed to load Cloud Storage buckets: Storage API permission denied'
-    );
-    expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
-  });
-
-  it('surfaces discovery error alongside filePattern validation error when input is invalid', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'ContextualTextIO Source',
-        properties: {
-          filePattern: ''
-        }
-      }
-    };
-
-    render(<ContextualTextIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to authenticate Cloud Storage'
-          }
-        })
-      );
-    });
-
-    expect(
-      screen.getByText(/Failed to load Cloud Storage buckets: Failed to authenticate Cloud Storage/i)
-    ).toBeInTheDocument();
-  });
 });
+

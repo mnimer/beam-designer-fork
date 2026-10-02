@@ -20,10 +20,16 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { SchemaEditor, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
-import { FileCode, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileCode } from 'lucide-react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * React Flow node shape for the Parquet sink panel, including its persisted configuration data.
+ */
 export interface ParquetIOSinkNode {
   data: {
     label: string;
@@ -50,6 +56,9 @@ export interface ParquetIOSinkNode {
   };
 }
 
+/**
+ * Props for the ParquetIOSinkProperties component.
+ */
 export interface ParquetIOSinkPropertiesProps {
   node: ParquetIOSinkNode;
   onChange: (properties: any) => void;
@@ -86,12 +95,7 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -107,15 +111,6 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -165,40 +160,29 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
       </div>
 
       {/* Schema Accordion Section */}
-      <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIsSchemaOpen(!isSchemaOpen)}
-          className="w-full flex items-center justify-between p-3 text-xs font-bold uppercase text-[var(--vscode-text-primary)] hover:bg-[var(--vscode-hover)] transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <FileCode className="w-4 h-4 text-rose-400" />
-            <span>Schema Specification</span>
-          </div>
-          {isSchemaOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-
-        {isSchemaOpen && (
-          <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--vscode-border-light)] mt-2">
-            <div className="mt-2">
-              <SchemaEditor
-                fields={schemaFields}
-                schemaTitle="Avro / PyArrow Schema (Required for Java / Strict Python)"
-                jsonTextareaId="parquetSinkSchema"
-                stringTextareaId="parquetSinkSchemaString"
-                onChange={({ schemaFields: nextFields, schema: nextSchema, schemaString: nextStr }) => {
-                  onChange({
-                    ...properties,
-                    schemaFields: nextFields,
-                    schema: nextSchema,
-                    schemaString: nextStr
-                  });
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <CollapsibleSection
+        title="Schema Specification"
+        icon={<FileCode className="w-4 h-4 text-rose-400" />}
+        isOpen={isSchemaOpen}
+        onToggle={() => setIsSchemaOpen(!isSchemaOpen)}
+      >
+        <div className="mt-2">
+          <SchemaEditor
+            fields={schemaFields}
+            schemaTitle="Avro / PyArrow Schema (Required for Java / Strict Python)"
+            jsonTextareaId="parquetSinkSchema"
+            stringTextareaId="parquetSinkSchemaString"
+            onChange={({ schemaFields: nextFields, schema: nextSchema, schemaString: nextStr }) => {
+              onChange({
+                ...properties,
+                schemaFields: nextFields,
+                schema: nextSchema,
+                schemaString: nextStr
+              });
+            }}
+          />
+        </div>
+      </CollapsibleSection>
 
       {/* Sharding Configuration */}
       <div className="flex flex-col gap-2 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border)]">
@@ -232,103 +216,93 @@ export const ParquetIOSinkProperties: React.FC<ParquetIOSinkPropertiesProps> = (
       </div>
 
       {/* Advanced Settings Accordion */}
-      <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-          className="w-full flex items-center justify-between p-3 text-xs font-bold uppercase text-[var(--vscode-text-primary)] hover:bg-[var(--vscode-hover)] transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span>Advanced Parquet Settings</span>
-          </div>
-          {isAdvancedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-
-        {isAdvancedOpen && (
-          <div className="p-3 pt-0 flex flex-col gap-3 border-t border-[var(--vscode-border-light)] mt-2">
-            {/* Row Group Buffer Size */}
-            <div className="flex flex-col gap-1 mt-2">
-              <label htmlFor="parquetSinkRowGroupBufferSize" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Row Group Buffer Size (bytes)</span>
-                <InfoTooltip text="Byte size of the uncompressed in-memory row group buffer before flushing to file. Default: 67108864 (64 MB)." />
-              </label>
-              <input
-                id="parquetSinkRowGroupBufferSize"
-                type="number"
-                name="rowGroupBufferSize"
-                value={rowGroupBufferSize}
-                onChange={handleChange}
-                placeholder="67108864"
-                min="1048576"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-              />
-            </div>
-
-            {/* Record Batch Size */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="parquetSinkRecordBatchSize" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Record Batch Size</span>
-                <InfoTooltip text="Number of records in each record batch stored within the row group buffer. Default: 1000." />
-              </label>
-              <input
-                id="parquetSinkRecordBatchSize"
-                type="number"
-                name="recordBatchSize"
-                value={recordBatchSize}
-                onChange={handleChange}
-                placeholder="1000"
-                min="1"
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-              />
-            </div>
-
-            {/* Use Compliant Nested Types */}
-            <label htmlFor="parquetSinkCompliantNested" className="flex items-center gap-2 cursor-pointer">
-              <input
-                id="parquetSinkCompliantNested"
-                type="checkbox"
-                name="useCompliantNestedType"
-                checked={useCompliantNestedType}
-                onChange={handleChange}
-                className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-xs text-[var(--vscode-text-secondary)]">Use Compliant Parquet Nested Types (3-level lists)</span>
-              <InfoTooltip text="Writes 3-level compliant Parquet list representations for nested arrays." />
+      <CollapsibleSection
+        title="Advanced Parquet Settings"
+        isOpen={isAdvancedOpen}
+        onToggle={() => setIsAdvancedOpen(!isAdvancedOpen)}
+      >
+        <div className="flex flex-col gap-3">
+          {/* Row Group Buffer Size */}
+          <div className="flex flex-col gap-1 mt-2">
+            <label htmlFor="parquetSinkRowGroupBufferSize" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
+              <span>Row Group Buffer Size (bytes)</span>
+              <InfoTooltip text="Byte size of the uncompressed in-memory row group buffer before flushing to file. Default: 67108864 (64 MB)." />
             </label>
-
-            {/* Use Deprecated INT96 Timestamps */}
-            <label htmlFor="parquetSinkInt96" className="flex items-center gap-2 cursor-pointer">
-              <input
-                id="parquetSinkInt96"
-                type="checkbox"
-                name="useDeprecatedInt96Timestamps"
-                checked={useDeprecatedInt96Timestamps}
-                onChange={handleChange}
-                className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-xs text-[var(--vscode-text-secondary)]">Use Deprecated INT96 Timestamps</span>
-              <InfoTooltip text="Writes nanosecond-precision timestamps using legacy INT96 format (required by some older query engines like older Hive/Impala)." />
-            </label>
+            <input
+              id="parquetSinkRowGroupBufferSize"
+              type="number"
+              name="rowGroupBufferSize"
+              value={rowGroupBufferSize}
+              onChange={handleChange}
+              placeholder="67108864"
+              min="1048576"
+              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
+            />
           </div>
-        )}
-      </div>
+
+          {/* Record Batch Size */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="parquetSinkRecordBatchSize" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
+              <span>Record Batch Size</span>
+              <InfoTooltip text="Number of records in each record batch stored within the row group buffer. Default: 1000." />
+            </label>
+            <input
+              id="parquetSinkRecordBatchSize"
+              type="number"
+              name="recordBatchSize"
+              value={recordBatchSize}
+              onChange={handleChange}
+              placeholder="1000"
+              min="1"
+              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
+            />
+          </div>
+
+          {/* Use Compliant Nested Types */}
+          <label htmlFor="parquetSinkCompliantNested" className="flex items-center gap-2 cursor-pointer">
+            <input
+              id="parquetSinkCompliantNested"
+              type="checkbox"
+              name="useCompliantNestedType"
+              checked={useCompliantNestedType}
+              onChange={handleChange}
+              className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-xs text-[var(--vscode-text-secondary)]">Use Compliant Parquet Nested Types (3-level lists)</span>
+            <InfoTooltip text="Writes 3-level compliant Parquet list representations for nested arrays." />
+          </label>
+
+          {/* Use Deprecated INT96 Timestamps */}
+          <label htmlFor="parquetSinkInt96" className="flex items-center gap-2 cursor-pointer">
+            <input
+              id="parquetSinkInt96"
+              type="checkbox"
+              name="useDeprecatedInt96Timestamps"
+              checked={useDeprecatedInt96Timestamps}
+              onChange={handleChange}
+              className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-xs text-[var(--vscode-text-secondary)]">Use Deprecated INT96 Timestamps</span>
+            <InfoTooltip text="Writes nanosecond-precision timestamps using legacy INT96 format (required by some older query engines like older Hive/Impala)." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="parquetSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO writer step."
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Ensure Parquet writer configures snappy compression and uses Avro SpecificRecord serialization."
-          rows={3}
-          mono={false}
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="parquetSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO writer step."
+        placeholder="e.g. Ensure Parquet writer configures snappy compression and uses Avro SpecificRecord serialization."
+        wrapperClassName="flex flex-col gap-1.5 pt-2 border-t border-[var(--vscode-border-light)]"
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

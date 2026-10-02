@@ -20,8 +20,12 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Props for the HL7v2IOSinkProperties component.
+ */
 export interface HL7v2IOSinkPropertiesProps {
   node?: any;
   nodeId?: string;
@@ -214,18 +218,12 @@ export const HL7v2IOSinkProperties: React.FC<HL7v2IOSinkPropertiesProps> = ({
       </details>
 
       {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="hl7v2SinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., handling HL7v2IO.Write.Result.getFailedInsertsWithErr())."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., handling HL7v2IO.Write.Result.getFailedInsertsWithErr())."
         placeholder="e.g., Capture HL7v2IO.Write.Result.getFailedInsertsWithErr() and route failed HL7v2Message records to dead-letter logging..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

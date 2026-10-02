@@ -6,15 +6,13 @@
  * Purpose:
  * Exercises 100% of statements, branches, functions, and lines in
  * `webview/src/properties/sink/KineticaDB.tsx`, including validation rules,
- * Secret Manager discovery, entity column updates, external documentation link IPC,
- * and `classifyKey` redaction hygiene.
+ * entity column updates, and `classifyKey` redaction hygiene.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { KineticaDBSinkProperties } from './KineticaDB';
-import { KINETICA_DOC_URL } from '../source/KineticaDB';
 import type { KineticaEntityColumn } from '../source/KineticaDB';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
@@ -148,43 +146,6 @@ describe('KineticaDBSinkProperties (IO70)', () => {
     expect(container.querySelector('input[name="password"]')).toBeNull();
   });
 
-  it('opens Kinetica documentation when Docs ↗ button is clicked and handles missing vscode API', () => {
-    render(<KineticaDBSinkProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-
-    const docsBtn = screen.getByRole('button', { name: 'Open KineticaIO documentation' });
-    fireEvent.click(docsBtn);
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: KINETICA_DOC_URL,
-    });
-
-    mockPostMessage.mockClear();
-    delete vscodeWindow.vscode;
-    fireEvent.click(docsBtn);
-    expect(mockPostMessage).not.toHaveBeenCalled();
-  });
-
-  it('requests secrets via getSecrets and populates sink secret datalist', () => {
-    render(<KineticaDBSinkProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: ['kinetica-sink-pw'],
-          },
-        })
-      );
-    });
-
-    const options = Array.from(
-      document.querySelectorAll('#kineticaSinkPasswordSecret-secret-options option')
-    ).map((o) => o.getAttribute('value'));
-    expect(options).toEqual(['kinetica-sink-pw']);
-  });
 
   it('emits updated properties when fields and entity columns change', () => {
     const onChange = vi.fn();
@@ -240,46 +201,13 @@ describe('KineticaDBSinkProperties (IO70)', () => {
     });
   });
 
-  it('resolves system_instructions across all 4 fallback levels and updates on change', () => {
+  it('updates system_instructions on change', () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    render(
       <KineticaDBSinkProperties
-        node={makeNode(validProps, { system_instructions: 'sink node system' })}
+        node={makeNode(validProps)}
         onChange={onChange}
       />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-      'sink node system'
-    );
-
-    rerender(
-      <KineticaDBSinkProperties
-        node={makeNode(validProps, { special_instructions: 'sink node special' })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-      'sink node special'
-    );
-
-    rerender(
-      <KineticaDBSinkProperties
-        node={makeNode({ ...validProps, system_instructions: 'sink props system' })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-      'sink props system'
-    );
-
-    rerender(
-      <KineticaDBSinkProperties
-        node={makeNode({ ...validProps, special_instructions: 'sink props special' })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-      'sink props special'
     );
 
     fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {

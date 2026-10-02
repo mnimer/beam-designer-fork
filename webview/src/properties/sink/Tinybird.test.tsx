@@ -9,11 +9,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   TinybirdSinkProperties,
-  TINYBIRD_DOCS_URL,
   TINYBIRD_HOSTS,
   DEFAULT_TINYBIRD_HOST,
 } from './Tinybird';
@@ -70,7 +69,7 @@ describe('TinybirdSinkProperties', () => {
     expect(classifyKey('tokenSecret')).toBe('reference');
   });
 
-  it('renders defaults with empty or undefined properties and populates host & secret datalists', () => {
+  it('renders defaults with empty or undefined properties and populates host datalist', () => {
     const { unmount } = renderPanel(undefined);
     expect(screen.getByLabelText(/Tinybird API Host/i)).toHaveValue(DEFAULT_TINYBIRD_HOST);
     expect(screen.getByLabelText(/Batching Strategy/i)).toHaveValue('batchElements');
@@ -93,35 +92,6 @@ describe('TinybirdSinkProperties', () => {
 
     renderPanel({ batchingMode: 'unknown-mode' });
     expect(screen.getByLabelText(/Batching Strategy/i)).toHaveValue('batchElements');
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: ['tb-append-token'],
-          },
-        })
-      );
-    });
-    const secretDatalist = document.getElementById('tinybirdSinkTokenSecret-secret-options');
-    expect(secretDatalist).not.toBeNull();
-    expect(
-      Array.from(secretDatalist!.querySelectorAll('option')).map((o) => o.getAttribute('value'))
-    ).toEqual(['tb-append-token']);
-  });
-
-  it('opens primary documentation via Docs button when vscode API is present and no-ops when absent', () => {
-    renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-    expect(postMessageMock).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: TINYBIRD_DOCS_URL,
-    });
-
-    delete (window as unknown as { vscode?: unknown }).vscode;
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
   });
 
   it('validates and updates host, tokenSecret, datasource, and columns', () => {
@@ -416,53 +386,17 @@ describe('TinybirdSinkProperties', () => {
     expect(screen.getByLabelText(/Batching Strategy/i)).toBeInTheDocument();
   });
 
-  it('supports the 4-level system_instructions fallback chain and emits updates', () => {
+  it('updates system_instructions when instructions textarea is edited', () => {
     const onChange = vi.fn();
-    const { rerender } = renderPanel(
-      { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-      { system_instructions: 'data-sys', special_instructions: 'data-spec' },
+    renderPanel(
+      { system_instructions: 'initial instructions' },
+      {},
       onChange
     );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-sys');
+    const textarea = screen.getByLabelText(/Code Generation Instructions/i);
+    expect(textarea).toHaveValue('initial instructions');
 
-    rerender(
-      <TinybirdSinkProperties
-        node={{
-          data: {
-            special_instructions: 'data-spec',
-            properties: { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-spec');
-
-    rerender(
-      <TinybirdSinkProperties
-        node={{
-          data: {
-            properties: { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-sys');
-
-    rerender(
-      <TinybirdSinkProperties
-        node={{
-          data: {
-            properties: { special_instructions: 'prop-spec' },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-spec');
-
-    fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {
+    fireEvent.change(textarea, {
       target: { value: 'updated tinybird sink instructions' },
     });
     expect(onChange).toHaveBeenCalledWith(

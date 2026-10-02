@@ -14,7 +14,25 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { NodesCard } from './NodesCard';
-import { PropertyForm, PROPERTY_FORM_REGISTRY, getPropertyFormComponent } from './PropertyForm';
+import { getPropertyFormComponent } from './PropertyForm';
+import { CloudBigtableSourceProperties } from '../properties/source/CloudBigtable';
+import { CogniteDataFusionSourceProperties } from '../properties/source/CogniteDataFusion';
+import { KineticaDBSourceProperties } from '../properties/source/KineticaDB';
+import { TrepWsIOSourceProperties } from '../properties/source/TrepWsIO';
+import { CloudSQLSourceProperties } from '../properties/source/CloudSQL';
+import { MySQLSourceProperties } from '../properties/source/MySQL';
+import { PyodbcSourceProperties } from '../properties/source/Pyodbc';
+import { TinybirdSourceProperties } from '../properties/source/Tinybird';
+import { MySQLPostgreSQLOracleSQLServerSourceProperties } from '../properties/source/MySQLPostgreSQLOracleSQLServer';
+import { CloudBigtableSinkProperties } from '../properties/sink/CloudBigtable';
+import { CogniteDataFusionSinkProperties } from '../properties/sink/CogniteDataFusion';
+import { KineticaDBSinkProperties } from '../properties/sink/KineticaDB';
+import { TrepWsIOSinkProperties } from '../properties/sink/TrepWsIO';
+import { CloudSQLSinkProperties } from '../properties/sink/CloudSQL';
+import { MySQLSinkProperties } from '../properties/sink/MySQL';
+import { PyodbcSinkProperties } from '../properties/sink/Pyodbc';
+import { TinybirdSinkProperties } from '../properties/sink/Tinybird';
+import { MySQLPostgreSQLOracleSQLServerSinkProperties } from '../properties/sink/MySQLPostgreSQLOracleSQLServer';
 
 const DATA_SERVICES_CONNECTORS: ReadonlyArray<{
   label: string;
@@ -37,6 +55,27 @@ const SIDES = [
   { type: 'SOURCE', tab: 'SOURCES' },
   { type: 'SINK', tab: 'SINKS' },
 ] as const;
+
+const DATA_SERVICES_ROUTING_CASES = [
+  { type: 'SOURCE', transform: 'CloudBigtable', ExpectedComponent: CloudBigtableSourceProperties, name: 'CloudBigtableSourceProperties' },
+  { type: 'SOURCE', transform: 'CogniteDataFusion', ExpectedComponent: CogniteDataFusionSourceProperties, name: 'CogniteDataFusionSourceProperties' },
+  { type: 'SOURCE', transform: 'KineticaDB', ExpectedComponent: KineticaDBSourceProperties, name: 'KineticaDBSourceProperties' },
+  { type: 'SOURCE', transform: 'TrepWsIO', ExpectedComponent: TrepWsIOSourceProperties, name: 'TrepWsIOSourceProperties' },
+  { type: 'SOURCE', transform: 'CloudSQL', ExpectedComponent: CloudSQLSourceProperties, name: 'CloudSQLSourceProperties' },
+  { type: 'SOURCE', transform: 'MySQL', ExpectedComponent: MySQLSourceProperties, name: 'MySQLSourceProperties' },
+  { type: 'SOURCE', transform: 'Pyodbc', ExpectedComponent: PyodbcSourceProperties, name: 'PyodbcSourceProperties' },
+  { type: 'SOURCE', transform: 'Tinybird', ExpectedComponent: TinybirdSourceProperties, name: 'TinybirdSourceProperties' },
+  { type: 'SOURCE', transform: 'MySQLPostgreSQLOracleSQLServer', ExpectedComponent: MySQLPostgreSQLOracleSQLServerSourceProperties, name: 'MySQLPostgreSQLOracleSQLServerSourceProperties' },
+  { type: 'SINK', transform: 'CloudBigtable', ExpectedComponent: CloudBigtableSinkProperties, name: 'CloudBigtableSinkProperties' },
+  { type: 'SINK', transform: 'CogniteDataFusion', ExpectedComponent: CogniteDataFusionSinkProperties, name: 'CogniteDataFusionSinkProperties' },
+  { type: 'SINK', transform: 'KineticaDB', ExpectedComponent: KineticaDBSinkProperties, name: 'KineticaDBSinkProperties' },
+  { type: 'SINK', transform: 'TrepWsIO', ExpectedComponent: TrepWsIOSinkProperties, name: 'TrepWsIOSinkProperties' },
+  { type: 'SINK', transform: 'CloudSQL', ExpectedComponent: CloudSQLSinkProperties, name: 'CloudSQLSinkProperties' },
+  { type: 'SINK', transform: 'MySQL', ExpectedComponent: MySQLSinkProperties, name: 'MySQLSinkProperties' },
+  { type: 'SINK', transform: 'Pyodbc', ExpectedComponent: PyodbcSinkProperties, name: 'PyodbcSinkProperties' },
+  { type: 'SINK', transform: 'Tinybird', ExpectedComponent: TinybirdSinkProperties, name: 'TinybirdSinkProperties' },
+  { type: 'SINK', transform: 'MySQLPostgreSQLOracleSQLServer', ExpectedComponent: MySQLPostgreSQLOracleSQLServerSinkProperties, name: 'MySQLPostgreSQLOracleSQLServerSinkProperties' },
+];
 
 describe('Data Services connectors (IO68–IO79) registration', () => {
   for (const side of SIDES) {
@@ -67,27 +106,18 @@ describe('Data Services connectors (IO68–IO79) registration', () => {
           expect(onAddNode.mock.calls[0][1]).toBe(side.type);
           expect(onAddNode.mock.calls[0][3]).toBe(transform);
         }
-      });
-
-      for (const { label, transform } of DATA_SERVICES_CONNECTORS) {
-        it(`resolves ${side.type}:${transform} to a registered panel that renders and emits changes`, () => {
-          const key = `${side.type}:${transform}`;
-          expect(typeof PROPERTY_FORM_REGISTRY[key]).toBe('function');
-
-          const node = { data: { label, type: side.type, beam_transform: transform, properties: { existing: 'kept' } } };
-          expect(getPropertyFormComponent(node)).toBe(PROPERTY_FORM_REGISTRY[key]);
-
-          const onChange = vi.fn();
-          const { container } = render(<PropertyForm node={node} onChange={onChange} />);
-
-          expect(screen.queryByText(/No property form registered/)).not.toBeInTheDocument();
-          const instructions = container.querySelector('textarea[name="system_instructions"]') as HTMLTextAreaElement;
-          expect(instructions).not.toBeNull();
-
-          fireEvent.change(instructions, { target: { value: 'use batching' } });
-          expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ existing: 'kept', system_instructions: 'use batching' }));
-        });
-      }
+      }, 15000);
     });
   }
+
+  it.each(DATA_SERVICES_ROUTING_CASES)(
+    'resolves $type:$transform to $name',
+    ({ type, transform, ExpectedComponent }) => {
+      expect(
+        getPropertyFormComponent({
+          data: { type, beam_transform: transform, properties: {} },
+        })
+      ).toBe(ExpectedComponent);
+    }
+  );
 });

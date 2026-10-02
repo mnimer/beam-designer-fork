@@ -27,6 +27,9 @@ import { PropertyField } from './PropertyField';
 
 export type ExpansionServiceMode = 'auto' | 'endpoint';
 
+/**
+ * Props for the {@link ExpansionServiceFields} component.
+ */
 export interface ExpansionServiceFieldsProps {
   /** Currently selected expansion service mode. Defaults to 'auto'. */
   mode?: ExpansionServiceMode | string;

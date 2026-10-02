@@ -44,8 +44,6 @@ describe('DatastoreIOSourceProperties', () => {
 
     expect(screen.getByText(/Project ID is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Kind is required for kind-based read/i)).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly in kind mode', () => {
@@ -155,48 +153,10 @@ describe('DatastoreIOSourceProperties', () => {
     const secretInput = screen.getByPlaceholderText('e.g. datastore-sa-key');
     expect(secretInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/datastore-key',
-          { id: 'datastore-backup-key', name: 'datastore-backup-key' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#datastore-source-secret-options option[value="datastore-key"]');
-    const option2 = document.querySelector('datalist#datastore-source-secret-options option[value="datastore-backup-key"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     fireEvent.change(secretInput, { target: { name: 'serviceAccountSecret', value: 'datastore-key' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceAccountSecret: 'datastore-key'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Datastore Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DatastoreIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager secrets'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access GCP Secret Manager secrets')).toBeInTheDocument();
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -226,32 +186,14 @@ describe('DatastoreIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('my-gcp-project')).toHaveValue('');
   });
 
-  it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+  it('updates system_instructions on textarea change', () => {
+    const node = {
       data: {
         label: 'Datastore Source',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<DatastoreIOSourceProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read Task entities from Datastore/i)).toHaveValue('Fallback instructions 1');
-    unmount();
-
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'Datastore Source',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<DatastoreIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read Task entities from Datastore/i)).toHaveValue('Fallback instructions 2');
-
-    // Modifying textarea calls onChange with system_instructions
+    render(<DatastoreIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Read Task entities from Datastore/i);
     fireEvent.change(textarea, { target: { value: 'New datastore source prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

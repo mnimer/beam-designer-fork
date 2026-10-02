@@ -17,7 +17,12 @@ import React from 'react';
 import { BEAM_WRITE_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the FileIO sink panel, including its persisted configuration data.
+ */
 interface FileIOSinkNode {
   data: {
     label: string;
@@ -40,6 +45,9 @@ interface FileIOSinkNode {
   };
 }
 
+/**
+ * Props for the FileIOSinkProperties component.
+ */
 interface FileIOSinkPropertiesProps {
   node: FileIOSinkNode;
   onChange: (properties: any) => void;
@@ -61,12 +69,7 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, checkbox, and select input changes.
@@ -82,15 +85,6 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
     });
   };
 
-  /**
-   * Updates custom instructions for code generation.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -183,23 +177,18 @@ export const FileIOSinkProperties: React.FC<FileIOSinkPropertiesProps> = ({ node
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="fileSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for FileIO sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="fileSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for FileIO sink code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

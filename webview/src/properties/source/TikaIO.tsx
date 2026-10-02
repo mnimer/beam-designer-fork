@@ -25,8 +25,13 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * Node data structure for TikaIO source nodes.
+ */
 export interface TikaIOSourceNode {
   data: {
     label: string;
@@ -45,6 +50,9 @@ export interface TikaIOSourceNode {
   };
 }
 
+/**
+ * Props for the TikaIO source properties component.
+ */
 export interface TikaIOSourcePropertiesProps {
   node: TikaIOSourceNode;
   onChange: (properties: any) => void;
@@ -64,12 +72,7 @@ export const TikaIOSourceProperties: React.FC<TikaIOSourcePropertiesProps> = ({ 
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback cascade
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles input and textarea changes for form fields.
@@ -81,16 +84,6 @@ export const TikaIOSourceProperties: React.FC<TikaIOSourcePropertiesProps> = ({ 
     onChange({
       ...properties,
       [name]: value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions for pipeline code generation
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -204,22 +197,21 @@ export const TikaIOSourceProperties: React.FC<TikaIOSourcePropertiesProps> = ({ 
       </div>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="tikaSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TikaIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse PDF and Word documents and extract contract clauses into PCollection<ParseResult>."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="tikaSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Parse PDF and Word documents and extract contract clauses into PCollection<ParseResult>."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TikaIO reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

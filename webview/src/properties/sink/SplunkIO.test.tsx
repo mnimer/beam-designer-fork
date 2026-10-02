@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SplunkIOSinkProperties } from './SplunkIO';
 
@@ -158,41 +158,6 @@ describe('SplunkIOSinkProperties', () => {
     const { container } = render(<SplunkIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(container.querySelector('input[name="tokenSecret"]')).not.toBeInTheDocument();
-  });
-
-  it('requests secrets via vscode.postMessage(getSecrets) and populates datalist options', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'Splunk',
-        properties: {
-          url: 'https://splunk.example.com:8088',
-          authMode: 'secretManager' as const,
-        },
-      },
-    };
-    const mockOnChange = vi.fn();
-
-    render(<SplunkIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ name: 'projects/123/secrets/splunk-hec-token', id: 'splunk-hec-token' }],
-          },
-        })
-      );
-    });
-
-    const datalist = document.getElementById('splunk-sink-secrets-list');
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'splunk-hec-token');
   });
 
   it('updates system_instructions when code generation instructions textarea is edited', () => {

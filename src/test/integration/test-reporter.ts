@@ -42,6 +42,11 @@ export interface TestReportEntry {
     error?: string;
 }
 
+/**
+ * Resolves the directory path where test reports and caches should be stored.
+ *
+ * @returns Absolute directory path for test reports.
+ */
 export function getReportDirectory(): string {
     if (__dirname.includes(`${path.sep}out${path.sep}`)) {
         return __dirname.replace(`${path.sep}out${path.sep}`, `${path.sep}src${path.sep}`);
@@ -49,10 +54,20 @@ export function getReportDirectory(): string {
     return __dirname;
 }
 
+/**
+ * Resolves the file path for the Markdown test report.
+ *
+ * @returns Absolute file path to `test-report.md`.
+ */
 export function getReportFilePath(): string {
     return path.join(getReportDirectory(), 'test-report.md');
 }
 
+/**
+ * Resolves the file path for the JSON test report cache.
+ *
+ * @returns Absolute file path to `.test-report.json`.
+ */
 export function getReportCacheFilePath(): string {
     return path.join(getReportDirectory(), '.test-report.json');
 }

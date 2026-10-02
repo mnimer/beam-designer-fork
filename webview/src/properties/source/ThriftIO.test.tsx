@@ -6,7 +6,7 @@
  * Purpose:
  * Unit tests validating ThriftIOSourceProperties component functionality,
  * form change callbacks, validation states for required fields, accordion toggling,
- * dynamic extension GCS bucket discovery IPC, code generation instructions,
+ * code generation instructions,
  * and regression guards against removed controls (minBundleSize, expansionService)
  * and invalid enum values (TSimpleJSONProtocol on read, XZ compression).
  * 
@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   ThriftIOSourceProperties,
@@ -244,108 +244,6 @@ describe('ThriftIOSourceProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<ThriftIOSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<ThriftIOSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<ThriftIOSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<ThriftIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['lakehouse-thrift', 'gs://archive-thrift']
-          }
-        })
-      );
-    });
-
-    // NOTE: StoragePathField relies on PropertyField's generated datalist id (`<inputId>-datalist`)
-    const filePatternInput = container.querySelector('#thriftSourceFilePattern') as HTMLInputElement;
-    const datalistId = filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = document.getElementById(datalistId!) || container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://lakehouse-thrift/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://archive-thrift');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          filePattern: 'gs://bucket/data.thrift',
-          recordClass: 'com.example.thrift.Order'
-        }
-      }
-    };
-
-    render(<ThriftIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
 
   it('never renders recordClass, minBundleSize, expansionService, TSimpleJSONProtocol on read, or XZ compression', () => {
     const mockLegacyNode: any = {

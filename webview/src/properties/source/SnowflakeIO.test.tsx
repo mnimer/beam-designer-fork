@@ -6,7 +6,7 @@
  * Purpose:
  * Validates SnowflakeIOSourceProperties form rendering, hydration, property change dispatching,
  * query vs table read target branch validation, staging parameters, auth mode switching,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, and system instructions editing.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -188,66 +188,6 @@ describe('SnowflakeIOSourceProperties', () => {
     expect(screen.queryByPlaceholderText('e.g. snowflake-username')).not.toBeInTheDocument();
   });
 
-  it('receives IPC secrets in datalist', () => {
-    const node = {
-      data: {
-        label: 'Snowflake Source',
-        properties: {
-          authMode: 'username_password' as const
-        }
-      }
-    };
-
-    render(<SnowflakeIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    // Simulate secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/snowflake-pw',
-            { id: 'snowflake-token-secret', name: 'snowflake-token-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#snowflake-source-secret-options option[value="snowflake-pw"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#snowflake-source-secret-options option[value="snowflake-token-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Snowflake Source',
-        properties: {
-          authMode: 'username_password' as const
-        }
-      }
-    };
-
-    render(<SnowflakeIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager')).toBeInTheDocument();
-  });
 
   it('toggles Advanced Source Settings and updates quotation mark and timeout', () => {
     const node = {
@@ -296,69 +236,6 @@ describe('SnowflakeIOSourceProperties', () => {
     expect(screen.getByText('Snowflake database is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <SnowflakeIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <SnowflakeIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <SnowflakeIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <SnowflakeIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

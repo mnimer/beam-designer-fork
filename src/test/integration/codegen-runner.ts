@@ -71,6 +71,13 @@ export interface PipelineTestConfig {
     languages?: ('Java' | 'Python')[];
 }
 
+/**
+ * Recursively searches for a file with the given name within a directory.
+ *
+ * @param dir Directory path to search.
+ * @param filename File name to locate.
+ * @returns Absolute path to the file if found, otherwise null.
+ */
 function findFileRecursive(dir: string, filename: string): string | null {
     if (!fs.existsSync(dir)) return null;
     try {
@@ -164,6 +171,11 @@ export function readGcloudProjectFromDisk(): string | undefined {
     return undefined;
 }
 
+/**
+ * Resolves the active GCP project ID from cache, local gcloud config, or gcloud CLI.
+ *
+ * @returns A promise resolving to the project ID or undefined if unavailable.
+ */
 export function getGcloudProject(): Promise<string | undefined> {
     if (cachedGcloudProject) {
         return Promise.resolve(cachedGcloudProject);
@@ -190,6 +202,11 @@ export function getGcloudProject(): Promise<string | undefined> {
     });
 }
 
+/**
+ * Locates the absolute path to the resources directory.
+ *
+ * @returns Absolute path to the resources directory.
+ */
 export function getResourcesRoot(): string {
     const candidatePaths = [
         path.join(__dirname, '..', '..', 'resources'),
@@ -204,6 +221,12 @@ export function getResourcesRoot(): string {
     throw new Error('Could not locate resources directory');
 }
 
+/**
+ * Reads a resource file from the resources directory as a UTF-8 string.
+ *
+ * @param filePath Relative path to the resource file within the resources folder.
+ * @returns Content of the resource file.
+ */
 export function readResource(filePath: string): string {
     const resourcesRoot = getResourcesRoot();
     const fullPath = path.join(resourcesRoot, filePath);

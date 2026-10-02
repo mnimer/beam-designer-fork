@@ -26,9 +26,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for Elasticsearch authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -37,6 +43,9 @@ export interface SecretItem {
 
 export type ElasticsearchAuthMode = 'none' | 'basic_secret_manager' | 'api_key_secret';
 
+/**
+ * Props for the ElasticsearchIOSinkProperties component.
+ */
 export interface ElasticsearchIOSinkPropertiesProps {
   node: {
     data: {
@@ -73,6 +82,9 @@ export interface ElasticsearchIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SinkTargetSection component.
+ */
 interface SinkTargetSectionProps {
   addresses: string;
   index: string;
@@ -147,6 +159,9 @@ const SinkTargetSection: React.FC<SinkTargetSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkBulkSection component.
+ */
 interface SinkBulkSectionProps {
   maxBatchSize: number | string;
   maxBatchSizeBytes: number | string;
@@ -238,6 +253,9 @@ const SinkBulkSection: React.FC<SinkBulkSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkFailureSection component.
+ */
 interface SinkFailureSectionProps {
   throwWriteErrors: boolean;
   retryMaxAttempts: number | string;
@@ -302,6 +320,9 @@ const SinkFailureSection: React.FC<SinkFailureSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAuthSection component.
+ */
 interface SinkAuthSectionProps {
   authMode: ElasticsearchAuthMode;
   usernameSecret: string;
@@ -399,6 +420,9 @@ const SinkAuthSection: React.FC<SinkAuthSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAdvancedSection component.
+ */
 interface SinkAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -422,70 +446,61 @@ const SinkAdvancedSection: React.FC<SinkAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="es-sink-connect-timeout"
+          name="connectTimeout"
+          label="Connect Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Elasticsearch client connection timeout in milliseconds (maps to withConnectTimeout)."
+          value={connectTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+        <PropertyField
+          id="es-sink-socket-timeout"
+          name="socketTimeout"
+          label="Socket Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Elasticsearch client socket timeout in milliseconds (maps to withSocketTimeout)."
+          value={socketTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="es-sink-connect-timeout"
-              name="connectTimeout"
-              label="Connect Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Elasticsearch client connection timeout in milliseconds (maps to withConnectTimeout)."
-              value={connectTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-            <PropertyField
-              id="es-sink-socket-timeout"
-              name="socketTimeout"
-              label="Socket Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Elasticsearch client socket timeout in milliseconds (maps to withSocketTimeout)."
-              value={socketTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-          </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="es-sink-trust-self-signed"
+          name="trustSelfSignedCerts"
+          type="checkbox"
+          checked={trustSelfSignedCerts}
+          onChange={onChange}
+          className="accent-[var(--vscode-highlight)] cursor-pointer"
+        />
+        <label htmlFor="es-sink-trust-self-signed" className="text-xs text-[var(--vscode-text-primary)] cursor-pointer flex items-center gap-1.5">
+          <span>Trust Self-Signed Certificates</span>
+          <InfoTooltip text="Configures client to trust self-signed SSL/TLS certificates (maps to withTrustSelfSignedCerts)." />
+        </label>
+      </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              id="es-sink-trust-self-signed"
-              name="trustSelfSignedCerts"
-              type="checkbox"
-              checked={trustSelfSignedCerts}
-              onChange={onChange}
-              className="accent-[var(--vscode-highlight)] cursor-pointer"
-            />
-            <label htmlFor="es-sink-trust-self-signed" className="text-xs text-[var(--vscode-text-primary)] cursor-pointer flex items-center gap-1.5">
-              <span>Trust Self-Signed Certificates</span>
-              <InfoTooltip text="Configures client to trust self-signed SSL/TLS certificates (maps to withTrustSelfSignedCerts)." />
-            </label>
-          </div>
-
-          <PropertyField
-            id="es-sink-allowable-response-errors"
-            name="allowableResponseErrors"
-            label="Allowable Response Errors"
-            tooltip="Comma-separated list of Elasticsearch error types to ignore without failing (maps to withAllowableResponseErrors)."
-            value={allowableResponseErrors}
-            onChange={onChange}
-            placeholder="e.g. version_conflict_engine_exception"
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="es-sink-allowable-response-errors"
+        name="allowableResponseErrors"
+        label="Allowable Response Errors"
+        tooltip="Comma-separated list of Elasticsearch error types to ignore without failing (maps to withAllowableResponseErrors)."
+        value={allowableResponseErrors}
+        onChange={onChange}
+        placeholder="e.g. version_conflict_engine_exception"
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -540,12 +555,7 @@ export const ElasticsearchIOSinkProperties: React.FC<ElasticsearchIOSinkProperti
     });
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -573,17 +583,6 @@ export const ElasticsearchIOSinkProperties: React.FC<ElasticsearchIOSinkProperti
     }
   };
 
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -638,21 +637,18 @@ export const ElasticsearchIOSinkProperties: React.FC<ElasticsearchIOSinkProperti
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="es-sink-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this Elasticsearch sink transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
+        tooltip="Custom system instructions passed to the LLM when generating code for this Elasticsearch sink transform."
         placeholder="e.g. ElasticsearchIO.write().withConnectionConfiguration(ConnectionConfiguration.create(new String[]{'http://localhost:9200'}, 'sensor_aggregates')).withMaxBatchSize(1000)"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, act } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AvroIOSinkProperties } from './AvroIO';
 
@@ -44,42 +44,6 @@ describe('AvroIOSinkProperties', () => {
     expect(toInput).toHaveValue('');
     expect(toInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Destination file prefix is required.')).toBeInTheDocument();
-  });
-
-  it('posts getStorageBuckets command and populates GCS bucket datalist via StoragePathField', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        label: 'AvroIO',
-        properties: {
-          to: 'gs://bucket/output/data'
-        }
-      }
-    };
-
-    const { container } = render(<AvroIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['avro-sink-bucket-1', 'avro-sink-bucket-2']
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://avro-sink-bucket-1/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://avro-sink-bucket-2/');
   });
 
   it('updates destination prefix, suffix, and shardNameTemplate', () => {

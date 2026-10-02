@@ -31,6 +31,9 @@ export const DEFAULT_SECRET_FIELD_TOOLTIP =
 
 export const DEFAULT_SECRET_FIELD_PLACEHOLDER = 'e.g. my-db-password';
 
+/**
+ * Props for the {@link SecretManagerSecretField} component.
+ */
 export interface SecretManagerSecretFieldProps {
   /** HTML id of the input (also used to derive the default datalist id). */
   id: string;

@@ -31,11 +31,16 @@ import React, { useState } from 'react';
 import { Sliders, Activity } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * React Flow node shape for the Google Cloud Storage sink panel, including its persisted configuration data.
+ */
 export interface GcsFileSystemSinkNode {
   data: {
     label: string;
@@ -60,6 +65,9 @@ export interface GcsFileSystemSinkNode {
   };
 }
 
+/**
+ * Props for the GcsFileSystemSinkProperties component.
+ */
 export interface GcsFileSystemSinkPropertiesProps {
   node: GcsFileSystemSinkNode;
   onChange: (properties: any) => void;
@@ -84,6 +92,11 @@ export const GCS_SINK_COMPRESSION_TYPES: SelectFieldOption[] = [
   { value: 'ZSTD', label: 'ZSTD (.zst)' }
 ];
 
+/**
+ * Dedicated property panel for the Google Cloud Storage sink node. Configures target bucket path, output format, compression, and sharding.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const GcsFileSystemSinkProperties: React.FC<GcsFileSystemSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -104,12 +117,7 @@ export const GcsFileSystemSinkProperties: React.FC<GcsFileSystemSinkPropertiesPr
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -125,15 +133,6 @@ export const GcsFileSystemSinkProperties: React.FC<GcsFileSystemSinkPropertiesPr
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   /**
    * Toggles the GCS metrics telemetry accordion state
@@ -354,23 +353,21 @@ export const GcsFileSystemSinkProperties: React.FC<GcsFileSystemSinkPropertiesPr
         />
       </CollapsibleSection>
 
-      {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="gcsSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this GcsFileSystem writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write processed events to gs://my-bucket/output/ with GCS performance metrics enabled."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="gcsSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this GcsFileSystem writer step."
+        placeholder="e.g. Write processed events to gs://my-bucket/output/ with GCS performance metrics enabled."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

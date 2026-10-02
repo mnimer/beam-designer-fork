@@ -21,7 +21,9 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 
+/** Props for the {@link CosmosIOSourceProperties} component. */
 export interface CosmosIOSourcePropertiesProps {
   node: {
     data: {
@@ -43,6 +45,11 @@ export interface CosmosIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the Azure Cosmos DB source node. Configures database, container, and SQL query options.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CosmosIOSourceProperties: React.FC<CosmosIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node?.data?.properties || {};
 
@@ -153,25 +160,14 @@ export const CosmosIOSourceProperties: React.FC<CosmosIOSourcePropertiesProps> =
         />
       </div>
 
-      {/* System Instructions Section */}
-      <div className="flex flex-col gap-3 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-        <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="System instructions passed to the Beam code generator." />
-        </label>
-        <PropertyField
-          id="cosmosSourceInstructions"
-          name="system_instructions"
-          label="System Instructions"
-          type="textarea"
-          rows={3}
-          tooltip="Prompt instructions specifying how CosmosIO.read(...) and CosmosOptions are synthesized."
-          value={instructions}
-          placeholder="e.g., Read from Azure Cosmos DB using CosmosIO.read(ObjectNode.class).withDatabase(...).withContainer(...)"
-          onChange={handleInputChange}
-          mono={true}
-        />
-      </div>
+      {/* Code Generation Instructions */}
+      <SystemInstructionsField
+        id="cosmosSourceInstructions"
+        value={instructions}
+        tooltip="Prompt instructions specifying how CosmosIO.read(...) and CosmosOptions are synthesized."
+        placeholder="e.g., Read from Azure Cosmos DB using CosmosIO.read(ObjectNode.class).withDatabase(...).withContainer(...)"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

@@ -10,8 +10,12 @@
  */
 
 import React from 'react';
-import { getNodeDocumentation, openNodeDocs } from '../../utils/nodeDocumentation';
+import { getNodeDocumentation } from '../../utils/nodeDocumentation';
+import { ExternalDocsLink } from './ExternalDocsLink';
 
+/**
+ * Props for the {@link NodeDocsCard} component.
+ */
 export interface NodeDocsCardProps {
   node?: any;
   title?: string;
@@ -20,6 +24,12 @@ export interface NodeDocsCardProps {
   ariaLabel?: string;
 }
 
+/**
+ * Header card rendering documentation links and descriptive summaries for selected pipeline nodes.
+ *
+ * @param props Component properties containing node data or explicit title, description, and documentation URL.
+ * @returns Rendered documentation summary card or null when incomplete.
+ */
 export const NodeDocsCard: React.FC<NodeDocsCardProps> = ({
   node,
   title,
@@ -43,14 +53,7 @@ export const NodeDocsCard: React.FC<NodeDocsCardProps> = ({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold text-slate-200">{resolvedTitle}</span>
-        <button
-          type="button"
-          onClick={() => openNodeDocs(resolvedDocsUrl)}
-          aria-label={ariaLabel ?? `Open ${resolvedTitle} documentation`}
-          className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-        >
-          Docs ↗
-        </button>
+        <ExternalDocsLink url={resolvedDocsUrl} ariaLabel={ariaLabel ?? `Open ${resolvedTitle} documentation`} />
       </div>
       <p className="text-slate-400">{resolvedDescription}</p>
     </div>

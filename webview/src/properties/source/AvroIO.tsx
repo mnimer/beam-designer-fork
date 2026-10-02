@@ -25,7 +25,8 @@
 
 import React, { useMemo } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { SchemaEditor, BEAM_SCHEMA_TYPES, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
@@ -49,6 +50,7 @@ export const SAMPLE_AVRO_SCHEMA = JSON.stringify(
   2
 );
 
+/** React Flow node shape for the AvroIO source panel, including its persisted configuration data. */
 export interface AvroIOSourceNode {
   data: {
     label: string;
@@ -78,6 +80,7 @@ export interface AvroIOSourceNode {
   };
 }
 
+/** Props for the {@link AvroIOSourceProperties} component. */
 export interface AvroIOSourcePropertiesProps {
   node: AvroIOSourceNode;
   onChange: (properties: any) => void;
@@ -112,12 +115,7 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
   );
 
   // Extract instructions with fallbacks
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Dispatches property change updates to the parent pipeline coordinator.
@@ -146,16 +144,6 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Updates custom instructions for code generation.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -427,23 +415,18 @@ export const AvroIOSourceProperties: React.FC<AvroIOSourcePropertiesProps> = ({ 
         </div>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Section 5: Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="avroSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for AvroIO source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="avroSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for AvroIO source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

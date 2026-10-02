@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { JsonIOSinkProperties, JSON_SINK_COMPRESSION_TYPES } from './JsonIO';
 
@@ -193,110 +193,6 @@ describe('JsonIOSinkProperties', () => {
         system_instructions: 'Write output records partitioned into 10 shards as JSON Lines'
       })
     );
-  });
-
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'JsonIO Sink',
-        properties: {}
-      }
-    };
-
-    const { container } = render(<JsonIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['export-destination-bucket', 'warehouse-sink-bucket']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to to field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://export-destination-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://warehouse-sink-bucket/');
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error with empty destination to', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'JsonIO Sink',
-        properties: {}
-      }
-    };
-
-    render(<JsonIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to connect to Google Cloud Storage service'
-          }
-        })
-      );
-    });
-
-    // Verify both required validation and bucket discovery error render
-    expect(screen.getByText('Destination Directory is required.')).toBeInTheDocument();
-    expect(screen.getByText('Failed to load Cloud Storage buckets: Failed to connect to Google Cloud Storage service')).toBeInTheDocument();
-  });
-
-  it('surfaces bucket loading error inline when destination to is valid and non-empty (regression test for suppressed discovery error)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'JsonIO Sink',
-        properties: {
-          to: 'gs://valid-sink-bucket/json/output'
-        }
-      }
-    };
-
-    render(<JsonIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to connect to Google Cloud Storage service'
-          }
-        })
-      );
-    });
-
-    // Verify discovery error message is rendered inline even when path is valid
-    expect(screen.getByText('Failed to load Cloud Storage buckets: Failed to connect to Google Cloud Storage service')).toBeInTheDocument();
   });
 
   it('omits unsupported XZ compression codec and documents Java JsonIO.writeRows vs Python WriteToJson for lines and compression (regression test)', () => {

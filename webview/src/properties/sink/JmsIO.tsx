@@ -22,15 +22,19 @@
  * - Strictly follows the 8pt grid system (multiples of 8px) and VS Code theme variables.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { normalizeSecretItem, SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
-import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 import { resolveAuthMode, JMS_AUTH_OPTIONS } from '../source/JmsIO';
 import type { JmsAuthMode } from '../source/JmsIO';
 
+/**
+ * Preset definition for well-known JMS broker connection factories and default URLs.
+ */
 export interface JmsProviderPreset {
   label: string;
   factoryClass: string;
@@ -75,6 +79,9 @@ export const JMS_PROVIDER_PRESETS: JmsProviderPreset[] = [
   }
 ];
 
+/**
+ * Compute Engine instance information for broker IP resolution.
+ */
 export interface ComputeInstanceInfo {
   name: string;
   zone: string;
@@ -83,6 +90,9 @@ export interface ComputeInstanceInfo {
   status: string;
 }
 
+/**
+ * React Flow node shape for the JMS sink panel, including its persisted configuration data.
+ */
 interface JmsIOSinkNode {
   data: {
     label: string;
@@ -109,6 +119,9 @@ interface JmsIOSinkNode {
   };
 }
 
+/**
+ * Props for the JmsIOSinkProperties component.
+ */
 interface JmsIOSinkPropertiesProps {
   node: JmsIOSinkNode;
   onChange: (properties: any) => void;
@@ -135,30 +148,9 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
   const maxRetries = properties.maxRetries ?? '';
   const initialRetryDelay = properties.initialRetryDelay ?? '';
 
-  // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
-  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
-  const [computeInstances, setComputeInstances] = useState<ComputeInstanceInfo[]>([]);
-
-  // NOTE: Listen for gcloud responses from the VS Code extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'computeInstancesLoaded') {
-        setComputeInstances(message.instances || []);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // Request available Secret Manager secrets and Compute Engine instances from extension
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  // Request Secret Manager secrets via useSecretOptions
+  const secrets = useSecretOptions();
+  const { items: computeInstances } = useAssetLoader<ComputeInstanceInfo>('computeInstances');
 
   // System instructions text with fallbacks
   const systemInstructions =
@@ -284,17 +276,6 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
     });
   };
 
-  /**
-   * Handles system instructions textarea change for LLM prompt customization.
-   * 
-   * @param e Textarea change event.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-xs">
@@ -423,8 +404,9 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
           onChange={handleChange}
           placeholder="jms-broker-username"
           list="jms-sink-username-secrets-list"
-          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
-          loading={secretsLoading}
+          datalist={secrets.options}
+          loading={secrets.loading}
+          error={secrets.error}
           mono={true}
         />
 
@@ -437,7 +419,7 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
           secretNameId="jmsSinkPasswordSecret"
           secretNameName="passwordSecret"
           secretPlaceholder="jms-broker-password"
-          secrets={secrets}
+          secrets={secrets.secrets}
           serviceName="JMS"
           onChange={handleChange}
         />
@@ -486,23 +468,15 @@ export const JmsIOSinkProperties: React.FC<JmsIOSinkPropertiesProps> = ({ node, 
         </div>
       </div>
 
-      {/* Code Generation Instructions Spacer and Section */}
-      <div className="flex-1 min-h-[16px]" />
-
-      <div className="flex flex-col gap-1 pt-2 border-t border-[var(--vscode-border)]">
-        <label htmlFor="jmsSinkSystemInstructions" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Special instructions passed to the AI code generator specifically for this JMS Sink node (e.g. custom message formatting, correlation ID headers)." />
-        </label>
-        <textarea
-          id="jmsSinkSystemInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Set JMSCorrelationID header from element ID before publishing"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none resize-y"
-        />
-      </div>
+      {/* Code Generation Instructions Section (renders its own bottom-push spacer) */}
+      <SystemInstructionsField
+        id="jmsSinkSystemInstructions"
+        value={systemInstructions}
+        tooltip="Special instructions passed to the AI code generator specifically for this JMS Sink node (e.g. custom message formatting, correlation ID headers)."
+        placeholder="e.g. Set JMSCorrelationID header from element ID before publishing"
+        wrapperClassName="flex flex-col gap-1 pt-2 border-t border-[var(--vscode-border)]"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

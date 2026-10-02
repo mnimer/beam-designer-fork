@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SourceCodeTab, highlightCode } from './SourceCodeTab';
+import { renderWithBottomPanel } from './testUtils';
 
 describe('SourceCodeTab', () => {
   const mockProps = {
@@ -24,7 +25,7 @@ describe('SourceCodeTab', () => {
   });
 
   it('renders correctly with default props when needsRebuild is false', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     // Check language options
     expect(screen.getByLabelText('Python')).toBeInTheDocument();
@@ -49,17 +50,18 @@ describe('SourceCodeTab', () => {
   });
 
   it('filters out venv, node_modules, and build cache files from the file list', () => {
-    render(
-      <SourceCodeTab
-        {...mockProps}
-        files={[
+    renderWithBottomPanel(
+      <SourceCodeTab />,
+      {
+        ...mockProps,
+        files: [
           'pipeline.py',
           'venv/lib/python3.11/site-packages/beam.py',
           'node_modules/pkg/index.js',
           '.venv/lib/site-packages/test.py',
           '__pycache__/pipeline.pyc'
-        ]}
-      />
+        ]
+      }
     );
 
     expect(screen.getByText('pipeline.py')).toBeInTheDocument();
@@ -69,7 +71,7 @@ describe('SourceCodeTab', () => {
 
   it('calls onStopGeneration when clicking Stop button', () => {
     const onStopGeneration = vi.fn();
-    render(<SourceCodeTab {...mockProps} isGenerating={true} onStopGeneration={onStopGeneration} />);
+    renderWithBottomPanel(<SourceCodeTab />, { ...mockProps, isGenerating: true, onStopGeneration });
 
     const stopBtn = screen.getByText('Stop');
     fireEvent.click(stopBtn);
@@ -77,14 +79,14 @@ describe('SourceCodeTab', () => {
   });
 
   it('calls setLanguage when selecting radio buttons', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     fireEvent.click(screen.getByLabelText('Java'));
     expect(mockProps.setLanguage).toHaveBeenCalledWith('Java');
   });
 
   it('calls setOutputFolder when typing in folder input', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     const input = screen.getByPlaceholderText('./scratch_flow/');
     fireEvent.change(input, { target: { value: 'new/path' } });
@@ -92,7 +94,7 @@ describe('SourceCodeTab', () => {
   });
 
   it('calls onPickFolder when clicking browse folder button', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     const button = screen.getByTitle('Browse Folder');
     fireEvent.click(button);
@@ -100,21 +102,21 @@ describe('SourceCodeTab', () => {
   });
 
   it('calls onRegenerate when clicking regenerate button', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     fireEvent.click(screen.getByText('Generate Code'));
     expect(mockProps.onRegenerate).toHaveBeenCalled();
   });
 
   it('calls onSelectFile when clicking a file from the list', () => {
-    render(<SourceCodeTab {...mockProps} />);
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
 
     fireEvent.click(screen.getByText('job.py'));
     expect(mockProps.onSelectFile).toHaveBeenCalledWith('job.py');
   });
 
   it('renders rebuild warning and hides file list/code preview when needsRebuild is true', () => {
-    render(<SourceCodeTab {...mockProps} needsRebuild={true} />);
+    renderWithBottomPanel(<SourceCodeTab />, { ...mockProps, needsRebuild: true });
 
     // Warning text should be visible
     expect(screen.getByText(/Unsaved Pipeline Changes/)).toBeInTheDocument();
@@ -128,13 +130,14 @@ describe('SourceCodeTab', () => {
   });
 
   it('renders selected file content when selectedFile is set', () => {
-    render(
-      <SourceCodeTab
-        {...mockProps}
-        files={['job.py', 'custom_transform.py', 'requirements.txt']}
-        selectedFile="custom_transform.py"
-        selectedFileContent="def process(element): return element"
-      />
+    renderWithBottomPanel(
+      <SourceCodeTab />,
+      {
+        ...mockProps,
+        files: ['job.py', 'custom_transform.py', 'requirements.txt'],
+        selectedFile: 'custom_transform.py',
+        selectedFileContent: 'def process(element): return element',
+      }
     );
 
     // Selected file tab button
@@ -169,7 +172,7 @@ describe('SourceCodeTab', () => {
       const highlighted = highlightCode(code, 'pipeline.py', 'Python');
       expect(highlighted).toContain('$&amp; tax');
       expect(highlighted).toContain('$` before');
-      expect(highlighted).toContain("$\' after");
+      expect(highlighted).toContain("$' after");
       expect(highlighted).toContain('$1 match');
       expect(highlighted).not.toContain('\uE000TOKEN_');
       expect(highlighted).not.toContain('___TOKEN_');
@@ -231,28 +234,29 @@ describe('SourceCodeTab', () => {
     // M11 (b): Memoisation - re-rendering with identical code/language/file does not recompute
     it('does not recompute highlightCode when re-rendering with identical props', () => {
       const spy = vi.fn(highlightCode);
-      const { rerender } = render(<SourceCodeTab {...mockProps} highlighter={spy} />);
+      const { rerenderWithContext } = renderWithBottomPanel(<SourceCodeTab highlighter={spy} />, mockProps);
       expect(spy).toHaveBeenCalledTimes(1);
 
       // Re-rendering with an unrelated prop change does NOT re-run the highlighter
-      rerender(<SourceCodeTab {...mockProps} highlighter={spy} outputFolder="new/output/folder" />);
+      rerenderWithContext(<SourceCodeTab highlighter={spy} />, { ...mockProps, outputFolder: 'new/output/folder' });
       expect(spy).toHaveBeenCalledTimes(1);
 
       // Re-rendering with changed code DOES re-run the highlighter
-      rerender(<SourceCodeTab {...mockProps} highlighter={spy} generatedCode="print('updated')" />);
+      rerenderWithContext(<SourceCodeTab highlighter={spy} />, { ...mockProps, generatedCode: "print('updated')" });
       expect(spy).toHaveBeenCalledTimes(2);
     });
 
     it('renders token usage message when tokenUsage prop is provided', () => {
-      render(
-        <SourceCodeTab
-          {...mockProps}
-          tokenUsage={{
+      renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          tokenUsage: {
             inputTokens: 1420,
             outputTokens: 856,
             totalTokens: 2276,
-          }}
-        />
+          },
+        }
       );
 
       const tokenBox = screen.getByTestId('token-usage');
@@ -263,17 +267,18 @@ describe('SourceCodeTab', () => {
     });
 
     it('does not render token usage message when tokenUsage is null or undefined', () => {
-      render(<SourceCodeTab {...mockProps} tokenUsage={null} />);
+      renderWithBottomPanel(<SourceCodeTab />, { ...mockProps, tokenUsage: null });
       expect(screen.queryByTestId('token-usage')).not.toBeInTheDocument();
     });
 
     it('disables Generate Code button and displays validation error callout when isGraphValid is false', () => {
-      render(
-        <SourceCodeTab
-          {...mockProps}
-          isGraphValid={false}
-          validationErrors={['Cyclic dependency detected: Step 1 -> Step 2 -> Step 1']}
-        />
+      renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          isGraphValid: false,
+          validationErrors: ['Cyclic dependency detected: Step 1 -> Step 2 -> Step 1'],
+        }
       );
 
       const generateBtn = screen.getByText('Generate Code').closest('button');
@@ -295,15 +300,16 @@ describe('SourceCodeTab', () => {
     });
 
     it('displays multiple validation errors and formats them as a list with tooltip on button', () => {
-      render(
-        <SourceCodeTab
-          {...mockProps}
-          isGraphValid={false}
-          validationErrors={[
+      renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          isGraphValid: false,
+          validationErrors: [
             'Cyclic dependency detected: Step 1 -> Step 2 -> Step 1',
             'Orphan node(s) detected: "Unconnected" (orphan). All steps must be connected into the pipeline.',
-          ]}
-        />
+          ],
+        }
       );
 
       const generateBtn = screen.getByText('Generate Code').closest('button');
@@ -320,12 +326,13 @@ describe('SourceCodeTab', () => {
     });
 
     it('enables Generate Code button and hides error callout when isGraphValid is true', () => {
-      render(
-        <SourceCodeTab
-          {...mockProps}
-          isGraphValid={true}
-          validationErrors={[]}
-        />
+      renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          isGraphValid: true,
+          validationErrors: [],
+        }
       );
 
       const generateBtn = screen.getByText('Generate Code').closest('button');
@@ -334,29 +341,6 @@ describe('SourceCodeTab', () => {
       expect(screen.queryByTestId('codegen-validation-error')).not.toBeInTheDocument();
       expect(screen.queryByText('Generation disabled: resolve diagram errors to continue')).not.toBeInTheDocument();
     });
-    it('renders token usage message when tokenUsage prop is provided', () => {
-      render(
-        <SourceCodeTab
-          {...mockProps}
-          tokenUsage={{
-            inputTokens: 1420,
-            outputTokens: 856,
-            totalTokens: 2276,
-          }}
-        />
-      );
-
-      const tokenBox = screen.getByTestId('token-usage');
-      expect(tokenBox).toBeInTheDocument();
-      expect(screen.getByText('Tokens:')).toBeInTheDocument();
-      expect(screen.getByText('1,420')).toBeInTheDocument();
-      expect(screen.getByText('856')).toBeInTheDocument();
-    });
-
-    it('does not render token usage message when tokenUsage is null or undefined', () => {
-      render(<SourceCodeTab {...mockProps} tokenUsage={null} />);
-      expect(screen.queryByTestId('token-usage')).not.toBeInTheDocument();
-    });
 
     it('disables Generate Code and shows error message when diagram contains a Java-only node and Python is selected', () => {
       const mockOnRegenerate = vi.fn();
@@ -364,15 +348,16 @@ describe('SourceCodeTab', () => {
         { id: 'tika-1', data: { label: 'Read Documents', beam_transform: 'TikaIO' } },
       ];
 
-      const { rerender } = render(
-        <SourceCodeTab
-          {...mockProps}
-          onRegenerate={mockOnRegenerate}
-          language="Python"
-          nodes={javaOnlyNodes}
-          isGraphValid={true}
-          validationErrors={[]}
-        />
+      const { rerenderWithContext } = renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          onRegenerate: mockOnRegenerate,
+          language: 'Python',
+          nodes: javaOnlyNodes,
+          isGraphValid: true,
+          validationErrors: [],
+        }
       );
 
       const generateBtn = screen.getByText('Generate Code').closest('button');
@@ -399,21 +384,42 @@ describe('SourceCodeTab', () => {
       expect(blockedPreview).toHaveTextContent('Node "Read Documents" (TikaIO) is only supported in Java');
 
       // Switching language to Java clears the error, enables Generate Code, and dismisses the blocked banner
-      rerender(
-        <SourceCodeTab
-          {...mockProps}
-          onRegenerate={mockOnRegenerate}
-          language="Java"
-          nodes={javaOnlyNodes}
-          isGraphValid={true}
-          validationErrors={[]}
-        />
+      rerenderWithContext(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          onRegenerate: mockOnRegenerate,
+          language: 'Java',
+          nodes: javaOnlyNodes,
+          isGraphValid: true,
+          validationErrors: [],
+        }
       );
 
       expect(screen.getByText('Generate Code').closest('button')).not.toBeDisabled();
       expect(screen.queryByTestId('codegen-validation-error')).not.toBeInTheDocument();
       expect(screen.queryByTestId('codegen-preview-blocked')).not.toBeInTheDocument();
     });
+
+    it('renders code containing malicious HTML tags as literal text without creating DOM elements (XSS hardening)', () => {
+      const maliciousSnippet = 'payload = "<img src=x onerror=alert(1)>"';
+      const { container } = renderWithBottomPanel(
+        <SourceCodeTab />,
+        {
+          ...mockProps,
+          generatedCode: maliciousSnippet,
+        }
+      );
+
+      // Verify no img element is injected into the DOM
+      expect(container.querySelector('img')).toBeNull();
+
+      // Verify literal text is rendered visibly inside the code preview
+      expect(screen.getByText((_content, node) => {
+        return node?.tagName === 'CODE' && node?.textContent === maliciousSnippet;
+      })).toBeInTheDocument();
+    });
   });
 });
+
 

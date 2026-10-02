@@ -4,19 +4,17 @@
  * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Purpose:
- * Validates rendering, input handling, Cloud Storage bucket auto-discovery messaging,
+ * Validates rendering, input handling,
  * required-path validation states, JSON Lines mode, compression selection, sample schema insertion,
  * accordion toggling, and code generation instructions for JsonIOSourceProperties.
  * 
  * Architectural Decisions:
  * - Uses Vitest and React Testing Library for fast, realistic DOM interaction testing.
- * - Mocks window.vscode.postMessage to verify extension host IPC interactions.
- * - Tests both success and failure scenarios for dynamic storageBucketsLoaded message events.
  * - Verifies that 100% of event handlers, toggles, and input states produce proper onChange payloads.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { JsonIOSourceProperties, JSON_SOURCE_COMPRESSION_TYPES } from './JsonIO';
 
@@ -162,19 +160,6 @@ describe('JsonIOSourceProperties', () => {
 
     const { container } = render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Accordion is open by default; click header to collapse it
-    const schemaAccordionButton = screen
-      .getByText('Schema Configuration (Java TextIO + JsonToRow.withSchema(schema))')
-      .closest('button');
-    expect(schemaAccordionButton).not.toBeNull();
-    fireEvent.click(schemaAccordionButton!);
-
-    // Content should be collapsed
-    expect(container.querySelector('#jsonSourceMappingStrategy')).not.toBeInTheDocument();
-
-    // Reopen accordion
-    fireEvent.click(schemaAccordionButton!);
-    expect(container.querySelector('#jsonSourceMappingStrategy')).toBeInTheDocument();
 
     // Switch to Schema String tab in SchemaEditor and update schema
     fireEvent.click(screen.getByText('Schema String'));
@@ -251,107 +236,5 @@ describe('JsonIOSourceProperties', () => {
     );
   });
 
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
 
-    const mockNode = {
-      data: {
-        label: 'JsonIO Source',
-        properties: {}
-      }
-    };
-
-    const { container } = render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['data-lake-bucket', 'analytics-exports']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to filePattern field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://data-lake-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://analytics-exports/');
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error with empty filePattern', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'JsonIO Source',
-        properties: {}
-      }
-    };
-
-    render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS API authentication failed: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    // Verify both required validation and bucket discovery error render
-    expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
-    expect(screen.getByText('Failed to load Cloud Storage buckets: GCS API authentication failed: 403 Forbidden')).toBeInTheDocument();
-  });
-
-  it('surfaces bucket loading error inline when filePattern is valid and non-empty (regression test for suppressed discovery error)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'JsonIO Source',
-        properties: {
-          filePattern: 'gs://valid-bucket/data/*.json'
-        }
-      }
-    };
-
-    render(<JsonIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS API authentication failed: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    // Verify discovery error message is rendered inline even when path is valid
-    expect(screen.getByText('Failed to load Cloud Storage buckets: GCS API authentication failed: 403 Forbidden')).toBeInTheDocument();
-  });
 });

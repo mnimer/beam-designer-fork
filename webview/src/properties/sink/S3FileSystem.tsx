@@ -45,11 +45,16 @@
 import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * React Flow node shape for the Amazon S3 sink panel, including its persisted configuration data.
+ */
 export interface S3FileSystemSinkNode {
   data: {
     label: string;
@@ -80,6 +85,9 @@ export interface S3FileSystemSinkNode {
   };
 }
 
+/**
+ * Props for the S3FileSystemSinkProperties component.
+ */
 export interface S3FileSystemSinkPropertiesProps {
   node: S3FileSystemSinkNode;
   onChange: (properties: any) => void;
@@ -186,12 +194,7 @@ export const S3FileSystemSinkProperties: React.FC<S3FileSystemSinkPropertiesProp
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -205,17 +208,6 @@ export const S3FileSystemSinkProperties: React.FC<S3FileSystemSinkPropertiesProp
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   * @param e Native change event from textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -500,22 +492,21 @@ export const S3FileSystemSinkProperties: React.FC<S3FileSystemSinkPropertiesProp
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="s3SinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this S3FileSystem writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write Parquet files to S3 destination with AES256 encryption and 10 shards."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="s3SinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this S3FileSystem writer step."
+        placeholder="e.g. Write Parquet files to S3 destination with AES256 encryption and 10 shards."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="resize-y h-24"
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

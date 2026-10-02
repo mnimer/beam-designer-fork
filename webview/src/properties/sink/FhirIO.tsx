@@ -23,11 +23,15 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export type FhirWriteMethod = 'EXECUTE_BUNDLE' | 'IMPORT';
 export type FhirImportContentStructure = 'BUNDLE' | 'RESOURCE' | 'CONTENT_STRUCTURE_UNSPECIFIED';
 
+/**
+ * Props for the FhirIOSinkProperties component.
+ */
 export interface FhirIOSinkPropertiesProps {
   node?: any;
   nodeId?: string;
@@ -286,19 +290,12 @@ export const FhirIOSinkProperties: React.FC<FhirIOSinkPropertiesProps> = ({
         </div>
       </details>
 
-      {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="fhirSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., handling FhirIO.Write.AbstractResult.getFailedBodies())."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., handling FhirIO.Write.AbstractResult.getFailedBodies())."
         placeholder="e.g., Capture FhirIO.Write.Result.getFailedBodies() and log or route failed bundles to dead-letter storage..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

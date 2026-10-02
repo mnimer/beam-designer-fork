@@ -5,7 +5,7 @@
  *
  * Purpose:
  * Validates MongoDbIOSourceProperties form rendering, hydration, dispatching,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -204,75 +204,6 @@ describe('MongoDbIOSourceProperties', () => {
     expect(screen.getByDisplayValue('0')).toBeInTheDocument();
   });
 
-  it('supports switching to Secret Manager authentication mode and receives IPC secrets', () => {
-    const node = {
-      data: {
-        label: 'MongoDB Source',
-        properties: {
-          authMode: 'secret_manager' as const,
-          usernameSecret: 'mongo-user',
-          passwordSecret: 'mongo-pass'
-        }
-      }
-    };
-
-    render(<MongoDbIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    const userSecretInput = screen.getByPlaceholderText('e.g. mongodb-username');
-    const passSecretInput = screen.getByPlaceholderText('e.g. mongodb-password');
-
-    expect(userSecretInput).toHaveValue('mongo-user');
-    expect(passSecretInput).toHaveValue('mongo-pass');
-
-    // Simulate secretsLoaded event with string and object formats
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/mongo-user-secret',
-            { id: 'mongo-pass-secret', name: 'mongo-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#mongodb-source-secret-options option[value="mongo-user-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#mongodb-source-secret-options option[value="mongo-pass-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('renders Secret Manager error when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'MongoDB Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<MongoDbIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager')).toBeInTheDocument();
-  });
-
   it('toggles Advanced Source Settings and updates SSL, idle time, and read preference', () => {
     const node = {
       data: {
@@ -332,70 +263,7 @@ describe('MongoDbIOSourceProperties', () => {
     );
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <MongoDbIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <MongoDbIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <MongoDbIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property level system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <MongoDbIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property level special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level special instructions')).toBeInTheDocument();
-    unmount4();
-
-    // 5. empty fallback
+  it('updates system_instructions when instructions textarea is edited', () => {
     render(
       <MongoDbIOSourceProperties
         node={{
@@ -405,7 +273,6 @@ describe('MongoDbIOSourceProperties', () => {
       />
     );
     const textarea = screen.getByPlaceholderText(/Read MongoDB BSON documents/i);
-    expect(textarea).toHaveValue('');
 
     fireEvent.change(textarea, { target: { value: 'Synthesize custom pipeline' } });
     expect(mockOnChange).toHaveBeenCalledWith(

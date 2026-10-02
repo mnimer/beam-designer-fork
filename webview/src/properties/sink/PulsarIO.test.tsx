@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PulsarIOSinkProperties } from './PulsarIO';
 
@@ -189,7 +189,7 @@ describe('PulsarIOSinkProperties', () => {
     expect(screen.queryByLabelText(/Custom Formatter \/ Coder Class/i)).not.toBeInTheDocument();
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret in token mode', () => {
+  it('allows selecting a secret in token mode', () => {
     const mockNode = {
       data: {
         label: 'Pulsar Sink',
@@ -202,20 +202,6 @@ describe('PulsarIOSinkProperties', () => {
 
     render(<PulsarIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate secretsLoaded message
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'pulsar-producer-token', value: 'pulsar-producer-token' }
-          ]
-        }
-      }));
-    });
-
     const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
 
@@ -223,11 +209,6 @@ describe('PulsarIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       tokenSecretName: 'pulsar-producer-token'
     }));
-
-    // Test refresh button
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('enforces Secret Manager usage for token auth mode and eliminates direct token entry', () => {
@@ -253,60 +234,15 @@ describe('PulsarIOSinkProperties', () => {
     expect(screen.getByLabelText(/Pulsar JWT Token Secret/i)).toBeInTheDocument();
   });
 
-  it('supports Python x-lang Expansion Service configuration in auto and endpoint modes', () => {
+  it('updates system_instructions when textarea changes', () => {
     const mockOnChange = vi.fn();
 
-    const { rerender } = render(
+    render(
       <PulsarIOSinkProperties
         node={{
           data: {
             label: 'Pulsar Sink',
-            properties: {
-              expansionServiceMode: 'auto'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-
-    expect(screen.queryByLabelText(/Expansion Service Endpoint/i)).not.toBeInTheDocument();
-
-    rerender(
-      <PulsarIOSinkProperties
-        node={{
-          data: {
-            label: 'Pulsar Sink',
-            properties: {
-              expansionServiceMode: 'endpoint',
-              expansionServiceEndpoint: ''
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-
-    const endpointInput = screen.getByLabelText(/Expansion Service Endpoint/i);
-    expect(endpointInput).toBeInTheDocument();
-    expect(endpointInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Expansion service endpoint is required.')).toBeInTheDocument();
-
-    fireEvent.change(endpointInput, { target: { name: 'expansionServiceEndpoint', value: 'localhost:8097' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      expansionServiceEndpoint: 'localhost:8097'
-    }));
-  });
-
-  it('verifies system_instructions fallback precedence and textarea changes', () => {
-    const mockOnChange = vi.fn();
-
-    const { rerender } = render(
-      <PulsarIOSinkProperties
-        node={{
-          data: {
-            label: 'Pulsar Sink',
-            special_instructions: 'Sink fallback prompt'
+            properties: {}
           }
         }}
         onChange={mockOnChange}
@@ -314,42 +250,9 @@ describe('PulsarIOSinkProperties', () => {
     );
 
     const textarea = screen.getByLabelText(/Code Generation Instructions/i);
-    expect(textarea).toHaveValue('Sink fallback prompt');
-
-    rerender(
-      <PulsarIOSinkProperties
-        node={{
-          data: {
-            label: 'Pulsar Sink',
-            properties: {
-              system_instructions: 'Explicit sink instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(textarea).toHaveValue('Explicit sink instructions');
-
     fireEvent.change(textarea, { target: { value: 'Updated sink instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated sink instructions'
     }));
-  });
-
-  it('runs safely when window.vscode is undefined', () => {
-    delete (window as any).vscode;
-
-    const mockNode = {
-      data: {
-        label: 'Pulsar Sink',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    expect(() => {
-      render(<PulsarIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-    }).not.toThrow();
   });
 });

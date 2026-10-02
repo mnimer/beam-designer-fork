@@ -25,7 +25,10 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 import { YAML_DOC_BASE } from '../source/MySQLPostgreSQLOracleSQLServer';
 import type {
   DatabaseType,
@@ -91,21 +94,34 @@ const PACKAGED_DRIVERS: Record<DatabaseType, string> = {
   sqlserver: 'com.microsoft.sqlserver.jdbc.SQLServerDriver',
 };
 
+/**
+ * Resolves the database flavor metadata based on the database type string.
+ *
+ * @param v Candidate database type value.
+ * @returns The matching DbFlavor metadata object.
+ */
 function resolveFlavor(v: unknown): DbFlavor {
   return DB_FLAVORS.find((f) => f.value === v) ?? DB_FLAVORS[0];
 }
 
+/**
+ * Generates an example JDBC URL string for the given database flavor.
+ *
+ * @param f Database flavor metadata.
+ * @returns Example JDBC connection URL.
+ */
 function exampleUrl(f: DbFlavor): string {
   return `jdbc:${f.urlScheme}://my-host:${f.defaultPort}/database`;
 }
 
-function openMultiDbDocs(anchor: string): void {
-  const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscodeApi) {
-    vscodeApi.postMessage({ command: 'openExternal', url: `${YAML_DOC_BASE}#${anchor}` });
-  }
-}
 
+
+/**
+ * Validates a JDBC connection URL string.
+ *
+ * @param url The JDBC connection URL.
+ * @returns Error message if invalid, or null if valid.
+ */
 function urlError(url: string): string | null {
   if (!url.trim()) {
     return 'JDBC URL cannot be blank';
@@ -119,6 +135,13 @@ function urlError(url: string): string | null {
   return null;
 }
 
+/**
+ * Checks whether the URL matches the expected JDBC scheme prefix for the database flavor.
+ *
+ * @param url The candidate JDBC URL.
+ * @param f Database flavor metadata.
+ * @returns Warning message if mismatch, or null if valid.
+ */
 function urlSchemeWarning(url: string, f: DbFlavor): string | null {
   const trimmed = url.trim();
   if (!trimmed) {
@@ -130,6 +153,12 @@ function urlSchemeWarning(url: string, f: DbFlavor): string | null {
   return null;
 }
 
+/**
+ * Validates connection properties to ensure no plain-text credentials are embedded.
+ *
+ * @param v The connection properties string.
+ * @returns Error message if invalid, or null if valid.
+ */
 function connectionPropertiesError(v: string): string | null {
   if (/(^|;)\s*(password|user)\s*=/i.test(v)) {
     return 'Set Username and Password Secret above; do not put credentials in connection properties.';
@@ -137,6 +166,13 @@ function connectionPropertiesError(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates that an input is a positive integer.
+ *
+ * @param v Value to check.
+ * @param label Field label for error message.
+ * @returns Error message if invalid, or null if valid.
+ */
 function positiveIntError(v: unknown, label: string): string | null {
   if (v === undefined) {
     return null;
@@ -148,6 +184,12 @@ function positiveIntError(v: unknown, label: string): string | null {
   return null;
 }
 
+/**
+ * Parses a newline-separated string of SQL statements into an array of trimmed lines.
+ *
+ * @param text Multiline SQL text.
+ * @returns Array of individual SQL statement strings.
+ */
 function parseInitSql(text: string): string[] {
   return text
     .split('\n')
@@ -155,10 +197,25 @@ function parseInitSql(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/**
+ * Formats an array of SQL statements into a newline-separated string.
+ *
+ * @param v SQL statements array or unknown value.
+ * @returns Formatted newline-separated SQL string.
+ */
 function formatInitSql(v: unknown): string {
   return Array.isArray(v) ? v.join('\n') : '';
 }
 
+/**
+ * Applies property patches and deletions when switching database types or updating fields.
+ *
+ * @param base Current base properties.
+ * @param databaseType Target database type.
+ * @param patch Properties to merge.
+ * @param deletes Keys to delete from properties.
+ * @returns Updated properties object.
+ */
 function applyPropertyPatch(
   base: Record<string, unknown>,
   databaseType: DatabaseType,
@@ -176,6 +233,9 @@ function applyPropertyPatch(
   return next;
 }
 
+/**
+ * Props for the MySQLPostgreSQLOracleSQLServerSinkProperties component.
+ */
 export interface MySQLPostgreSQLOracleSQLServerSinkPropertiesProps {
   node: {
     data: MultiDbNodeData;
@@ -183,6 +243,11 @@ export interface MySQLPostgreSQLOracleSQLServerSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the multi-database JDBC sink node (MySQL, PostgreSQL, Oracle, SQL Server).
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const MySQLPostgreSQLOracleSQLServerSinkProperties: React.FC<
   MySQLPostgreSQLOracleSQLServerSinkPropertiesProps
 > = ({ node, onChange }) => {
@@ -208,13 +273,7 @@ export const MySQLPostgreSQLOracleSQLServerSinkProperties: React.FC<
   const driverClassName = String(properties.driverClassName ?? '');
   const driverJars = String(properties.driverJars ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Validation
   const currentUrlError = urlError(url);
@@ -295,14 +354,10 @@ export const MySQLPostgreSQLOracleSQLServerSinkProperties: React.FC<
           <span className="font-semibold text-slate-200">
             Beam YAML transform: <code className="text-slate-300">{flavor.writeTransform}</code>
           </span>
-          <button
-            type="button"
-            aria-label={`Open ${flavor.writeTransform} documentation`}
-            onClick={() => openMultiDbDocs(`writeto${flavor.anchor}`)}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink
+            url={`${YAML_DOC_BASE}#writeto${flavor.anchor}`}
+            ariaLabel={`Open ${flavor.writeTransform} documentation`}
+          />
         </div>
         <p className="text-slate-400">
           Writes rows to MySQL, PostgreSQL, Oracle, or SQL Server via Beam YAML standard JDBC schema transforms.
@@ -550,23 +605,18 @@ export const MySQLPostgreSQLOracleSQLServerSinkProperties: React.FC<
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 15. Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="multidbSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleTextChange}
-          placeholder="Enter custom instructions for multi-database YAML sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="multidbSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for multi-database YAML sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -18,7 +18,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the Filter step transform.
+ */
 interface FilterNode {
   data: {
     system_instructions?: string;
@@ -37,11 +42,23 @@ interface FilterNode {
   };
 }
 
+/**
+ * Props for the {@link FilterProperties} component.
+ */
 interface FilterPropertiesProps {
   node: FilterNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Constructs a plain English system instruction describing the configured filter predicate for code generation.
+ *
+ * @param compareTarget Comparison target ('Message Property' | 'Header Property' | 'Element').
+ * @param prop Property or header key to compare against.
+ * @param op Comparison operator (e.g. '==', 'contains', 'is not null').
+ * @param val Comparison threshold value string.
+ * @returns Human-readable system instruction sentence.
+ */
 export const generateFilterSystemInstruction = (
   compareTarget: string,
   prop: string,
@@ -77,6 +94,12 @@ export const generateFilterSystemInstruction = (
   return 'Create a custom function with a todo comment and return true.';
 };
 
+/**
+ * Property configuration panel for the Apache Beam Filter transform.
+ *
+ * @param props The selected filter node and change notification callback.
+ * @returns The rendered filter properties panel.
+ */
 export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const compareTarget = properties.compareTarget || 'Message Property';
@@ -91,12 +114,7 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
   const isPropertyInvalid = !isWholeElement && !property.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles changes to the compare target select dropdown
@@ -159,16 +177,6 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
       operator,
       value: newVal,
       system_instructions: newInstructions,
-    });
-  };
-
-  /**
-   * Handles changes to the code generation instructions textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -255,21 +263,17 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
         Filter elements based on boolean conditions or properties.
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="filterSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter custom instructions for Filter code generation..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

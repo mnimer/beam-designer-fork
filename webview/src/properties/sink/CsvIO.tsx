@@ -27,9 +27,14 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * React Flow node shape for the CSV sink panel, including its persisted configuration data.
+ */
 export interface CsvIOSinkNode {
   data: {
     label: string;
@@ -55,6 +60,9 @@ export interface CsvIOSinkNode {
   };
 }
 
+/**
+ * Props for the CsvIOSinkProperties component.
+ */
 export interface CsvIOSinkPropertiesProps {
   node: CsvIOSinkNode;
   onChange: (properties: any) => void;
@@ -166,12 +174,7 @@ export const CsvIOSinkProperties: React.FC<CsvIOSinkPropertiesProps> = ({ node, 
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles form input changes for text, select, and checkbox fields.
@@ -189,17 +192,6 @@ export const CsvIOSinkProperties: React.FC<CsvIOSinkPropertiesProps> = ({ node, 
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions for code synthesis.
-   *
-   * @param e Form change event from textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -334,23 +326,21 @@ export const CsvIOSinkProperties: React.FC<CsvIOSinkPropertiesProps> = ({ node, 
         />
       </div>
 
-      {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="csvSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this CsvIO writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write CSV rows using RFC4180 dialect with custom date-time formatter and GZIP compression."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="csvSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this CsvIO writer step."
+        placeholder="e.g. Write CSV rows using RFC4180 dialect with custom date-time formatter and GZIP compression."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

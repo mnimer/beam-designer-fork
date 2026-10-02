@@ -6,11 +6,10 @@
  * Purpose:
  * Validates SolrIOSourceProperties form rendering, hydration, field validation,
  * SolrCloud ZooKeeper connect string validation, authentication mode toggling,
- * IPC callbacks for Secret Manager, collapsible advanced configuration, and system instructions.
+ * Secret Manager configuration, collapsible advanced configuration, and system instructions.
  *
  * Architectural Decisions:
- * - Emulates VS Code extension host postMessage IPC to verify getSecrets request and response.
- * - Thoroughly tests normal hydration, dispatch updates, edge cases, failure states, and instruction fallbacks.
+ * - Thoroughly tests normal hydration, dispatch updates, edge cases, and field edits.
  * - Uses accessible role and placeholder queries to test UI state.
  */
 
@@ -182,55 +181,6 @@ describe('SolrIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. solr-password-secret')).toHaveValue('solr-pass');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'Solr Source',
-        properties: {
-          authMode: 'basic_secret_manager' as const,
-        },
-      },
-    };
-
-    render(<SolrIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/solr-secret-password',
-          { id: 'solr-prod-user', name: 'Solr Production User' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#solr-source-secret-options option[value="solr-secret-password"]');
-    const option2 = document.querySelector('datalist#solr-source-secret-options option[value="solr-prod-user"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error alert exactly once when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'Solr Source',
-        properties: {},
-      },
-    };
-
-    render(<SolrIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager for Solr',
-      },
-    }));
-
-    const alerts = screen.getAllByRole('alert');
-    const secretAlert = alerts.filter((a) => a.textContent?.includes('Failed to access GCP Secret Manager for Solr'));
-    expect(secretAlert).toHaveLength(1);
-  });
 
   it('toggles Advanced Source Settings and dispatches edits', () => {
     const node = {
@@ -319,34 +269,20 @@ describe('SolrIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('30000')).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('updates system_instructions when textarea changes', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for Solr source',
+        label: 'Solr Source',
         properties: {},
       },
     };
 
-    const { rerender } = render(<SolrIOSourceProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<SolrIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/SolrIO\.read\(\)\.withConnectionConfiguration/i);
-    expect(textarea).toHaveValue('Custom special prompt for Solr source');
 
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated prompt instructions',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Property instructions override',
-        },
-      },
-    };
-    rerender(<SolrIOSourceProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/SolrIO\.read\(\)\.withConnectionConfiguration/i)).toHaveValue('Property instructions override');
   });
 });

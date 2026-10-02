@@ -48,6 +48,9 @@ import { useAssetLoader } from '../../hooks/useAssetLoader';
 /** Default prefix for the Cloud Storage bucket discovery failure message. */
 export const DEFAULT_BUCKET_ERROR_PREFIX = 'Failed to load Cloud Storage buckets';
 
+/**
+ * Props for the {@link StoragePathField} component.
+ */
 export interface StoragePathFieldProps {
   /** DOM id of the input element. */
   id: string;

@@ -19,7 +19,6 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo, useContext, createContext } from 'react';
 import { LayoutTemplate, Map } from 'lucide-react';
 
-import type { LogEntry } from './components/BottomPanel/DeploymentTab';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -36,17 +35,25 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { validateDiagramLanguageSupport } from './utils/nodeLanguageSupport';
 import { NodesCard } from './components/NodesCard';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
-import { ThemeProvider } from './context/ThemeContext';
+import {
+  BottomPanelProvider,
+  type BottomPanelContextValue,
+} from './components/BottomPanel/BottomPanelContext';
 
 import { usePipelinePersistence } from './hooks/usePipelinePersistence';
 import { usePipelineGraph, type PipelineNodeData } from './hooks/usePipelineGraph';
 import { useVsCodeBridge, findMainPipelineFile, type PipelineConfig } from './hooks/useVsCodeBridge';
+import { pipelineConfigReducer } from './state/pipelineConfigReducer';
+import { useRuntimeVariables, DEFAULT_RUNTIME_VARIABLES } from './hooks/useRuntimeVariables';
+import { usePipelineExecution } from './hooks/usePipelineExecution';
+import { usePanelResize } from './hooks/usePanelResize';
+import { useUndoRedoHistory, isEditableTarget } from './hooks/useUndoRedoHistory';
+import { getVsCodeApi, postToHost } from './bridge/vscodeApi';
 
 export { findMainPipelineFile };
 export type { PipelineNodeData };
 
-const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
-(window as any).vscode = vscode;
+const vscode = getVsCodeApi() ?? null;
 
 /**
  * React Context providing the stable onLabelChange callback to canvas nodes.
@@ -55,8 +62,6 @@ export const LabelChangeContext = createContext<((id: string, newLabel: string) 
 
 /**
  * CanvasPipelineNode
- * 
- * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Stable wrapper around PipelineNode that injects the memoized onLabelChange callback
  * from React context. This avoids constructing new node/data objects on every App render,
@@ -79,13 +84,29 @@ const nodeTypes = {
   pipeline: CanvasPipelineNode,
 };
 
+/**
+ * State snapshot recorded for canvas undo/redo operations.
+ */
+interface PipelineSnapshot {
+  nodes: any[];
+  edges: any[];
+  runtimeVariables: { key: string; value: string }[];
+  jobConfig: any;
+  pipelineConfig: PipelineConfig;
+}
+
+/**
+ * Root designer workspace component hosting the React Flow canvas, node palette, property panel, and bottom panel.
+ *
+ * @returns The rendered Apache Beam pipeline designer application.
+ */
 function App() {
   const { project, fitView } = useReactFlow();
 
   // Navigation and active tab state
   const [activeTab, setActiveTab] = useState<string | null>(() => {
     try {
-      const vsState = (window as any).vscode?.getState?.()?.activeNodePaletteTab;
+      const vsState = (getVsCodeApi()?.getState?.() as any)?.activeNodePaletteTab;
       if (vsState !== undefined) {
         return vsState;
       }
@@ -104,9 +125,9 @@ function App() {
   const handleSetActiveTab = (tab: string | null) => {
     setActiveTab(tab);
     try {
-      const vs = (window as any).vscode;
+      const vs = getVsCodeApi();
       if (vs?.setState) {
-        const current = vs.getState?.() || {};
+        const current = (vs.getState?.() as any) || {};
         vs.setState({ ...current, activeNodePaletteTab: tab });
       }
       if (typeof localStorage !== 'undefined') {
@@ -121,10 +142,6 @@ function App() {
   const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
 
   // Job and pipeline configuration state
-  const [runtimeVariables, setRuntimeVariables] = useState<{ key: string; value: string }[]>([
-    { key: 'LOG_LEVEL', value: 'INFO' },
-    { key: 'NUM_WORKERS', value: '2' },
-  ]);
   const [jobConfig, setJobConfig] = useState<{
     runner: string;
     machineType?: string;
@@ -148,9 +165,6 @@ function App() {
     region: 'us-central1',
     projectId: ''
   });
-  const [pipelineLogs, setPipelineLogs] = useState<LogEntry[]>([]);
-  const [pipelineStatus, setPipelineStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'stopped'>('idle');
-  const [runnerCommand, setRunnerCommand] = useState<string>('');
   const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
   const [filename, setFilename] = useState('default_job');
   const [pipelineConfig, setPipelineConfig] = useState<PipelineConfig>({
@@ -159,35 +173,34 @@ function App() {
     needsRebuild: false,
   });
 
-  // Undo / Redo history state
-  const [history, setHistory] = useState<{
-    nodes: any[];
-    edges: any[];
-    runtimeVariables: { key: string; value: string }[];
-    jobConfig: any;
-    pipelineConfig: any;
-  }[]>([]);
-  const [future, setFuture] = useState<{
-    nodes: any[];
-    edges: any[];
-    runtimeVariables: { key: string; value: string }[];
-    jobConfig: any;
-    pipelineConfig: any;
-  }[]>([]);
+  // Snapshot ref for useUndoRedoHistory (finding F10)
+  const snapshotRef = useRef<PipelineSnapshot>({
+    nodes: [],
+    edges: [],
+    runtimeVariables: DEFAULT_RUNTIME_VARIABLES.map((v) => ({ ...v })),
+    jobConfig,
+    pipelineConfig,
+  });
 
-  // Snapshot taking function for history
-  const stateRef = useRef<{
-    nodes: any[];
-    edges: any[];
-    runtimeVariables: { key: string; value: string }[];
-    jobConfig: any;
-    pipelineConfig: any;
-  }>({ nodes: [], edges: [], runtimeVariables, jobConfig, pipelineConfig });
+  const restoreRef = useRef<(snapshot: PipelineSnapshot) => void>(() => {});
 
-  const takeSnapshot = useCallback(() => {
-    setHistory((prev) => [...prev, stateRef.current]);
-    setFuture([]);
-  }, []);
+  const { takeSnapshot, undo, redo } = useUndoRedoHistory<PipelineSnapshot>({
+    capture: useCallback(() => snapshotRef.current, []),
+    restore: useCallback((snapshot: PipelineSnapshot) => {
+      restoreRef.current(snapshot);
+    }, []),
+  });
+
+  const {
+    runtimeVariables,
+    setRuntimeVariables,
+    addVariable,
+    updateVariable,
+    deleteVariable,
+  } = useRuntimeVariables({
+    takeSnapshot,
+    setPipelineConfig,
+  });
 
   // Hook 1: Graph state and mutation helpers (A6)
   const {
@@ -224,10 +237,20 @@ function App() {
     fitView,
   });
 
-  // Keep stateRef synchronised with latest graph and config state
+  // Keep snapshotRef and restoreRef synchronised with latest graph and config state
   useEffect(() => {
-    stateRef.current = { nodes, edges, runtimeVariables, jobConfig, pipelineConfig };
+    snapshotRef.current = { nodes, edges, runtimeVariables, jobConfig, pipelineConfig };
   }, [nodes, edges, runtimeVariables, jobConfig, pipelineConfig]);
+
+  useEffect(() => {
+    restoreRef.current = (snapshot: PipelineSnapshot) => {
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      setRuntimeVariables(snapshot.runtimeVariables);
+      setJobConfig(snapshot.jobConfig);
+      setPipelineConfig((prev) => pipelineConfigReducer(prev, { type: 'reset', config: snapshot.pipelineConfig }));
+    };
+  }, [setNodes, setEdges, setRuntimeVariables, setJobConfig, setPipelineConfig]);
 
   // Hook 2: VS Code IPC bridge and message handler (A6)
   const {
@@ -245,7 +268,6 @@ function App() {
     handleOpenSample,
     handlePickFolder,
     handleSelectFile,
-    handleRunNow: ipcRunNow,
     handleRegenerate: ipcRegenerate,
   } = useVsCodeBridge({
     setNodes,
@@ -277,30 +299,6 @@ function App() {
 
   console.log('App rendering, isLoaded=', isLoaded, 'nodes=', nodes.length);
 
-  // Undo / Redo handlers
-  const undo = useCallback(() => {
-    if (history.length === 0) return;
-    const previousState = history[history.length - 1];
-    setFuture((prev) => [{ nodes, edges, runtimeVariables, jobConfig, pipelineConfig }, ...prev]);
-    setNodes(previousState.nodes);
-    setEdges(previousState.edges);
-    setRuntimeVariables(previousState.runtimeVariables);
-    setJobConfig(previousState.jobConfig);
-    setPipelineConfig(previousState.pipelineConfig);
-    setHistory((prev) => prev.slice(0, -1));
-  }, [history, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, setNodes, setEdges]);
-
-  const redo = useCallback(() => {
-    if (future.length === 0) return;
-    const nextState = future[0];
-    setHistory((prev) => [...prev, { nodes, edges, runtimeVariables, jobConfig, pipelineConfig }]);
-    setNodes(nextState.nodes);
-    setEdges(nextState.edges);
-    setRuntimeVariables(nextState.runtimeVariables);
-    setJobConfig(nextState.jobConfig);
-    setPipelineConfig(nextState.pipelineConfig);
-    setFuture((prev) => prev.slice(1));
-  }, [future, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, setNodes, setEdges]);
 
   // Read files whenever bottom tab switches to SOURCE_CODE
   useEffect(() => {
@@ -309,53 +307,30 @@ function App() {
     }
   }, [bottomTab, isLoaded, pipelineConfig.needsRebuild, refreshFolderFiles]);
 
-  // Listen for live pipeline execution events from the extension host
-  useEffect(() => {
-    const handleExecutionMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (!message) return;
-
-      if (message.command === 'pipelineStarted') {
-        setPipelineStatus('running');
-        if (message.commandLine) {
-          setRunnerCommand(message.commandLine);
-        }
-        const startEntry: LogEntry = {
-          id: `start-${Date.now()}`,
-          text: `[${new Date().toLocaleTimeString()}] Pipeline execution initiated (${message.runner || 'DirectRunner'})...\n`,
-          stream: 'stdout',
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setPipelineLogs((prev) => [...prev, startEntry]);
-      } else if (message.command === 'pipelineLog') {
-        const logEntry: LogEntry = {
-          id: `log-${Date.now()}-${Math.random()}`,
-          text: message.text || '',
-          stream: message.stream === 'stderr' ? 'stderr' : 'stdout',
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setPipelineLogs((prev) => [...prev, logEntry]);
-      } else if (message.command === 'pipelineJobIdDetected') {
-        setJobConfig((prev: any) => ({
-          ...prev,
-          jobId: message.jobId,
-          region: message.region || prev.region || 'us-central1',
-          projectId: message.projectId || prev.projectId || projectId
-        }));
-      } else if (message.command === 'pipelineFinished') {
-        setPipelineStatus(message.status || (message.exitCode === 0 ? 'completed' : 'failed'));
-      } else if (message.command === 'pipelineStopped') {
-        setPipelineStatus('stopped');
-      }
-    };
-
-    window.addEventListener('message', handleExecutionMessage);
-    return () => window.removeEventListener('message', handleExecutionMessage);
-  }, [projectId]);
+  // Hook 4: Pipeline execution state, log streaming, and IPC handlers
+  const {
+    pipelineLogs,
+    pipelineStatus,
+    runnerCommand,
+    handleRunNow,
+    handleStopPipeline,
+    handleClearLogs,
+  } = usePipelineExecution({
+    jobConfig,
+    runtimeVariables,
+    pipelineConfig,
+    setJobConfig,
+    projectId,
+    vscode,
+  });
 
   // Keyboard navigation and shortcuts (Undo, Redo, Delete)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target) || isEditableTarget(document.activeElement)) {
+        return;
+      }
+
       const modifier = event.ctrlKey || event.metaKey;
 
       if (modifier && event.key === 'z') {
@@ -370,16 +345,7 @@ function App() {
       }
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        const activeElement = document.activeElement;
-        const isInputFocused =
-          activeElement &&
-          (activeElement.tagName === 'INPUT' ||
-            activeElement.tagName === 'TEXTAREA' ||
-            (activeElement instanceof HTMLElement && activeElement.isContentEditable));
-
-        if (!isInputFocused) {
-          deleteSelected();
-        }
+        deleteSelected();
       }
     };
 
@@ -413,7 +379,7 @@ function App() {
           prev.subnetwork !== config.subnetwork;
 
         if (configChanged) {
-          setPipelineConfig((p) => (p.needsRebuild ? p : { ...p, needsRebuild: true }));
+          setPipelineConfig((p) => pipelineConfigReducer(p, { type: 'markDirty' }));
         }
         return config;
       });
@@ -421,56 +387,13 @@ function App() {
     [takeSnapshot]
   );
 
-  // Runtime variable mutation helpers
-  const addVariable = () => {
-    takeSnapshot();
-    setRuntimeVariables([...runtimeVariables, { key: 'NEW_VAR', value: 'value' }]);
-    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
-  };
-
-  const updateVariable = (index: number, field: 'key' | 'value', value: string) => {
-    takeSnapshot();
-    setRuntimeVariables(
-      runtimeVariables.map((v, i) => (i === index ? { ...v, [field]: value } : v))
-    );
-    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
-  };
-
   const isJobIdValid = (value: string) => {
     const regex = /^[a-z]([-a-z0-9]*[a-z0-9])?$/;
     return regex.test(value);
   };
 
-  const deleteVariable = (index: number) => {
-    takeSnapshot();
-    setRuntimeVariables(runtimeVariables.filter((_, i) => i !== index));
-    setPipelineConfig((prev) => ({ ...prev, needsRebuild: true }));
-  };
-
-  // Execution and generation action delegates
-  const handleRunNow = useCallback(() => {
-    console.log('[@App.tsx] handleRunNow called');
-    setPipelineLogs([]);
-    setPipelineStatus('running');
-    ipcRunNow(jobConfig, runtimeVariables);
-  }, [ipcRunNow, jobConfig, runtimeVariables]);
-
-  const handleStopPipeline = useCallback(() => {
-    console.log('[@App.tsx] handleStopPipeline called');
-    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
-    if (vs) {
-      vs.postMessage({
-        command: 'stopPipeline'
-      });
-    }
-  }, []);
-
-  const handleClearLogs = useCallback(() => {
-    setPipelineLogs([]);
-  }, []);
-
   const handleOpenConsole = useCallback((url: string) => {
-    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
+    const vs = getVsCodeApi();
     if (vs) {
       vs.postMessage({
         command: 'openExternal',
@@ -482,12 +405,9 @@ function App() {
   }, []);
 
   const handleStopGeneration = useCallback(() => {
-    const vs = typeof window !== 'undefined' ? (window as any).vscode : null;
-    if (vs) {
-      vs.postMessage({
-        command: 'stopCodeGeneration'
-      });
-    }
+    postToHost({
+      command: 'stopCodeGeneration'
+    });
   }, []);
 
   const languageValidation = useMemo(
@@ -510,36 +430,54 @@ function App() {
   }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, isCodegenValid, combinedValidationErrors]);
 
   // Resize state for Bottom Panel
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  // Property panel resizing state (default 320px = w-80, minimum 320px)
-  const [propertyPanelWidth, setPropertyPanelWidth] = useState<number>(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const saved = Number(window.localStorage.getItem('beam_property_panel_width'));
-        if (!isNaN(saved) && saved >= 320) {
-          return saved;
-        }
-      } catch {
-        // Ignore localStorage access restrictions in iframe
-      }
-    }
-    return 320;
+  const {
+    size: bottomPanelHeight,
+    startResize: handleMouseDown,
+  } = usePanelResize({
+    axis: 'y',
+    initialSize: 320,
+    cursor: 'row-resize',
+    computeSize: (e, startSize) => {
+      const container = mainContentRef.current;
+      if (!container) return startSize;
+      const containerRect = container.getBoundingClientRect();
+      let newHeight = containerRect.bottom - e.clientY;
+
+      const minHeight = 100;
+      const maxHeight = containerRect.height - 150;
+      if (newHeight < minHeight) newHeight = minHeight;
+      if (newHeight > maxHeight) newHeight = maxHeight;
+
+      return newHeight;
+    },
   });
-  const [isPropertyPanelResizing, setIsPropertyPanelResizing] = useState(false);
 
-  const handlePropertyPanelResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsPropertyPanelResizing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isPropertyPanelResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
+  // Property panel resizing state (default 320px = w-80, minimum 320px)
+  // Note: Width is now persisted to localStorage on mouseup via onResizeEnd (previously every mousemove) — intentional.
+  const {
+    size: propertyPanelWidth,
+    isResizing: isPropertyPanelResizing,
+    startResize: handlePropertyPanelResizeStart,
+  } = usePanelResize({
+    axis: 'x',
+    initialSize: () => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const saved = Number(window.localStorage.getItem('beam_property_panel_width'));
+          if (!isNaN(saved) && saved >= 320) {
+            return saved;
+          }
+        } catch {
+          // Ignore localStorage access restrictions in iframe
+        }
+      }
+      return 320;
+    },
+    cursor: 'col-resize',
+    computeSize: (e) => {
       const container = mainContentRef.current;
       const containerRect = container?.getBoundingClientRect();
       const rightEdge = (containerRect && containerRect.right > 0) ? containerRect.right : (window.innerWidth || 1024);
@@ -552,73 +490,21 @@ function App() {
       if (newWidth < minWidth) newWidth = minWidth;
       if (newWidth > maxWidth) newWidth = maxWidth;
 
-      setPropertyPanelWidth(newWidth);
+      return newWidth;
+    },
+    onResizeEnd: (size) => {
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
-          window.localStorage.setItem('beam_property_panel_width', String(newWidth));
+          window.localStorage.setItem('beam_property_panel_width', String(size));
         } catch {
           // Ignore localStorage error
         }
       }
-    };
-
-    const handleMouseUp = () => {
-      setIsPropertyPanelResizing(false);
-    };
-
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isPropertyPanelResizing]);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const container = mainContentRef.current;
-      if (!container) return;
-      const containerRect = container.getBoundingClientRect();
-      let newHeight = containerRect.bottom - e.clientY;
-
-      const minHeight = 100;
-      const maxHeight = containerRect.height - 150;
-      if (newHeight < minHeight) newHeight = minHeight;
-      if (newHeight > maxHeight) newHeight = maxHeight;
-
-      setBottomPanelHeight(newHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
+    },
+  });
 
   /**
    * Closes any open property pane when the user interacts with any field or button in the bottom panel tabs.
-   *
-   * Author: Mike Nimer <mikenimer@google.com>
    */
   const handleBottomPanelInteract = useCallback(() => {
     if (selectedNodeId) {
@@ -628,6 +514,93 @@ function App() {
       setSelectedEdgeId(null);
     }
   }, [selectedNodeId, selectedEdgeId, setSelectedNodeId, setSelectedEdgeId]);
+
+  // Context value bundle for BottomPanel and its child tabs (Phase 5)
+  const bottomPanelContextValue = useMemo<BottomPanelContextValue>(
+    () => ({
+      execution: {
+        logs: pipelineLogs,
+        status: pipelineStatus,
+        runnerCommand,
+        run: handleRunNow,
+        stop: handleStopPipeline,
+        clear: handleClearLogs,
+        openConsole: handleOpenConsole,
+      },
+      jobConfig: {
+        value: jobConfig,
+        set: handleSetJobConfig,
+        isJobIdValid,
+        subnetworks,
+        projectId,
+      },
+      runtimeVariables: {
+        variables: runtimeVariables,
+        addVariable,
+        updateVariable,
+        deleteVariable,
+      },
+      pipelineConfig: {
+        config: pipelineConfig,
+        setLanguage: (lang) =>
+          setPipelineConfig((prev) =>
+            pipelineConfigReducer(prev, { type: 'setLanguage', language: lang })
+          ),
+        setOutputFolder: (folder) =>
+          setPipelineConfig((prev) =>
+            pipelineConfigReducer(prev, { type: 'setOutputFolder', folder })
+          ),
+        setPipelineConfig,
+      },
+      codegen: {
+        generatedCode,
+        regenerate: handleRegenerate,
+        stopGeneration: handleStopGeneration,
+        isGenerating,
+        files: folderFiles,
+        selectedFile: selectedFileName,
+        selectedFileContent,
+        pickFolder: handlePickFolder,
+        selectFile: handleSelectFile,
+        isGraphValid: isCodegenValid,
+        validationErrors: combinedValidationErrors,
+        nodes,
+        tokenUsage,
+      },
+    }),
+    [
+      pipelineLogs,
+      pipelineStatus,
+      runnerCommand,
+      handleRunNow,
+      handleStopPipeline,
+      handleClearLogs,
+      handleOpenConsole,
+      jobConfig,
+      handleSetJobConfig,
+      subnetworks,
+      projectId,
+      runtimeVariables,
+      addVariable,
+      updateVariable,
+      deleteVariable,
+      pipelineConfig,
+      setPipelineConfig,
+      generatedCode,
+      handleRegenerate,
+      handleStopGeneration,
+      isGenerating,
+      folderFiles,
+      selectedFileName,
+      selectedFileContent,
+      handlePickFolder,
+      handleSelectFile,
+      isCodegenValid,
+      combinedValidationErrors,
+      nodes,
+      tokenUsage,
+    ]
+  );
 
   return (
     <div className="flex h-screen w-screen text-[var(--vscode-text-primary)] bg-[var(--vscode-canvas-bg)] overflow-hidden">
@@ -733,45 +706,16 @@ function App() {
         )}
 
         {/* Bottom Panel */}
-        <BottomPanel
-          bottomTab={bottomTab}
-          setBottomTab={setBottomTab}
-          jobConfig={jobConfig}
-          setJobConfig={handleSetJobConfig}
-          runtimeVariables={runtimeVariables}
-          addVariable={addVariable}
-          updateVariable={updateVariable}
-          deleteVariable={deleteVariable}
-          isJobIdValid={isJobIdValid}
-          generatedCode={generatedCode}
-          onRunNow={handleRunNow}
-          onStopPipeline={handleStopPipeline}
-          subnetworks={subnetworks}
-          pipelineConfig={pipelineConfig}
-          setPipelineConfig={setPipelineConfig}
-          onRegenerate={handleRegenerate}
-          onStopGeneration={handleStopGeneration}
-          folderFiles={folderFiles}
-          selectedFileName={selectedFileName}
-          selectedFileContent={selectedFileContent}
-          onPickFolder={handlePickFolder}
-          onSelectFile={handleSelectFile}
-          height={bottomPanelHeight}
-          isGenerating={isGenerating}
-          isExpanded={isBottomPanelExpanded}
-          onToggleExpand={() => setIsBottomPanelExpanded((prev) => !prev)}
-          pipelineLogs={pipelineLogs}
-          pipelineStatus={pipelineStatus}
-          runnerCommand={runnerCommand}
-          onClearLogs={handleClearLogs}
-          onOpenConsole={handleOpenConsole}
-          projectId={projectId}
-          isGraphValid={isCodegenValid}
-          validationErrors={combinedValidationErrors}
-          nodes={nodes}
-          tokenUsage={tokenUsage}
-          onInteract={handleBottomPanelInteract}
-        />
+        <BottomPanelProvider value={bottomPanelContextValue}>
+          <BottomPanel
+            bottomTab={bottomTab}
+            setBottomTab={setBottomTab}
+            height={bottomPanelHeight}
+            isExpanded={isBottomPanelExpanded}
+            onToggleExpand={() => setIsBottomPanelExpanded((prev) => !prev)}
+            onInteract={handleBottomPanelInteract}
+          />
+        </BottomPanelProvider>
 
         {/* Property Pane taking full height of window, over tabs on bottom */}
         {selectedNodeId && displayNodes.find((n) => n.id === selectedNodeId) && (
@@ -799,12 +743,15 @@ function App() {
   );
 }
 
+/**
+ * Application root wrapped with the ReactFlowProvider context required for canvas coordinate projection.
+ *
+ * @returns The root application component enclosed in ReactFlowProvider.
+ */
 export default function AppWithProvider() {
   return (
-    <ThemeProvider>
-      <ReactFlowProvider>
-        <App />
-      </ReactFlowProvider>
-    </ThemeProvider>
+    <ReactFlowProvider>
+      <App />
+    </ReactFlowProvider>
   );
 }

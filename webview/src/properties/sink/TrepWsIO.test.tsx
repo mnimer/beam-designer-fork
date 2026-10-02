@@ -8,8 +8,8 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TrepWsIOSinkProperties, TREP_SINK_DOCS_URL } from './TrepWsIO';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { TrepWsIOSinkProperties } from './TrepWsIO';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
 vi.mock('../../hooks/useAssetLoader', () => ({
@@ -23,6 +23,10 @@ vi.mock('../../hooks/useAssetLoader', () => ({
 describe('TrepWsIOSinkProperties', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete (window as unknown as { vscode?: unknown }).vscode;
+  });
+
+  afterEach(() => {
     delete (window as unknown as { vscode?: unknown }).vscode;
   });
 
@@ -46,23 +50,6 @@ describe('TrepWsIOSinkProperties', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Request Ack/i)).toBeChecked();
     expect(screen.getByLabelText(/On Nak/i, { selector: 'select' })).not.toBeDisabled();
-  });
-
-  it('opens official documentation URL via window.vscode.postMessage and handles missing vscode safely', () => {
-    const onChange = vi.fn();
-    render(<TrepWsIOSinkProperties node={{ data: {} }} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-
-    const postMessage = vi.fn();
-    (window as unknown as { vscode?: { postMessage: typeof postMessage } }).vscode = {
-      postMessage,
-    };
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-    expect(postMessage).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: TREP_SINK_DOCS_URL,
-    });
   });
 
   it('clears required errors when hostname, username, and serviceName are provided', () => {
@@ -314,31 +301,15 @@ describe('TrepWsIOSinkProperties', () => {
     expect(screen.getByLabelText(/Take exclusive sign-on control/i)).toBeChecked();
   });
 
-  it('supports system_instructions fallback chains and updates system_instructions', () => {
+  it('updates system_instructions when instructions textarea is changed', () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    render(
       <TrepWsIOSinkProperties
-        node={{ data: { special_instructions: 'node special' } }}
+        node={{ data: { properties: { system_instructions: 'initial instructions' } } }}
         onChange={onChange}
       />
     );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('node special');
-
-    rerender(
-      <TrepWsIOSinkProperties
-        node={{ data: { properties: { system_instructions: 'prop sys' } } }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop sys');
-
-    rerender(
-      <TrepWsIOSinkProperties
-        node={{ data: { properties: { special_instructions: 'prop special' } } }}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop special');
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('initial instructions');
 
     fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {
       target: { name: 'system_instructions', value: 'Post EURMID= off-stream' },

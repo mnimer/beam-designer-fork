@@ -19,17 +19,27 @@
  * - Adheres strictly to the 8pt grid system for spacing and sizing.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Server, Key, Lock, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Secret item loaded from Secret Manager for MQTT broker authentication.
+ */
 export interface SecretItem {
   name: string;
   fullName?: string;
   value: string;
 }
 
+/**
+ * Compute Engine instance information for MQTT broker resolution.
+ */
 export interface ComputeInstanceItem {
   name: string;
   status: string;
@@ -37,6 +47,9 @@ export interface ComputeInstanceItem {
   externalIp: string;
 }
 
+/**
+ * React Flow node shape for the MQTT sink panel, including its persisted configuration data.
+ */
 export interface MqttIOSinkNode {
   data: {
     label: string;
@@ -63,6 +76,9 @@ export interface MqttIOSinkNode {
   };
 }
 
+/**
+ * Props for the MqttIOSinkProperties component.
+ */
 export interface MqttIOSinkPropertiesProps {
   node: MqttIOSinkNode;
   onChange: (properties: any) => void;
@@ -87,65 +103,11 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
   const connectionTimeout = properties.connectionTimeout ?? '30';
   const keepAlive = properties.keepAlive ?? '60';
 
-  // Local UI states
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
+  const { items: instances } = useAssetLoader<ComputeInstanceItem>('computeInstances');
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager secrets and Compute Engine instances from the extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        setSecretError(message.error || null);
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-      } else if (message.command === 'computeInstancesLoaded') {
-        setInstances(message.instances || []);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Refreshes secrets list from Secret Manager via extension message.
-   */
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -195,19 +157,6 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
     onChange({
       ...properties,
       serverUri: `${currentProtocol}${ip}:${port}`
-    });
-  };
-
-  /**
-   * Handles system instructions textarea change for custom LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
     });
   };
 
@@ -344,8 +293,8 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
           onChange={handleChange}
           placeholder="e.g. mqtt-broker-username"
           list="mqtt-sink-username-secret-options"
-          datalist={secrets.map((sec) => ({ value: sec.name, label: sec.name }))}
-          loading={isLoadingSecrets}
+          datalist={secrets.options}
+          loading={secrets.loading}
           containerClassName="flex flex-col gap-1.5"
         />
 
@@ -362,12 +311,12 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
             </label>
             <button
               type="button"
-              onClick={handleRefreshSecrets}
-              disabled={isLoadingSecrets}
+              onClick={secrets.refresh}
+              disabled={secrets.loading}
               className="text-xs text-blue-400 hover:underline flex items-center gap-1"
               title="Refresh secrets from Secret Manager"
             >
-              <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
+              <RefreshCw size={11} className={secrets.loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
           </div>
@@ -379,10 +328,10 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
             onChange={handleChange}
             placeholder="e.g. mqtt-broker-password"
             list="mqtt-sink-secret-options"
-            datalist={secrets.map((sec) => ({ value: sec.name, label: sec.name }))}
-            loading={isLoadingSecrets}
-            error={secretError}
-            invalid={!!secretError}
+            datalist={secrets.options}
+            loading={secrets.loading}
+            error={secrets.error}
+            invalid={!!secrets.error}
             containerClassName="flex flex-col gap-1"
           />
         </div>
@@ -458,22 +407,18 @@ export const MqttIOSinkProperties: React.FC<MqttIOSinkPropertiesProps> = ({ node
         </div>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 6. Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="mqtt-sink-instructions"
-        type="textarea"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom instructions passed to the AI code generation model for this specific MQTT sink node (e.g. serialize input POJO/Row to byte[] before publishing)."
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom instructions passed to the AI code generation model for this specific MQTT sink node (e.g. serialize input POJO/Row to byte[] before publishing)."
         placeholder="e.g. Map elements to byte[] payloads and set retain flag when publishing configuration alerts"
-        rows={3}
-        mono={false}
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

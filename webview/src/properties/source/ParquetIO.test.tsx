@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ParquetIOSourceProperties } from './ParquetIO';
 
@@ -43,42 +43,6 @@ describe('ParquetIOSourceProperties', () => {
     expect(filePatternInput).toHaveValue('');
     expect(filePatternInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
-  });
-
-  it('posts getStorageBuckets command and populates GCS bucket datalist via StoragePathField', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        label: 'ParquetIO',
-        properties: {
-          filePattern: 'gs://bucket/*.parquet'
-        }
-      }
-    };
-
-    const { container } = render(<ParquetIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['parquet-lakehouse', 'parquet-staging']
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://parquet-lakehouse/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://parquet-staging/');
   });
 
   it('renders with populated properties and no validation error', () => {

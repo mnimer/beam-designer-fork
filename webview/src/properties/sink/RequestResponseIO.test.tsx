@@ -5,12 +5,11 @@
  *
  * Purpose:
  * Unit tests validating RequestResponseIOSinkProperties rendering, POST default method,
- * endpointUrl validation, timeout/repeater/throttler/cache updates, Secret Manager
- * dynamic discovery (`getSecrets`), and system_instructions.
+ * endpointUrl validation, timeout/repeater/throttler/cache updates, and system_instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { RequestResponseIOSinkProperties } from './RequestResponseIO';
 
@@ -108,34 +107,6 @@ describe('RequestResponseIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ cacheTtlSeconds: 3600 }));
   });
 
-  it('requests secrets via vscode.postMessage(getSecrets) and populates datalist', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    render(
-      <RequestResponseIOSinkProperties
-        node={{ data: { label: 'Web APIs Sink', properties: { authMode: 'secretManager' } } }}
-        onChange={vi.fn()}
-      />
-    );
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ name: 'projects/123/secrets/webhook-secret', id: 'webhook-secret' }],
-          },
-        })
-      );
-    });
-
-    const datalist = document.getElementById('rrio-sink-secrets-list');
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'webhook-secret');
-  });
 
   it('updates system_instructions when code generation instructions textarea is edited', () => {
     const mockOnChange = vi.fn();

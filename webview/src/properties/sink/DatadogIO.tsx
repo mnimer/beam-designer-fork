@@ -25,6 +25,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -43,6 +45,9 @@ export const DATADOG_INTAKE_PRESETS = [
   { value: 'https://http-intake.logs.ddog-gov.com', label: 'US1-FED (https://http-intake.logs.ddog-gov.com)' },
 ];
 
+/**
+ * React Flow node shape for the Datadog sink panel, including its persisted configuration data.
+ */
 export interface DatadogIOSinkNode {
   data: {
     label: string;
@@ -69,6 +74,9 @@ export interface DatadogIOSinkNode {
   };
 }
 
+/**
+ * Props for the DatadogIOSinkProperties component.
+ */
 export interface DatadogIOSinkPropertiesProps {
   node: DatadogIOSinkNode;
   onChange: (properties: any) => void;
@@ -105,12 +113,7 @@ export const DatadogIOSinkProperties: React.FC<DatadogIOSinkPropertiesProps> = (
   const isUrlInvalid = !url.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles standard text, number, and select input changes.
@@ -127,15 +130,6 @@ export const DatadogIOSinkProperties: React.FC<DatadogIOSinkPropertiesProps> = (
     });
   };
 
-  /**
-   * Handles code generation instructions textarea change.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -292,24 +286,19 @@ export const DatadogIOSinkProperties: React.FC<DatadogIOSinkPropertiesProps> = (
         </div>
       </details>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="datadogSinkInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling PCollection<DatadogWriteError> or Python DatadogWrite xlang expansion)." />
-        </label>
-        <textarea
-          id="datadogSinkInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Format records into DatadogEvent via DatadogEvent.newBuilder() and route DatadogWriteError dead-letter records..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="datadogSinkInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling PCollection<DatadogWriteError> or Python DatadogWrite xlang expansion)."
+        placeholder="e.g. Format records into DatadogEvent via DatadogEvent.newBuilder() and route DatadogWriteError dead-letter records..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -26,8 +26,11 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { MappingStrategyField } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
@@ -37,6 +40,9 @@ import { useAssetLoader } from '../../hooks/useAssetLoader';
 export type SingleStoreSslMode = 'DISABLED' | 'TRUST' | 'VERIFY_CA' | 'VERIFY_FULL';
 export type SingleStoreMapperStrategy = 'infer' | 'schema' | 'customClass';
 
+/**
+ * Props for the SingleStoreDBIOSinkProperties component.
+ */
 export interface SingleStoreDBIOSinkPropertiesProps {
   node: {
     data: {
@@ -67,6 +73,9 @@ export interface SingleStoreDBIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SingleStoreSinkConnectionCard component.
+ */
 interface ConnectionCardProps {
   endpoint: string;
   database: string;
@@ -141,6 +150,9 @@ const SingleStoreSinkConnectionCard: React.FC<ConnectionCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the SingleStoreSinkMapperCard component.
+ */
 interface MapperCardProps {
   mapperStrategy: SingleStoreMapperStrategy | string;
   schemaFields: SchemaField[];
@@ -209,6 +221,9 @@ const SingleStoreSinkMapperCard: React.FC<MapperCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the SingleStoreSinkAuthCard component.
+ */
 interface AuthCardProps {
   authMode: string;
   usernameSecret: string;
@@ -304,6 +319,9 @@ const SingleStoreSinkAuthCard: React.FC<AuthCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the SingleStoreSinkAdvancedGroup component.
+ */
 interface AdvancedGroupProps {
   showAdvanced: boolean;
   connectionProperties: string;
@@ -324,71 +342,62 @@ const SingleStoreSinkAdvancedGroup: React.FC<AdvancedGroupProps> = ({
   onToggle,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Sink Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Sink Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <PropertyField
+      id="singleStoreSinkConnectionProperties"
+      name="connectionProperties"
+      label="Connection Properties"
+      type="textarea"
+      rows={2}
+      tooltip="Semicolon or ampersand-separated JDBC connection properties (e.g. connectTimeout=30000;useServerPrepStmts=FALSE). Maps to DataSourceConfiguration.withConnectionProperties()."
+      value={connectionProperties}
+      onChange={onChange}
+      placeholder="connectTimeout=30000;useServerPrepStmts=FALSE"
+      mono={true}
+    />
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="singleStoreSinkConnectionProperties"
-          name="connectionProperties"
-          label="Connection Properties"
-          type="textarea"
-          rows={2}
-          tooltip="Semicolon or ampersand-separated JDBC connection properties (e.g. connectTimeout=30000;useServerPrepStmts=FALSE). Maps to DataSourceConfiguration.withConnectionProperties()."
-          value={connectionProperties}
-          onChange={onChange}
-          placeholder="connectTimeout=30000;useServerPrepStmts=FALSE"
-          mono={true}
-        />
+    <div className="grid grid-cols-2 gap-2">
+      <PropertyField
+        id="singleStoreSinkConnectTimeout"
+        name="connectTimeout"
+        label="Connect Timeout (ms)"
+        type="number"
+        tooltip="Database connection timeout in milliseconds."
+        value={connectTimeout}
+        onChange={onChange}
+        placeholder="30000"
+        mono={true}
+      />
 
-        <div className="grid grid-cols-2 gap-2">
-          <PropertyField
-            id="singleStoreSinkConnectTimeout"
-            name="connectTimeout"
-            label="Connect Timeout (ms)"
-            type="number"
-            tooltip="Database connection timeout in milliseconds."
-            value={connectTimeout}
-            onChange={onChange}
-            placeholder="30000"
-            mono={true}
-          />
-
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <label
-                htmlFor="singleStoreSinkSslMode"
-                className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
-              >
-                SSL Mode
-              </label>
-              <InfoTooltip text="Configures SSL mode for encrypted transport to the SingleStoreDB cluster." />
-            </div>
-            <select
-              id="singleStoreSinkSslMode"
-              name="sslMode"
-              value={sslMode}
-              onChange={onChange}
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
-            >
-              <option value="DISABLED">DISABLED</option>
-              <option value="TRUST">TRUST</option>
-              <option value="VERIFY_CA">VERIFY_CA</option>
-              <option value="VERIFY_FULL">VERIFY_FULL</option>
-            </select>
-          </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <label
+            htmlFor="singleStoreSinkSslMode"
+            className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
+          >
+            SSL Mode
+          </label>
+          <InfoTooltip text="Configures SSL mode for encrypted transport to the SingleStoreDB cluster." />
         </div>
+        <select
+          id="singleStoreSinkSslMode"
+          name="sslMode"
+          value={sslMode}
+          onChange={onChange}
+          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
+        >
+          <option value="DISABLED">DISABLED</option>
+          <option value="TRUST">TRUST</option>
+          <option value="VERIFY_CA">VERIFY_CA</option>
+          <option value="VERIFY_FULL">VERIFY_FULL</option>
+        </select>
       </div>
-    )}
-  </div>
+    </div>
+  </CollapsibleSection>
 );
 
 /**
@@ -430,12 +439,7 @@ export const SingleStoreDBIOSinkProperties: React.FC<SingleStoreDBIOSinkProperti
   const isTableEmpty = !String(table).trim();
 
   // NOTE: Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -470,19 +474,6 @@ export const SingleStoreDBIOSinkProperties: React.FC<SingleStoreDBIOSinkProperti
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: Dispatch system_instructions update to parent
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -526,21 +517,18 @@ export const SingleStoreDBIOSinkProperties: React.FC<SingleStoreDBIOSinkProperti
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="singleStoreSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing SingleStoreIO pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing SingleStoreIO pipelines."
         placeholder="e.g. Write SensorRollup records to SingleStore table using SingleStoreIO.write() with UserDataMapper"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

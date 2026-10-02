@@ -13,6 +13,7 @@ const js = require('@eslint/js');
 const globals = require('globals');
 const tsParser = require('@typescript-eslint/parser');
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
+const jsdocPlugin = require('eslint-plugin-jsdoc');
 
 module.exports = [
   {
@@ -34,6 +35,7 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
+      jsdoc: jsdocPlugin,
     },
     rules: {
       ...js.configs.recommended.rules,
@@ -60,6 +62,22 @@ module.exports = [
       // inferrable type annotation). Promote to 'error' once cleaned up.
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/no-inferrable-types': 'warn',
+
+      // Documentation coverage (refactor plan Phase 7). Every class, method and
+      // exported function must carry JSDoc. The backlog has been completely
+      // cleared; enforced as 'error'.
+      'jsdoc/require-jsdoc': [
+        'error',
+        {
+          publicOnly: false,
+          require: {
+            FunctionDeclaration: true,
+            ClassDeclaration: true,
+            MethodDefinition: true,
+          },
+        },
+      ],
+      'jsdoc/check-param-names': 'warn',
     },
   },
 ];

@@ -152,48 +152,10 @@ describe('DatastoreIOSinkProperties', () => {
     const secretInput = screen.getByPlaceholderText('e.g. datastore-sa-key');
     expect(secretInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/sink-sa-key',
-          { id: 'backup-sa-key', name: 'backup-sa-key' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#datastore-sink-secret-options option[value="sink-sa-key"]');
-    const option2 = document.querySelector('datalist#datastore-sink-secret-options option[value="backup-sa-key"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     fireEvent.change(secretInput, { target: { name: 'serviceAccountSecret', value: 'sink-sa-key' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceAccountSecret: 'sink-sa-key'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Datastore Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DatastoreIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager for sink'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager for sink')).toBeInTheDocument();
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -230,29 +192,13 @@ describe('DatastoreIOSinkProperties', () => {
   });
 
   it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+    const node = {
       data: {
         label: 'Datastore Sink',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<DatastoreIOSinkProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write SensorRollup entities to Datastore/i)).toHaveValue('Fallback instructions 1');
-    unmount();
-
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'Datastore Sink',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<DatastoreIOSinkProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write SensorRollup entities to Datastore/i)).toHaveValue('Fallback instructions 2');
+    render(<DatastoreIOSinkProperties node={node} onChange={mockOnChange} />);
 
     // Modifying textarea calls onChange with system_instructions
     const textarea = screen.getByPlaceholderText(/Write SensorRollup entities to Datastore/i);

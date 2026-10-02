@@ -18,37 +18,11 @@ import * as os from 'os';
 import * as path from 'path';
 
 // VS Code mock required for importing from extension module
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn(() => ({ get: vi.fn() })),
-            onDidChangeTextDocument: vi.fn(() => ({ dispose: vi.fn() }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: []
+    }
+}));
 
 import { buildWebviewHtml, getNonce, WebviewHtmlOptions, BeamEditorProvider } from '../../extension';
 
@@ -149,6 +123,18 @@ describe('M2 — Webview HTML Builder and CSP Enforcement (buildWebviewHtml)', (
         expect(cspContent).toContain(`img-src ${mockOpts.cspSource} data:`);
         expect(cspContent).toContain(`font-src ${mockOpts.cspSource} data:`);
         expect(cspContent).toContain("connect-src 'none'");
+    });
+
+    it('restricts base-uri and form-action to none and omits frame-ancestors', () => {
+        const result = buildWebviewHtml(realisticViteHtml, mockOpts);
+
+        const cspMatch = result.match(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)"/i);
+        expect(cspMatch).not.toBeNull();
+        const cspContent = cspMatch ? cspMatch[1] : '';
+
+        expect(cspContent).toContain("base-uri 'none'");
+        expect(cspContent).toContain("form-action 'none'");
+        expect(cspContent).not.toContain('frame-ancestors');
     });
 
     it('replaces relative asset paths with provided URIs', () => {

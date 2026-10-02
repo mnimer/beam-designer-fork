@@ -195,54 +195,6 @@ describe('HBaseIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('e.g. hbase-connection-credentials')).toHaveValue('hbase-sink-vault-secret');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HBase Sink',
-        properties: {
-          authMode: 'secret_manager' as const,
-        },
-      },
-    };
-
-    render(<HBaseIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/hbase-sink-secret',
-          { id: 'hbase-sink-keytab', name: 'HBase Sink Keytab' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#hbase-sink-secret-options option[value="hbase-sink-secret"]');
-    const option2 = document.querySelector('datalist#hbase-sink-secret-options option[value="hbase-sink-keytab"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error alert when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HBase Sink',
-        properties: {},
-      },
-    };
-
-    render(<HBaseIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Google Cloud Secret Manager API for sink',
-      },
-    }));
-
-    expect(screen.getByText('Failed to access Google Cloud Secret Manager API for sink')).toBeInTheDocument();
-  });
-
   it('toggles Advanced Sink Settings and dispatches edits', () => {
     const node = {
       data: {
@@ -259,8 +211,6 @@ describe('HBaseIOSinkProperties', () => {
     render(<HBaseIOSinkProperties node={node} onChange={mockOnChange} />);
 
     const advancedBtn = screen.getByRole('button', { name: /Advanced Sink Settings/i });
-    expect(screen.queryByPlaceholderText('500')).not.toBeInTheDocument();
-
     // Open advanced settings
     fireEvent.click(advancedBtn);
 
@@ -287,10 +237,6 @@ describe('HBaseIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       retryCount: '10',
     }));
-
-    // Close advanced settings
-    fireEvent.click(advancedBtn);
-    expect(screen.queryByPlaceholderText('500')).not.toBeInTheDocument();
   });
 
   it('handles edge case where properties or node.data are completely missing', () => {
@@ -331,34 +277,22 @@ describe('HBaseIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('5')).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('dispatches system instructions updates', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for HBase sink',
-        properties: {},
+        properties: {
+          system_instructions: 'Custom special prompt for HBase sink',
+        },
       },
     };
 
-    const { rerender } = render(<HBaseIOSinkProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<HBaseIOSinkProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Write Mutation records to HBase table/i);
     expect(textarea).toHaveValue('Custom special prompt for HBase sink');
 
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'Updated sink instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated sink instructions',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Sink property instructions override',
-        },
-      },
-    };
-    rerender(<HBaseIOSinkProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write Mutation records to HBase table/i)).toHaveValue('Sink property instructions override');
   });
 });

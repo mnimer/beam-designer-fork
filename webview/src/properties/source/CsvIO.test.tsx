@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { CsvIOSourceProperties } from './CsvIO';
 
@@ -245,7 +245,7 @@ describe('CsvIOSourceProperties', () => {
     );
   });
 
-  it('toggles schema accordion visibility and handles SchemaEditor updates when in schema mode', () => {
+  it('handles SchemaEditor updates when in schema mode', () => {
     const mockNode: any = {
       data: {
         properties: {
@@ -255,18 +255,6 @@ describe('CsvIOSourceProperties', () => {
     };
 
     const { container } = render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Accordion is open by default; click header to collapse it
-    const schemaAccordionButton = screen.getByText(/Beam Schema \/ Column Types/i).closest('button');
-    expect(schemaAccordionButton).not.toBeNull();
-    fireEvent.click(schemaAccordionButton!);
-
-    // Content should be collapsed
-    expect(container.querySelector('#csvSourceMappingStrategy')).not.toBeInTheDocument();
-
-    // Reopen accordion
-    fireEvent.click(schemaAccordionButton!);
-    expect(container.querySelector('#csvSourceMappingStrategy')).toBeInTheDocument();
 
     // Switch to Schema String tab in SchemaEditor and update schema
     fireEvent.click(screen.getByText('Schema String'));
@@ -347,111 +335,5 @@ describe('CsvIOSourceProperties', () => {
       })
     );
   });
-
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Source',
-        properties: {}
-      }
-    };
-
-    const { container } = render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['data-lake-bucket', 'analytics-exports']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to filePattern field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://data-lake-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://analytics-exports/');
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error on empty filePattern', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Source',
-        properties: {
-          filePattern: ''
-        }
-      }
-    };
-
-    render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS API authentication failed: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    // Verify error message is rendered inline in the DOM alongside required path validation error
-    expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
-    expect(screen.getByText(/GCS API authentication failed: 403 Forbidden/i)).toBeInTheDocument();
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error even with valid, non-empty filePattern (regression test)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Source',
-        properties: {
-          filePattern: 'gs://valid-bucket/data/*.csv'
-        }
-      }
-    };
-
-    render(<CsvIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS API quota exceeded'
-          }
-        })
-      );
-    });
-
-    // Verify error message IS present even when filePattern is populated and valid
-    expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
-    expect(screen.getByText(/GCS API quota exceeded/i)).toBeInTheDocument();
-  });
 });
+

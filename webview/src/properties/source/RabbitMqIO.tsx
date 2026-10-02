@@ -28,9 +28,11 @@
  * - Adheres strictly to the 8pt grid system for spacing, padding, and layout.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { ExpansionServiceFields } from '../../components/common/ExpansionServiceFields';
 import {
   RabbitMqConnectionFields,
@@ -38,9 +40,12 @@ import {
   type ComputeInstanceItem
 } from '../../components/common/rabbitmq/RabbitMqConnectionFields';
 import { RabbitMqDestinationFields } from '../../components/common/rabbitmq/RabbitMqDestinationFields';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
 export type { SecretItem, ComputeInstanceItem };
 
+/** React Flow node shape for the RabbitMqIO source panel, including its persisted configuration data. */
 export interface RabbitMqIOSourceNode {
   data: {
     label: string;
@@ -75,6 +80,7 @@ export interface RabbitMqIOSourceNode {
   };
 }
 
+/** Props for the {@link RabbitMqIOSourceProperties} component. */
 export interface RabbitMqIOSourcePropertiesProps {
   node: RabbitMqIOSourceNode;
   onChange: (properties: any) => void;
@@ -114,67 +120,12 @@ export const RabbitMqIOSourceProperties: React.FC<RabbitMqIOSourcePropertiesProp
   const expansionServiceMode = properties.expansionServiceMode || 'auto';
   const expansionServiceEndpoint = properties.expansionServiceEndpoint || '';
 
-  // Local UI states (resources loaded via VS Code extension host messages)
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [instanceError, setInstanceError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  // Local UI states (resources loaded via hooks)
+  const secrets = useSecretOptions();
+  const { items: instances, error: instanceError } = useAssetLoader<ComputeInstanceItem>('computeInstances');
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // Listen for Secret Manager secrets and Compute Engine instances from the extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-        setSecretError(message.error || null);
-      } else if (message.command === 'computeInstancesLoaded') {
-        setInstances(Array.isArray(message.instances) ? message.instances : []);
-        setInstanceError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Refreshes secrets list from Secret Manager via extension message.
-   */
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, radio, and checkbox input changes.
@@ -233,19 +184,6 @@ export const RabbitMqIOSourceProperties: React.FC<RabbitMqIOSourcePropertiesProp
     });
   };
 
-  /**
-   * Handles system instructions textarea change for custom LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* 1 & 2: Broker Connection & Credentials */}
@@ -257,12 +195,12 @@ export const RabbitMqIOSourceProperties: React.FC<RabbitMqIOSourcePropertiesProp
         useTls={useTls}
         username={username}
         secretName={secretName}
-        secrets={secrets}
+        secrets={secrets.secrets.map((s) => ({ name: s.id, value: s.id, id: s.id, fullName: s.fullName }))}
         instances={instances}
-        secretError={secretError}
+        secretError={secrets.error}
         instanceError={instanceError}
-        isLoadingSecrets={isLoadingSecrets}
-        onRefreshSecrets={handleRefreshSecrets}
+        isLoadingSecrets={secrets.loading}
+        onRefreshSecrets={secrets.refresh}
         onSelectInstanceIp={handleSelectInstanceIp}
         onChange={handleChange}
       />
@@ -369,25 +307,20 @@ export const RabbitMqIOSourceProperties: React.FC<RabbitMqIOSourcePropertiesProp
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 7. Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="rabbitmq-source-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific RabbitMQ source node (e.g. RabbitMqMessage payload deserialization, message ack settings, or dead-letter routing)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Deserialize RabbitMqMessage body as UTF-8 JSON OrderRecord and route malformed payloads to DLQ"
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="rabbitmq-source-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific RabbitMQ source node (e.g. RabbitMqMessage payload deserialization, message ack settings, or dead-letter routing)."
+        placeholder="e.g. Deserialize RabbitMqMessage body as UTF-8 JSON OrderRecord and route malformed payloads to DLQ"
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

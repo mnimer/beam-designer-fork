@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import type { HostToWebviewCommand } from '../utils/protocol';
 
 /**
  * Subscribes to window message events originating from the VS Code extension host.
@@ -26,7 +27,7 @@ import { useEffect, useRef } from 'react';
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useExtensionMessage<T = any>(
-  command: string | string[],
+  command: HostToWebviewCommand | HostToWebviewCommand[],
   handler: (message: T) => void
 ): void {
   // NOTE: Store the latest handler in a mutable ref updated on every render via effect.

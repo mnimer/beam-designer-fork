@@ -21,6 +21,12 @@ import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from './constants';
 import { getLatestBeamVersion, FALLBACK_BEAM_VERSION } from './beamVersion';
 import { validateDagTopology } from './dagValidator';
+import { resolveLanguageOrDefault } from './shared/language';
+import { resolveOutputFolder } from './editor/outputFolder';
+import type { TokenUsage } from './shared/types';
+import type { HostToWebviewMessage } from './shared/protocol';
+
+export type { TokenUsage };
 import {
     redactPipelineYaml,
     buildRedactionPromptNotice,
@@ -28,15 +34,25 @@ import {
 import {
     resolveSafeOutputPath,
     isAllowedExecutableScript,
+} from './security/scriptGuard';
+import {
     executeScopedCleanup,
     writeGenerationManifest,
-    getDefaultIgnoreFileContent,
-    parseOrRepairJson,
-    readResourceFile,
-    getGcloudProject,
     resolvePipelineId,
     gateOutputFolder,
-} from './extension';
+} from './generation/outputFolderGate';
+import {
+    getDefaultIgnoreFileContent,
+    readResourceFile,
+} from './resources/resourceLoader';
+import { parseOrRepairJson } from './codegen/jsonRepair';
+import { getGcloudProject } from './cli/gcloudClient';
+import {
+    StagedFile,
+    stageFiles,
+    commitStagedFiles,
+    discardStagedFiles,
+} from './generation/stagedWriter';
 
 /**
  * Options for prompt template placeholder substitution.
@@ -252,12 +268,8 @@ export const JAVA_STRATEGY: LanguageStrategy = {
  * @returns LanguageStrategy for the selected language
  */
 export function resolveLanguageStrategy(languageVal: string): LanguageStrategy {
-    const lang = (languageVal || '').toLowerCase();
-    if (lang === 'java') {
-        return JAVA_STRATEGY;
-    }
     // Default fallback: anything that is not Java becomes Python.
-    return PYTHON_STRATEGY;
+    return resolveLanguageOrDefault(languageVal) === 'Java' ? JAVA_STRATEGY : PYTHON_STRATEGY;
 }
 
 /**
@@ -304,24 +316,27 @@ export function assemblePrompt(options: PromptAssemblyOptions): string {
         beamVersion,
     } = options;
 
-    let assembled = promptTemplate
+    // F7: resolve the Beam version in every template BEFORE the user's pipeline YAML is
+    // inserted. Substituting afterwards also rewrote `{{beam_version}}` / `2.76.0` strings
+    // that happened to appear inside user-authored node properties.
+    const applyBeamVersion = (text: string): string => {
+        if (beamVersion) {
+            let out = text.replace(/\{\{beam_version\}\}/g, () => beamVersion);
+            if (beamVersion !== FALLBACK_BEAM_VERSION) {
+                out = out.replace(/2\.76\.0/g, () => beamVersion);
+            }
+            return out;
+        }
+        return text.replace(/\{\{beam_version\}\}/g, () => FALLBACK_BEAM_VERSION);
+    };
+
+    return applyBeamVersion(promptTemplate)
         .replace(/\{\{language\}\}/g, () => language)
         .replace('{{pipeline}}', () => pipelineYaml)
-        .replace('{{dockerfile_template}}', () => dockerfileTemplate)
-        .replace('{{run_directrunner_template}}', () => directRunnerTemplate)
-        .replace('{{run_dataflowrunner_template}}', () => dataflowRunnerTemplate)
-        .replace('{{run_sparkrunner_template}}', () => sparkRunnerTemplate);
-
-    if (beamVersion) {
-        assembled = assembled.replace(/\{\{beam_version\}\}/g, () => beamVersion);
-        if (beamVersion !== FALLBACK_BEAM_VERSION) {
-            assembled = assembled.replace(/2\.76\.0/g, () => beamVersion);
-        }
-    } else if (assembled.includes('{{beam_version}}')) {
-        assembled = assembled.replace(/\{\{beam_version\}\}/g, () => FALLBACK_BEAM_VERSION);
-    }
-
-    return assembled;
+        .replace('{{dockerfile_template}}', () => applyBeamVersion(dockerfileTemplate))
+        .replace('{{run_directrunner_template}}', () => applyBeamVersion(directRunnerTemplate))
+        .replace('{{run_dataflowrunner_template}}', () => applyBeamVersion(dataflowRunnerTemplate))
+        .replace('{{run_sparkrunner_template}}', () => applyBeamVersion(sparkRunnerTemplate));
 }
 
 /**
@@ -343,11 +358,100 @@ export interface ExecuteCodeGenerationOptions {
     /** Extension context for loading resources */
     context: vscode.ExtensionContext;
     /** Safe post-message callback to communicate with webview */
-    postToWebview: (message: any) => boolean | Promise<boolean>;
+    postToWebview: (message: HostToWebviewMessage) => boolean | Promise<boolean>;
     /** Optional output channel for logging overwrites */
     outputChannel?: vscode.OutputChannel;
     /** Optional project ID resolution override */
     getGcloudProjectFn?: () => Promise<string | undefined>;
+    /**
+     * Optional signal that cancels the run (F1). Forwarded to the Gemini SDK and checked
+     * again immediately before any file in the output folder is deleted or written.
+     */
+    abortSignal?: AbortSignal;
+}
+
+/** Filename of the per-generation request/response log written into the output folder. */
+export const GEMINI_LOG_FILENAME = 'gemini.log';
+
+/**
+ * Raised internally when the user cancels a generation run.
+ *
+ * Distinguished from genuine failures so that cancellation produces no error toast and is
+ * reported to the webview as `cancelled: true` rather than as an error.
+ */
+export class GenerationCancelledError extends Error {
+    /** Creates the error with a fixed, user-presentable message. */
+    constructor() {
+        super('Code generation was cancelled.');
+        this.name = 'GenerationCancelledError';
+    }
+}
+
+/**
+ * Throws {@link GenerationCancelledError} if the signal has been aborted.
+ *
+ * @param signal Optional cancellation signal.
+ * @throws {GenerationCancelledError} When `signal.aborted` is true.
+ */
+function throwIfCancelled(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+        throw new GenerationCancelledError();
+    }
+}
+
+/**
+ * Decides whether a caught error represents a user cancellation.
+ *
+ * NOTE: once the signal is aborted every subsequent failure is treated as a cancellation.
+ * The SDK surfaces an aborted fetch as a generic `AbortError` (or occasionally as a
+ * wrapped network error), and reporting either as a "Gemini error" after the user
+ * pressed Stop would be misleading.
+ *
+ * @param err The caught error.
+ * @param signal The run's cancellation signal, if any.
+ * @returns True when the error should be reported as a cancellation.
+ */
+function isCancellation(err: unknown, signal?: AbortSignal): boolean {
+    if (err instanceof GenerationCancelledError) {
+        return true;
+    }
+    if (err && typeof err === 'object' && (err as { name?: unknown }).name === 'AbortError') {
+        return true;
+    }
+    return signal?.aborted === true;
+}
+
+/**
+ * Writes a log file readable only by the current user (S6).
+ *
+ * `gemini.log` contains the full prompt (the redacted pipeline) and the raw model response,
+ * so it is created with mode 0o600. `writeFile`'s `mode` only applies when the file is
+ * created, so any previous log is removed first rather than chmod'ed -- chmod calls are
+ * reserved for the C1 executable allowlist and policed by security-wiring.test.ts.
+ *
+ * @param filePath Absolute path of the log file.
+ * @param content Serialized log content.
+ */
+async function writePrivateLog(filePath: string, content: string): Promise<void> {
+    await fs.promises.rm(filePath, { force: true });
+    await fs.promises.writeFile(filePath, content, { encoding: 'utf-8', mode: 0o600 });
+}
+
+/**
+ * Creates a `.gitignore` excluding `gemini.log` in the output folder when none exists (S6).
+ *
+ * An existing `.gitignore` is never modified -- it belongs to the user.
+ *
+ * @param targetFolderPath Output folder of the generated project.
+ */
+async function ensureGitignoreExcludesLog(targetFolderPath: string): Promise<void> {
+    const gitignorePath = path.join(targetFolderPath, '.gitignore');
+    // NOTE: inherently TOCTOU existence check; the 'wx' flag makes creation atomic anyway.
+    try {
+        await fs.promises.writeFile(gitignorePath, `${GEMINI_LOG_FILENAME}\n`, { encoding: 'utf-8', flag: 'wx' });
+    } catch {
+        // File already exists (EEXIST) or folder is not writable -- leave it alone.
+    }
 }
 
 /**
@@ -376,6 +480,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
         postToWebview,
         outputChannel,
         getGcloudProjectFn,
+        abortSignal,
     } = options;
 
     let promptText = '';
@@ -448,6 +553,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
                 responseMimeType: 'application/json',
                 responseSchema: responseSchema,
                 maxOutputTokens: 65536,
+                abortSignal,
             },
         });
 
@@ -459,7 +565,7 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
 
         // Log successful request and usage data to gemini.log
         try {
-            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+            const logFilePath = path.join(targetFolderPath, GEMINI_LOG_FILENAME);
             const logData = {
                 timestamp: new Date().toISOString(),
                 model: DEFAULT_GEMINI_MODEL,
@@ -472,10 +578,16 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
                 } : 'Unavailable',
                 rawResponse: response.text,
             };
-            await fs.promises.writeFile(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+            await writePrivateLog(logFilePath, JSON.stringify(logData, null, 2));
         } catch (logErr) {
             console.error('Failed to write request log to gemini.log', logErr);
         }
+
+        // F1: AbortSignal is client-side only, so a request the user stopped can still
+        // resolve. This is the last point before anything in the output folder is deleted or
+        // written; past it the run commits, because stopping halfway through the write loop
+        // would leave a mix of old and new files.
+        throwIfCancelled(abortSignal);
 
         if (!response.text) {
             throw new Error('Empty response from Gemini model.');
@@ -493,24 +605,10 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
 
         if (responseObj.files && Array.isArray(responseObj.files)) {
             responseObj.files = deduplicateGeneratedFiles(responseObj.files);
-            // C3 layer 1: only now, with a validated payload in memory, is it
-            // safe to delete. Scoped by the manifest -- never "everything in
-            // the directory" -- so unknown user files survive by default.
-            if (folderGate.mayClean && folderGate.manifest) {
-                const cleanup = executeScopedCleanup(
-                    targetFolderPath,
-                    folderGate.manifest,
-                    languageVal
-                );
-                if (cleanup.modifiedFiles.length > 0) {
-                    // Overwriting hand-edited generated files is documented
-                    // behaviour, but list them so the user can recover from git.
-                    outputChannel?.appendLine(
-                        `[generation] Overwriting ${cleanup.modifiedFiles.length} generated file(s) you had edited: ${cleanup.modifiedFiles.join(', ')}`
-                    );
-                }
-            }
 
+            // F7 phase 1: resolve every destination and its final content in memory.
+            // Nothing on disk changes until the whole payload has been validated.
+            const plannedRaw: Array<StagedFile & { normalizedFilename: string; executableRequested: boolean; originalFilename: string }> = [];
             for (const file of responseObj.files) {
                 if (!file.filename || file.content === undefined) {
                     continue;
@@ -552,15 +650,58 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
                     continue;
                 }
 
-                const parentDir = path.dirname(filePath);
-                await fs.promises.mkdir(parentDir, { recursive: true });
-                await fs.promises.writeFile(filePath, fileContent, 'utf-8');
+                plannedRaw.push({
+                    filePath,
+                    content: fileContent,
+                    normalizedFilename,
+                    executableRequested: Boolean(file.executable),
+                    originalFilename: file.filename,
+                });
+            }
+
+            // F7 phase 2: stage every file beside its destination. stageFiles rolls back its
+            // own partial output on failure, so an error here leaves the folder exactly as
+            // it was before this run (old generated files included).
+            // Two model entries can route to the same destination; the old sequential
+            // writes let the last one win, so collapse to the last entry per path here --
+            // staging or renaming the same path twice would fail mid-commit.
+            const planned = [...new Map(plannedRaw.map(p => [p.filePath, p])).values()];
+            await stageFiles(planned);
+
+            try {
+                // C3 layer 1: only now, with a validated payload in memory, is it
+                // safe to delete. Scoped by the manifest -- never "everything in
+                // the directory" -- so unknown user files survive by default.
+                if (folderGate.mayClean && folderGate.manifest) {
+                    const cleanup = executeScopedCleanup(
+                        targetFolderPath,
+                        folderGate.manifest,
+                        languageVal
+                    );
+                    if (cleanup.modifiedFiles.length > 0) {
+                        // Overwriting hand-edited generated files is documented
+                        // behaviour, but list them so the user can recover from git.
+                        outputChannel?.appendLine(
+                            `[generation] Overwriting ${cleanup.modifiedFiles.length} generated file(s) you had edited: ${cleanup.modifiedFiles.join(', ')}`
+                        );
+                    }
+                }
+
+                // F7 phase 3: commit staged files with same-directory renames.
+                await commitStagedFiles(planned);
+            } catch (commitErr) {
+                await discardStagedFiles(planned);
+                throw commitErr;
+            }
+
+            for (const entry of planned) {
+                const filePath = entry.filePath;
                 // Record what we wrote, relative to the output folder and with
                 // POSIX separators, so the manifest is portable and the hash
                 // reflects the exact bytes on disk.
                 writtenForManifest.push({
                     path: path.relative(targetFolderPath, filePath).split(path.sep).join('/'),
-                    content: fileContent,
+                    content: entry.content,
                 });
 
                 // Gate chmod 755 to allowlisted scripts rather than trusting model-controlled file.executable
@@ -570,12 +711,12 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
                     } catch (e) {
                         console.error(`Failed to set executable permission on ${filePath}`, e);
                     }
-                } else if (file.executable) {
-                    console.warn(`[regenerateCode] Refusing chmod 755 on unapproved executable: ${file.filename}`);
+                } else if (entry.executableRequested) {
+                    console.warn(`[regenerateCode] Refusing chmod 755 on unapproved executable: ${entry.originalFilename}`);
                 }
 
-                if (strategy.isMainPipelineFile(normalizedFilename, baseName, mainPipelineCode)) {
-                    mainPipelineCode = fileContent;
+                if (strategy.isMainPipelineFile(entry.normalizedFilename, baseName, mainPipelineCode)) {
+                    mainPipelineCode = entry.content;
                 }
             }
         } else {
@@ -610,6 +751,8 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
         if (!gcloudIgnoreExists) {
             await fs.promises.writeFile(gcloudIgnorePath, getDefaultIgnoreFileContent(), 'utf-8');
         }
+        // S6: keep the prompt/response log out of version control by default.
+        await ensureGitignoreExcludesLog(targetFolderPath);
 
         // C3 layer 2: stamp the ownership marker. This is what lets the *next*
         // generation recognise the folder as ours and clean it safely. Without
@@ -636,19 +779,28 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
         });
 
     } catch (err: any) {
-        // Log failure to gemini.log
+        const cancelled = isCancellation(err, abortSignal);
+        // Record the failure or cancellation in gemini.log
         try {
-            const logFilePath = path.join(targetFolderPath, 'gemini.log');
+            const logFilePath = path.join(targetFolderPath, GEMINI_LOG_FILENAME);
             const logData = {
                 timestamp: new Date().toISOString(),
                 model: DEFAULT_GEMINI_MODEL,
                 prompt: promptText,
-                error: err.message,
-                stack: err.stack,
+                error: cancelled ? 'Cancelled by user.' : err.message,
+                stack: cancelled ? undefined : err.stack,
             };
-            await fs.promises.writeFile(logFilePath, JSON.stringify(logData, null, 2), 'utf-8');
+            await writePrivateLog(logFilePath, JSON.stringify(logData, null, 2));
         } catch (logErr) {
             console.error('Failed to write failure details to gemini.log', logErr);
+        }
+
+        if (cancelled) {
+            // No error toast because the user asked for this. The webview normally resets on
+            // 'codeGenerationStopped' first; this message is the authoritative end of the run.
+            outputChannel?.appendLine('[generation] Code generation cancelled; no generated files were written.');
+            await postToWebview({ command: 'codeRegenerated', success: false, cancelled: true, error: 'Generation cancelled.' });
+            return;
         }
 
         vscode.window.showErrorMessage(`Gemini Code Generation Error: ${err.message}`);
@@ -669,23 +821,26 @@ export interface HandleRegenerateCodeOptions {
     /** URI of the pipeline file, if available */
     uri?: vscode.Uri;
     /** Guarded post-message callback to webview (M5) */
-    postToWebview: (message: any) => boolean | Promise<boolean>;
+    postToWebview: (message: HostToWebviewMessage) => boolean | Promise<boolean>;
     /** Optional extension output channel */
     outputChannel?: vscode.OutputChannel;
     /** Optional gcloud project resolution override */
     getGcloudProjectFn?: () => Promise<string | undefined>;
+    /** Optional cancellation signal owned by the caller's editor session (F1). */
+    abortSignal?: AbortSignal;
 }
 
 /**
  * Top-level handler for the 'regenerateCode' webview message command.
  *
  * Resolves destination paths, validates folder ownership, displays progress,
- * and delegates to executeCodeGeneration.
+ * and delegates to executeCodeGeneration. The run is cancelled when either the caller's
+ * `abortSignal` fires (webview Stop button) or the user cancels the progress notification.
  *
  * @param options Handler parameters
  */
 export async function handleRegenerateCode(options: HandleRegenerateCodeOptions): Promise<void> {
-    const { message, context, document, uri, postToWebview, outputChannel, getGcloudProjectFn } = options;
+    const { message, context, document, uri, postToWebview, outputChannel, getGcloudProjectFn, abortSignal } = options;
     const yamlData = message.data;
 
     // Headless pre-flight validation: reject code generation if the pipeline DAG has cycles or invalid topology
@@ -715,21 +870,11 @@ export async function handleRegenerateCode(options: HandleRegenerateCodeOptions)
     const outputFolderVal = message.outputFolder;
     const targetActiveUri = document ? document.uri : uri;
 
-    let targetFolderPath = '';
-    if (targetActiveUri) {
-        const pipelineBaseName = path.basename(targetActiveUri.fsPath, '.beam');
-        targetFolderPath = path.join(path.dirname(targetActiveUri.fsPath), pipelineBaseName);
-    }
-    if (outputFolderVal && outputFolderVal.trim()) {
-        if (path.isAbsolute(outputFolderVal)) {
-            targetFolderPath = outputFolderVal;
-        } else {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (workspaceFolder) {
-                targetFolderPath = path.join(workspaceFolder, outputFolderVal);
-            }
-        }
-    }
+    const targetFolderPath = resolveOutputFolder(
+        targetActiveUri?.fsPath,
+        outputFolderVal,
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    );
 
     if (!targetFolderPath) {
         vscode.window.showErrorMessage('Could not determine output folder.');
@@ -745,7 +890,12 @@ export async function handleRegenerateCode(options: HandleRegenerateCodeOptions)
         return;
     }
 
-    const baseName = filenameVal.replace('.beam', '');
+    // NOTE: a missing filename used to throw a TypeError here, outside any try block,
+    // surfacing as an unhandled rejection. Fall back to the output folder's name.
+    const baseName = (typeof filenameVal === 'string' && filenameVal
+        ? filenameVal
+        : path.basename(targetFolderPath)
+    ).replace(/\.beam$/, '');
 
     // C3: the folder is NOT cleaned here. Deleting before the model call meant a
     // timeout, rate-limit or unparseable response left the user with nothing.
@@ -774,19 +924,34 @@ export async function handleRegenerateCode(options: HandleRegenerateCodeOptions)
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Generating ${resolvedLanguage} code using Gemini...`,
-        cancellable: false,
-    }, async (_progress) => {
-        await executeCodeGeneration({
-            targetFolderPath,
-            yamlData,
-            languageVal,
-            baseName,
-            generationPipelineId,
-            folderGate,
-            context,
-            postToWebview,
-            outputChannel,
-            getGcloudProjectFn,
-        });
+        cancellable: true,
+    }, async (_progress, token) => {
+        // Merge the two cancellation sources (webview Stop button and the notification's
+        // Cancel button) into one AbortSignal for the SDK and the pre-write gate.
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        if (abortSignal?.aborted) {
+            abort();
+        }
+        abortSignal?.addEventListener('abort', abort, { once: true });
+        const tokenSubscription = token?.onCancellationRequested?.(abort);
+        try {
+            await executeCodeGeneration({
+                targetFolderPath,
+                yamlData,
+                languageVal,
+                baseName,
+                generationPipelineId,
+                folderGate,
+                context,
+                postToWebview,
+                outputChannel,
+                getGcloudProjectFn,
+                abortSignal: controller.signal,
+            });
+        } finally {
+            abortSignal?.removeEventListener('abort', abort);
+            tokenSubscription?.dispose();
+        }
     });
 }

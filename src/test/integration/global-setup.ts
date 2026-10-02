@@ -12,6 +12,12 @@
 import { clearReportCache } from './test-reporter';
 import { getGcloudProject } from './codegen-runner';
 
+/**
+ * Global setup hook for Vitest integration tests.
+ * Clears cached test reports and initializes the Google Cloud project environment variable if missing.
+ *
+ * @returns Promise that resolves when setup is complete.
+ */
 export default async function setup(): Promise<void> {
     clearReportCache();
     if (!process.env.GOOGLE_CLOUD_PROJECT) {

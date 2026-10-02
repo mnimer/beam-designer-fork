@@ -173,7 +173,7 @@ describe('SpannerIOSinkProperties', () => {
     });
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets in sink datalist', () => {
+  it('supports Secret Manager authentication mode and renders secret input', () => {
     const node = {
       data: {
         label: 'Spanner Sink',
@@ -188,54 +188,6 @@ describe('SpannerIOSinkProperties', () => {
 
     const secretInput = screen.getByPlaceholderText('e.g. spanner-sa-key');
     expect(secretInput).toHaveValue('spanner-writer-key');
-
-    // Simulate secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/spanner-sink-secret',
-            { id: 'spanner-sink-sa', name: 'spanner-sink-sa' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#spanner-sink-secret-options option[value="spanner-sink-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#spanner-sink-secret-options option[value="spanner-sink-sa"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Spanner Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<SpannerIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Access denied to Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Access denied to Secret Manager')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and updates host, commit deadline, backoff, and database role', () => {
@@ -289,69 +241,6 @@ describe('SpannerIOSinkProperties', () => {
     expect(screen.getByText('Spanner database ID is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <SpannerIOSinkProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <SpannerIOSinkProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <SpannerIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <SpannerIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

@@ -30,11 +30,14 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/** React Flow node shape for the HadoopFileSystem source panel, including its persisted configuration data. */
 export interface HadoopFileSystemSourceNode {
   data: {
     label: string;
@@ -60,6 +63,7 @@ export interface HadoopFileSystemSourceNode {
   };
 }
 
+/** Props for the {@link HadoopFileSystemSourceProperties} component. */
 export interface HadoopFileSystemSourcePropertiesProps {
   node: HadoopFileSystemSourceNode;
   onChange: (properties: any) => void;
@@ -77,6 +81,11 @@ export const HADOOP_SOURCE_FORMATS: SelectFieldOption[] = [
   { value: 'FileIO', label: 'FileIO (Match files / read FileIO.ReadableFile)' }
 ];
 
+/**
+ * Dedicated property panel for the Hadoop File System (HDFS) source node. Configures NameNode connection, Kerberos credentials, and file format readers.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const HadoopFileSystemSourceProperties: React.FC<HadoopFileSystemSourcePropertiesProps> = ({
   node,
   onChange
@@ -100,12 +109,7 @@ export const HadoopFileSystemSourceProperties: React.FC<HadoopFileSystemSourcePr
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -124,13 +128,6 @@ export const HadoopFileSystemSourceProperties: React.FC<HadoopFileSystemSourcePr
   /**
    * Updates AI prompt / system instructions
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   /**
    * Toggles the advanced tuning accordion state
    */
@@ -310,22 +307,21 @@ export const HadoopFileSystemSourceProperties: React.FC<HadoopFileSystemSourcePr
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="hadoopSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this HadoopFileSystem reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read HDFS files using TextIO.read().from(...) and configure HadoopFileSystemOptions with custom core-site.xml."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="hadoopSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this HadoopFileSystem reader step."
+        placeholder="e.g. Read HDFS files using TextIO.read().from(...) and configure HadoopFileSystemOptions with custom core-site.xml."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

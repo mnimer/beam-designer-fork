@@ -116,7 +116,7 @@ describe('SingleStoreDBIOSinkProperties', () => {
     });
   });
 
-  it('switches to Secret Manager auth mode and loads secrets into sink datalist', () => {
+  it('switches to Secret Manager auth mode and updates passwordSecret', () => {
     const node = {
       data: {
         label: 'SingleStore Sink',
@@ -134,48 +134,10 @@ describe('SingleStoreDBIOSinkProperties', () => {
     expect(usernameInput).toBeInTheDocument();
     expect(passwordInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/singlestore-sink-user',
-          { id: 'singlestore-sink-pass', name: 'singlestore-sink-pass' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#singlestore-sink-secret-options option[value="singlestore-sink-user"]');
-    const option2 = document.querySelector('datalist#singlestore-sink-secret-options option[value="singlestore-sink-pass"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     fireEvent.change(passwordInput, { target: { name: 'passwordSecret', value: 'singlestore-sink-pass' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       passwordSecret: 'singlestore-sink-pass'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'SingleStore Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<SingleStoreDBIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager for sink'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager for sink')).toBeInTheDocument();
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -211,32 +173,15 @@ describe('SingleStoreDBIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('127.0.0.1:3306')).toHaveValue('');
   });
 
-  it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+  it('updates system_instructions when textarea changes', () => {
+    const node = {
       data: {
         label: 'SingleStore Sink',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<SingleStoreDBIOSinkProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write SensorRollup records to SingleStore table/i)).toHaveValue('Fallback instructions 1');
-    unmount();
+    render(<SingleStoreDBIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'SingleStore Sink',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<SingleStoreDBIOSinkProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write SensorRollup records to SingleStore table/i)).toHaveValue('Fallback instructions 2');
-
-    // Modifying textarea calls onChange with system_instructions
     const textarea = screen.getByPlaceholderText(/Write SensorRollup records to SingleStore table/i);
     fireEvent.change(textarea, { target: { value: 'New singlestore sink prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

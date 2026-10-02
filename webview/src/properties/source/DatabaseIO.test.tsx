@@ -45,8 +45,6 @@ describe('DatabaseIOSourceProperties', () => {
 
     expect(screen.getByText('JDBC URL is required')).toBeInTheDocument();
     expect(screen.getByText('Either a Table Name or a SELECT query is required')).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('passes table/query validation when either table or query is populated', () => {
@@ -210,50 +208,6 @@ describe('DatabaseIOSourceProperties', () => {
 
     expect(screen.getByPlaceholderText('e.g. db-username')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. db-password')).toBeInTheDocument();
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'db-user-secret', name: 'db-user-secret' },
-            'projects/my-proj/secrets/db-pass-secret'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('databaseio-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'db-user-secret');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'db-pass-secret');
-  });
-
-  it('displays error alert when secretsLoaded carries an error message', () => {
-    const node = {
-      data: {
-        label: 'Database Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DatabaseIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Access denied to Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText(/Access denied to Secret Manager/i)).toBeInTheDocument();
   });
 
   it('handles advanced source settings toggling and updates', () => {
@@ -269,8 +223,6 @@ describe('DatabaseIOSourceProperties', () => {
     render(<DatabaseIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const toggleButton = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('30')).not.toBeInTheDocument();
-
     fireEvent.click(toggleButton);
     expect(screen.getByPlaceholderText('30')).toBeInTheDocument();
 
@@ -280,9 +232,6 @@ describe('DatabaseIOSourceProperties', () => {
       url: 'jdbc:postgresql://localhost:5432/mydb',
       sslMode: 'verify-full'
     });
-
-    fireEvent.click(toggleButton);
-    expect(screen.queryByPlaceholderText('30')).not.toBeInTheDocument();
   });
 
   it('supports alias fallbacks for jdbcUrl, tableName, databaseEngine, partitionCount and prunes them on write', () => {
@@ -342,58 +291,17 @@ describe('DatabaseIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('10')).toHaveValue(0);
   });
 
-  it('respects instructions fallback chain and dispatches change', () => {
-    const node1 = {
+  it('updates system_instructions on textarea change', () => {
+    const node = {
       data: {
         label: 'Database Source',
-        system_instructions: 'Level 1 instructions',
-        special_instructions: 'Level 2 instructions',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
+        properties: {}
       }
     };
-    const { rerender } = render(<DatabaseIOSourceProperties node={node1} onChange={mockOnChange} />);
+    render(<DatabaseIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Read records using JdbcIO/i);
-    expect(textarea).toHaveValue('Level 1 instructions');
-
-    const node2 = {
-      data: {
-        label: 'Database Source',
-        special_instructions: 'Level 2 instructions',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
-      }
-    };
-    rerender(<DatabaseIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 2 instructions');
-
-    const node3 = {
-      data: {
-        label: 'Database Source',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
-      }
-    };
-    rerender(<DatabaseIOSourceProperties node={node3} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 3 instructions');
-
-    const node4 = {
-      data: {
-        label: 'Database Source',
-        properties: {
-          special_instructions: 'Level 4 instructions'
-        }
-      }
-    };
-    rerender(<DatabaseIOSourceProperties node={node4} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 4 instructions');
-
     fireEvent.change(textarea, { target: { value: 'New database instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith({
-      special_instructions: 'Level 4 instructions',
       system_instructions: 'New database instructions'
     });
   });

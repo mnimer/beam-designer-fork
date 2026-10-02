@@ -4,19 +4,16 @@
  * Author: Mike Nimer <mikenimer@google.com>
  * 
  * Purpose:
- * Validates rendering, input handling, Cloud Storage bucket auto-discovery messaging,
+ * Validates rendering, input handling,
  * validation indicators, select dropdown handling, collapsible accordion toggling,
  * error state rendering, and code generation instructions for XmlIOSourceProperties.
  * 
  * Architectural Decisions:
- * - Mocks window.vscode IPC message dispatch to verify getStorageBuckets request.
- * - Dispatches storageBucketsLoaded message events to verify dynamic datalist option population.
- * - Tests both success and failure branches for asset loader discovery.
  * - Verifies required-field validation states for filePattern, rootElement, and recordElement.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { XmlIOSourceProperties } from './XmlIO';
 
@@ -269,74 +266,6 @@ describe('XmlIOSourceProperties', () => {
     expect(container.querySelector('#xmlSourceValidate')).not.toBeInTheDocument();
   });
 
-  it('requests storage buckets via vscode.postMessage and populates datalist on storageBucketsLoaded event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<XmlIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets command was requested
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch extension host response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['xml-input-bucket', 'archive-bucket']
-          }
-        })
-      );
-    });
-
-    // Check datalist options
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://xml-input-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://archive-bucket/');
-  });
-
-  it('renders inline error message when storage bucket discovery fails', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          filePattern: 'gs://my-bucket/*.xml'
-        }
-      }
-    };
-
-    render(<XmlIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Dispatch failure message event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to authenticate with Cloud Storage'
-          }
-        })
-      );
-    });
-
-    // Assert inline error message renders
-    expect(
-      screen.getByText('Failed to load Cloud Storage buckets: Failed to authenticate with Cloud Storage')
-    ).toBeInTheDocument();
-  });
 
   it('updates system_instructions when instructions textarea changes', () => {
     const mockNode: any = {

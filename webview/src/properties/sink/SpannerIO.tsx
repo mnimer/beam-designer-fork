@@ -23,11 +23,17 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/**
+ * Represents a GCP Secret Manager secret item.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -37,6 +43,9 @@ export interface SecretItem {
 export type SpannerMutationMode = 'insert' | 'update' | 'insertOrUpdate' | 'replace' | 'delete';
 export type SpannerFailureMode = 'FAIL_FAST' | 'REPORT_FAILURES';
 
+/**
+ * Props for the SpannerIOSinkProperties component.
+ */
 export interface SpannerIOSinkPropertiesProps {
   node: {
     data: {
@@ -77,6 +86,9 @@ export interface SpannerIOSinkPropertiesProps {
  * @returns Array of normalized SecretItem entries
  */
 
+/**
+ * Props for the SpannerSinkThroughputCard component.
+ */
 interface SpannerSinkThroughputCardProps {
   batchSizeBytes: number | string;
   maxNumMutations: number | string;
@@ -197,6 +209,9 @@ const SpannerSinkThroughputCard: React.FC<SpannerSinkThroughputCardProps> = ({
   );
 };
 
+/**
+ * Props for the SpannerSinkAuthCard component.
+ */
 interface SpannerSinkAuthCardProps {
   authMode: 'adc' | 'secret_manager';
   serviceAccountKeySecret: string;
@@ -268,6 +283,9 @@ const SpannerSinkAuthCard: React.FC<SpannerSinkAuthCardProps> = ({
   );
 };
 
+/**
+ * Props for the SpannerSinkAdvancedCard component.
+ */
 interface SpannerSinkAdvancedCardProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -291,66 +309,57 @@ const SpannerSinkAdvancedCard: React.FC<SpannerSinkAdvancedCardProps> = ({
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <PropertyField
+        id="spannerSinkHost"
+        name="host"
+        label="Spanner Host / Emulator Endpoint"
+        value={host}
+        onChange={onChange}
+        placeholder="e.g. localhost:9010"
+        tooltip="Custom Cloud Spanner endpoint override or local emulator host. Maps to withHost()."
+        mono={true}
+      />
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <PropertyField
-            id="spannerSinkHost"
-            name="host"
-            label="Spanner Host / Emulator Endpoint"
-            value={host}
-            onChange={onChange}
-            placeholder="e.g. localhost:9010"
-            tooltip="Custom Cloud Spanner endpoint override or local emulator host. Maps to withHost()."
-            mono={true}
-          />
+      <PropertyField
+        id="spannerSinkCommitDeadlineSeconds"
+        name="commitDeadlineSeconds"
+        label="Commit Deadline (Seconds)"
+        type="number"
+        value={commitDeadlineSeconds}
+        onChange={onChange}
+        placeholder="e.g. 60"
+        tooltip="Deadline duration for Spanner commit API calls before retrying. Maps to withCommitDeadline()."
+        min={0}
+      />
 
-          <PropertyField
-            id="spannerSinkCommitDeadlineSeconds"
-            name="commitDeadlineSeconds"
-            label="Commit Deadline (Seconds)"
-            type="number"
-            value={commitDeadlineSeconds}
-            onChange={onChange}
-            placeholder="e.g. 60"
-            tooltip="Deadline duration for Spanner commit API calls before retrying. Maps to withCommitDeadline()."
-            min={0}
-          />
+      <PropertyField
+        id="spannerSinkMaxCumulativeBackoffSeconds"
+        name="maxCumulativeBackoffSeconds"
+        label="Max Cumulative Backoff (Seconds)"
+        type="number"
+        value={maxCumulativeBackoffSeconds}
+        onChange={onChange}
+        placeholder="e.g. 900"
+        tooltip="Maximum total time allowed for retries following deadline exceeded errors. Maps to withMaxCumulativeBackoff()."
+        min={0}
+      />
 
-          <PropertyField
-            id="spannerSinkMaxCumulativeBackoffSeconds"
-            name="maxCumulativeBackoffSeconds"
-            label="Max Cumulative Backoff (Seconds)"
-            type="number"
-            value={maxCumulativeBackoffSeconds}
-            onChange={onChange}
-            placeholder="e.g. 900"
-            tooltip="Maximum total time allowed for retries following deadline exceeded errors. Maps to withMaxCumulativeBackoff()."
-            min={0}
-          />
-
-          <PropertyField
-            id="spannerSinkDatabaseRole"
-            name="databaseRole"
-            label="Database Role"
-            value={databaseRole}
-            onChange={onChange}
-            placeholder="e.g. analytics_writer"
-            tooltip="Fine-grained access control (FGAC) database role passed to SpannerConfig.withDatabaseRole()."
-            mono={true}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="spannerSinkDatabaseRole"
+        name="databaseRole"
+        label="Database Role"
+        value={databaseRole}
+        onChange={onChange}
+        placeholder="e.g. analytics_writer"
+        tooltip="Fine-grained access control (FGAC) database role passed to SpannerConfig.withDatabaseRole()."
+        mono={true}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -390,12 +399,7 @@ export const SpannerIOSinkProperties: React.FC<SpannerIOSinkPropertiesProps> = (
   const isDatabaseEmpty = !databaseId.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -423,20 +427,6 @@ export const SpannerIOSinkProperties: React.FC<SpannerIOSinkPropertiesProps> = (
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -550,19 +540,19 @@ export const SpannerIOSinkProperties: React.FC<SpannerIOSinkPropertiesProps> = (
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="spannerSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
-        placeholder="Custom prompt instructions for generating the Apache Beam SpannerIO sink step..."
+        rows={4}
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        placeholder="Custom prompt instructions for generating the Apache Beam SpannerIO sink step..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

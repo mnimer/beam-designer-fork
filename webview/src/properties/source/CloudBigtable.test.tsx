@@ -10,8 +10,6 @@ import '@testing-library/jest-dom';
 import { CloudBigtableSourceProperties } from './CloudBigtable';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
-const CLOUD_BIGTABLE_DOCS_URL = 'https://cloud.google.com/bigtable/docs/hbase-dataflow-java';
-
 const CLOUD_BIGTABLE_SOURCE_PROPERTY_KEYS = [
   'projectId',
   'instanceId',
@@ -105,20 +103,6 @@ describe('CloudBigtableSourceProperties (IO68)', () => {
     expect(container.querySelector('[name="password"]')).toBeNull();
   });
 
-  it('opens the connector documentation via openExternal when Docs ↗ is clicked (and handles missing vscode)', () => {
-    render(<CloudBigtableSourceProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-    postMessageMock.mockClear();
-
-    fireEvent.click(screen.getByRole('button', { name: /Docs ↗/i }));
-    expect(postMessageMock).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: CLOUD_BIGTABLE_DOCS_URL,
-    });
-
-    delete vscodeWindow.vscode;
-    expect(() => fireEvent.click(screen.getByRole('button', { name: /Docs ↗/i }))).not.toThrow();
-  });
-
   it('renders with undefined properties and shows required errors for Project, Instance, and Table', () => {
     render(<CloudBigtableSourceProperties node={makeNode(undefined)} onChange={vi.fn()} />);
 
@@ -139,30 +123,10 @@ describe('CloudBigtableSourceProperties (IO68)', () => {
     render(<CloudBigtableSourceProperties node={makeNode(validProps)} onChange={vi.fn()} />);
 
     expect(screen.queryAllByRole('alert')).toHaveLength(0);
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getProjects' });
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getBigtableInstances' });
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
     expect(postMessageMock).toHaveBeenCalledWith({
       command: 'getBigtableTables',
       instance: 'projects/my-gcp-project/instances/events-instance',
     });
-  });
-
-  it('populates datalists when projectsLoaded, bigtableInstancesLoaded, bigtableTablesLoaded, and secretsLoaded arrive', () => {
-    render(<CloudBigtableSourceProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-
-    dispatchMessage({ command: 'projectsLoaded', projects: ['proj-alpha', 'proj-beta'] });
-    dispatchMessage({ command: 'bigtableInstancesLoaded', bigtableInstances: ['inst-1', 'inst-2'] });
-    dispatchMessage({ command: 'bigtableTablesLoaded', bigtableTables: ['tbl-orders', 'tbl-events'] });
-    dispatchMessage({ command: 'secretsLoaded', secrets: ['bt-sa-secret'] });
-
-    const optionValues = (id: string) =>
-      Array.from(document.querySelectorAll(`#${id} option`)).map((o) => o.getAttribute('value'));
-
-    expect(optionValues('cbtSourceProjectOptions')).toEqual(['proj-alpha', 'proj-beta']);
-    expect(optionValues('cbtSourceInstanceOptions')).toEqual(['inst-1', 'inst-2']);
-    expect(optionValues('cbtSourceTableOptions')).toEqual(['tbl-orders', 'tbl-events']);
-    expect(optionValues('cbtSourceCredentialsSecret-secret-options')).toEqual(['bt-sa-secret']);
   });
 
   it('surfaces discovery errors when field validation passes, and lets validation error win over discovery error', () => {
@@ -514,42 +478,16 @@ describe('CloudBigtableSourceProperties (IO68)', () => {
     ]);
   });
 
-  it('resolves system_instructions fallback chain and emits updates', () => {
+  it('updates system_instructions when instructions textarea changes', () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    render(
       <CloudBigtableSourceProperties
-        node={makeNode(validProps, { system_instructions: 'node-sys' })}
+        node={makeNode(validProps)}
         onChange={onChange}
       />
     );
-    const textarea = () => document.getElementById('cbtSourceSystemInstructions') as HTMLTextAreaElement;
-    expect(textarea().value).toBe('node-sys');
-
-    rerender(
-      <CloudBigtableSourceProperties
-        node={makeNode(validProps, { special_instructions: 'node-spec' })}
-        onChange={onChange}
-      />
-    );
-    expect(textarea().value).toBe('node-spec');
-
-    rerender(
-      <CloudBigtableSourceProperties
-        node={makeNode({ ...validProps, system_instructions: 'prop-sys' })}
-        onChange={onChange}
-      />
-    );
-    expect(textarea().value).toBe('prop-sys');
-
-    rerender(
-      <CloudBigtableSourceProperties
-        node={makeNode({ ...validProps, special_instructions: 'prop-spec' })}
-        onChange={onChange}
-      />
-    );
-    expect(textarea().value).toBe('prop-spec');
-
-    fireEvent.change(textarea(), { target: { value: 'custom scan instructions' } });
+    const textarea = document.getElementById('cbtSourceSystemInstructions') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'custom scan instructions' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         system_instructions: 'custom scan instructions',

@@ -16,8 +16,10 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** Props for the {@link CreateProperties} component. */
 interface CreatePropertiesProps {
   node: any;
   onChange: (properties: any) => void;
@@ -77,6 +79,11 @@ export function normalizeElements(raw: any): string[] {
   return [''];
 }
 
+/**
+ * Dedicated property panel for the Create (in-memory collection) source node. Configures static elements to inject into the pipeline.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChange }) => {
   const properties = node?.data?.properties || {};
   const elements: string[] = normalizeElements(properties.elements);
@@ -84,12 +91,7 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
   const isInvalid = elements.length === 0 || elements.every(el => typeof el !== 'string' || !el.trim());
 
   // System instructions text with fallback
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const updateElements = (newElements: string[]) => {
     onChange({ ...properties, elements: newElements });
@@ -111,13 +113,6 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
     } else {
       updateElements(elements.filter((_, i) => i !== index));
     }
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -184,23 +179,18 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
         These elements will be created directly in memory as a PCollection (e.g. via beam.Create).
       </span>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="createSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Create.of() code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="createSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Create.of() code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

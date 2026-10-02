@@ -24,10 +24,15 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Secret item interface for AWS SQS secrets.
+ */
 export interface SqsSecretItem {
   name: string;
   id: string;
@@ -48,6 +53,9 @@ export const AWS_REGIONS = [
   { value: 'custom', label: 'Custom Region...' },
 ];
 
+/**
+ * Node data structure for SqsIO source nodes.
+ */
 export interface SqsIOSourceNode {
   data: {
     label: string;
@@ -70,6 +78,9 @@ export interface SqsIOSourceNode {
   };
 }
 
+/**
+ * Props for the SqsIO source properties component.
+ */
 export interface SqsIOSourcePropertiesProps {
   node: SqsIOSourceNode;
   onChange: (properties: any) => void;
@@ -102,12 +113,7 @@ export const SqsIOSourceProperties: React.FC<SqsIOSourcePropertiesProps> = ({ no
   const isInvalid = !queueUrl.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text and select input changes
@@ -117,16 +123,6 @@ export const SqsIOSourceProperties: React.FC<SqsIOSourcePropertiesProps> = ({ no
     onChange({
       ...properties,
       [name]: value,
-    });
-  };
-
-  /**
-   * Handles code generation instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
     });
   };
 
@@ -212,7 +208,7 @@ export const SqsIOSourceProperties: React.FC<SqsIOSourcePropertiesProps> = ({ no
           <span>Bounded Read Limits</span>
           <InfoTooltip text="Optional limits for reading from SQS. Specifying these bounds transforms the unbounded stream into a bounded read suitable for batch testing." />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 items-end gap-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="sqsSourceMaxRecords" className="text-[11px] font-bold uppercase text-slate-500">
               Max Records
@@ -246,24 +242,20 @@ export const SqsIOSourceProperties: React.FC<SqsIOSourcePropertiesProps> = ({ no
         </div>
       </div>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="sqsSourceInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. deserialize custom JSON message payload, map attributes, or x-lang expansion details)." />
-        </label>
-        <textarea
-          id="sqsSourceInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Extract JSON string payload from Message body and parse into Order model..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="sqsSourceInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. deserialize custom JSON message payload, map attributes, or x-lang expansion details)."
+        placeholder="e.g. Extract JSON string payload from Message body and parse into Order model..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

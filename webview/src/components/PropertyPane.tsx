@@ -20,30 +20,15 @@ import React from 'react';
 import {
   Box,
   Copy,
-  X,
-  Database,
-  Cloud,
-  HardDrive,
-  Cable,
-  Radio,
-  Share2,
-  Clock,
-  Layers,
-  BarChart,
-  FileCode,
-  Code,
-  FileText,
-  Folder,
-  ListOrdered,
-  Zap
+  X
 } from 'lucide-react';
 import { PropertyForm } from './PropertyForm';
 import { ErrorBoundary } from './common/ErrorBoundary';
+import { getNodeIcon } from './common/nodeIcons';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Code, FileText, Folder, ListOrdered, Zap
-};
-
+/**
+ * Props for the {@link PropertyPane} component.
+ */
 export interface PropertyPaneProps {
   node: any;
   onChange: (properties: any) => void;
@@ -70,7 +55,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({
   onResizeStart,
   onClose
 }) => {
-  const IconComponent = iconComponentMap[node.data.iconName];
+  const IconComponent = getNodeIcon(node.data.iconName, Box);
   const [labelValue, setLabelValue] = React.useState(node.data.label || '');
 
   React.useEffect(() => {
@@ -124,6 +109,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({
       {/* Node Info Header with Editable Name */}
       <div className="flex items-center gap-3 bg-[var(--vscode-card-bg)] border border-[var(--vscode-border-light)] p-3 rounded-lg shrink-0">
         <div className="bg-[var(--vscode-subcard-bg)] border border-[var(--vscode-border-light)] p-2 rounded shrink-0">
+          {/* eslint-disable-next-line react-hooks/static-components */}
           {IconComponent && <IconComponent className={`w-5 h-5 ${node.data.type === 'SOURCE' ? 'text-emerald-400' : node.data.type === 'SINK' ? 'text-rose-400' : 'text-blue-400'}`} />}
         </div>
         <div className="flex-1 min-w-0">

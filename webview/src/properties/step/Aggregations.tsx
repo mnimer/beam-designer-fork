@@ -14,12 +14,17 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import {
   DEFAULT_BEAM_TRANSFORMS_DOCS_URL,
   getNodeDocumentation,
   openNodeDocs,
 } from '../../utils/nodeDocumentation';
 
+/**
+ * React Flow node shape for an aggregation transform node.
+ */
 interface AggregationNode {
   data: {
     label: string;
@@ -37,6 +42,9 @@ interface AggregationNode {
   };
 }
 
+/**
+ * Props for the {@link AggregationProperties} component.
+ */
 interface AggregationPropertiesProps {
   node: AggregationNode;
   onChange: (properties: any) => void;
@@ -69,6 +77,12 @@ const DESCRIPTIONS: Record<string, string> = {
   'Top': 'Finds the top elements in a collection according to a comparator.',
 };
 
+/**
+ * Property configuration panel for Apache Beam aggregation transforms (Count, Sum, GroupByKey, etc.).
+ *
+ * @param props The selected aggregation node and change notification callback.
+ * @returns The rendered aggregation properties panel.
+ */
 export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ node, onChange }) => {
   const transform = node.data.beam_transform || node.data.label;
   const label = node.data.label;
@@ -79,12 +93,7 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
   const isBatchNode = label === 'Group Into Batches' || label === 'Batch Elements' || transform === 'GroupIntoBatches' || transform === 'BatchElements';
   const batchSize = properties.batchSize ?? '';
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles input changes for batch size
@@ -93,16 +102,6 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
     onChange({
       ...properties,
       [e.target.name]: e.target.value
-    });
-  };
-
-  /**
-   * Handles changes for system instructions textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -137,21 +136,17 @@ export const AggregationProperties: React.FC<AggregationPropertiesProps> = ({ no
         />
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="aggSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder={`Enter custom instructions for ${label} code generation...`}
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

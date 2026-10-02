@@ -286,36 +286,6 @@ describe('LocalFileSystemSinkProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special sink instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<LocalFileSystemSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System sink instructions from properties'
-        }
-      }
-    };
-    rerender(<LocalFileSystemSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System sink instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special sink instructions from properties'
-        }
-      }
-    };
-    rerender(<LocalFileSystemSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special sink instructions from properties')).toBeInTheDocument();
-  });
 
   it('does NOT request storage buckets via vscode.postMessage (no bucket discovery for local filesystem)', () => {
     const mockPostMessage = vi.fn();

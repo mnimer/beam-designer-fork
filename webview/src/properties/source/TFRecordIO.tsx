@@ -27,10 +27,14 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * Node data structure for TFRecordIO source nodes.
+ */
 export interface TFRecordIOSourceNode {
   data: {
     label: string;
@@ -49,6 +53,9 @@ export interface TFRecordIOSourceNode {
   };
 }
 
+/**
+ * Props for the TFRecordIO source properties component.
+ */
 export interface TFRecordIOSourcePropertiesProps {
   node: TFRecordIOSourceNode;
   onChange: (properties: any) => void;
@@ -68,6 +75,9 @@ export const TFRECORD_CODER_OPTIONS = [
 
 export const TFRECORD_CODERS = TFRECORD_CODER_OPTIONS;
 
+/**
+ * Properties panel component for configuring TFRecordIO source transforms.
+ */
 export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
@@ -79,12 +89,7 @@ export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProp
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -97,16 +102,6 @@ export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProp
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -159,22 +154,21 @@ export const TFRecordIOSourceProperties: React.FC<TFRecordIOSourcePropertiesProp
       </label>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="tfrecordSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TFRecordIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse serialized tf.train.Example proto records into FeatureDict representations."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="tfrecordSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Parse serialized tf.train.Example proto records into FeatureDict representations."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TFRecordIO reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

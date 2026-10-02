@@ -26,7 +26,11 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 export const MYSQL_DOC_URL = 'https://github.com/esakik/beam-mysql-connector#getting-started';
 
@@ -90,6 +94,9 @@ function validateTable(v: string): string | null {
   return null;
 }
 
+/**
+ * Props for the MySQLSinkProperties component.
+ */
 export interface MySQLSinkPropertiesProps {
   node: {
     data: {
@@ -112,8 +119,13 @@ export interface MySQLSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the MySQL sink node. Configures host, database, table, credentials, and batch size.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const MySQLSinkProperties: React.FC<MySQLSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const host = properties.host || '';
   const port = properties.port || '';
@@ -131,34 +143,7 @@ export const MySQLSinkProperties: React.FC<MySQLSinkPropertiesProps> = ({ node, 
   const passwordSecretError = !passwordSecret.trim() ? 'Password secret is required.' : null;
   const batchSizeError = validatePositiveInt(batchSize, 'Batch size');
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value,
-    });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
-  const handleOpenDocs = () => {
-    const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-    if (vscodeApi) {
-      vscodeApi.postMessage({ command: 'openExternal', url: MYSQL_DOC_URL });
-    }
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -166,14 +151,11 @@ export const MySQLSinkProperties: React.FC<MySQLSinkPropertiesProps> = ({ node, 
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">MySQL Sink (WriteToMySQL)</span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
+          <ExternalDocsLink
+            url={MYSQL_DOC_URL}
+            ariaLabel="Open MySQL connector documentation"
             className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0 focus:outline-none"
-            aria-label="Open MySQL connector documentation"
-          >
-            Docs ↗
-          </button>
+          />
         </div>
         <p className="text-slate-400">
           Writes batched dictionary records into a MySQL database table (beam-mysql-connector).
@@ -292,23 +274,18 @@ export const MySQLSinkProperties: React.FC<MySQLSinkPropertiesProps> = ({ node, 
         placeholder="1000"
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="mysqlSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for MySQL sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="mysqlSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for MySQL sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

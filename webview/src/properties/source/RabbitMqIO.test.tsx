@@ -430,7 +430,7 @@ describe('RabbitMqIOSourceProperties', () => {
     expect(screen.getByText('Expansion service endpoint is required.')).toBeInTheDocument();
   });
 
-  it('handles Secret Manager dynamic discovery and selection', () => {
+  it('handles Secret Manager selection', () => {
     const mockNode = {
       data: {
         label: 'RabbitMQ',
@@ -443,18 +443,6 @@ describe('RabbitMqIOSourceProperties', () => {
 
     render(<RabbitMqIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'rabbitmq-admin-pass', value: 'rabbitmq-admin-pass' },
-            'projects/my-proj/secrets/app-worker-token'
-          ]
-        }
-      }));
-    });
-
     const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
 
@@ -465,51 +453,6 @@ describe('RabbitMqIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       secretName: 'rabbitmq-admin-pass'
     }));
-  });
-
-  it('handles secretsLoaded with error and displays error alert', () => {
-    const mockNode = {
-      data: {
-        label: 'RabbitMQ',
-        properties: {
-          host: 'localhost',
-          queue: 'orders.incoming',
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-
-    render(<RabbitMqIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [{ name: 'sec1', value: 'sec1' }],
-          error: 'Permission denied accessing Secret Manager'
-        }
-      }));
-    });
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Permission denied accessing Secret Manager');
-  });
-
-  it('refreshes secrets when refresh button is clicked', () => {
-    const mockNode = {
-      data: {
-        label: 'RabbitMQ',
-        properties: {
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-
-    render(<RabbitMqIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('handles computeInstancesLoaded and applies discovered VM IP to broker host', () => {
@@ -543,8 +486,7 @@ describe('RabbitMqIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ host: '10.128.0.45' }));
   });
 
-  it('gracefully handles non-array secrets and instances payloads, unknown commands, and missing vscode', () => {
-    // Test missing window.vscode does not throw
+  it('runs safely when window.vscode is undefined', () => {
     delete (window as any).vscode;
 
     const mockNode = {
@@ -557,94 +499,21 @@ describe('RabbitMqIOSourceProperties', () => {
     expect(() => {
       render(<RabbitMqIOSourceProperties node={mockNode} onChange={vi.fn()} />);
     }).not.toThrow();
-
-    // Test non-array secretsLoaded payload
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: 'not-an-array'
-        }
-      }));
-    });
-
-    // Test non-array computeInstancesLoaded payload
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'computeInstancesLoaded',
-          instances: null
-        }
-      }));
-    });
-
-    // Test unknown command
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'unknownRandomCommand'
-        }
-      }));
-    });
   });
 
-  it('handles system_instructions fallback precedence and updates textarea', () => {
-    // 1. node.data.system_instructions takes priority
-    const mockNode1 = {
-      data: {
-        label: 'RabbitMQ',
-        system_instructions: 'from-node-system',
-        special_instructions: 'from-node-special',
-        properties: {
-          system_instructions: 'from-props-system',
-          special_instructions: 'from-props-special'
-        }
-      }
-    };
-    const { unmount: unmount1 } = render(<RabbitMqIOSourceProperties node={mockNode1} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('from-node-system');
-    unmount1();
-
-    // 2. node.data.special_instructions fallback
-    const mockNode2 = {
-      data: {
-        label: 'RabbitMQ',
-        special_instructions: 'from-node-special',
-        properties: {
-          system_instructions: 'from-props-system'
-        }
-      }
-    };
-    const { unmount: unmount2 } = render(<RabbitMqIOSourceProperties node={mockNode2} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('from-node-special');
-    unmount2();
-
-    // 3. properties.system_instructions fallback
-    const mockNode3 = {
+  it('updates system_instructions when instructions textarea is edited', () => {
+    const mockNode = {
       data: {
         label: 'RabbitMQ',
         properties: {
-          system_instructions: 'from-props-system'
-        }
-      }
-    };
-    const { unmount: unmount3 } = render(<RabbitMqIOSourceProperties node={mockNode3} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('from-props-system');
-    unmount3();
-
-    // 4. properties.special_instructions fallback
-    const mockNode4 = {
-      data: {
-        label: 'RabbitMQ',
-        properties: {
-          special_instructions: 'from-props-special'
+          system_instructions: 'Initial instructions'
         }
       }
     };
     const mockOnChange = vi.fn();
-    render(<RabbitMqIOSourceProperties node={mockNode4} onChange={mockOnChange} />);
+    render(<RabbitMqIOSourceProperties node={mockNode} onChange={mockOnChange} />);
     const textarea = screen.getByLabelText(/Code Generation Instructions/i);
-    expect(textarea).toHaveValue('from-props-special');
+    expect(textarea).toHaveValue('Initial instructions');
 
     fireEvent.change(textarea, { target: { value: 'Custom instructions for RabbitMQ pipeline' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

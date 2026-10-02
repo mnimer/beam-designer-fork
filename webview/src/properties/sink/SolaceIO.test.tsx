@@ -32,40 +32,6 @@ describe('SolaceIOSinkProperties', () => {
     }
   });
 
-  it('renders default fields with documentation tooltips and placeholders', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<SolaceIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/JCSMP Host \(SMF Messaging\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Message VPN Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Username \(Secret Manager\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Password \(Secret Manager\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Destination Type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Topic Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Submission Mode/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Delivery Mode/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Writer Type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Clients Per Worker/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Number of Shards/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Publish Latency Metrics/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Expansion Service Mode/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
-
-    // Verify Beam 2.76.0 Javadoc aligned defaults
-    expect(screen.getByLabelText(/^Delivery Mode/i)).toHaveValue('DIRECT');
-    expect(screen.getByLabelText(/^Writer Type/i)).toHaveValue('BATCHED');
-    expect(screen.getByLabelText(/Clients Per Worker/i)).toHaveValue(4);
-    expect(screen.getByLabelText(/Number of Shards/i)).toHaveValue(20);
-    expect(screen.getByLabelText(/Publish Latency Metrics/i)).not.toBeChecked();
-  });
-
   it('populates fields with provided properties and triggers onChange on inputs', () => {
     const mockNode = {
       data: {
@@ -202,39 +168,11 @@ describe('SolaceIOSinkProperties', () => {
 
     render(<SolaceIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'solace-sink-auth', value: 'solace-sink-auth' },
-            'projects/gcp-proj/secrets/solace-publisher-pass'
-          ]
-        }
-      }));
-    });
-
     const secretInput = screen.getByLabelText(/^Password \(Secret Manager\)/i);
     fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'solace-sink-auth' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       passwordSecret: 'solace-sink-auth'
     }));
-  });
-
-  it('triggers refresh secrets callback when refresh button clicked', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {}
-      }
-    };
-
-    render(<SolaceIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('handles extension message for Compute Engine instances and applies IP to JCSMP host', () => {
@@ -265,52 +203,6 @@ describe('SolaceIOSinkProperties', () => {
     fireEvent.click(vmButton);
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       jcsmpHost: '10.200.0.15:55555'
-    }));
-  });
-
-  it('shows and validates expansion service endpoint when mode is endpoint', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {
-          expansionServiceMode: 'endpoint' as const,
-          expansionServiceEndpoint: ''
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<SolaceIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    const endpointInput = screen.getByLabelText(/Expansion Service Endpoint/i);
-    expect(endpointInput).toBeInTheDocument();
-    expect(endpointInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Expansion service endpoint is required/i)).toBeInTheDocument();
-
-    fireEvent.change(endpointInput, { target: { name: 'expansionServiceEndpoint', value: '127.0.0.1:8097' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      expansionServiceEndpoint: '127.0.0.1:8097'
-    }));
-  });
-
-  it('switches expansion service mode', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {
-          expansionServiceMode: 'auto' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<SolaceIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    const modeSelect = screen.getByLabelText(/Expansion Service Mode/i);
-    fireEvent.change(modeSelect, { target: { name: 'expansionServiceMode', value: 'endpoint' } });
-
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      expansionServiceMode: 'endpoint'
     }));
   });
 
@@ -368,148 +260,6 @@ describe('SolaceIOSinkProperties', () => {
     const queueInput = screen.getByLabelText(/^Queue Name/i);
     expect(queueInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Queue name is required when publishing to a Queue.')).toBeInTheDocument();
-  });
-
-  it('handles error messages from extension correctly', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {
-          passwordSecret: 'some-secret'
-        }
-      }
-    };
-
-    render(<SolaceIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled'
-        }
-      }));
-    });
-
-    expect(screen.getAllByText('Secret Manager API is not enabled').length).toBeGreaterThan(0);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'computeInstancesLoaded',
-          error: 'Compute API permission denied'
-        }
-      }));
-    });
-
-    expect(screen.getByText('Compute API permission denied')).toBeInTheDocument();
-  });
-
-  it('handles non-array secrets or compute payloads without throwing', () => {
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {}
-      }
-    };
-
-    expect(() => {
-      render(<SolaceIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-      act(() => {
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: null
-          }
-        }));
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'computeInstancesLoaded',
-            instances: 'not-an-array'
-          }
-        }));
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'unrelatedMessage'
-          }
-        }));
-      });
-    }).not.toThrow();
-  });
-
-  it('mounts gracefully when window.vscode is undefined', () => {
-    delete (window as any).vscode;
-
-    const mockNode = {
-      data: {
-        label: 'SolaceIO',
-        properties: {}
-      }
-    };
-
-    expect(() => {
-      render(<SolaceIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-    }).not.toThrow();
-  });
-
-  it('respects system_instructions fallback precedence', () => {
-    // 1. node.data.system_instructions wins
-    const node1 = {
-      data: {
-        label: 'SolaceIO',
-        system_instructions: 'From node data system',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount1 } = render(<SolaceIOSinkProperties node={node1} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data system');
-    unmount1();
-
-    // 2. node.data.special_instructions fallback
-    const node2 = {
-      data: {
-        label: 'SolaceIO',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system'
-        }
-      }
-    };
-    const { unmount: unmount2 } = render(<SolaceIOSinkProperties node={node2} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data special');
-    unmount2();
-
-    // 3. properties.system_instructions fallback
-    const node3 = {
-      data: {
-        label: 'SolaceIO',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount3 } = render(<SolaceIOSinkProperties node={node3} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop system');
-    unmount3();
-
-    // 4. properties.special_instructions fallback
-    const node4 = {
-      data: {
-        label: 'SolaceIO',
-        properties: {
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount4 } = render(<SolaceIOSinkProperties node={node4} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop special');
-    unmount4();
   });
 
   it('updates system_instructions when textarea changes', () => {

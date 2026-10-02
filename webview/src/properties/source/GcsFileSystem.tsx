@@ -30,11 +30,14 @@ import React, { useState } from 'react';
 import { Sliders, Activity } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/** React Flow node shape for the GcsFileSystem source panel, including its persisted configuration data. */
 export interface GcsFileSystemSourceNode {
   data: {
     label: string;
@@ -56,6 +59,7 @@ export interface GcsFileSystemSourceNode {
   };
 }
 
+/** Props for the {@link GcsFileSystemSourceProperties} component. */
 export interface GcsFileSystemSourcePropertiesProps {
   node: GcsFileSystemSourceNode;
   onChange: (properties: any) => void;
@@ -68,6 +72,11 @@ export const GCS_SOURCE_FORMATS: SelectFieldOption[] = [
   { value: 'FileIO', label: 'FileIO (Generic Match / ReadMatches)' }
 ];
 
+/**
+ * Dedicated property panel for the Google Cloud Storage (GCS) source node. Configures bucket URIs, file formats, and read performance tuning.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const GcsFileSystemSourceProperties: React.FC<GcsFileSystemSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
@@ -85,12 +94,7 @@ export const GcsFileSystemSourceProperties: React.FC<GcsFileSystemSourceProperti
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -109,13 +113,6 @@ export const GcsFileSystemSourceProperties: React.FC<GcsFileSystemSourceProperti
   /**
    * Updates AI prompt / system instructions
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   /**
    * Toggles the GCS metrics telemetry accordion state
    */
@@ -288,22 +285,21 @@ export const GcsFileSystemSourceProperties: React.FC<GcsFileSystemSourceProperti
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="gcsSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this GcsFileSystem reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read newline-delimited JSON events from gs://my-bucket/events/*.json with GCS performance metrics enabled."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="gcsSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this GcsFileSystem reader step."
+        placeholder="e.g. Read newline-delimited JSON events from gs://my-bucket/events/*.json with GCS performance metrics enabled."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

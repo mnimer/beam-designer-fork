@@ -27,7 +27,8 @@
 
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
@@ -35,6 +36,7 @@ import { MappingStrategyField, type MappingStrategy } from '../../components/com
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { FileCode } from 'lucide-react';
 
+/** React Flow node shape for the JsonIO source panel, including its persisted configuration data. */
 export interface JsonIOSourceNode {
   data: {
     label: string;
@@ -56,6 +58,7 @@ export interface JsonIOSourceNode {
   };
 }
 
+/** Props for the {@link JsonIOSourceProperties} component. */
 export interface JsonIOSourcePropertiesProps {
   node: JsonIOSourceNode;
   onChange: (properties: any) => void;
@@ -168,12 +171,7 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles form input changes for text, select, and checkbox fields.
@@ -208,13 +206,6 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
    *
    * @param e Form change event from textarea
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input with GCS Bucket Datalist */}
@@ -282,22 +273,21 @@ export const JsonIOSourceProperties: React.FC<JsonIOSourcePropertiesProps> = ({ 
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="jsonSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this JSON reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse JSON into custom POJO/Row coder, handle malformed lines, or configure custom date format."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="jsonSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this JSON reader step."
+        placeholder="e.g. Parse JSON into custom POJO/Row coder, handle malformed lines, or configure custom date format."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

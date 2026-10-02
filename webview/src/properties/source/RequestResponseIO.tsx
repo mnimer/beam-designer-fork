@@ -23,6 +23,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -41,6 +43,7 @@ export const CODER_OPTIONS = [
   { value: 'SerializableCoder', label: 'SerializableCoder (Java POJO / Python Pickle)' },
 ];
 
+/** React Flow node shape for the RequestResponseIO source panel, including its persisted configuration data. */
 export interface RequestResponseIOSourceNode {
   data: {
     label: string;
@@ -69,6 +72,7 @@ export interface RequestResponseIOSourceNode {
   };
 }
 
+/** Props for the {@link RequestResponseIOSourceProperties} component. */
 export interface RequestResponseIOSourcePropertiesProps {
   node: RequestResponseIOSourceNode;
   onChange: (properties: any) => void;
@@ -105,12 +109,7 @@ export const RequestResponseIOSourceProperties: React.FC<RequestResponseIOSource
   const isEndpointInvalid = !endpointUrl.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, number, and select input changes.
@@ -138,16 +137,6 @@ export const RequestResponseIOSourceProperties: React.FC<RequestResponseIOSource
     });
   };
 
-  /**
-   * Handles code generation instructions textarea change.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Caller Web API Endpoint URL */}
@@ -165,7 +154,7 @@ export const RequestResponseIOSourceProperties: React.FC<RequestResponseIOSource
       />
 
       {/* HTTP Method & Coders */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 items-end gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor="rrioSourceHttpMethod" className="flex items-center text-xs font-bold uppercase text-slate-500">
             <span>HTTP Method</span>
@@ -364,24 +353,20 @@ export const RequestResponseIOSourceProperties: React.FC<RequestResponseIOSource
         </div>
       </details>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="rrioSourceInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. routing Result.getResponses() and Result.getFailures() PCollection<ApiIOError>)." />
-        </label>
-        <textarea
-          id="rrioSourceInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Implement Caller<String, String> with SetupTeardown and route Result.getFailures() to dead-letter log..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="rrioSourceInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. routing Result.getResponses() and Result.getFailures() PCollection<ApiIOError>)."
+        placeholder="e.g. Implement Caller<String, String> with SetupTeardown and route Result.getFailures() to dead-letter log..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

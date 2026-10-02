@@ -25,8 +25,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
 /**
  * Secret item interface for normalized Secret Manager secrets.
@@ -37,6 +40,9 @@ export interface SecretItem {
   fullName?: string;
 }
 
+/**
+ * Props for the MongoDbGridFSIOSinkProperties component.
+ */
 export interface MongoDbGridFSIOSinkPropertiesProps {
   node: {
     data: {
@@ -194,73 +200,64 @@ const MongoDbGridFSSinkAdvancedSection: React.FC<MongoDbGridFSSinkAdvancedSectio
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
-
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSinkSslEnabled"
-                type="checkbox"
-                name="sslEnabled"
-                checked={sslEnabled}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>SSL / TLS Enabled</span>
-              <InfoTooltip text="Enables SSL/TLS encrypted transport layer security." />
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSinkSslInvalidHostNameAllowed"
-                type="checkbox"
-                name="sslInvalidHostNameAllowed"
-                checked={sslInvalidHostNameAllowed}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Allow Invalid Hostname</span>
-              <InfoTooltip text="Allows SSL connections when hostname does not match the certificate." />
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSinkIgnoreSSLCertificate"
-                type="checkbox"
-                name="ignoreSSLCertificate"
-                checked={ignoreSSLCertificate}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Ignore SSL Certificate</span>
-              <InfoTooltip text="Configures whether to trust invalid or self-signed SSL certificates." />
-            </label>
-          </div>
-
-          <PropertyField
-            id="mongoGridFSSinkMaxConnectionIdleTime"
-            name="maxConnectionIdleTime"
-            label="Max Connection Idle Time (ms)"
-            type="number"
-            value={maxConnectionIdleTime}
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSinkSslEnabled"
+            type="checkbox"
+            name="sslEnabled"
+            checked={sslEnabled}
             onChange={onChange}
-            placeholder="0 (Unlimited)"
-            min={0}
-            tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed."
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
           />
-        </div>
-      )}
-    </div>
+          <span>SSL / TLS Enabled</span>
+          <InfoTooltip text="Enables SSL/TLS encrypted transport layer security." />
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSinkSslInvalidHostNameAllowed"
+            type="checkbox"
+            name="sslInvalidHostNameAllowed"
+            checked={sslInvalidHostNameAllowed}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Allow Invalid Hostname</span>
+          <InfoTooltip text="Allows SSL connections when hostname does not match the certificate." />
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSinkIgnoreSSLCertificate"
+            type="checkbox"
+            name="ignoreSSLCertificate"
+            checked={ignoreSSLCertificate}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Ignore SSL Certificate</span>
+          <InfoTooltip text="Configures whether to trust invalid or self-signed SSL certificates." />
+        </label>
+      </div>
+
+      <PropertyField
+        id="mongoGridFSSinkMaxConnectionIdleTime"
+        name="maxConnectionIdleTime"
+        label="Max Connection Idle Time (ms)"
+        type="number"
+        value={maxConnectionIdleTime}
+        onChange={onChange}
+        placeholder="0 (Unlimited)"
+        min={0}
+        tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed."
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -302,12 +299,7 @@ export const MongoDbGridFSIOSinkProperties: React.FC<MongoDbGridFSIOSinkProperti
   const isDatabaseEmpty = !database.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -335,20 +327,6 @@ export const MongoDbGridFSIOSinkProperties: React.FC<MongoDbGridFSIOSinkProperti
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -473,19 +451,19 @@ export const MongoDbGridFSIOSinkProperties: React.FC<MongoDbGridFSIOSinkProperti
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="mongoGridFSSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
-        placeholder="Custom prompt instructions for generating the Apache Beam MongoDbGridFSIO sink step..."
+        rows={4}
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        placeholder="Custom prompt instructions for generating the Apache Beam MongoDbGridFSIO sink step..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

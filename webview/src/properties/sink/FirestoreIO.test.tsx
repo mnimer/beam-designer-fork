@@ -199,53 +199,13 @@ describe('FirestoreIOSinkProperties', () => {
 
     render(<FirestoreIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText('e.g. firestore-sa-key')).toHaveValue('firestore-key');
+    const secretInput = screen.getByPlaceholderText('e.g. firestore-sa-key');
+    expect(secretInput).toHaveValue('firestore-key');
 
-    // Simulate IPC secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/456/secrets/firestore-sink-secret-1',
-            { id: 'firestore-sink-secret-2', name: 'firestore-sink-secret-2' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.querySelector('datalist#firestore-sink-secret-options');
-    expect(datalist).not.toBeNull();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'firestore-sink-secret-1');
-    expect(options?.[1]).toHaveAttribute('value', 'firestore-sink-secret-2');
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Firestore Sink',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<FirestoreIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to fetch secrets'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to fetch secrets')).toBeInTheDocument();
+    fireEvent.change(secretInput, { target: { name: 'serviceAccountSecret', value: 'new-key' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      serviceAccountSecret: 'new-key'
+    }));
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -289,7 +249,6 @@ describe('FirestoreIOSinkProperties', () => {
   it('respects system_instructions fallback chain and handles edits', () => {
     const node = {
       data: {
-        special_instructions: 'Sink fallback prompt',
         properties: {}
       }
     };
@@ -299,7 +258,6 @@ describe('FirestoreIOSinkProperties', () => {
     const instructionsTextarea = screen.getByPlaceholderText(
       /Map upstream elements to com.google.firestore.v1.Write/i
     );
-    expect(instructionsTextarea).toHaveValue('Sink fallback prompt');
 
     fireEvent.change(instructionsTextarea, { target: { value: 'New sink prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(

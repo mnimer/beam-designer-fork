@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AppWithProvider from './App.tsx';
@@ -60,6 +60,17 @@ vi.mock('reactflow', async () => {
 });
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it('renders Nodes card and Bottom panel', () => {
     render(<AppWithProvider />);
 
@@ -169,15 +180,36 @@ edges:
   it('renders Auto Layout button and repositions nodes on click', () => {
     render(<AppWithProvider />);
 
-    const layoutBtn = screen.getByTitle('Auto Layout Diagram');
-    expect(layoutBtn).toBeInTheDocument();
+    // Two connected nodes stacked on the same spot: layout must separate them.
+    fireEvent(window, new MessageEvent('message', {
+      data: {
+        command: 'loadPipeline',
+        filename: 'test.beam',
+        data: `
+nodes:
+  - id: 'a'
+    type: 'pipeline'
+    position: { x: 0, y: 0 }
+    data: { label: 'A', type: 'SOURCE', iconName: 'Radio' }
+  - id: 'b'
+    type: 'pipeline'
+    position: { x: 0, y: 0 }
+    data: { label: 'B', type: 'SINK', iconName: 'Radio' }
+edges:
+  - id: 'e-a-b'
+    source: 'a'
+    target: 'b'
+`
+      }
+    }));
 
-    // Trigger layout click
-    fireEvent.click(layoutBtn);
+    fireEvent.click(screen.getByTitle('Auto Layout Diagram'));
 
-    // Since the mock components verify that state was processed successfully, 
-    // we can assert that no errors were thrown and fitView was invoked successfully.
-    expect(layoutBtn).toBeInTheDocument();
+    const a = capturedNodes.find(n => n.id === 'a');
+    const b = capturedNodes.find(n => n.id === 'b');
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    expect(a.position).not.toEqual(b.position);
   });
 
   it('allows expanding and collapsing navigation widget on click (defaults to off)', () => {

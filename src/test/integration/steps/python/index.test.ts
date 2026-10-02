@@ -4,6 +4,11 @@
  */
 import { describe, it, expect } from 'vitest';
 
+/**
+ * Runs all Python step integration tests sequentially.
+ *
+ * @returns Promise that resolves when all test suites finish executing.
+ */
 export async function runAllStepsPythonTests(): Promise<void> {
     console.log('Running all Steps integration tests for python...');
     await (await import('./windowing-kv-groupby.test')).runWindowingKvGroupbyTest();

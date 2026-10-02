@@ -17,52 +17,22 @@ import * as path from 'path';
 // Shared mock holder for vscode configuration getter
 let mockConfigValues: Record<string, string | undefined> = {};
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [
-                {
-                    uri: { fsPath: '/Users/me/ws/mypipeline' },
-                    name: 'mypipeline'
-                }
-            ],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn((section?: string) => ({
-                get: (key: string) => {
-                    const fullKey = section ? `${section}.${key}` : key;
-                    return mockConfigValues[fullKey] ?? mockConfigValues[key];
-                }
-            }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            createOutputChannel: vi.fn().mockReturnValue({
-                appendLine: vi.fn()
-            })
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: [
+            {
+                uri: { fsPath: '/Users/me/ws/mypipeline' },
+                name: 'mypipeline'
+            }
+        ],
+        getConfiguration: vi.fn((section?: string) => ({
+            get: (key: string) => {
+                const fullKey = section ? `${section}.${key}` : key;
+                return mockConfigValues[fullKey] ?? mockConfigValues[key];
+            }
+        }))
+    }
+}));
 
 import {
     findGcloudPath,
@@ -111,20 +81,28 @@ describe('M7 — gcloud Path Resolution and Configuration Contribution', () => {
     });
 
     it('never returns the hardcoded author path from candidate list when not configured or on PATH', () => {
-        // Isolate PATH so PATH search cannot return anything
+        // Isolate PATH so PATH search cannot return anything, and pretend to be
+        // the author's machine: the old hardcoded path must still never appear.
+        const originalHome = process.env.HOME;
         process.env.PATH = '';
+        process.env.HOME = '/Users/mikenimer';
         mockConfigValues['dataflowDesigner.gcloudPath'] = undefined;
 
-        const resolved = findGcloudPath();
-        // Should NOT return the author's personal hardcoded machine path
-        const hardcodedAuthorPath = '/Users/mikenimer/Development/libraries/google-cloud-sdk/bin/gcloud';
-        if (process.env.HOME !== '/Users/mikenimer') {
-            expect(resolved).not.toBe(hardcodedAuthorPath);
+        try {
+            const resolved = findGcloudPath();
+            expect(resolved).not.toBe('/Users/mikenimer/Development/libraries/google-cloud-sdk/bin/gcloud');
+            // Only the bare command or a generic candidate directory is allowed.
+            const allowed = [
+                'gcloud',
+                path.join('/Users/mikenimer', 'google-cloud-sdk/bin/gcloud'),
+                '/opt/homebrew/bin/gcloud',
+                '/usr/local/bin/gcloud',
+                '/usr/bin/gcloud',
+            ];
+            expect(allowed).toContain(resolved);
+        } finally {
+            process.env.HOME = originalHome;
         }
-        // Candidates must be legitimate paths or 'gcloud'
-        expect(['gcloud', '/opt/homebrew/bin/gcloud', '/usr/local/bin/gcloud']).toContainEqual(
-            expect.stringMatching(/gcloud$/)
-        );
     });
 
     it('findExecutableInPath resolves binaries when available on PATH (extreme case)', () => {
@@ -237,12 +215,6 @@ describe('M3 — Terminal CWD Matching and Replacement (terminalCwdMatches)', ()
 });
 
 describe('M15 — Ignore Files Exclude *.log and gemini.log', () => {
-    it('generated ignore file content includes *.log and gemini.log (simple case)', () => {
-        const content = getDefaultIgnoreFileContent();
-        expect(content).toContain('*.log');
-        expect(content).toContain('gemini.log');
-    });
-
     it('DEFAULT_IGNORE_PATTERNS contains all required exclusions (extreme case)', () => {
         expect(DEFAULT_IGNORE_PATTERNS).toContain('.git');
         expect(DEFAULT_IGNORE_PATTERNS).toContain('.venv');

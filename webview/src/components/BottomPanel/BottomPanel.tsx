@@ -1,105 +1,56 @@
+/**
+ * @fileoverview BottomPanel container component orchestrating bottom tabs (DEPLOYMENT and GENERATE CODE).
+ *
+ * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Architectural Decisions:
+ * - Decomposed via BottomPanelContext: consumes cohesive slices (execution, jobConfig,
+ *   runtimeVariables, pipelineConfig, codegen) to eliminate prop drilling into child tabs.
+ * - Backward compatibility: supports legacy props interface as a fallback for existing unit tests
+ *   by automatically provisioning a fallback BottomPanelProvider when rendered outside one.
+ * - Expand/collapse toggle on the far right (100% full height vs default height).
+ * - Source file badge counter on Generate Code tab.
+ * - Semantic VS Code theme tokens and 8pt grid system.
+ */
+
 import React, { useMemo } from 'react';
 import { Maximize2, Minimize2, Code2 } from 'lucide-react';
-import { DeploymentTab, type LogEntry } from './DeploymentTab';
-import { SourceCodeTab, type TokenUsage } from './SourceCodeTab';
+import { DeploymentTab } from './DeploymentTab';
+import { SourceCodeTab } from './SourceCodeTab';
 import { filterSourceFiles } from '../../utils/fileFilters';
+import { useBottomPanel } from './BottomPanelContext';
 
 /**
- * BottomPanel Component
- * 
- * Author: Mike Nimer <mikenimer@google.com>
- * 
- * Purpose:
- * Container component for the designer's bottom panel tabs (GENERATE CODE and DEPLOYMENT).
- * 
- * Architectural Decisions:
- * - Running Jobs was moved to the dedicated VS Code sidebar view.
- * - Provides an expand/collapse toggle icon on the far right of the tab bar (100% full height vs default height).
- * - Displays file count badge on the GENERATE CODE tab when generated files exist.
- * - Relays execution logs, pipeline status, and GCP deep linking to DeploymentTab.
- * - Uses semantic VS Code theme tokens with 8pt grid spacing system and tailwindcss styling.
+ * Props for the {@link BottomPanel} component.
  */
-interface BottomPanelProps {
+export interface BottomPanelProps {
   bottomTab: string;
   setBottomTab: (tab: string) => void;
-  jobConfig: any;
-  setJobConfig: (config: any) => void;
-  runtimeVariables: { key: string, value: string }[];
-  addVariable: () => void;
-  updateVariable: (index: number, field: 'key' | 'value', value: string) => void;
-  deleteVariable: (index: number) => void;
-  isJobIdValid: (value: string) => boolean;
-  generatedCode: string;
-  onRunNow: () => void;
-  onStopPipeline?: () => void;
-  subnetworks: {name: string, region: string, network: string, value: string}[];
-  pipelineConfig: { language: 'Python' | 'Java', outputFolder: string, needsRebuild: boolean };
-  setPipelineConfig: (config: any) => void;
-  onRegenerate: () => void;
-  onStopGeneration?: () => void;
-  folderFiles: string[];
-  selectedFileName: string | null;
-  selectedFileContent: string | null;
-  onPickFolder: () => void;
-  onSelectFile: (fileName: string) => void;
   height?: number;
-  isGenerating?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
-  pipelineLogs?: LogEntry[];
-  pipelineStatus?: 'idle' | 'running' | 'completed' | 'failed' | 'stopped';
-  runnerCommand?: string;
-  onClearLogs?: () => void;
-  onOpenConsole?: (url: string) => void;
-  projectId?: string;
-  isGraphValid?: boolean;
-  validationErrors?: string[];
-  nodes?: any[];
-  tokenUsage?: TokenUsage | null;
   onInteract?: () => void;
 }
 
+/**
+ * Bottom drawer panel rendering tabs for generated source code inspection and runner deployment controls.
+ *
+ * @param props Component properties controlling active tab, dimensions, expansion state, and interaction callbacks.
+ * @returns The rendered bottom drawer container element.
+ */
 export const BottomPanel: React.FC<BottomPanelProps> = ({
   bottomTab,
   setBottomTab,
-  jobConfig,
-  setJobConfig,
-  runtimeVariables,
-  addVariable,
-  updateVariable,
-  deleteVariable,
-  isJobIdValid,
-  generatedCode,
-  onRunNow,
-  onStopPipeline,
-  subnetworks,
-  pipelineConfig,
-  setPipelineConfig,
-  onRegenerate,
-  onStopGeneration,
-  folderFiles,
-  selectedFileName,
-  selectedFileContent,
-  onPickFolder,
-  onSelectFile,
   height,
-  isGenerating,
   isExpanded = false,
   onToggleExpand,
-  pipelineLogs = [],
-  pipelineStatus = 'idle',
-  runnerCommand = '',
-  onClearLogs,
-  onOpenConsole,
-  projectId = 'YOUR_PROJECT_ID',
-  isGraphValid = true,
-  validationErrors = [],
-  nodes = [],
-  tokenUsage = null,
-  onInteract
+  onInteract,
 }) => {
-  // Filter only .java and .py source files (excluding venv, caches, dependencies) for tab badge count
-  const sourceFiles = useMemo(() => filterSourceFiles(folderFiles), [folderFiles]);
+  const { codegen } = useBottomPanel();
+  const sourceFiles = useMemo(
+    () => filterSourceFiles(codegen.files ?? []),
+    [codegen.files]
+  );
 
   return (
     <div 
@@ -150,50 +101,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-4">
-        {bottomTab === 'DEPLOYMENT' && (
-          <DeploymentTab 
-            jobConfig={jobConfig}
-            setJobConfig={setJobConfig}
-            runtimeVariables={runtimeVariables}
-            addVariable={addVariable}
-            updateVariable={updateVariable}
-            deleteVariable={deleteVariable}
-            isJobIdValid={isJobIdValid}
-            onRunNow={onRunNow}
-            onStopPipeline={onStopPipeline}
-            subnetworks={subnetworks}
-            needsRebuild={pipelineConfig.needsRebuild}
-            pipelineLogs={pipelineLogs}
-            pipelineStatus={pipelineStatus}
-            runnerCommand={runnerCommand}
-            onClearLogs={onClearLogs}
-            onOpenConsole={onOpenConsole}
-            projectId={projectId}
-          />
-        )}
-
-        {bottomTab === 'SOURCE_CODE' && (
-          <SourceCodeTab 
-            generatedCode={generatedCode}
-            language={pipelineConfig.language}
-            setLanguage={(lang) => setPipelineConfig((prev: any) => ({ ...prev, language: lang }))}
-            outputFolder={pipelineConfig.outputFolder}
-            setOutputFolder={(folder) => setPipelineConfig((prev: any) => ({ ...prev, outputFolder: folder }))}
-            onPickFolder={onPickFolder}
-            onRegenerate={onRegenerate}
-            onStopGeneration={onStopGeneration}
-            needsRebuild={pipelineConfig.needsRebuild}
-            files={folderFiles}
-            selectedFile={selectedFileName}
-            onSelectFile={onSelectFile}
-            selectedFileContent={selectedFileContent}
-            isGenerating={isGenerating}
-            isGraphValid={isGraphValid}
-            validationErrors={validationErrors}
-            nodes={nodes}
-            tokenUsage={tokenUsage}
-          />
-        )}
+        {bottomTab === 'DEPLOYMENT' && <DeploymentTab />}
+        {bottomTab === 'SOURCE_CODE' && <SourceCodeTab />}
       </div>
     </div>
   );

@@ -25,9 +25,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for Apache Kudu credentials.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -37,6 +43,9 @@ export interface SecretItem {
 export type KuduWriteOperation = 'insert' | 'upsert' | 'update' | 'delete';
 export type KuduFlushMode = 'AUTO_FLUSH_SYNC' | 'AUTO_FLUSH_BACKGROUND' | 'MANUAL_FLUSH';
 
+/**
+ * Props for the KuduIOSinkProperties component.
+ */
 export interface KuduIOSinkPropertiesProps {
   node: {
     data: {
@@ -74,6 +83,9 @@ export interface KuduIOSinkPropertiesProps {
  * @returns Array of normalized SecretItem entries
  */
 
+/**
+ * Props for the KuduSinkAuthCard component.
+ */
 interface KuduSinkAuthCardProps {
   authMode: 'none' | 'kerberos' | 'secret_manager';
   principal: string;
@@ -189,6 +201,9 @@ const KuduSinkAuthCard: React.FC<KuduSinkAuthCardProps> = ({
   );
 };
 
+/**
+ * Props for the KuduSinkAdvancedCard component.
+ */
 interface KuduSinkAdvancedCardProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -210,56 +225,47 @@ const KuduSinkAdvancedCard: React.FC<KuduSinkAdvancedCardProps> = ({
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <PropertyField
+        id="kuduSinkOperationTimeoutMs"
+        name="operationTimeoutMs"
+        label="Operation Timeout (ms)"
+        type="number"
+        value={operationTimeoutMs}
+        onChange={onChange}
+        placeholder="e.g. 30000"
+        tooltip="Timeout in milliseconds for Kudu write operations."
+        min={0}
+      />
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <PropertyField
-            id="kuduSinkOperationTimeoutMs"
-            name="operationTimeoutMs"
-            label="Operation Timeout (ms)"
-            type="number"
-            value={operationTimeoutMs}
-            onChange={onChange}
-            placeholder="e.g. 30000"
-            tooltip="Timeout in milliseconds for Kudu write operations."
-            min={0}
-          />
+      <PropertyField
+        id="kuduSinkMaxPendingErrors"
+        name="maxPendingErrors"
+        label="Max Pending Errors"
+        type="number"
+        value={maxPendingErrors}
+        onChange={onChange}
+        placeholder="e.g. 100"
+        tooltip="Maximum number of pending session mutation errors retained before failing."
+        min={0}
+      />
 
-          <PropertyField
-            id="kuduSinkMaxPendingErrors"
-            name="maxPendingErrors"
-            label="Max Pending Errors"
-            type="number"
-            value={maxPendingErrors}
-            onChange={onChange}
-            placeholder="e.g. 100"
-            tooltip="Maximum number of pending session mutation errors retained before failing."
-            min={0}
-          />
-
-          <PropertyField
-            id="kuduSinkBatchSize"
-            name="batchSize"
-            label="Batch Size"
-            type="number"
-            value={batchSize}
-            onChange={onChange}
-            placeholder="e.g. 1000"
-            tooltip="Batch size for buffering mutations prior to RPC dispatch."
-            min={0}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="kuduSinkBatchSize"
+        name="batchSize"
+        label="Batch Size"
+        type="number"
+        value={batchSize}
+        onChange={onChange}
+        placeholder="e.g. 1000"
+        tooltip="Batch size for buffering mutations prior to RPC dispatch."
+        min={0}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -297,12 +303,7 @@ export const KuduIOSinkProperties: React.FC<KuduIOSinkPropertiesProps> = ({ node
   const isTableEmpty = !table.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -330,20 +331,6 @@ export const KuduIOSinkProperties: React.FC<KuduIOSinkPropertiesProps> = ({ node
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -495,19 +482,14 @@ export const KuduIOSinkProperties: React.FC<KuduIOSinkPropertiesProps> = ({ node
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="kuduSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
         placeholder="Custom prompt instructions for generating the Apache Beam KuduIO sink step..."
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
       />
     </div>
   );

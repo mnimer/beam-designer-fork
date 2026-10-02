@@ -33,9 +33,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for Firestore authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -45,6 +51,9 @@ export interface SecretItem {
 export type FirestoreWriteOperation = 'update' | 'delete' | 'transform';
 export type FirestoreFailureMode = 'fail_pipeline' | 'dead_letter_queue';
 
+/**
+ * Props for the FirestoreIOSinkProperties component.
+ */
 export interface FirestoreIOSinkPropertiesProps {
   node: {
     data: {
@@ -81,6 +90,9 @@ export interface FirestoreIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the FirestoreSinkTargetCard component.
+ */
 interface TargetCardProps {
   projectId: string;
   databaseId: string;
@@ -152,6 +164,9 @@ const FirestoreSinkTargetCard: React.FC<TargetCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the FirestoreSinkOperationCard component.
+ */
 interface OperationCardProps {
   operation: FirestoreWriteOperation;
   documentIdField: string;
@@ -215,6 +230,9 @@ const FirestoreSinkOperationCard: React.FC<OperationCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the FirestoreSinkBatchCard component.
+ */
 interface BatchCardProps {
   isDeadLetterEnabled: boolean;
   batchSize: number | string;
@@ -301,6 +319,9 @@ const FirestoreSinkBatchCard: React.FC<BatchCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the FirestoreSinkAuthCard component.
+ */
 interface AuthCardProps {
   authMode: string;
   serviceAccountSecret: string;
@@ -375,6 +396,9 @@ const FirestoreSinkAuthCard: React.FC<AuthCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the FirestoreSinkAdvancedGroup component.
+ */
 interface AdvancedGroupProps {
   showAdvanced: boolean;
   emulatorHost: string;
@@ -401,88 +425,79 @@ const FirestoreSinkAdvancedGroup: React.FC<AdvancedGroupProps> = ({
   onToggle,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Sink Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Sink Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <PropertyField
+      id="firestoreSinkEmulatorHost"
+      name="emulatorHost"
+      label="Firestore Emulator Host Override"
+      tooltip="Custom Firestore emulator address (e.g. localhost:8080 or FIRESTORE_EMULATOR_HOST). Configures FirestoreOptions.setEmulatorHost()."
+      value={emulatorHost}
+      onChange={onChange}
+      placeholder="localhost:8080"
+      mono={true}
+    />
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="firestoreSinkEmulatorHost"
-          name="emulatorHost"
-          label="Firestore Emulator Host Override"
-          tooltip="Custom Firestore emulator address (e.g. localhost:8080 or FIRESTORE_EMULATOR_HOST). Configures FirestoreOptions.setEmulatorHost()."
-          value={emulatorHost}
-          onChange={onChange}
-          placeholder="localhost:8080"
-          mono={true}
-        />
+    <label className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] mt-1">
+      RPC Quality of Service (RpcQosOptions)
+    </label>
 
-        <label className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] mt-1">
-          RPC Quality of Service (RpcQosOptions)
-        </label>
+    <PropertyField
+      id="firestoreSinkAdvancedHintMaxNumWorkers"
+      name="hintMaxNumWorkers"
+      label="Hint Max Num Workers"
+      type="number"
+      tooltip="Maximum worker count hint for RPC QoS rate limiting."
+      value={hintMaxNumWorkers}
+      onChange={onChange}
+      placeholder="e.g. 10"
+      mono={true}
+    />
 
-        <PropertyField
-          id="firestoreSinkAdvancedHintMaxNumWorkers"
-          name="hintMaxNumWorkers"
-          label="Hint Max Num Workers"
-          type="number"
-          tooltip="Maximum worker count hint for RPC QoS rate limiting."
-          value={hintMaxNumWorkers}
-          onChange={onChange}
-          placeholder="e.g. 10"
-          mono={true}
-        />
+    <div className="grid grid-cols-2 gap-2">
+      <PropertyField
+        id="firestoreSinkInitialBackoffMs"
+        name="initialBackoffMs"
+        label="Initial Backoff (ms)"
+        type="number"
+        tooltip="Initial backoff duration in milliseconds for retrying Firestore BatchWrite RPCs."
+        value={initialBackoffMs}
+        onChange={onChange}
+        placeholder="5000"
+        mono={true}
+      />
 
-        <div className="grid grid-cols-2 gap-2">
-          <PropertyField
-            id="firestoreSinkInitialBackoffMs"
-            name="initialBackoffMs"
-            label="Initial Backoff (ms)"
-            type="number"
-            tooltip="Initial backoff duration in milliseconds for retrying Firestore BatchWrite RPCs."
-            value={initialBackoffMs}
-            onChange={onChange}
-            placeholder="5000"
-            mono={true}
-          />
+      <PropertyField
+        id="firestoreSinkMaxAttempts"
+        name="maxAttempts"
+        label="Max Attempts"
+        type="number"
+        tooltip="Maximum retry attempts before failing the batch write."
+        value={maxAttempts}
+        onChange={onChange}
+        placeholder="5"
+        mono={true}
+      />
+    </div>
 
-          <PropertyField
-            id="firestoreSinkMaxAttempts"
-            name="maxAttempts"
-            label="Max Attempts"
-            type="number"
-            tooltip="Maximum retry attempts before failing the batch write."
-            value={maxAttempts}
-            onChange={onChange}
-            placeholder="5"
-            mono={true}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 mt-1">
-          <input
-            id="firestoreSinkThrottling"
-            type="checkbox"
-            name="throttling"
-            checked={throttling}
-            onChange={onChange}
-            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-          />
-          <label htmlFor="firestoreSinkThrottling" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-            <span>Enable RPC Throttling</span>
-            <InfoTooltip text="Automatically throttles outbound BatchWrite RPC requests to stay within Firestore limits." />
-          </label>
-        </div>
-      </div>
-    )}
-  </div>
+    <div className="flex items-center gap-2 mt-1">
+      <input
+        id="firestoreSinkThrottling"
+        type="checkbox"
+        name="throttling"
+        checked={throttling}
+        onChange={onChange}
+        className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+      />
+      <label htmlFor="firestoreSinkThrottling" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+        <span>Enable RPC Throttling</span>
+        <InfoTooltip text="Automatically throttles outbound BatchWrite RPC requests to stay within Firestore limits." />
+      </label>
+    </div>
+  </CollapsibleSection>
 );
 
 /**
@@ -533,12 +548,7 @@ export const FirestoreIOSinkProperties: React.FC<FirestoreIOSinkPropertiesProps>
   const isTargetCollectionEmpty = !targetCollection.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -583,20 +593,6 @@ export const FirestoreIOSinkProperties: React.FC<FirestoreIOSinkPropertiesProps>
     }
   };
 
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    // NOTE: Explicitly update system_instructions
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -648,21 +644,17 @@ export const FirestoreIOSinkProperties: React.FC<FirestoreIOSinkPropertiesProps>
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="firestoreSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator. Note: Java FirestoreIO.v1().write().batchWrite() consumes PCollection<com.google.firestore.v1.Write> built upstream."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator. Note: Java FirestoreIO.v1().write().batchWrite() consumes PCollection<com.google.firestore.v1.Write> built upstream."
         placeholder="e.g. Map upstream elements to com.google.firestore.v1.Write protos before applying FirestoreIO.v1().write().batchWrite()"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );
