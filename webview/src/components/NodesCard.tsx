@@ -607,9 +607,9 @@ export const NodesCard: React.FC<NodesCardProps> = ({
   const HeaderIcon = categoryConfig.icon;
 
   return (
-    <div className="absolute top-3 left-3 h-full max-h-[calc(100%-1.5rem)] z-20 flex items-start select-none font-sans pointer-events-none">
+    <div className="absolute top-3 bottom-3 left-3 h-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] z-20 flex items-start select-none font-sans pointer-events-none">
       {/* 1. Vertical Menu Bar (Left strip) */}
-      <div className={`w-12 max-h-[90%] min-h-0 overflow-y-auto overflow-x-hidden bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${isPanelOpen ? 'rounded-l-xl rounded-r-none border-r-0' : 'rounded-xl'} p-1 flex flex-col gap-1.5 shadow-2xl z-20 shrink-0 pointer-events-auto`}>
+      <div className={`w-12 max-h-full min-h-0 overflow-y-auto overflow-x-hidden bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${isPanelOpen ? 'rounded-l-xl rounded-r-none border-r-0' : 'rounded-xl'} p-1 flex flex-col gap-1.5 shadow-2xl z-20 shrink-0 pointer-events-auto`}>
         {/* Tab 1: SOURCES (Green Theme) */}
         <button
           type="button"
@@ -719,7 +719,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
 
       {/* 2. Slide-out Category Panel */}
       {isPanelOpen && (
-        <div className="w-88 h-[90%] max-h-[90%] min-h-0 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150 pointer-events-auto">
+        <div className="w-88 h-full max-h-full min-h-0 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150 pointer-events-auto">
           {/* Panel Header */}
           <div className="shrink-0 flex items-center justify-between px-3.5 py-3 border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)]">
             <div className="flex items-center gap-2">

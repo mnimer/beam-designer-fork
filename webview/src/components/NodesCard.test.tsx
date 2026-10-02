@@ -400,7 +400,7 @@ describe('NodesCard', () => {
     expect(screen.queryByText('Generate Mock Data')).not.toBeInTheDocument();
   });
 
-  it('renders menu container with top padding and zero gap to panel', () => {
+  it('renders menu container with matching top and bottom padding and zero gap to panel', () => {
     const { container } = render(
       <NodesCard
         activeTab="SOURCES"
@@ -415,6 +415,7 @@ describe('NodesCard', () => {
     const outerContainer = container.firstElementChild;
     expect(outerContainer).toHaveClass('left-3');
     expect(outerContainer).toHaveClass('top-3');
+    expect(outerContainer).toHaveClass('bottom-3');
   });
 
   describe('VS Code State & Group Persistence', () => {
@@ -571,7 +572,7 @@ describe('NodesCard', () => {
       expect(detailsList[0].open).toBe(false);
     });
 
-    it('constrains tab panels to 90% height with a scrollable container inside', () => {
+    it('sizes tab panels to fill the padded visible diagram height with a scrollable container inside', () => {
       const { container, rerender } = render(
         <NodesCard
           activeTab="SOURCES"
@@ -584,11 +585,17 @@ describe('NodesCard', () => {
       );
 
       const outerContainer = container.firstElementChild as HTMLElement;
-      expect(outerContainer).toHaveClass('h-full');
+      expect(outerContainer).toHaveClass('top-3');
+      expect(outerContainer).toHaveClass('bottom-3');
+      expect(outerContainer).toHaveClass('h-[calc(100%-1.5rem)]');
+      expect(outerContainer).toHaveClass('max-h-[calc(100%-1.5rem)]');
+
+      const verticalMenu = outerContainer.children[0] as HTMLElement;
+      expect(verticalMenu).toHaveClass('max-h-full');
 
       const slideOutPanel = outerContainer.children[1] as HTMLElement;
-      expect(slideOutPanel).toHaveClass('h-[90%]');
-      expect(slideOutPanel).toHaveClass('max-h-[90%]');
+      expect(slideOutPanel).toHaveClass('h-full');
+      expect(slideOutPanel).toHaveClass('max-h-full');
       expect(slideOutPanel).toHaveClass('overflow-hidden');
 
       const scrollContainer = slideOutPanel.children[2] as HTMLElement;
@@ -608,8 +615,8 @@ describe('NodesCard', () => {
       );
 
       const samplesSlideOutPanel = outerContainer.children[1] as HTMLElement;
-      expect(samplesSlideOutPanel).toHaveClass('h-[90%]');
-      expect(samplesSlideOutPanel).toHaveClass('max-h-[90%]');
+      expect(samplesSlideOutPanel).toHaveClass('h-full');
+      expect(samplesSlideOutPanel).toHaveClass('max-h-full');
 
       const samplesScrollContainer = samplesSlideOutPanel.children[2] as HTMLElement;
       expect(samplesScrollContainer).toHaveClass('flex-1');
