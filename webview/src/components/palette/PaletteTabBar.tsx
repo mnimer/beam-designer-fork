@@ -44,7 +44,7 @@ export const PaletteTabBar: React.FC<PaletteTabBarProps> = ({
 }) => {
   return (
     <div
-      className={`w-12 max-h-[90%] min-h-0 overflow-y-auto overflow-x-hidden bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${
+      className={`w-12 max-h-full min-h-0 overflow-y-auto overflow-x-hidden bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] ${
         isPanelOpen ? 'rounded-l-xl rounded-r-none border-r-0' : 'rounded-xl'
       } p-1 flex flex-col gap-1.5 shadow-2xl z-20 shrink-0 pointer-events-auto`}
     >

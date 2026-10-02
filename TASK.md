@@ -23,7 +23,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 > [!NOTE]
 > **P1-P5 are cross-references**, not additional work — they restate M10/M11/M12/M18/M17
 > from a performance viewpoint. Distinct remediation tasks: **34** (3 Critical, 21 Major, 8 Architecture, 2 Perf).
-> Model evaluation task: **1** (E1). Integration pipeline test tasks: **20** (I1–I20). IO Connector expansion tasks: **79** (67 Built-in IO1–IO67, 12 Community IO68–IO79). Section 4 sequences these into execution phases.
+> Model evaluation task: **1** (E1). Integration pipeline test tasks: **20** (I1–I20). IO Connector expansion tasks: **79** (67 Built-in IO1–IO67, 12 Community IO68–IO79). Core transform enhancement tasks: **1** (F1). Section 4 sequences these into execution phases.
 
 | # | Sev | Label | Description | Status |
 |---|-----|-------|-------------|--------|
@@ -166,6 +166,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
+| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ⬜ Not Started |
 
 ---
 
@@ -704,6 +705,9 @@ Ordered by risk-reduction per unit of effort.
 - **32.** Dynamic Partitioning & Lakehouse Migration: `fileio-dynamic-destinations` (I11) and `avro-to-parquet-lakehouse` (I12).
 - **33.** Advanced Beam Semantics: `periodic-impulse-to-jdbc` (I13), `create-aggregations-kv` (I14), and `pubsub-session-windows` (I15).
 - **34.** Multi-PCollection Operations & Sampling: `multi-source-flatten-bigquery` (I16), `cogroupbykey-relational-join` (I17), and `distinct-statistical-sampling` (I18).
+
+**Phase 8 — Core Transform Enhancements**
+- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)**
 
 
 ---
@@ -2563,6 +2567,74 @@ This section defines individual engineering tasks for every supported Apache Bea
     - **Omitted `jdbc_type`:** Each per-flavor Beam YAML transform provider (`ReadFromMySqlSchemaTransformProvider`, `ReadFromPostgresSchemaTransformProvider`, etc.) forcibly overrides `jdbc_type` to match the selected flavor, which is already determined by the `databaseType` selector.
     - **Flavor-Specific Upstream Rules:** `connectionInitSql` is exposed only when `databaseType === 'mysql'` (PostgreSQL and SQL Server schema transform providers throw `UnsupportedOperationException`, and upstream documentation states only MySQL and MariaDB support it). No `getSqlInstances` discovery is used because Beam YAML JDBC transforms accept standard `jdbc:` URLs rather than Cloud SQL connection names.
   - **Status:** ✅ Done (`webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/source/MySQLPostgreSQLOracleSQLServer.test.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.tsx`, `webview/src/properties/sink/MySQLPostgreSQLOracleSQLServer.test.tsx`, `src/test/integration/multidb-yaml.beam`, `src/test/integration/multidb-yaml.test.ts`).
+
+---
+
+## 8. Core Transform Enhancements
+
+- <a id="f1"></a>**F1 — Side Inputs Support in `ParDo` Transforms (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`).**
+  - **Documentation Links:**
+    - **Side Input Patterns Guide:** `https://beam.apache.org/documentation/patterns/side-inputs/`
+    - **Beam Programming Guide (Side Inputs):** `https://beam.apache.org/documentation/programming-guide/#side-inputs`
+    - **Target Languages:** `Java`, `Python`
+  - **Architectural Overview (from Official Beam Documentation):**
+    - A **Side Input** is an immutable auxiliary input (`PCollectionView<T>` in Java; `apache_beam.pvalue.AsSingleton`, `AsIter`, `AsList`, `AsDict` wrapper in Python) provided to a `ParDo` (`DoFn`) at runtime alongside its primary (`main`) input `PCollection`.
+    - **Window Projection Semantics:** If the main input is windowed (e.g., `FixedWindows` or `SlidingWindows`) and the side input is in the `GlobalWindow`, Beam automatically projects the global side input into every main input window. If the side input itself is windowed (e.g., `FixedWindows`), Beam matches each main input element's window to the corresponding side input window (`WindowMappingFn`).
+    - **Documented Side Input View Types:**
+      - `SINGLETON`: Single value view (`View.<T>asSingleton()` in Java; ` beam.pvalue.AsSingleton(pcoll, default_value=...)` in Python). Supports an optional default value (`withDefaultValue(...)` / `default_value`) when the side input `PCollection` may be empty in a window, and errors if more than one element exists per window.
+      - `ITERABLE`: Lazy sequence view (`View.<T>asIterable()` in Java; `beam.pvalue.AsIter(pcoll)` in Python). Preferred over `LIST` when elements only need sequential iteration without materializing the full list into worker memory.
+      - `LIST`: Random-access list view (`View.<T>asList()` in Java; `beam.pvalue.AsList(pcoll)` in Python). Materializes elements as a `List<T>` / Python `list`.
+      - `MAP`: Key-value dictionary view (`View.<K, V>asMap()` in Java requiring `PCollection<KV<K, V>>`; `beam.pvalue.AsDict(pcoll)` in Python requiring `(K, V)` 2-tuples). Requires unique keys per window.
+      - `MULTIMAP`: Multi-value key lookup view (`View.<K, V>asMultimap()` in Java returning `Map<K, Iterable<V>>` for duplicate keys; in Python mapped via `beam.GroupByKey()` + `beam.pvalue.AsDict(pcoll)` or `AsIter`).
+    - **Documented Side Input Refresh Patterns (`https://beam.apache.org/documentation/patterns/side-inputs/`):**
+      1. **`STATIC` (Default Bounded / Window-Matched Side Input):** Standard upstream `PCollection` converted directly into a view and passed via `.withSideInputs(...)` (Java) or keyword arguments in `beam.ParDo(DoFn(), <param_name>=As*(...))` (Python).
+      2. **`SLOWLY_UPDATING_GLOBAL_WINDOW` (Pattern 1 — Slowly Updating Global Window Side Inputs):**
+         - Periodically refreshes a `GlobalWindows` side input on a processing-time timer for streaming main inputs.
+         - **Java Pattern:** `GenerateSequence.from(0).withRate(1, Duration.standardSeconds(updateIntervalSeconds))` $\rightarrow$ `Window.into(new GlobalWindows()).triggering(Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane())).discardingFiredPanes()` $\rightarrow$ `ParDo` / bounded `FileIO.matchAll()` + `ReadMatches` $\rightarrow$ `View.asMap()` / `View.asSingleton()` (converting bounded source elements into a single `Map` or `Singleton` per firing so the latest pane overwrites the view).
+         - **Python Pattern:** `PeriodicImpulse(start_timestamp, stop_timestamp, fire_interval=updateIntervalSeconds, apply_windowing=False)` $\rightarrow$ `beam.WindowInto(window.GlobalWindows(), trigger=trigger.Repeatedly(trigger.AfterProcessingTime(1)), accumulation_mode=trigger.AccumulationMode.DISCARDING)` $\rightarrow$ bounded source read $\rightarrow$ `pvalue.AsDict(...)` / `pvalue.AsSingleton(...)` / `pvalue.AsIter(...)`.
+      3. **`SLOWLY_UPDATING_WINDOWED` (Pattern 2 — Slowly Updating Side Input Using Windowing):**
+         - Uses `PeriodicImpulse` (`PeriodicImpulse.create().startAt(...).withInterval(Duration.standardSeconds(updateIntervalSeconds)).applyWindowing()` in Java; `PeriodicImpulse(start_timestamp, stop_timestamp, fire_interval=updateIntervalSeconds, apply_windowing=True)` in Python) so each impulse fires in its own `FixedWindows` interval, ensuring deterministic 1:1 window alignment with windowed main input streams and supporting multiple downstream side-input consumers without non-deterministic trigger races.
+  - **Canvas & Edge Handle Architecture (`webview/src/components/PipelineNode.tsx` & `webview/src/hooks/usePipelineGraph.ts`):**
+    - **Dual Target Handles on `ParDo` Nodes:**
+      - Preserve the default left target handle (`Position.Left`, default/main input `PCollection`).
+      - When `data.beamTransform === 'ParDo'`, render a second target handle on the top (or distinct left offset with badge) with `id="side_input"` (`type="target"`, styled with an accent indicator and tooltip `"Side Input (PCollectionView)"`).
+    - **Visual Edge Distinction:**
+      - In `usePipelineGraph.ts`, edges targeting `targetHandle === 'side_input'` must render with a dashed stroke (`strokeDasharray: '5 4'`) and a subtle `"side"` label or distinct color token so pipeline authors can immediately distinguish the main `PCollection` stream from auxiliary side input branches on the canvas.
+      - Auto-synchronize `sideInputs` metadata on the `ParDo` node whenever an edge is connected to or removed from `targetHandle === 'side_input'` so the property panel and canvas graph stay in lockstep.
+  - **Property Panel Plan (`webview/src/properties/step/ParDo.tsx`):**
+    - **Mandatory Pre-Implementation Step:** Review documentation (`https://beam.apache.org/documentation/patterns/side-inputs/` and `https://beam.apache.org/documentation/programming-guide/#side-inputs`) to find all possible properties and their value(s), then come up with a plan for the property panel before generating or updating `webview/src/properties/step/ParDo.tsx` (**strictly no guessing of valid properties**).
+    - **Header Documentation Link:** Add a header bar with a `Docs ↗` link pointing to `https://beam.apache.org/documentation/patterns/side-inputs/` (matching the IO connector property panel convention).
+    - **Side Inputs Configuration Section (`sideInputs` array in `node.data.properties`):**
+      - Display connected upstream side input nodes (edges with `targetHandle === 'side_input'`) and allow configuring each side input binding:
+        - `sourceNodeId` (`string`): Read-only or selectable reference to the connected upstream node providing the side input `PCollection`.
+        - `variableName` / `tag` (`string`, required): Identifier used for the `PCollectionView<T>` variable / `TupleTag` in Java (`c.sideInput(viewVar)`) and the keyword argument name in Python `def process(self, element, <variableName>):`.
+        - `viewType` (`'SINGLETON' | 'ITERABLE' | 'LIST' | 'MAP' | 'MULTIMAP'`, default `'SINGLETON'`): Maps directly to `View.asSingleton()` / `AsSingleton`, `View.asIterable()` / `AsIter`, `View.asList()` / `AsList`, `View.asMap()` / `AsDict`, or `View.asMultimap()`.
+        - `hasDefaultValue` (`boolean`, shown only when `viewType === 'SINGLETON'`) & `defaultValue` (`string`, shown when `hasDefaultValue === true`): Maps to `.withDefaultValue(...)` (Java) and `pvalue.AsSingleton(pcoll, default_value=...)` (Python).
+        - `refreshPattern` (`'STATIC' | 'SLOWLY_UPDATING_GLOBAL_WINDOW' | 'SLOWLY_UPDATING_WINDOWED'`, default `'STATIC'`): Selects between standard static/window-projected side input, Pattern 1 (GlobalWindow + `Repeatedly` `AfterProcessingTime` + `DISCARDING`), and Pattern 2 (`PeriodicImpulse` with `applyWindowing`).
+        - `updateIntervalSeconds` (`number`, shown only when `refreshPattern !== 'STATIC'`, default `3600`): Refresh interval in seconds for `GenerateSequence.withRate(1, Duration.standardSeconds(...))` or `PeriodicImpulse(..., fire_interval=...)`.
+    - **Property Panel Layout & Styling:** Adheres strictly to the 8pt grid system, VS Code theme tokens (`--vscode-*`), info tooltips explaining view memory trade-offs (`AsIter` vs `AsList`, `KV<K,V>` requirement for `MAP`/`MULTIMAP`), `codeGenerationPrompt`, and LLM prompt override textarea (`system_instructions`).
+  - **DAG Topology Validation (`src/dagValidator.ts` & `webview/src/utils/dagValidator.ts`):**
+    - Update both DAG validators so that for `ParDo` nodes:
+      - Incoming edges are partitioned by `targetHandle`: primary input edges (`!edge.targetHandle || edge.targetHandle === 'main'`) vs. side input edges (`edge.targetHandle === 'side_input'`).
+      - A `ParDo` node that has one or more `side_input` edges but **zero** primary (`main`) input edges is flagged in `missingUpstreamNodeIds` (since a Beam `ParDo` cannot execute on a `PCollectionView` alone without a main input `PCollection`).
+      - If `properties.sideInputs` is configured on a `ParDo` node without a matching incoming `side_input` edge (or references a deleted upstream node), flag the node with a clear validation warning/error.
+  - **Code Generation Prompt Updates (`resources/code-gen-prompt-java.txt` & `resources/code-gen-prompt-python.txt`):**
+    - **`resources/code-gen-prompt-java.txt`:** Add explicit rules for `ParDo` nodes with `sideInputs` / `targetHandle: "side_input"` edges:
+      - Materialize each upstream side input `PCollection` into a `PCollectionView<...>` using `View.asSingleton()`, `View.asIterable()`, `View.asList()`, `View.asMap()`, or `View.asMultimap()` (including `.withDefaultValue(...)` when `hasDefaultValue` is set).
+      - Attach views via `.apply("...", ParDo.of(new ...DoFn()).withSideInputs(view1, ...))` and read them inside `@ProcessElement` via `c.sideInput(view1)`.
+      - When `refreshPattern` is `SLOWLY_UPDATING_GLOBAL_WINDOW` or `SLOWLY_UPDATING_WINDOWED`, emit the official Apache Beam `GenerateSequence` + `GlobalWindows` + `AfterProcessingTime` + `discardingFiredPanes()` or `PeriodicImpulse.create().withInterval(...).applyWindowing()` pattern.
+    - **`resources/code-gen-prompt-python.txt`:** Add explicit rules for `ParDo` nodes with `sideInputs` / `targetHandle: "side_input"` edges:
+      - Import `from apache_beam import pvalue` and wrap each side input `PCollection` with `pvalue.AsSingleton(pcoll, default_value=...)`, `pvalue.AsIter(pcoll)`, `pvalue.AsList(pcoll)`, or `pvalue.AsDict(pcoll)`.
+      - Pass each side input as a named keyword argument (`<variableName>=pvalue.As*(side_pcoll)`) to `beam.ParDo(DoFn(), ...)` and include matching parameter names in `def process(self, element, <variableName>):`.
+      - When `refreshPattern` is `SLOWLY_UPDATING_GLOBAL_WINDOW` or `SLOWLY_UPDATING_WINDOWED`, emit `PeriodicImpulse` with `GlobalWindows` + `Repeatedly(AfterProcessingTime(...))` + `AccumulationMode.DISCARDING` or `PeriodicImpulse(..., apply_windowing=True)`.
+  - **Test Suite & Integration Test Requirements:**
+    - **Unit Tests:**
+      - `webview/src/properties/step/ParDo.test.tsx`: 100% coverage of `ParDo` property panel including `Docs ↗` link, `sideInputs` list rendering, `viewType` selection, conditional `defaultValue` for `SINGLETON`, conditional `updateIntervalSeconds` for slowly-updating patterns, `codeGenerationPrompt`, and `system_instructions`.
+      - `webview/src/components/PipelineNode.test.tsx` & `src/dagValidator.test.ts`: Verify `side_input` target handle rendering on `ParDo` and DAG validation when a `ParDo` has only side inputs vs. main + side inputs.
+    - **Integration Test Suite:**
+      - Create at least one new end-to-end integration test per target language exercising `ParDo` with Side Inputs (enrichment of a main stream with a side input `MAP`/`SINGLETON` view) validated against the Multi-Agent Evaluation Harness:
+        - `src/test/integration/steps/java/pardo-side-inputs.beam` and `src/test/integration/steps/java/pardo-side-inputs.test.ts`
+        - `src/test/integration/steps/python/pardo-side-inputs.beam` and `src/test/integration/steps/python/pardo-side-inputs.test.ts`
 
 ---
 

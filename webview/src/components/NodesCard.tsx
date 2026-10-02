@@ -31,13 +31,13 @@
  * - Adheres strictly to the 8pt grid spacing system, VS Code semantic tokens, and Tailwind CSS styling.
  */
 import React, { useState, useMemo } from 'react';
-import { 
-  Radio, 
-  Workflow, 
-  Share2, 
-  BookOpen, 
-  X, 
-  Search 
+import {
+  Radio,
+  Workflow,
+  Share2,
+  BookOpen,
+  X,
+  Search
 } from 'lucide-react';
 import { InfoTooltip } from './InfoTooltip';
 import { PaletteTabBar } from './palette/PaletteTabBar';
@@ -283,7 +283,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
   const HeaderIcon = categoryConfig.icon;
 
   return (
-    <div className="absolute top-3 left-3 h-full max-h-[calc(100%-1.5rem)] z-20 flex items-start select-none font-sans pointer-events-none">
+    <div className="absolute top-3 bottom-3 left-3 h-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] z-20 flex items-start select-none font-sans pointer-events-none">
       {/* 1. Vertical Menu Bar (Left strip) */}
       <PaletteTabBar
         activeTab={activeTab}
@@ -298,7 +298,7 @@ export const NodesCard: React.FC<NodesCardProps> = ({
 
       {/* 2. Slide-out Category Panel */}
       {isPanelOpen && (
-        <div className="w-88 h-[90%] max-h-[90%] min-h-0 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150 pointer-events-auto">
+        <div className="w-88 h-full max-h-full min-h-0 bg-[var(--vscode-workbench-bg,#151722)]/95 backdrop-blur-md border border-[var(--vscode-border,#334155)] rounded-r-xl rounded-l-none shadow-2xl flex flex-col ml-0 overflow-hidden z-10 animate-in fade-in slide-in-from-left-2 duration-150 pointer-events-auto">
           {/* Panel Header */}
           <div className="shrink-0 flex items-center justify-between px-3.5 py-3 border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)]">
             <div className="flex items-center gap-2">

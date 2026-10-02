@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^1.15.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "reactflow": "^11.11.4",
@@ -39,5 +39,9 @@
     "typescript-eslint": "^8.58.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "undici": "7.29.0",
+    "rolldown": "1.2.7"
   }
 }
