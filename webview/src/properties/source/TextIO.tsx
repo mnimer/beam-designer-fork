@@ -17,7 +17,12 @@ import React from 'react';
 import { BEAM_COMPRESSION_TYPES } from './FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * Node data structure for TextIO source nodes.
+ */
 interface TextIOSourceNode {
   data: {
     label: string;
@@ -39,11 +44,17 @@ interface TextIOSourceNode {
   };
 }
 
+/**
+ * Props for the TextIOSourceProperties component.
+ */
 interface TextIOSourcePropertiesProps {
   node: TextIOSourceNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Properties panel component for configuring TextIO source transforms.
+ */
 export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
@@ -57,12 +68,7 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -72,13 +78,6 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -198,23 +197,18 @@ export const TextIOSourceProperties: React.FC<TextIOSourcePropertiesProps> = ({ 
         </label>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="textSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for TextIO source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="textSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for TextIO source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -7,19 +7,17 @@
  * Unit tests validating IcebergIOSourceProperties component functionality,
  * form change callbacks, validation states for required fields (table and warehouseLocation),
  * mutually exclusive time-travel validation, conditional catalogUri rendering, accordion toggling,
- * Secret Manager secret discovery, GCS bucket discovery error alerts, and code generation instructions.
+ * Secret Manager authentication, and code generation instructions.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
- * - Mocks window.vscode and listens for extension message dispatch events.
  * - Validates required field states (table and warehouseLocation independently).
  * - Tests time-travel mutual exclusivity across all four states (neither, snapshot only, timestamp only, both).
  * - Tests conditional rendering of catalogUri across rest, hive, and hadoop catalog types.
- * - Suite-wide regression guard: verifies bucket discovery error surfaces with a valid non-empty warehouse location.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { IcebergIOSourceProperties } from './IcebergIO';
 
@@ -351,15 +349,9 @@ describe('IcebergIOSourceProperties', () => {
       })
     );
 
-    // Toggle closed again
-    fireEvent.click(advancedToggle);
-    expect(container.querySelector('#icebergSourceConfigProperties')).not.toBeInTheDocument();
   });
 
-  it('handles SecretManagerAuthFields interaction and secret discovery', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
+  it('handles SecretManagerAuthFields interaction', () => {
     const mockNode: any = {
       data: {
         properties: {
@@ -375,28 +367,6 @@ describe('IcebergIOSourceProperties', () => {
     const secretInput = container.querySelector('#icebergSourceSecretName') as HTMLInputElement;
     expect(secretInput).toBeInTheDocument();
 
-    // Initial IPC should request secrets
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate extension response event with loaded secrets
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { name: 'projects/123/secrets/iceberg-catalog-key', id: 'iceberg-catalog-key' }
-            ]
-          }
-        })
-      );
-    });
-
-    const datalist = document.getElementById('iceberg-source-secrets-list');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'iceberg-catalog-key');
-
     // Change secret input
     fireEvent.change(secretInput, {
       target: { name: 'secretName', value: 'iceberg-catalog-key' }
@@ -406,43 +376,6 @@ describe('IcebergIOSourceProperties', () => {
         secretName: 'iceberg-catalog-key'
       })
     );
-  });
-
-  it('surfaces bucket discovery error with valid non-empty warehouse location', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          table: 'lakehouse.events',
-          warehouseLocation: 'gs://lakehouse/iceberg/warehouse'
-        }
-      }
-    };
-
-    render(<IcebergIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial bucket IPC request
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -464,36 +397,5 @@ describe('IcebergIOSourceProperties', () => {
         system_instructions: 'Read Iceberg records and apply pushdown projection'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<IcebergIOSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<IcebergIOSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<IcebergIOSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
   });
 });

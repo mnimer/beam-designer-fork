@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PulsarIOSourceProperties } from './PulsarIO';
 
@@ -204,7 +204,7 @@ describe('PulsarIOSourceProperties', () => {
     expect(screen.getByText('Pulsar Client Service URL is required.')).toBeInTheDocument();
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret in token mode', () => {
+  it('allows selecting a secret in token mode', () => {
     const mockNode = {
       data: {
         label: 'Pulsar',
@@ -217,22 +217,6 @@ describe('PulsarIOSourceProperties', () => {
 
     render(<PulsarIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    // PostMessage was called on mount
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate extension response with secrets
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'pulsar-token-prod', value: 'pulsar-token-prod' },
-            'projects/my-p/secrets/pulsar-token-stage'
-          ]
-        }
-      }));
-    });
-
     const secretDropdown = screen.getByLabelText(/Pulsar JWT Token Secret/i, { selector: 'input' });
     expect(secretDropdown).toBeInTheDocument();
 
@@ -240,11 +224,6 @@ describe('PulsarIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       tokenSecretName: 'pulsar-token-prod'
     }));
-
-    // Test refresh button
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('enforces Secret Manager usage for token auth mode and eliminates direct token entry', () => {
@@ -318,32 +297,6 @@ describe('PulsarIOSourceProperties', () => {
     expect(screen.getByLabelText(/Trust Certificate \(CA\) Secret \/ Path/i)).toHaveValue('my-ca-cert');
   });
 
-  it('handles error messages from extension gracefully', () => {
-    const mockNode = {
-      data: {
-        label: 'Pulsar',
-        properties: {
-          authMode: 'token' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<PulsarIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [],
-          error: 'Failed to access Secret Manager: Permission Denied'
-        }
-      }));
-    });
-
-    expect(screen.getByText(/Failed to access Secret Manager: Permission Denied/i)).toBeInTheDocument();
-  });
-
   it('supports Python x-lang Expansion Service configuration in auto and endpoint modes', () => {
     const mockOnChange = vi.fn();
 
@@ -391,16 +344,17 @@ describe('PulsarIOSourceProperties', () => {
     }));
   });
 
-  it('verifies system_instructions fallback precedence and textarea changes', () => {
+  it('updates system_instructions when instructions textarea is edited', () => {
     const mockOnChange = vi.fn();
 
-    // 1. From node.data.special_instructions
-    const { rerender } = render(
+    render(
       <PulsarIOSourceProperties
         node={{
           data: {
             label: 'Pulsar',
-            special_instructions: 'Custom fallback prompt'
+            properties: {
+              system_instructions: 'Initial instructions'
+            }
           }
         }}
         onChange={mockOnChange}
@@ -408,23 +362,7 @@ describe('PulsarIOSourceProperties', () => {
     );
 
     const textarea = screen.getByLabelText(/Code Generation Instructions/i);
-    expect(textarea).toHaveValue('Custom fallback prompt');
-
-    // 2. From properties.system_instructions
-    rerender(
-      <PulsarIOSourceProperties
-        node={{
-          data: {
-            label: 'Pulsar',
-            properties: {
-              system_instructions: 'Explicit property instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(textarea).toHaveValue('Explicit property instructions');
+    expect(textarea).toHaveValue('Initial instructions');
 
     fireEvent.change(textarea, { target: { value: 'New instructions from user' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

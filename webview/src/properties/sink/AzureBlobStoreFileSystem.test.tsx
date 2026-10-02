@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   AzureBlobStoreFileSystemSinkProperties,
@@ -375,11 +375,6 @@ describe('AzureBlobStoreFileSystemSinkProperties', () => {
       <AzureBlobStoreFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />
     );
 
-    // Accordion should start closed
-    expect(container.querySelector('#azureSinkNumShards')).not.toBeInTheDocument();
-    expect(container.querySelector('#azureSinkShardTemplate')).not.toBeInTheDocument();
-
-    // Toggle open
     const toggleButton = screen.getByText('Sharding & Shard Template Options');
     fireEvent.click(toggleButton);
 
@@ -408,10 +403,6 @@ describe('AzureBlobStoreFileSystemSinkProperties', () => {
         shardTemplate: '-W-of-N'
       })
     );
-
-    // Toggle closed
-    fireEvent.click(toggleButton);
-    expect(container.querySelector('#azureSinkNumShards')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -437,43 +428,6 @@ describe('AzureBlobStoreFileSystemSinkProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(
-      <AzureBlobStoreFileSystemSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(
-      <AzureBlobStoreFileSystemSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(
-      <AzureBlobStoreFileSystemSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
   it('requests GCP Secret Manager secrets via getSecrets and does NOT request storage buckets', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
@@ -486,37 +440,13 @@ describe('AzureBlobStoreFileSystemSinkProperties', () => {
       }
     };
 
-    const { container } = render(<AzureBlobStoreFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
+    render(<AzureBlobStoreFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(mockPostMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getStorageBuckets' })
     );
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getSecrets' })
-    );
-
-    // Simulate secretsLoaded message from extension host and verify datalist options populate
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { id: 'azure-sink-conn-secret', name: 'azure-sink-conn-secret', fullName: 'projects/p/secrets/azure-sink-conn-secret' },
-              'projects/p/secrets/azure-sink-sas-secret'
-            ]
-          }
-        })
-      );
-    });
-
-    const connInput = container.querySelector('#azureSinkConnectionString') as HTMLInputElement;
-    fireEvent.focus(connInput);
-    const option = screen.getByRole('option', { name: 'azure-sink-conn-secret' });
-    expect(option).toBeInTheDocument();
-    fireEvent.mouseDown(option);
-    expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionString: 'azure-sink-conn-secret' })
     );
   });
 

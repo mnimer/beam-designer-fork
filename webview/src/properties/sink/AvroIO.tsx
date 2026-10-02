@@ -27,6 +27,8 @@
 import React, { useMemo } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { SchemaEditor, BEAM_SCHEMA_TYPES, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
@@ -39,6 +41,9 @@ export const AVRO_CODECS = [
   { value: 'NULL', label: 'NULL / UNCOMPRESSED', tooltip: 'No compression applied to data blocks.' },
 ] as const;
 
+/**
+ * React Flow node shape for the Avro sink panel, including its persisted configuration data.
+ */
 export interface AvroIOSinkNode {
   data: {
     label: string;
@@ -68,6 +73,9 @@ export interface AvroIOSinkNode {
   };
 }
 
+/**
+ * Props for the AvroIOSinkProperties component.
+ */
 export interface AvroIOSinkPropertiesProps {
   node: AvroIOSinkNode;
   onChange: (properties: any) => void;
@@ -103,12 +111,7 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
   );
 
   // Extract instructions with fallbacks
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Dispatches updates to parent pipeline coordinator.
@@ -140,15 +143,6 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
     });
   };
 
-  /**
-   * Updates custom instructions for code generation.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -405,23 +399,18 @@ export const AvroIOSinkProperties: React.FC<AvroIOSinkPropertiesProps> = ({ node
         </div>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* Section 6: Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="avroSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for AvroIO sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="avroSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for AvroIO sink code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

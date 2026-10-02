@@ -35,12 +35,15 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 
+/** React Flow node shape for the IcebergIO source panel, including its persisted configuration data. */
 export interface IcebergIOSourceNode {
   data: {
     label: string;
@@ -67,6 +70,7 @@ export interface IcebergIOSourceNode {
   };
 }
 
+/** Props for the {@link IcebergIOSourceProperties} component. */
 export interface IcebergIOSourcePropertiesProps {
   node: IcebergIOSourceNode;
   onChange: (properties: any) => void;
@@ -120,12 +124,7 @@ export const IcebergIOSourceProperties: React.FC<IcebergIOSourcePropertiesProps>
   const showCatalogUri = catalogType === 'rest' || catalogType === 'hive';
 
   // System instructions text with fallback hierarchy
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input, select, and checkbox changes for form fields
@@ -144,13 +143,6 @@ export const IcebergIOSourceProperties: React.FC<IcebergIOSourcePropertiesProps>
   /**
    * Updates AI prompt / system instructions for code generation
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   /**
    * Toggles the advanced tuning accordion state
    */
@@ -370,22 +362,21 @@ export const IcebergIOSourceProperties: React.FC<IcebergIOSourcePropertiesProps>
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="icebergSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this Iceberg reader step via Managed I/O."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read Iceberg table records, apply column pruning, and transform rows into PCollection<Row>."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="icebergSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this Iceberg reader step via Managed I/O."
+        placeholder="e.g. Read Iceberg table records, apply column pruning, and transform rows into PCollection<Row>."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

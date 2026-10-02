@@ -225,6 +225,27 @@ export function classifyKey(key: string): KeyClassification {
     return 'reference';
   }
 
+  // Suffix-based rule for Secret Manager reference keys (*Secret):
+  // A normalized key that ends with 'secret' AND has a non-empty prefix,
+  // where the prefix is NOT exactly one of ['client', 'secret', ''] AND
+  // the prefix does not itself end with 'secret', is treated as a reference.
+  //
+  // Rationale:
+  // `clientSecret` is the OIDC credential value itself; `fooSecret` for other foo
+  // is the Secret Manager pointer convention used across property panels
+  // (e.g. `usernameSecret`, `keytabSecret`, `serviceAccountSecret`).
+  //
+  // Residual risk:
+  // A property panel could theoretically name a raw credential value field `xyzSecret`.
+  // The guard test in src/test/unit/credential-redaction.test.ts extracts all *Secret keys
+  // from property panels to catch new ones for review.
+  if (normalized.endsWith('secret')) {
+    const prefix = normalized.slice(0, -6);
+    if (prefix.length > 0 && prefix !== 'client' && prefix !== 'secret' && !prefix.endsWith('secret')) {
+      return 'reference';
+    }
+  }
+
   // Anything else that smells like a credential is treated as one.
   for (const pattern of SECRET_VALUE_PATTERNS) {
     if (normalized.includes(pattern)) {
@@ -334,8 +355,9 @@ export function redactCredentialValues<T>(input: T): RedactionResult<T> {
       const childPath = path ? `${path}.${key}` : key;
 
       // The pair's `value` inherits the classification of the pair's `name`.
+      // The recorded path names the variable (e.g. `runtimeVariables[0].value (DB_PASSWORD)`) so the redaction notice identifies which variable was hidden.
       if (isNameValuePair && key === 'value') {
-        result[key] = walk(value, childPath, 'secret');
+        result[key] = walk(value, `${childPath} (${pairName})`, 'secret');
         continue;
       }
 

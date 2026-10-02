@@ -24,6 +24,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -33,6 +36,9 @@ export type { SecretItem };
 export type SnowflakeReadMode = 'query' | 'table';
 export type SnowflakeAuthMode = 'username_password' | 'key_pair' | 'oauth';
 
+/**
+ * Props for the SnowflakeIO source properties component.
+ */
 export interface SnowflakeIOSourcePropertiesProps {
   node: {
     data: {
@@ -69,6 +75,9 @@ export interface SnowflakeIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SnowflakeSourceConnectionCard component.
+ */
 interface SnowflakeSourceConnectionCardProps {
   serverName: string;
   database: string;
@@ -166,6 +175,9 @@ const SnowflakeSourceConnectionCard: React.FC<SnowflakeSourceConnectionCardProps
   );
 };
 
+/**
+ * Props for the SnowflakeSourceReadTargetCard component.
+ */
 interface SnowflakeSourceReadTargetCardProps {
   readMode: SnowflakeReadMode;
   query: string;
@@ -253,6 +265,9 @@ const SnowflakeSourceReadTargetCard: React.FC<SnowflakeSourceReadTargetCardProps
   );
 };
 
+/**
+ * Props for the SnowflakeSourceStagingCard component.
+ */
 interface SnowflakeSourceStagingCardProps {
   stagingBucketName: string;
   storageIntegrationName: string;
@@ -309,6 +324,9 @@ const SnowflakeSourceStagingCard: React.FC<SnowflakeSourceStagingCardProps> = ({
   );
 };
 
+/**
+ * Props for the SnowflakeSourceAuthCard component.
+ */
 interface SnowflakeSourceAuthCardProps {
   authMode: SnowflakeAuthMode;
   usernameSecret: string;
@@ -455,6 +473,9 @@ const SnowflakeSourceAuthCard: React.FC<SnowflakeSourceAuthCardProps> = ({
   );
 };
 
+/**
+ * Props for the SnowflakeSourceAdvancedCard component.
+ */
 interface SnowflakeSourceAdvancedCardProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -476,57 +497,48 @@ const SnowflakeSourceAdvancedCard: React.FC<SnowflakeSourceAdvancedCardProps> = 
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="snowflakeSourceQuotationMark"
+          name="quotationMark"
+          label="Quotation Mark"
+          value={quotationMark}
+          onChange={onChange}
+          placeholder='e.g. "'
+          tooltip="Field quotation character used when parsing unloaded CSV files. Maps to withQuotationMark()."
+          mono={true}
+        />
+        <PropertyField
+          id="snowflakeSourceLoginTimeout"
+          name="loginTimeout"
+          label="Login Timeout (Seconds)"
+          type="number"
+          value={loginTimeout}
+          onChange={onChange}
+          placeholder="e.g. 60"
+          tooltip="Login timeout duration in seconds for DataSourceConfiguration.withLoginTimeout()."
+          min={0}
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="snowflakeSourceQuotationMark"
-              name="quotationMark"
-              label="Quotation Mark"
-              value={quotationMark}
-              onChange={onChange}
-              placeholder='e.g. "'
-              tooltip="Field quotation character used when parsing unloaded CSV files. Maps to withQuotationMark()."
-              mono={true}
-            />
-            <PropertyField
-              id="snowflakeSourceLoginTimeout"
-              name="loginTimeout"
-              label="Login Timeout (Seconds)"
-              type="number"
-              value={loginTimeout}
-              onChange={onChange}
-              placeholder="e.g. 60"
-              tooltip="Login timeout duration in seconds for DataSourceConfiguration.withLoginTimeout()."
-              min={0}
-            />
-          </div>
-
-          <PropertyField
-            id="snowflakeSourceExtraParameters"
-            name="extraParameters"
-            label="Extra Session / JDBC Parameters"
-            type="textarea"
-            rows={2}
-            value={extraParameters}
-            onChange={onChange}
-            placeholder="CLIENT_SESSION_KEEP_ALIVE=true"
-            tooltip="Additional session connection parameters."
-            mono={true}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="snowflakeSourceExtraParameters"
+        name="extraParameters"
+        label="Extra Session / JDBC Parameters"
+        type="textarea"
+        rows={2}
+        value={extraParameters}
+        onChange={onChange}
+        placeholder="CLIENT_SESSION_KEEP_ALIVE=true"
+        tooltip="Additional session connection parameters."
+        mono={true}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -574,12 +586,7 @@ export const SnowflakeIOSourceProperties: React.FC<SnowflakeIOSourcePropertiesPr
   const isStorageIntegrationEmpty = !storageIntegrationName.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -607,20 +614,6 @@ export const SnowflakeIOSourceProperties: React.FC<SnowflakeIOSourcePropertiesPr
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -680,19 +673,19 @@ export const SnowflakeIOSourceProperties: React.FC<SnowflakeIOSourcePropertiesPr
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="snowflakeSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
         placeholder="Custom prompt instructions for generating the Apache Beam SnowflakeIO source step..."
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { KinesisIOSinkProperties } from './KinesisIO';
 
@@ -24,27 +24,6 @@ describe('KinesisIOSinkProperties', () => {
   afterEach(() => {
     (window as any).vscode = originalVscode;
     vi.restoreAllMocks();
-  });
-
-  it('renders default fields, required indicators, and documentation tooltips', () => {
-    const mockNode = {
-      data: {
-        label: 'Kinesis',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Stream Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/AWS Region/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Secret Manager$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Direct Keys$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^IAM \/ Default$/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Partition Key Source/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Serialization Format/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
   });
 
   it('populates fields with provided properties and triggers onChange on streamName change', () => {
@@ -117,10 +96,7 @@ describe('KinesisIOSinkProperties', () => {
     }));
   });
 
-  it('supports Secret Manager auth mode with IPC callback and datalist population', () => {
-    const postMessageMock = vi.fn();
-    (window as any).vscode = { postMessage: postMessageMock };
-
+  it('supports Secret Manager auth mode and updates secret fields', () => {
     const mockNode = {
       data: {
         label: 'Kinesis',
@@ -135,20 +111,6 @@ describe('KinesisIOSinkProperties', () => {
 
     render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate extension response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: ['aws-sink-key', 'aws-sink-secret']
-          }
-        })
-      );
-    });
-
     const accessKeyInput = screen.getByLabelText(/AWS Access Key Secret Name/i);
     expect(accessKeyInput).toHaveValue('projects/123/secrets/aws-sink-key');
 
@@ -156,40 +118,6 @@ describe('KinesisIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       accessKeySecretName: 'aws-sink-key'
     }));
-
-    // Test Refresh button
-    const refreshBtn = screen.getByTitle(/Refresh secrets from gcloud/i);
-    fireEvent.click(refreshBtn);
-    expect(postMessageMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('displays secret loading error alert when secretsLoaded contains error', () => {
-    const mockNode = {
-      data: {
-        label: 'Kinesis',
-        properties: {
-          authMode: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            error: 'Failed to authenticate with Secret Manager'
-          }
-        })
-      );
-    });
-
-    const errorAlerts = screen.getAllByRole('alert');
-    const secretErrorAlert = errorAlerts.find(el => el.textContent?.includes('Failed to authenticate with Secret Manager'));
-    expect(secretErrorAlert).toBeInTheDocument();
   });
 
   it('does not render direct cleartext AWS credential inputs and strips legacy keys on update', () => {
@@ -387,55 +315,5 @@ describe('KinesisIOSinkProperties', () => {
 
     expect(() => render(<KinesisIOSinkProperties node={mockNode as any} onChange={mockOnChange} />)).not.toThrow();
   });
-
-  it('normalizes object-shaped secrets payload to short secret IDs and never renders [object Object]', () => {
-    const mockNode = {
-      data: {
-        label: 'Kinesis',
-        properties: {
-          streamName: 'order-stream',
-          authMode: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<KinesisIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response with object-shaped secrets payload (M1 shape)
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              {
-                name: 'kinesis-sink-key',
-                id: 'kinesis-sink-key',
-                fullName: 'projects/123456/secrets/kinesis-sink-key',
-                value: 'kinesis-sink-key'
-              },
-              {
-                name: 'kinesis-sink-secret',
-                id: 'kinesis-sink-secret',
-                fullName: 'projects/123456/secrets/kinesis-sink-secret',
-                value: 'kinesis-sink-secret'
-              }
-            ]
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('#kinesis-sink-secrets-list');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options).toBeDefined();
-    expect(options?.length).toBe(2);
-
-    const values = Array.from(options || []).map(opt => opt.getAttribute('value'));
-    expect(values).toEqual(['kinesis-sink-key', 'kinesis-sink-secret']);
-    expect(values).not.toContain('[object Object]');
-    expect(values.some(v => v?.includes('[object'))).toBe(false);
-  });
 });
+

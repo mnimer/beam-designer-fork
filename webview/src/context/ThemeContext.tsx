@@ -19,6 +19,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type AppTheme = 'dark' | 'light' | 'hc-dark' | 'hc-light';
 
+/**
+ * Visual metadata and display attributes for a selectable application theme.
+ */
 export interface ThemeOption {
   id: AppTheme;
   name: string;
@@ -58,6 +61,9 @@ export const THEME_OPTIONS: ThemeOption[] = [
   },
 ];
 
+/**
+ * React context value shape providing current theme state and updater callbacks.
+ */
 export interface ThemeContextType {
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
@@ -70,6 +76,12 @@ export const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export const STORAGE_THEME_KEY = 'vscode_agent_flow_theme';
 
+/**
+ * React context provider managing theme state, persistence, and DOM class synchronisation.
+ *
+ * @param props Component properties containing child elements.
+ * @returns Context provider wrapping children.
+ */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<AppTheme>(() => {
     try {
@@ -176,6 +188,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+/**
+ * Custom React hook accessing the current active theme context and controls.
+ *
+ * @returns The active {@link ThemeContextType} object.
+ */
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {

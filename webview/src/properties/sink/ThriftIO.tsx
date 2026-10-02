@@ -22,10 +22,15 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * Node definition for ThriftIO sink configuration.
+ */
 export interface ThriftIOSinkNode {
   data: {
     label: string;
@@ -45,6 +50,9 @@ export interface ThriftIOSinkNode {
   };
 }
 
+/**
+ * Props for the ThriftIOSinkProperties component.
+ */
 export interface ThriftIOSinkPropertiesProps {
   node: ThriftIOSinkNode;
   onChange: (properties: any) => void;
@@ -65,6 +73,9 @@ export const THRIFT_SINK_COMPRESSION_TYPES = [
   { value: 'ZSTD', label: 'ZSTD (.zst)' }
 ];
 
+/**
+ * Properties panel component for configuring ThriftIO sinks.
+ */
 export const ThriftIOSinkProperties: React.FC<ThriftIOSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -80,12 +91,7 @@ export const ThriftIOSinkProperties: React.FC<ThriftIOSinkPropertiesProps> = ({ 
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields.
@@ -97,16 +103,6 @@ export const ThriftIOSinkProperties: React.FC<ThriftIOSinkPropertiesProps> = ({ 
     onChange({
       ...properties,
       [name]: value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -221,22 +217,21 @@ export const ThriftIOSinkProperties: React.FC<ThriftIOSinkPropertiesProps> = ({ 
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="thriftSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ThriftIO writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Write ProcessedOrderRecord instances via FileIO.write().via(ThriftIO.sink()) using TBinaryProtocol."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="thriftSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ThriftIO writer step."
+        placeholder="e.g. Write ProcessedOrderRecord instances via FileIO.write().via(ThriftIO.sink()) using TBinaryProtocol."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="resize-y h-24"
+        helperText="Additional guidance appended to prompt when synthesizing Java code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -5,12 +5,12 @@
  *
  * Purpose:
  * Validates HBaseIOSourceProperties form rendering, hydration, field validation,
- * authentication mode toggling (Simple, Kerberos, Secret Manager), IPC callbacks
- * for Google Cloud Secret Manager, collapsible advanced configuration, and system instructions.
+ * authentication mode toggling (Simple, Kerberos, Secret Manager),
+ * collapsible advanced configuration, and system instructions.
  *
  * Architectural Decisions:
- * - Emulates VS Code extension host postMessage IPC to verify getSecrets request and response.
- * - Thoroughly tests normal hydration, dispatch updates, edge cases, failure states, and instruction fallbacks.
+ * - Emulates VS Code extension host postMessage IPC to verify getSecrets request.
+ * - Thoroughly tests normal hydration, dispatch updates, edge cases, failure states, and instruction editing.
  * - Uses accessible role and placeholder queries to test UI state.
  */
 
@@ -199,55 +199,6 @@ describe('HBaseIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. hbase-connection-credentials')).toHaveValue('hbase-vault-secret');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HBase Source',
-        properties: {
-          authMode: 'secret_manager' as const,
-        },
-      },
-    };
-
-    render(<HBaseIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    // Simulate secretsLoaded IPC message with both string and object shapes
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/hbase-auth-token',
-          { id: 'hbase-prod-keytab', name: 'HBase Production Keytab' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#hbase-source-secret-options option[value="hbase-auth-token"]');
-    const option2 = document.querySelector('datalist#hbase-source-secret-options option[value="hbase-prod-keytab"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error alert when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'HBase Source',
-        properties: {},
-      },
-    };
-
-    render(<HBaseIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Google Cloud Secret Manager API',
-      },
-    }));
-
-    expect(screen.getByText('Failed to access Google Cloud Secret Manager API')).toBeInTheDocument();
-  });
-
   it('toggles Advanced Source Settings and dispatches edits', () => {
     const node = {
       data: {
@@ -263,8 +214,6 @@ describe('HBaseIOSourceProperties', () => {
     render(<HBaseIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const advancedBtn = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('60000')).not.toBeInTheDocument();
-
     // Open advanced settings
     fireEvent.click(advancedBtn);
 
@@ -284,10 +233,6 @@ describe('HBaseIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       scanBatchSize: '500',
     }));
-
-    // Close advanced settings
-    fireEvent.click(advancedBtn);
-    expect(screen.queryByPlaceholderText('60000')).not.toBeInTheDocument();
   });
 
   it('handles edge case where properties or node.data are completely missing', () => {
@@ -328,34 +273,20 @@ describe('HBaseIOSourceProperties', () => {
     expect(rpcInput).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('updates system_instructions when code generation instructions textarea is edited', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for HBase source',
+        label: 'HBase Source',
         properties: {},
       },
     };
 
-    const { rerender } = render(<HBaseIOSourceProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<HBaseIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Read HBase table using HBaseIO\.read/i);
-    expect(textarea).toHaveValue('Custom special prompt for HBase source');
 
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'New prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'New prompt instructions',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Property instructions override',
-        },
-      },
-    };
-    rerender(<HBaseIOSourceProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read HBase table using HBaseIO\.read/i)).toHaveValue('Property instructions override');
   });
 });

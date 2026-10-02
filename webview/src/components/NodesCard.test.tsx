@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { NodesCard, defaultGroupOpenState } from './NodesCard';
+import { NodesCard } from './NodesCard';
 
 describe('NodesCard', () => {
   const mockOnDragStart = vi.fn();
@@ -804,10 +804,6 @@ describe('NodesCard', () => {
 
       expect(screen.getByText('Data Services Sinks')).toBeInTheDocument();
       expect(screen.queryByText('Configure Flink runner egress adapter for impulse pipelines (Python)')).not.toBeInTheDocument();
-    });
-
-    it('persists collapsed state for the Data Services sources group', () => {
-      expect(defaultGroupOpenState.sources_data_services_sources).toBe(false);
     });
 
     it('keeps the new connector nodes discoverable through palette search', () => {

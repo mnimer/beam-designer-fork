@@ -5,9 +5,9 @@
  *
  * Purpose:
  * Tests the SingleStoreDBIOSourceProperties panel component covering field rendering,
- * hydration from node properties, onChange event dispatch, IPC Secret Manager communication,
+ * hydration from node properties, onChange event dispatch, Secret Manager authentication,
  * read mode switching (query vs table vs partitions), output parallelization toggling,
- * edge cases (missing properties, 0 values), validation alerts, and instruction fallback chains.
+ * edge cases (missing properties, 0 values), validation alerts, and instruction updates.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -142,7 +142,7 @@ describe('SingleStoreDBIOSourceProperties', () => {
     }));
   });
 
-  it('switches to Secret Manager auth mode and loads secrets into datalist', () => {
+  it('switches to Secret Manager auth mode', () => {
     const node = {
       data: {
         label: 'SingleStore Source',
@@ -160,48 +160,10 @@ describe('SingleStoreDBIOSourceProperties', () => {
     expect(usernameInput).toBeInTheDocument();
     expect(passwordInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/singlestore-user',
-          { id: 'singlestore-pass', name: 'singlestore-pass' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#singlestore-source-secret-options option[value="singlestore-user"]');
-    const option2 = document.querySelector('datalist#singlestore-source-secret-options option[value="singlestore-pass"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     fireEvent.change(usernameInput, { target: { name: 'usernameSecret', value: 'singlestore-user' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       usernameSecret: 'singlestore-user'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'SingleStore Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<SingleStoreDBIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager secrets'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access GCP Secret Manager secrets')).toBeInTheDocument();
   });
 
   it('handles edge case: numeric fields set to 0', () => {
@@ -234,32 +196,15 @@ describe('SingleStoreDBIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('127.0.0.1:3306')).toHaveValue('');
   });
 
-  it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+  it('updates system_instructions when code generation instructions textarea changes', () => {
+    const node = {
       data: {
         label: 'SingleStore Source',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<SingleStoreDBIOSourceProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read rows from SingleStoreDB table/i)).toHaveValue('Fallback instructions 1');
-    unmount();
+    render(<SingleStoreDBIOSourceProperties node={node} onChange={mockOnChange} />);
 
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'SingleStore Source',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<SingleStoreDBIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read rows from SingleStoreDB table/i)).toHaveValue('Fallback instructions 2');
-
-    // Modifying textarea calls onChange with system_instructions
     const textarea = screen.getByPlaceholderText(/Read rows from SingleStoreDB table/i);
     fireEvent.change(textarea, { target: { value: 'New singlestore source prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

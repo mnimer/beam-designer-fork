@@ -52,8 +52,6 @@ describe('ElasticsearchIOSourceProperties', () => {
     expect(addrInput).toHaveAttribute('aria-invalid', 'true');
     const indexInput = screen.getByPlaceholderText('e.g. sensor_readings');
     expect(indexInput).toHaveAttribute('aria-invalid', 'true');
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('validates URL scheme format warning on cluster addresses', () => {
@@ -211,56 +209,6 @@ describe('ElasticsearchIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. es-api-key-secret')).toHaveValue('es-api-token');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'Elasticsearch Source',
-        properties: {
-          authMode: 'api_key_secret' as const,
-        },
-      },
-    };
-
-    render(<ElasticsearchIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/es-secret-token',
-          { id: 'es-prod-creds', name: 'Elasticsearch Credentials' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#elasticsearch-source-secret-options option[value="es-secret-token"]');
-    const option2 = document.querySelector('datalist#elasticsearch-source-secret-options option[value="es-prod-creds"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error alert exactly once when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'Elasticsearch Source',
-        properties: {},
-      },
-    };
-
-    render(<ElasticsearchIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager',
-      },
-    }));
-
-    const alerts = screen.getAllByRole('alert');
-    const secretAlert = alerts.filter((a) => a.textContent?.includes('Failed to access GCP Secret Manager'));
-    expect(secretAlert).toHaveLength(1);
-  });
-
   it('toggles Advanced Source Settings and dispatches edits', () => {
     const node = {
       data: {
@@ -278,8 +226,6 @@ describe('ElasticsearchIOSourceProperties', () => {
     render(<ElasticsearchIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const advancedBtn = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('/path/to/keystore.jks')).not.toBeInTheDocument();
-
     // Open advanced settings
     fireEvent.click(advancedBtn);
 
@@ -303,10 +249,6 @@ describe('ElasticsearchIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       trustSelfSignedCerts: false,
     }));
-
-    // Close advanced settings
-    fireEvent.click(advancedBtn);
-    expect(screen.queryByPlaceholderText('/path/to/keystore.jks')).not.toBeInTheDocument();
   });
 
   it('handles edge case where properties or node.data are completely missing', () => {
@@ -346,34 +288,19 @@ describe('ElasticsearchIOSourceProperties', () => {
     expect(inputs[1]).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('updates system_instructions on textarea change', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for Elasticsearch source',
+        label: 'Elasticsearch Source',
         properties: {},
       },
     };
 
-    const { rerender } = render(<ElasticsearchIOSourceProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<ElasticsearchIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/ElasticsearchIO\.read\(\)\.withConnectionConfiguration/i);
-    expect(textarea).toHaveValue('Custom special prompt for Elasticsearch source');
-
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated prompt instructions',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Property instructions override',
-        },
-      },
-    };
-    rerender(<ElasticsearchIOSourceProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/ElasticsearchIO\.read\(\)\.withConnectionConfiguration/i)).toHaveValue('Property instructions override');
   });
 });

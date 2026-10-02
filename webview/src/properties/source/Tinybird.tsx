@@ -22,7 +22,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 import { DEFAULT_TINYBIRD_HOST, TINYBIRD_DOCS_URL, TINYBIRD_HOSTS } from '../sink/Tinybird';
 
 export type TinybirdQueryMode = 'pipe' | 'sql';
@@ -35,6 +39,9 @@ const RESERVED_PARAM_NAMES = new Set([
   '__tb__csv_header',
 ]);
 
+/**
+ * Props for the Tinybird source properties component.
+ */
 export interface TinybirdSourcePropertiesProps {
   node: {
     data: {
@@ -48,11 +55,26 @@ export interface TinybirdSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Checks whether a given string represents a positive integer (>= 1).
+ *
+ * @param raw - The input string to test
+ * @returns True if raw parses to a positive integer, false otherwise
+ */
 function isPositiveInt(raw: string): boolean {
   const num = Number(raw);
   return Number.isInteger(num) && num >= 1;
 }
 
+/**
+ * Validates newline-separated query parameters.
+ *
+ * @param raw - Raw multiline query parameter string
+ * @param enablePagination - Whether pagination is enabled
+ * @param limitParam - Parameter name used for limit
+ * @param offsetParam - Parameter name used for offset
+ * @returns Error string if validation fails, or null if valid
+ */
 function validateQueryParams(
   raw: string,
   enablePagination: boolean,
@@ -85,11 +107,14 @@ function validateQueryParams(
   return null;
 }
 
+/**
+ * Properties panel component for configuring Tinybird source transforms.
+ */
 export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> = ({
   node,
   onChange,
 }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
   const [showPagination, setShowPagination] = useState(false);
 
   const host = String(properties.host ?? DEFAULT_TINYBIRD_HOST);
@@ -118,13 +143,7 @@ export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> =
   const offsetParam = String(properties.offsetParam ?? 'offset');
   const maxPages = String(properties.maxPages ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Validations & warnings
   const trimmedHost = host.trim();
@@ -198,24 +217,6 @@ export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> =
     }
   }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    const nextVal = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    onChange({
-      ...properties,
-      [name]: nextVal,
-    });
-  };
-
-  const handleOpenDocs = () => {
-    const vscode = (window as unknown as { vscode?: { postMessage?: (msg: unknown) => void } }).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({ command: 'openExternal', url: TINYBIRD_DOCS_URL });
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* D2 Bridge Banner + Docs Link */}
@@ -225,13 +226,10 @@ export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> =
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold text-slate-200">Tinybird Source (Pipes &amp; Query HTTP API)</span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
+          <ExternalDocsLink
+            url={TINYBIRD_DOCS_URL}
             className="text-blue-400 hover:text-blue-300 hover:underline shrink-0 font-semibold cursor-pointer"
-          >
-            Docs ↗
-          </button>
+          />
         </div>
         <p className="text-slate-400">
           tinybird-beam is ingest-only; reads are generated as a Beam ParDo over the Tinybird
@@ -523,26 +521,18 @@ export const TinybirdSourceProperties: React.FC<TinybirdSourcePropertiesProps> =
         )}
       </div>
 
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label
-          htmlFor="tinybirdSourceSystemInstructions"
-          className="text-xs font-bold uppercase text-slate-500"
-        >
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="tinybirdSourceSystemInstructions"
-          name="system_instructions"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 focus:border-blue-500 text-sm"
-          rows={3}
-          value={systemInstructions}
-          placeholder="Optional instructions passed to the LLM code generator..."
-          onChange={(e) => onChange({ ...properties, system_instructions: e.target.value })}
-        />
-      </div>
+      <SystemInstructionsField
+        id="tinybirdSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Optional instructions passed to the LLM code generator..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

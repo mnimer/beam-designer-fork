@@ -22,12 +22,17 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
+/**
+ * Node data structure for XmlIO source nodes.
+ */
 export interface XmlIOSourceNode {
   data: {
     label: string;
@@ -54,6 +59,9 @@ export interface XmlIOSourceNode {
   };
 }
 
+/**
+ * Props for the XmlIO source properties component.
+ */
 export interface XmlIOSourcePropertiesProps {
   node: XmlIOSourceNode;
   onChange: (properties: any) => void;
@@ -113,12 +121,7 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
   const isRecordElementInvalid = !recordElement.trim();
 
   // Extract system instructions with fallbacks
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic form inputs and checkboxes.
@@ -143,16 +146,6 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Handles system instructions textarea edits.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -347,22 +340,21 @@ export const XmlIOSourceProperties: React.FC<XmlIOSourcePropertiesProps> = ({ no
       </div>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="xmlSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this XmlIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Unmarshal XML using com.example.model.InventoryItem and handle namespace prefixes."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="xmlSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Unmarshal XML using com.example.model.InventoryItem and handle namespace prefixes."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this XmlIO reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

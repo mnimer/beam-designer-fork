@@ -5,7 +5,7 @@
  *
  * Purpose:
  * Validates KuduIOSourceProperties form rendering, hydration, property change dispatching,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -163,71 +163,6 @@ describe('KuduIOSourceProperties', () => {
     );
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets', () => {
-    const node = {
-      data: {
-        label: 'Kudu Source',
-        properties: {
-          authMode: 'secret_manager' as const,
-          credentialsSecret: 'my-kudu-secret'
-        }
-      }
-    };
-
-    render(<KuduIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    const secretInput = screen.getByPlaceholderText('e.g. kudu-client-credentials');
-    expect(secretInput).toHaveValue('my-kudu-secret');
-
-    // Simulate secretsLoaded event with string and object formats
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/kudu-token-secret',
-            { id: 'kudu-pass-secret', name: 'kudu-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#kudu-source-secret-options option[value="kudu-token-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#kudu-source-secret-options option[value="kudu-pass-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Kudu Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<KuduIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager')).toBeInTheDocument();
-  });
-
   it('toggles Advanced Source Settings and handles numeric fields including 0', () => {
     const node = {
       data: {
@@ -275,69 +210,6 @@ describe('KuduIOSourceProperties', () => {
     expect(screen.getByText('Table name is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <KuduIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <KuduIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <KuduIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <KuduIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

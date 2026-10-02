@@ -47,8 +47,6 @@ describe('ArrowFlightIOSinkProperties', () => {
     expect(descInput).toBeInTheDocument();
     expect(screen.getByText('Flight descriptor is required')).toBeInTheDocument();
 
-    // Extension IPC check
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly', () => {
@@ -161,35 +159,5 @@ describe('ArrowFlightIOSinkProperties', () => {
 
     rerender(<ArrowFlightIOSinkProperties node={updatedNode} onChange={mockOnChange} />);
     expect(container.querySelector('#flightSinkTokenSecret')).toBeInTheDocument();
-  });
-
-  it('handles message event for secretsLoaded IPC', () => {
-    const node = {
-      data: {
-        label: 'Arrow Flight Sink',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<ArrowFlightIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          type: 'secretsLoaded',
-          secrets: [
-            { id: 'sec-1', name: 'sink-token-1' },
-            { id: 'sec-2', name: 'sink-token-2' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('arrowflight-sink-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
   });
 });

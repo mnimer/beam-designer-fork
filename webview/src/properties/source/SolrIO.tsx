@@ -25,9 +25,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/**
+ * Secret item descriptor for GCP Secret Manager secrets.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -36,6 +42,9 @@ export interface SecretItem {
 
 export type SolrAuthMode = 'none' | 'basic_secret_manager';
 
+/**
+ * Props for the SolrIO source properties component.
+ */
 export interface SolrIOSourcePropertiesProps {
   node: {
     data: {
@@ -64,6 +73,9 @@ export interface SolrIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SourceTargetSection component.
+ */
 interface SourceTargetSectionProps {
   zkHost: string;
   collection: string;
@@ -131,6 +143,9 @@ const SourceTargetSection: React.FC<SourceTargetSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SourceQuerySection component.
+ */
 interface SourceQuerySectionProps {
   query: string;
   batchSize: number | string;
@@ -177,6 +192,9 @@ const SourceQuerySection: React.FC<SourceQuerySectionProps> = ({
   );
 };
 
+/**
+ * Props for the SourceAuthSection component.
+ */
 interface SourceAuthSectionProps {
   authMode: SolrAuthMode;
   usernameSecret: string;
@@ -257,6 +275,9 @@ const SourceAuthSection: React.FC<SourceAuthSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SourceAdvancedSection component.
+ */
 interface SourceAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -280,65 +301,56 @@ const SourceAdvancedSection: React.FC<SourceAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <PropertyField
+        id="solr-source-fields"
+        name="fields"
+        label="Field List Projection (fl)"
+        tooltip="Comma-separated list of document fields to return (fl query parameter)."
+        value={fields}
+        onChange={onChange}
+        placeholder="e.g. id,name,category,price"
+      />
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <PropertyField
-            id="solr-source-fields"
-            name="fields"
-            label="Field List Projection (fl)"
-            tooltip="Comma-separated list of document fields to return (fl query parameter)."
-            value={fields}
-            onChange={onChange}
-            placeholder="e.g. id,name,category,price"
-          />
+      <PropertyField
+        id="solr-source-filters"
+        name="filters"
+        label="Filter Queries (fq)"
+        tooltip="Comma-separated filter query strings (fq query parameter)."
+        value={filters}
+        onChange={onChange}
+        placeholder="e.g. inStock:true,price:[10 TO 100]"
+      />
 
-          <PropertyField
-            id="solr-source-filters"
-            name="filters"
-            label="Filter Queries (fq)"
-            tooltip="Comma-separated filter query strings (fq query parameter)."
-            value={filters}
-            onChange={onChange}
-            placeholder="e.g. inStock:true,price:[10 TO 100]"
-          />
-
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="solr-source-connect-timeout"
-              name="connectTimeout"
-              label="Connect Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Solr client connection timeout in milliseconds."
-              value={connectTimeout}
-              onChange={onChange}
-              placeholder="15000"
-            />
-            <PropertyField
-              id="solr-source-socket-timeout"
-              name="socketTimeout"
-              label="Socket Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Solr client socket timeout in milliseconds."
-              value={socketTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="solr-source-connect-timeout"
+          name="connectTimeout"
+          label="Connect Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Solr client connection timeout in milliseconds."
+          value={connectTimeout}
+          onChange={onChange}
+          placeholder="15000"
+        />
+        <PropertyField
+          id="solr-source-socket-timeout"
+          name="socketTimeout"
+          label="Socket Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Solr client socket timeout in milliseconds."
+          value={socketTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -381,12 +393,7 @@ export const SolrIOSourceProperties: React.FC<SolrIOSourcePropertiesProps> = ({ 
     (zkHost.trim().toLowerCase().startsWith('http://') || zkHost.trim().toLowerCase().startsWith('https://'));
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -412,18 +419,6 @@ export const SolrIOSourceProperties: React.FC<SolrIOSourcePropertiesProps> = ({ 
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
   };
 
   return (
@@ -466,21 +461,19 @@ export const SolrIOSourceProperties: React.FC<SolrIOSourcePropertiesProps> = ({ 
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="solr-source-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this Solr source transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom system instructions passed to the LLM when generating code for this Solr source transform."
+        rows={4}
         placeholder="e.g. SolrIO.read().withConnectionConfiguration(SolrIO.ConnectionConfiguration.create('zk1:2181,zk2:2181/solr')).from('products').withQuery('*:*')"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

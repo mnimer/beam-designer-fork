@@ -19,10 +19,17 @@
  * - Strictly follows the 8pt grid system (p-2, p-4, gap-2, gap-4) and Tailwind CSS styling.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
+/**
+ * Secret item loaded from Secret Manager for AWS SNS authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -41,6 +48,9 @@ export const AWS_REGIONS = [
   { value: 'sa-east-1', label: 'South America (São Paulo) [sa-east-1]' },
 ];
 
+/**
+ * Props for the SnsIOSinkProperties component.
+ */
 export interface SnsIOSinkPropertiesProps {
   node: {
     data: {
@@ -75,7 +85,7 @@ export interface SnsIOSinkPropertiesProps {
  * @param props Component properties containing the active node and onChange callback
  */
 export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   // Form field state extracted from node properties
   const topicArn = properties.topicArn || '';
@@ -91,8 +101,7 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
   const requestTimeoutMs = properties.requestTimeoutMs ?? '';
 
   // Local UI state
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
+  const secrets = useSecretOptions();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Validation: Topic ARN is required for SnsIO.write()
@@ -100,77 +109,7 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
   const isArnInvalid = topicArn.trim().length > 0 && !topicArn.trim().startsWith('arn:aws');
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager secret entries from the VS Code extension host
-  useEffect(() => {
-    // Message handler to receive secretsLoaded IPC message
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        setSecretError(message.error || null);
-        if (Array.isArray(message.secrets)) {
-          // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-          const loaded: SecretItem[] = message.secrets.map((s: any) => {
-            if (typeof s === 'string') {
-              const shortId = s.split('/').filter(Boolean).pop() || s;
-              return { id: shortId, name: shortId };
-            }
-            const shortId = s.id || s.name || '';
-            return { id: shortId, name: s.name || shortId, fullName: s.fullName };
-          });
-          setSecrets(loaded);
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    // Request secrets from VS Code extension
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Updates a generic property value and triggers onChange callback.
-   * 
-   * @param name The property name key
-   * @param value The updated property value
-   */
-  const updateProperty = (name: string, value: any) => {
-    const updated = { ...properties, [name]: value };
-    onChange(updated);
-  };
-
-  /**
-   * Handles text and select input changes.
-   * 
-   * @param e Standard React change event
-   */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    updateProperty(name, value);
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   * 
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -269,9 +208,10 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
               value={accessKeySecret}
               onChange={handleChange}
               list="secret-options"
-              datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
+              datalist={secrets.options}
+              loading={secrets.loading}
               placeholder="e.g. aws-access-key-id"
-              error={secretError}
+              error={secrets.error}
             />
             <PropertyField
               id="snsSinkSecretKeySecret"
@@ -280,9 +220,10 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
               value={secretKeySecret}
               onChange={handleChange}
               list="secret-options"
-              datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
+              datalist={secrets.options}
+              loading={secrets.loading}
               placeholder="e.g. aws-secret-access-key"
-              error={secretError}
+              error={secrets.error}
             />
           </div>
         )}
@@ -381,21 +322,18 @@ export const SnsIOSinkProperties: React.FC<SnsIOSinkPropertiesProps> = ({ node, 
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="snsSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom instructions passed to the LLM code generator when synthesizing Java or Python pipeline scripts."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom instructions passed to the LLM code generator when synthesizing Java or Python pipeline scripts."
         placeholder="e.g. Map incoming PCollection elements to custom PublishRequest with message attributes"
-        className="resize-none"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

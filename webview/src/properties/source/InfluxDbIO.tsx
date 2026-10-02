@@ -26,6 +26,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
@@ -158,74 +161,65 @@ const InfluxDbSourceAdvancedSection: React.FC<InfluxDbSourceAdvancedSectionProps
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggleAdvanced}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggleAdvanced}
+    >
+      {/* SSL Certificate & Hostname Toggles */}
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="influxSourceSslInvalidHostNameAllowed"
+            type="checkbox"
+            name="sslInvalidHostNameAllowed"
+            checked={sslInvalidHostNameAllowed}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Allow Invalid Hostname</span>
+          <InfoTooltip text="Allows SSL/TLS connections even when hostname does not match the certificate." />
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="influxSourceDisableCertificateValidation"
+            type="checkbox"
+            name="disableCertificateValidation"
+            checked={disableCertificateValidation}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Disable Certificate Validation</span>
+          <InfoTooltip text="Bypasses SSL certificate verification for self-signed development environments (Java: withDisableCertificateValidation)." />
+        </label>
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          {/* SSL Certificate & Hostname Toggles */}
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="influxSourceSslInvalidHostNameAllowed"
-                type="checkbox"
-                name="sslInvalidHostNameAllowed"
-                checked={sslInvalidHostNameAllowed}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Allow Invalid Hostname</span>
-              <InfoTooltip text="Allows SSL/TLS connections even when hostname does not match the certificate." />
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="influxSourceDisableCertificateValidation"
-                type="checkbox"
-                name="disableCertificateValidation"
-                checked={disableCertificateValidation}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Disable Certificate Validation</span>
-              <InfoTooltip text="Bypasses SSL certificate verification for self-signed development environments (Java: withDisableCertificateValidation)." />
-            </label>
-          </div>
-
-          {/* Timeouts */}
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="influxSourceConnectTimeout"
-              name="connectTimeout"
-              label="Connect Timeout (ms)"
-              type="number"
-              value={connectTimeout}
-              onChange={onChange}
-              placeholder="10000"
-              min={0}
-              tooltip="HTTP connection establishment timeout in milliseconds."
-            />
-            <PropertyField
-              id="influxSourceReadTimeout"
-              name="readTimeout"
-              label="Read Timeout (ms)"
-              type="number"
-              value={readTimeout}
-              onChange={onChange}
-              placeholder="30000"
-              min={0}
-              tooltip="HTTP socket read timeout in milliseconds for large InfluxDB query responses."
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Timeouts */}
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="influxSourceConnectTimeout"
+          name="connectTimeout"
+          label="Connect Timeout (ms)"
+          type="number"
+          value={connectTimeout}
+          onChange={onChange}
+          placeholder="10000"
+          min={0}
+          tooltip="HTTP connection establishment timeout in milliseconds."
+        />
+        <PropertyField
+          id="influxSourceReadTimeout"
+          name="readTimeout"
+          label="Read Timeout (ms)"
+          type="number"
+          value={readTimeout}
+          onChange={onChange}
+          placeholder="30000"
+          min={0}
+          tooltip="HTTP socket read timeout in milliseconds for large InfluxDB query responses."
+        />
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -303,12 +297,7 @@ export const InfluxDbIOSourceProperties: React.FC<InfluxDbIOSourcePropertiesProp
   const isMetricEmpty = queryMode === 'metric' && !metric.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -344,16 +333,6 @@ export const InfluxDbIOSourceProperties: React.FC<InfluxDbIOSourcePropertiesProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    // NOTE: Write directly to properties.system_instructions
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* InfluxDB Server URL Input */}
@@ -507,21 +486,18 @@ export const InfluxDbIOSourceProperties: React.FC<InfluxDbIOSourcePropertiesProp
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="influxSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom instructions passed to the LLM code generator when synthesizing Beam pipeline code for Java (InfluxDbIO.read()) or cross-language Python."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom instructions passed to the LLM code generator when synthesizing Beam pipeline code for Java (InfluxDbIO.read()) or cross-language Python."
         placeholder="e.g. Ingest time-series data from InfluxDB, apply sliding window, and compute average load"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

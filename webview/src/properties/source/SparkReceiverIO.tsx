@@ -27,6 +27,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
@@ -39,6 +42,9 @@ export interface SecretItem {
   fullName?: string;
 }
 
+/**
+ * Props for the SparkReceiverIO source properties component.
+ */
 export interface SparkReceiverIOSourcePropertiesProps {
   node: {
     data: {
@@ -74,6 +80,9 @@ export interface SparkReceiverIOSourcePropertiesProps {
  * @returns Array of normalized SecretItem entries
  */
 
+/**
+ * Props for the SparkReceiverSourceAuthSection component.
+ */
 interface SparkReceiverSourceAuthSectionProps {
   authMode: 'none' | 'secret_manager';
   authSecret: string;
@@ -177,6 +186,9 @@ const SparkReceiverSourceAuthSection: React.FC<SparkReceiverSourceAuthSectionPro
   );
 };
 
+/**
+ * Props for the SparkReceiverSourceAdvancedSection component.
+ */
 interface SparkReceiverSourceAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -202,93 +214,84 @@ const SparkReceiverSourceAdvancedSection: React.FC<SparkReceiverSourceAdvancedSe
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="sparkReceiverSourcePullFrequencyMs"
+          name="pullFrequencyMs"
+          label="Pull Frequency (ms)"
+          type="number"
+          value={pullFrequencyMs}
+          onChange={onChange}
+          placeholder="e.g. 200"
+          min={10}
+          tooltip="Polling / pull interval in milliseconds for draining records from the Spark Receiver buffer."
+        />
+        <PropertyField
+          id="sparkReceiverSourceStartOffset"
+          name="startOffset"
+          label="Start Offset"
+          type="number"
+          value={startOffset}
+          onChange={onChange}
+          placeholder="e.g. 0"
+          tooltip="Initial starting offset for offset-based receivers."
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="sparkReceiverSourcePullFrequencyMs"
-              name="pullFrequencyMs"
-              label="Pull Frequency (ms)"
-              type="number"
-              value={pullFrequencyMs}
-              onChange={onChange}
-              placeholder="e.g. 200"
-              min={10}
-              tooltip="Polling / pull interval in milliseconds for draining records from the Spark Receiver buffer."
-            />
-            <PropertyField
-              id="sparkReceiverSourceStartOffset"
-              name="startOffset"
-              label="Start Offset"
-              type="number"
-              value={startOffset}
-              onChange={onChange}
-              placeholder="e.g. 0"
-              tooltip="Initial starting offset for offset-based receivers."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="sparkReceiverSourceMaxRecordsPerBundle"
-              name="maxRecordsPerBundle"
-              label="Max Records Per Bundle"
-              type="number"
-              value={maxRecordsPerBundle}
-              onChange={onChange}
-              placeholder="e.g. 1000"
-              min={1}
-              tooltip="Maximum number of records to process in a single streaming bundle."
-            />
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="sparkReceiverSourceStorageLevel"
-                className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
-              >
-                <span>Receiver Storage Level</span>
-                <InfoTooltip text="Spark Receiver persistence storage level passed to the Spark Streaming receiver supervisor." />
-              </label>
-              <select
-                id="sparkReceiverSourceStorageLevel"
-                name="storageLevel"
-                value={storageLevel}
-                onChange={onChange}
-                className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
-              >
-                <option value="MEMORY_AND_DISK_SER">MEMORY_AND_DISK_SER (Default)</option>
-                <option value="MEMORY_AND_DISK">MEMORY_AND_DISK</option>
-                <option value="MEMORY_ONLY">MEMORY_ONLY</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="sparkReceiverSourceRestartOnFailure"
-                type="checkbox"
-                name="restartOnFailure"
-                checked={restartOnFailure}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Restart Receiver on Failure</span>
-              <InfoTooltip text="Automatically restarts the Spark Receiver if an unhandled internal receiver exception occurs." />
-            </label>
-          </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="sparkReceiverSourceMaxRecordsPerBundle"
+          name="maxRecordsPerBundle"
+          label="Max Records Per Bundle"
+          type="number"
+          value={maxRecordsPerBundle}
+          onChange={onChange}
+          placeholder="e.g. 1000"
+          min={1}
+          tooltip="Maximum number of records to process in a single streaming bundle."
+        />
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="sparkReceiverSourceStorageLevel"
+            className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
+          >
+            <span>Receiver Storage Level</span>
+            <InfoTooltip text="Spark Receiver persistence storage level passed to the Spark Streaming receiver supervisor." />
+          </label>
+          <select
+            id="sparkReceiverSourceStorageLevel"
+            name="storageLevel"
+            value={storageLevel}
+            onChange={onChange}
+            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
+          >
+            <option value="MEMORY_AND_DISK_SER">MEMORY_AND_DISK_SER (Default)</option>
+            <option value="MEMORY_AND_DISK">MEMORY_AND_DISK</option>
+            <option value="MEMORY_ONLY">MEMORY_ONLY</option>
+          </select>
         </div>
-      )}
-    </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="sparkReceiverSourceRestartOnFailure"
+            type="checkbox"
+            name="restartOnFailure"
+            checked={restartOnFailure}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Restart Receiver on Failure</span>
+          <InfoTooltip text="Automatically restarts the Spark Receiver if an unhandled internal receiver exception occurs." />
+        </label>
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -327,12 +330,7 @@ export const SparkReceiverIOSourceProperties: React.FC<SparkReceiverIOSourceProp
   const isReceiverClassEmpty = !receiverClass.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -360,20 +358,6 @@ export const SparkReceiverIOSourceProperties: React.FC<SparkReceiverIOSourceProp
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -444,19 +428,19 @@ export const SparkReceiverIOSourceProperties: React.FC<SparkReceiverIOSourceProp
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="sparkReceiverSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
         placeholder="Custom prompt instructions for generating the Apache Beam SparkReceiverIO source step..."
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

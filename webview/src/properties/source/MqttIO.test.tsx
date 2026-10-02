@@ -106,7 +106,7 @@ describe('MqttIOSourceProperties', () => {
     }));
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret', () => {
+  it('allows selecting a secret when passwordSource is secretManager', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
@@ -118,19 +118,6 @@ describe('MqttIOSourceProperties', () => {
     const mockOnChange = vi.fn();
 
     render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response with secrets
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'mqtt-pass-prod', value: 'mqtt-pass-prod' },
-            { name: 'device-auth-key', value: 'device-auth-key' }
-          ]
-        }
-      }));
-    });
 
     const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i);
     expect(secretDropdown).toBeInTheDocument();
@@ -155,7 +142,7 @@ describe('MqttIOSourceProperties', () => {
     const { container } = render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
-    expect(container.querySelector('#mqtt-source-secret-options')).toBeInTheDocument();
+    expect(container.querySelector('#mqtt-secret-name')).toBeInTheDocument();
 
     const usernameInput = container.querySelector('#mqtt-username') as HTMLInputElement;
     fireEvent.change(usernameInput, { target: { name: 'username', value: 'mqtt-user-secret' } });
@@ -267,28 +254,6 @@ describe('MqttIOSourceProperties', () => {
     expect(timeoutInput.closest('.grid')).not.toContainElement(qosSelect);
   });
 
-  it('displays error when loading secret manager secrets fails', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-    render(<MqttIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled'
-        }
-      }));
-    });
-
-    expect(screen.getByText('Secret Manager API is not enabled')).toBeInTheDocument();
-  });
 
   it('displays error when loading compute instances fails', () => {
     const mockNode = {

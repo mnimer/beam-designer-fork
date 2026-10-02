@@ -27,9 +27,14 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 
+/**
+ * React Flow node shape for the JsonIO sink panel, including its persisted configuration data.
+ */
 export interface JsonIOSinkNode {
   data: {
     label: string;
@@ -50,6 +55,9 @@ export interface JsonIOSinkNode {
   };
 }
 
+/**
+ * Props for the JsonIOSinkProperties component.
+ */
 export interface JsonIOSinkPropertiesProps {
   node: JsonIOSinkNode;
   onChange: (properties: any) => void;
@@ -131,12 +139,7 @@ export const JsonIOSinkProperties: React.FC<JsonIOSinkPropertiesProps> = ({ node
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles form input changes for text, select, and checkbox fields.
@@ -154,17 +157,6 @@ export const JsonIOSinkProperties: React.FC<JsonIOSinkPropertiesProps> = ({ node
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions for code synthesis.
-   *
-   * @param e Form change event from textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -249,22 +241,16 @@ export const JsonIOSinkProperties: React.FC<JsonIOSinkPropertiesProps> = ({ node
       />
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="jsonSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this JsonIO writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Format output as JSON Lines using UTF-8 encoding with GZIP compression."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="jsonSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this JsonIO writer step."
+        placeholder="e.g. Format output as JSON Lines using UTF-8 encoding with GZIP compression."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

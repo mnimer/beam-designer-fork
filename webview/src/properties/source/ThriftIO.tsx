@@ -22,13 +22,17 @@
 import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 
+/**
+ * Node data structure for ThriftIO source nodes.
+ */
 export interface ThriftIOSourceNode {
   data: {
     label: string;
@@ -51,6 +55,9 @@ export interface ThriftIOSourceNode {
   };
 }
 
+/**
+ * Props for the ThriftIOSourceProperties component.
+ */
 export interface ThriftIOSourcePropertiesProps {
   node: ThriftIOSourceNode;
   onChange: (properties: any) => void;
@@ -73,6 +80,9 @@ export const THRIFT_SOURCE_COMPRESSION_TYPES = [
   { value: 'ZSTD', label: 'ZSTD (.zst)' }
 ];
 
+/**
+ * Properties panel component for configuring ThriftIO source transforms.
+ */
 export const ThriftIOSourceProperties: React.FC<ThriftIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
@@ -93,12 +103,7 @@ export const ThriftIOSourceProperties: React.FC<ThriftIOSourcePropertiesProps> =
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -123,16 +128,6 @@ export const ThriftIOSourceProperties: React.FC<ThriftIOSourcePropertiesProps> =
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -259,22 +254,21 @@ export const ThriftIOSourceProperties: React.FC<ThriftIOSourcePropertiesProps> =
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="thriftSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ThriftIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read OrderRecord instances and unpack payload attributes into PCollection."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="thriftSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Read OrderRecord instances and unpack payload attributes into PCollection."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ThriftIO reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

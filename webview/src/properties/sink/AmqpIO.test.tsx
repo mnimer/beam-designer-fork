@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AmqpIOSinkProperties } from './AmqpIO';
 
@@ -230,17 +230,6 @@ describe('AmqpIOSinkProperties', () => {
 
     render(<AmqpIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'amqp-sink-creds', value: 'amqp-sink-creds' }
-          ]
-        }
-      }));
-    });
-
     const secretInput = screen.getByLabelText(/GCP Secret Manager Secret/i);
     expect(secretInput).toBeInTheDocument();
 
@@ -248,22 +237,6 @@ describe('AmqpIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       secretName: 'amqp-sink-creds'
     }));
-  });
-
-  it('triggers refresh secrets callback when refresh button clicked', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-
-    render(<AmqpIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-    const refreshButton = screen.getByTitle('Refresh secrets from Secret Manager');
-    fireEvent.click(refreshButton);
-
-    expect((window as any).vscode.postMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('shows and validates expansion service endpoint when mode is endpoint', () => {
@@ -346,57 +319,6 @@ describe('AmqpIOSinkProperties', () => {
     expect(screen.getByText('Target AMQP address is required.')).toBeInTheDocument();
   });
 
-  it('handles error messages from extension correctly', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          address: 'amqp://broker.example.com:5672/queue'
-        }
-      }
-    };
-
-    render(<AmqpIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager unavailable'
-        }
-      }));
-    });
-
-    expect(screen.getByText('Secret Manager unavailable')).toBeInTheDocument();
-  });
-
-  it('handles non-array secrets payload without throwing', () => {
-    const mockNode = {
-      data: {
-        label: 'AmqpIO',
-        properties: {}
-      }
-    };
-
-    expect(() => {
-      render(<AmqpIOSinkProperties node={mockNode} onChange={vi.fn()} />);
-
-      act(() => {
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: null
-          }
-        }));
-        window.dispatchEvent(new MessageEvent('message', {
-          data: {
-            command: 'otherCommand'
-          }
-        }));
-      });
-    }).not.toThrow();
-  });
-
   it('mounts gracefully when window.vscode is undefined', () => {
     delete (window as any).vscode;
 
@@ -410,65 +332,6 @@ describe('AmqpIOSinkProperties', () => {
     expect(() => {
       render(<AmqpIOSinkProperties node={mockNode} onChange={vi.fn()} />);
     }).not.toThrow();
-  });
-
-  it('respects system_instructions fallback precedence', () => {
-    // 1. node.data.system_instructions wins
-    const node1 = {
-      data: {
-        label: 'AmqpIO',
-        system_instructions: 'From node data system',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount1 } = render(<AmqpIOSinkProperties node={node1} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data system');
-    unmount1();
-
-    // 2. node.data.special_instructions fallback
-    const node2 = {
-      data: {
-        label: 'AmqpIO',
-        special_instructions: 'From node data special',
-        properties: {
-          system_instructions: 'From prop system'
-        }
-      }
-    };
-    const { unmount: unmount2 } = render(<AmqpIOSinkProperties node={node2} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From node data special');
-    unmount2();
-
-    // 3. properties.system_instructions fallback
-    const node3 = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          system_instructions: 'From prop system',
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount3 } = render(<AmqpIOSinkProperties node={node3} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop system');
-    unmount3();
-
-    // 4. properties.special_instructions fallback
-    const node4 = {
-      data: {
-        label: 'AmqpIO',
-        properties: {
-          special_instructions: 'From prop special'
-        }
-      }
-    };
-    const { unmount: unmount4 } = render(<AmqpIOSinkProperties node={node4} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('From prop special');
-    unmount4();
   });
 
   it('updates system_instructions when textarea changes', () => {

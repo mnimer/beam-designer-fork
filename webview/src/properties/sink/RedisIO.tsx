@@ -22,8 +22,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
 /**
  * Secret item descriptor returned from extension host discovery.
@@ -114,12 +117,7 @@ export const RedisIOSinkProperties: React.FC<RedisIOSinkPropertiesProps> = ({ no
   const isHostEmpty = !host.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -146,19 +144,6 @@ export const RedisIOSinkProperties: React.FC<RedisIOSinkPropertiesProps> = ({ no
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -331,88 +316,78 @@ export const RedisIOSinkProperties: React.FC<RedisIOSinkPropertiesProps> = ({ no
       </div>
 
       {/* Collapsible Advanced Sink Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Sink Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
-
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="redisSinkConnectionTimeout"
-                name="connectionTimeout"
-                label="Connection Timeout (ms)"
-                type="number"
-                tooltip="Connection timeout in milliseconds. Defaults to driver default."
-                value={connectionTimeout}
-                onChange={handleChange}
-                placeholder="2000"
-                mono={true}
-              />
-              <PropertyField
-                id="redisSinkSocketTimeout"
-                name="socketTimeout"
-                label="Socket Timeout (ms)"
-                type="number"
-                tooltip="Socket timeout in milliseconds for socket operations."
-                value={socketTimeout}
-                onChange={handleChange}
-                placeholder="2000"
-                mono={true}
-              />
-            </div>
-
+      <CollapsibleSection
+        title="Advanced Sink Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <PropertyField
-              id="redisSinkBatchSize"
-              name="batchSize"
-              label="Batch / Pipeline Size"
+              id="redisSinkConnectionTimeout"
+              name="connectionTimeout"
+              label="Connection Timeout (ms)"
               type="number"
-              tooltip="Number of Redis write commands to buffer and execute via Redis pipelining in a single request."
-              value={batchSize}
+              tooltip="Connection timeout in milliseconds. Defaults to driver default."
+              value={connectionTimeout}
               onChange={handleChange}
-              placeholder="1000"
+              placeholder="2000"
               mono={true}
             />
-
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="redisSinkClusterMode"
-                type="checkbox"
-                name="clusterMode"
-                checked={clusterMode}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-              />
-              <label htmlFor="redisSinkClusterMode" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Redis Cluster Mode</span>
-                <InfoTooltip text="Enables cluster topology routing when writing to a multi-node Redis cluster. Switches the underlying client to JedisCluster. Note that logical database index is ignored in cluster mode." />
-              </label>
-            </div>
+            <PropertyField
+              id="redisSinkSocketTimeout"
+              name="socketTimeout"
+              label="Socket Timeout (ms)"
+              type="number"
+              tooltip="Socket timeout in milliseconds for socket operations."
+              value={socketTimeout}
+              onChange={handleChange}
+              placeholder="2000"
+              mono={true}
+            />
           </div>
-        )}
-      </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+          <PropertyField
+            id="redisSinkBatchSize"
+            name="batchSize"
+            label="Batch / Pipeline Size"
+            type="number"
+            tooltip="Number of Redis write commands to buffer and execute via Redis pipelining in a single request."
+            value={batchSize}
+            onChange={handleChange}
+            placeholder="1000"
+            mono={true}
+          />
+
+          <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+            <input
+              id="redisSinkClusterMode"
+              type="checkbox"
+              name="clusterMode"
+              checked={clusterMode}
+              onChange={handleChange}
+              className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+            />
+            <label htmlFor="redisSinkClusterMode" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+              <span>Redis Cluster Mode</span>
+              <InfoTooltip text="Enables cluster topology routing when writing to a multi-node Redis cluster. Switches the underlying client to JedisCluster. Note that logical database index is ignored in cluster mode." />
+            </label>
+          </div>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="redisSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Redis pipeline writer transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Redis pipeline writer transforms."
         placeholder="e.g. Write elements to Redis using SET with a TTL of 3600 seconds"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

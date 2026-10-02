@@ -23,20 +23,23 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 import {
   KINETICA_DOC_URL,
   KineticaEntityColumnsEditor,
 } from '../source/KineticaDB';
 import type { KineticaDBNodeData, KineticaEntityColumn } from '../source/KineticaDB';
 
-function openKineticaDocs(): void {
-  const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscodeApi) {
-    vscodeApi.postMessage({ command: 'openExternal', url: KINETICA_DOC_URL });
-  }
-}
-
+/**
+ * Validates a comma-separated list of Kinetica head node URLs.
+ *
+ * @param value The candidate head node URL string.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateHeadNodeUrl(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -58,6 +61,12 @@ function validateHeadNodeUrl(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates a Java entity class name for Kinetica record mapping.
+ *
+ * @param value The candidate class name.
+ * @returns Error message if invalid, or null if valid.
+ */
 function validateEntityClassName(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -69,6 +78,9 @@ function validateEntityClassName(value: string): string | null {
   return null;
 }
 
+/**
+ * Props for the KineticaDBSinkProperties component.
+ */
 export interface KineticaDBSinkPropertiesProps {
   node: {
     data: KineticaDBNodeData;
@@ -76,11 +88,16 @@ export interface KineticaDBSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the Kinetica DB sink node. Configures head node URL, credentials, destination table, and batch size.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const KineticaDBSinkProperties: React.FC<KineticaDBSinkPropertiesProps> = ({
   node,
   onChange,
 }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const headNodeURL = String(properties.headNodeURL ?? '');
   const username = String(properties.username ?? '');
@@ -91,29 +108,13 @@ export const KineticaDBSinkProperties: React.FC<KineticaDBSinkPropertiesProps> =
     ? properties.entityColumns
     : [];
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const headNodeUrlError = validateHeadNodeUrl(headNodeURL);
   const usernameError = !username.trim() ? 'Username is required.' : null;
   const passwordSecretError = !passwordSecret.trim() ? 'Password secret is required.' : null;
   const tableError = !table.trim() ? 'Table is required.' : null;
   const entityClassError = validateEntityClassName(entityClassName);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value,
-    });
-  };
 
   const handleColumnsChange = (nextColumns: KineticaEntityColumn[]) => {
     onChange({
@@ -130,14 +131,7 @@ export const KineticaDBSinkProperties: React.FC<KineticaDBSinkPropertiesProps> =
           <span className="font-semibold text-slate-200">
             Transform: <code className="text-slate-300">KineticaIO.write()</code>
           </span>
-          <button
-            type="button"
-            aria-label="Open KineticaIO documentation"
-            onClick={openKineticaDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={KINETICA_DOC_URL} ariaLabel="Open KineticaIO documentation" />
         </div>
         <p className="text-slate-400">
           Inserts typed RecordObject entities into an existing Kinetica GPU-accelerated database table.
@@ -245,23 +239,14 @@ export const KineticaDBSinkProperties: React.FC<KineticaDBSinkPropertiesProps> =
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="kineticaSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter custom instructions for KineticaDB sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="kineticaSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for KineticaDB sink code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

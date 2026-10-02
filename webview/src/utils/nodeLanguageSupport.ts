@@ -30,6 +30,9 @@ export const SUPPORTED_BEAM_LANGUAGES: readonly BeamSdkLanguage[] = [
   'TypeScript',
 ] as const;
 
+/**
+ * SDK language support metadata for an Apache Beam transform.
+ */
 export interface NodeLanguageMetadata {
   beamTransform: string;
   displayName: string;
@@ -810,6 +813,9 @@ export function getPythonOnlyTransforms(): string[] {
     .sort();
 }
 
+/**
+ * Diagnostic record describing a canvas node that lacks support for the chosen language.
+ */
 export interface UnsupportedDiagramNode {
   id: string;
   label: string;
@@ -817,6 +823,9 @@ export interface UnsupportedDiagramNode {
   supportedLanguages: readonly BeamSdkLanguage[];
 }
 
+/**
+ * Validation result for diagram-wide language compatibility checks.
+ */
 export interface DiagramLanguageValidationResult {
   isValid: boolean;
   unsupportedNodes: UnsupportedDiagramNode[];

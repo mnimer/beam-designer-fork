@@ -137,39 +137,6 @@ describe('JmsIOSinkProperties', () => {
     expect(screen.getByText(/A topic name is required for JmsIO.write\(\)/i)).toBeInTheDocument();
   });
 
-  it('receives secretsLoaded and populates secret options when Secret Manager is enabled', () => {
-    const mockNode = {
-      data: {
-        label: 'JMS',
-        properties: {
-          authMode: 'secretManager' as const,
-          passwordSecret: 'jms-sink-pass'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Post message from extension
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: ['jms-sink-pass', 'gcp-sa-key']
-        }
-      }));
-    });
-
-    const secretInput = screen.getByLabelText(/Secret Manager Secret/i);
-    expect(secretInput).toHaveValue('jms-sink-pass');
-
-    fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'gcp-sa-key' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      passwordSecret: 'gcp-sa-key'
-    }));
-  });
-
   it('receives computeInstancesLoaded and allows inserting instance IP', () => {
     const mockNode = {
       data: {

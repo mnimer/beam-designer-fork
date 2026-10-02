@@ -22,11 +22,15 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for DynamoDB authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -45,6 +49,7 @@ export const AWS_REGIONS = [
   { value: 'sa-east-1', label: 'South America (São Paulo) [sa-east-1]' },
 ];
 
+/** Props for the {@link DynamoDBIOSourceProperties} component. */
 export interface DynamoDBIOSourcePropertiesProps {
   node: {
     data: {
@@ -115,12 +120,7 @@ export const DynamoDBIOSourceProperties: React.FC<DynamoDBIOSourcePropertiesProp
   const isTableEmpty = !tableName.trim();
 
   // Verbatim system instruction fallback chain
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -153,13 +153,6 @@ export const DynamoDBIOSourceProperties: React.FC<DynamoDBIOSourcePropertiesProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Target DynamoDB Table Name */}
@@ -386,76 +379,64 @@ export const DynamoDBIOSourceProperties: React.FC<DynamoDBIOSourcePropertiesProp
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        {/* Custom Endpoint Override */}
+        <PropertyField
+          id="dynamodbSourceEndpointOverride"
+          name="endpointOverride"
+          label="Service Endpoint Override"
+          tooltip="Custom DynamoDB endpoint URL (e.g. http://localhost:8000 or http://localhost:4566 for LocalStack integration testing)."
+          value={endpointOverride}
+          onChange={handleChange}
+          placeholder="http://localhost:8000"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            {/* Custom Endpoint Override */}
-            <PropertyField
-              id="dynamodbSourceEndpointOverride"
-              name="endpointOverride"
-              label="Service Endpoint Override"
-              tooltip="Custom DynamoDB endpoint URL (e.g. http://localhost:8000 or http://localhost:4566 for LocalStack integration testing)."
-              value={endpointOverride}
-              onChange={handleChange}
-              placeholder="http://localhost:8000"
-              mono={true}
-            />
-
-            {/* Read Capacity and Client Retry Count */}
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="dynamodbSourceReadCapacityUnits"
-                name="readCapacityUnits"
-                label="Read Capacity / Rate Limit"
-                type="number"
-                min={1}
-                value={readCapacityUnits}
-                onChange={handleChange}
-                placeholder="Unlimited"
-                tooltip="Rate-limit target or maximum provisioned read capacity units (RCU) per second."
-                mono={true}
-              />
-              <PropertyField
-                id="dynamodbSourceMaxRetries"
-                name="maxRetries"
-                label="Client Retry Count"
-                type="number"
-                min={0}
-                value={maxRetries}
-                onChange={handleChange}
-                placeholder="3"
-                tooltip="Number of retry attempts on transient DynamoDB service exceptions or throttling."
-                mono={true}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        {/* Read Capacity and Client Retry Count */}
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="dynamodbSourceReadCapacityUnits"
+            name="readCapacityUnits"
+            label="Read Capacity / Rate Limit"
+            type="number"
+            min={1}
+            value={readCapacityUnits}
+            onChange={handleChange}
+            placeholder="Unlimited"
+            tooltip="Rate-limit target or maximum provisioned read capacity units (RCU) per second."
+            mono={true}
+          />
+          <PropertyField
+            id="dynamodbSourceMaxRetries"
+            name="maxRetries"
+            label="Client Retry Count"
+            type="number"
+            min={0}
+            value={maxRetries}
+            onChange={handleChange}
+            placeholder="3"
+            tooltip="Number of retry attempts on transient DynamoDB service exceptions or throttling."
+            mono={true}
+          />
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="dynamodbSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing DynamoDBIO read pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing DynamoDBIO read pipelines."
         placeholder="e.g. Read items using DynamoDBIO.read().withScanRequestFn(...) with 4 segments"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

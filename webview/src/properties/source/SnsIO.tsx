@@ -22,15 +22,14 @@
  * - Follows the 8pt grid system (p-2, p-4, gap-2, gap-4) and Tailwind CSS styling.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-
-export interface SecretItem {
-  id: string;
-  name: string;
-  fullName?: string;
-}
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
 export const AWS_REGIONS = [
   { value: 'us-east-1', label: 'US East (N. Virginia) [us-east-1]' },
@@ -44,6 +43,9 @@ export const AWS_REGIONS = [
   { value: 'sa-east-1', label: 'South America (São Paulo) [sa-east-1]' },
 ];
 
+/**
+ * Props for the SnsIO source properties component.
+ */
 export interface SnsIOSourcePropertiesProps {
   node: {
     data: {
@@ -82,7 +84,9 @@ export interface SnsIOSourcePropertiesProps {
  * @param props Component properties containing the active node and onChange callback
  */
 export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
+  const secrets = useSecretOptions();
+  const { items: pubsubTopics, error: pubsubError } = useAssetLoader<string>('topics');
 
   // Form field state extracted from node properties
   const topicArn = properties.topicArn || '';
@@ -101,11 +105,6 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
   const visibilityTimeout = properties.visibilityTimeout ?? '';
   const waitTimeSeconds = properties.waitTimeSeconds ?? '';
 
-  // Local state for dynamically loaded GCP resources
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [pubsubTopics, setPubsubTopics] = useState<string[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [pubsubError, setPubsubError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Field validation
@@ -115,88 +114,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
   const isPubsubEmpty = ingestionMode === 'pubsub' && !pubsubTopic.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager and Pub/Sub responses from VS Code extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        if (Array.isArray(message.secrets)) {
-          // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-          const loaded: SecretItem[] = message.secrets.map((s: any) => {
-            if (typeof s === 'string') {
-              const shortId = s.split('/').filter(Boolean).pop() || s;
-              return { id: shortId, name: shortId };
-            }
-            const shortId = s.id || s.name || '';
-            return { id: shortId, name: s.name || shortId, fullName: s.fullName };
-          });
-          setSecrets(loaded);
-        }
-        setSecretError(message.error || null);
-      }
-      if (message.command === 'topicsLoaded') {
-        if (Array.isArray(message.topics)) {
-          setPubsubTopics(message.topics);
-        }
-        setPubsubError(message.error || null);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    // Request secrets and pubsub topics from extension host
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getTopics' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Updates a generic property value and triggers onChange callback.
-   * 
-   * @param name The property name key
-   * @param value The updated property value
-   */
-  const updateProperty = (name: string, value: any) => {
-    const updated = { ...properties, [name]: value };
-    onChange(updated);
-  };
-
-  /**
-   * Handles text and select input changes.
-   * 
-   * @param e Standard React change event
-   */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      updateProperty(name, checked);
-    } else {
-      updateProperty(name, value);
-    }
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   * 
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -345,10 +263,10 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                     value={accessKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
-                    datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
+                    datalist={secrets.options}
                     placeholder="Access Key Secret (e.g. aws-access-key-id)"
-                    error={secretError}
-                    invalid={!!secretError}
+                    error={secrets.error}
+                    invalid={!!secrets.error}
                     mono={true}
                   />
                   <PropertyField
@@ -359,7 +277,7 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
                     value={secretKeySecret}
                     onChange={handleChange}
                     list="source-secret-options"
-                    datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
+                    datalist={secrets.options}
                     placeholder="Secret Key Secret (e.g. aws-secret-access-key)"
                     mono={true}
                   />
@@ -485,21 +403,18 @@ export const SnsIOSourceProperties: React.FC<SnsIOSourcePropertiesProps> = ({ no
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="snsSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing streaming ingestion pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing streaming ingestion pipelines."
         placeholder="e.g. Parse JSON message body into custom schema PCollection"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

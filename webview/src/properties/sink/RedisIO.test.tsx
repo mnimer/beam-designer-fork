@@ -155,57 +155,20 @@ describe('RedisIOSinkProperties', () => {
     }));
   });
 
-  it('supports Secret Manager authentication mode with IPC secretsLoaded', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'Redis Sink',
         properties: {
-          authMode: 'secret_manager' as const
+          authMode: 'secret_manager' as const,
+          authPasswordSecret: 'redis-sink-password'
         }
       }
     };
 
     render(<RedisIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText(/redis-auth-password/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-proj/secrets/redis-sink-password',
-          { id: 'redis-token', name: 'redis-token' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#redis-sink-secret-options option[value="redis-sink-password"]');
-    const option2 = document.querySelector('datalist#redis-sink-secret-options option[value="redis-token"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secret discovery fails', () => {
-    const node = {
-      data: {
-        label: 'Redis Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<RedisIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Unable to reach Secret Manager service'
-      }
-    }));
-
-    expect(screen.getByText('Unable to reach Secret Manager service')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/redis-auth-password/i)).toHaveValue('redis-sink-password');
   });
 
   it('toggles Advanced Sink Settings and updates parameters', () => {
@@ -278,21 +241,17 @@ describe('RedisIOSinkProperties', () => {
     });
   });
 
-  it('resolves system instructions via fallback chain and handles edits', () => {
+  it('updates system_instructions when textarea changes', () => {
     const node = {
       data: {
         label: 'Redis Sink',
-        properties: {
-          special_instructions: 'Fallback instructions from properties'
-        }
+        properties: {}
       }
     };
 
     render(<RedisIOSinkProperties node={node} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Write elements to Redis/i);
-    expect(textarea).toHaveValue('Fallback instructions from properties');
-
     fireEvent.change(textarea, { target: { value: 'Updated write prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated write prompt'

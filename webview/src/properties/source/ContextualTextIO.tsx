@@ -37,11 +37,14 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { FileText } from 'lucide-react';
 import { BEAM_COMPRESSION_TYPES } from './FileIO';
 
+/** React Flow node shape for the ContextualTextIO source panel, including its persisted configuration data. */
 export interface ContextualTextIOSourceNode {
   data: {
     label: string;
@@ -63,6 +66,7 @@ export interface ContextualTextIOSourceNode {
   };
 }
 
+/** Props for the {@link ContextualTextIOSourceProperties} component. */
 export interface ContextualTextIOSourcePropertiesProps {
   node: ContextualTextIOSourceNode;
   onChange: (properties: any) => void;
@@ -137,12 +141,7 @@ export const ContextualTextIOSourceProperties: React.FC<ContextualTextIOSourcePr
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, number, select, and checkbox input updates.
@@ -167,15 +166,6 @@ export const ContextualTextIOSourceProperties: React.FC<ContextualTextIOSourcePr
    *
    * @param e Form change event from textarea
    */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Java Only Notice */}
@@ -325,24 +315,20 @@ export const ContextualTextIOSourceProperties: React.FC<ContextualTextIOSourcePr
         />
       </CollapsibleSection>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="contextualTextSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for ContextualTextIO source code generation..."
-          rows={3}
-          mono={false}
-          helperText="Additional guidance appended to prompt when synthesizing Java code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="contextualTextSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for ContextualTextIO source code generation..."
+        helperText="Additional guidance appended to prompt when synthesizing Java code."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

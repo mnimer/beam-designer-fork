@@ -26,6 +26,8 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SelectField } from '../../components/common/SelectField';
 import type { SelectFieldOption } from '../../components/common/SelectField';
 
@@ -43,6 +45,9 @@ export const MAP_OUTPUT_TYPE_OPTIONS: SelectFieldOption[] = [
   { value: 'byte[]', label: 'byte[] / bytes' }
 ];
 
+/**
+ * React Flow node shape for the Map step transform.
+ */
 interface MapNode {
   data: {
     label: string;
@@ -61,22 +66,26 @@ interface MapNode {
   };
 }
 
+/**
+ * Props for the {@link MapProperties} component.
+ */
 interface MapPropertiesProps {
   node: MapNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Property configuration panel for the Apache Beam Map one-to-one transform.
+ *
+ * @param props The selected map node and change notification callback.
+ * @returns The rendered map properties panel.
+ */
 export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const mappingFunction = properties.mappingFunction || '';
   const outputType = properties.outputType || '';
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   // NOTE: Insert custom option directly after placeholder to prevent silent data loss
   // when an existing pipeline persisted an unknown custom class in outputType.
@@ -101,18 +110,6 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
     onChange({
       ...properties,
       [name]: value
-    });
-  };
-
-  /**
-   * Handles changes to code generation instructions
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -144,21 +141,17 @@ export const MapProperties: React.FC<MapPropertiesProps> = ({ node, onChange }) 
         Apply a 1-to-1 transformation to each input element.
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="mapSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Optional — only for edge cases the mapping expression cannot convey..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

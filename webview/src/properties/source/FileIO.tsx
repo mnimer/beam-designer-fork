@@ -17,6 +17,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
 /**
  * Valid members of org.apache.beam.sdk.io.Compression for read operations.
@@ -45,6 +47,7 @@ export const BEAM_WRITE_COMPRESSION_TYPES = [
   'ZSTD'
 ] as const;
 
+/** React Flow node shape for the FileIO source panel, including its persisted configuration data. */
 interface FileIOSourceNode {
   data: {
     label: string;
@@ -64,11 +67,17 @@ interface FileIOSourceNode {
   };
 }
 
+/** Props for the {@link FileIOSourceProperties} component. */
 interface FileIOSourcePropertiesProps {
   node: FileIOSourceNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the FileIO.match/matchAll source node. Configures file pattern matching and continuous polling.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
@@ -80,12 +89,7 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -95,13 +99,6 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -191,27 +188,23 @@ export const FileIOSourceProperties: React.FC<FileIOSourcePropertiesProps> = ({ 
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="fileSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for FileIO match code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="fileSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for FileIO match code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };
 
+/** React Flow node shape for the FileIO read matches panel, including its persisted configuration data. */
 interface FileIOReadMatchesNode {
   data: {
     label: string;
@@ -229,11 +222,17 @@ interface FileIOReadMatchesNode {
   };
 }
 
+/** Props for the {@link FileIOReadMatchesProperties} component. */
 interface FileIOReadMatchesPropertiesProps {
   node: FileIOReadMatchesNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the FileIO.readMatches node. Configures compression handling and directory treatments.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const withCompression = properties.withCompression ?? false;
@@ -241,12 +240,7 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
   const directoryTreatment = properties.directoryTreatment || 'SKIP';
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -256,13 +250,6 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -326,23 +313,18 @@ export const FileIOReadMatchesProperties: React.FC<FileIOReadMatchesPropertiesPr
         </select>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="readMatchesSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for FileIO.readMatches() code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="readMatchesSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for FileIO.readMatches() code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

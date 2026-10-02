@@ -1,6 +1,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
 /**
  * GenerateSequence Properties Component
@@ -20,6 +22,7 @@ import { PropertyField } from '../../components/common/PropertyField';
  * - Emits state changes to parent via the standard onChange callback.
  */
 
+/** Persisted configuration properties for the GenerateSequence transform node. */
 export interface GenerateSequencePropertiesData {
   sequenceMode?: 'bounded' | 'unbounded';
   start?: number | string;
@@ -32,6 +35,7 @@ export interface GenerateSequencePropertiesData {
   special_instructions?: string;
 }
 
+/** React Flow node shape for the GenerateSequence source panel, including its persisted configuration data. */
 export interface GenerateSequenceNode {
   data: {
     label: string;
@@ -42,6 +46,7 @@ export interface GenerateSequenceNode {
   };
 }
 
+/** Props for the {@link GenerateSequenceProperties} component. */
 interface GenerateSequencePropertiesProps {
   node: GenerateSequenceNode;
   onChange: (properties: any) => void;
@@ -62,12 +67,7 @@ export const GenerateSequenceProperties: React.FC<GenerateSequencePropertiesProp
   const elementsPerPeriod = properties.elementsPerPeriod ?? 1;
   const periodSeconds = properties.periodSeconds ?? 1;
   const maxReadTimeSeconds = properties.maxReadTimeSeconds ?? '';
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles updating property fields when inputs change.
@@ -94,7 +94,7 @@ export const GenerateSequenceProperties: React.FC<GenerateSequencePropertiesProp
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex-1 flex flex-col gap-4">
       {/* Sequence Generation Mode */}
       <div className="flex flex-col gap-2">
         <label htmlFor="sequenceMode" className="flex items-center text-xs font-bold uppercase text-slate-500">
@@ -164,7 +164,7 @@ export const GenerateSequenceProperties: React.FC<GenerateSequencePropertiesProp
         </label>
 
         {withRateLimit && (
-          <div className="grid grid-cols-2 gap-3 mt-1">
+          <div className="grid grid-cols-2 items-end gap-3 mt-1">
             <div className="flex flex-col gap-1">
               <label htmlFor="elementsPerPeriod" className="flex items-center text-xs font-semibold text-slate-400">
                 <span>Elements / Period</span>
@@ -218,17 +218,17 @@ export const GenerateSequenceProperties: React.FC<GenerateSequencePropertiesProp
       />
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="system_instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
         value={systemInstructions}
-        onChange={handleChange}
-        placeholder="Enter custom instructions for code generation..."
-        rows={3}
         tooltip="Optional custom guidance injected into the LLM code generation prompt for this transform."
-        mono={false}
+        placeholder="Enter custom instructions for code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

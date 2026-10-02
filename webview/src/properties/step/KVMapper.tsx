@@ -16,7 +16,12 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the Key-Value Mapper step transform.
+ */
 interface KVMapperNode {
   data: {
     label?: string;
@@ -35,11 +40,20 @@ interface KVMapperNode {
   };
 }
 
+/**
+ * Props for the {@link KVMapperProperties} component.
+ */
 interface KVMapperPropertiesProps {
   node: KVMapperNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Property configuration panel for the Apache Beam Key-Value Mapper transform.
+ *
+ * @param props The selected KV mapper node and change notification callback.
+ * @returns The rendered KV mapper properties panel.
+ */
 export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const keyPropertyName = properties.keyPropertyName || '';
@@ -48,28 +62,13 @@ export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, on
   const isKeyPropertyInvalid = !keyPropertyName.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles input changes for key and value property names
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
-  };
-
-  /**
-   * Handles changes to code generation instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -103,21 +102,17 @@ export const KVMapperProperties: React.FC<KVMapperPropertiesProps> = ({ node, on
         Extract a property from the element to act as the key, creating a key-value pair (KV element) for keyed transforms like GroupByKey and Session Windows.
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="kvSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter custom instructions for KV mapping code generation..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

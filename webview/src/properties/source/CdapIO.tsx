@@ -26,11 +26,15 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for CDAP authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -62,6 +66,7 @@ export const CDAP_COMMON_SOURCE_PLUGINS = [
   }
 ];
 
+/** Props for the {@link CdapIOSourceProperties} component. */
 export interface CdapIOSourcePropertiesProps {
   node: {
     data: {
@@ -207,72 +212,63 @@ const AdvancedSourceSection: React.FC<AdvancedSourceSectionProps> = ({
   hadoopConfig,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Source Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
-
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        {pluginType === 'streaming' && (
-          <PropertyField
-            id="cdapSourcePullFrequency"
-            name="pullFrequency"
-            label="Pull Frequency (s)"
-            type="number"
-            tooltip="Streaming pull frequency in seconds for streaming plugins."
-            value={pullFrequency}
-            onChange={onChange}
-            placeholder="60"
-            mono={true}
-          />
-        )}
-
-        <div className="grid grid-cols-2 gap-2">
-          <PropertyField
-            id="cdapSourceStartOffset"
-            name="startOffset"
-            label="Start Offset"
-            type="number"
-            tooltip="Initial record or partition offset for plugin reading."
-            value={startOffset}
-            onChange={onChange}
-            placeholder="0"
-            mono={true}
-          />
-          <PropertyField
-            id="cdapSourceMaxRecords"
-            name="maxRecords"
-            label="Max Records"
-            type="number"
-            tooltip="Bounded reading limit for records."
-            value={maxRecords}
-            onChange={onChange}
-            placeholder="Unlimited"
-            mono={true}
-          />
-        </div>
-
-        <PropertyField
-          id="cdapSourceHadoopConfig"
-          name="hadoopConfig"
-          label="Hadoop Configuration Overrides"
-          type="textarea"
-          rows={3}
-          tooltip="Hadoop Configuration properties as key=value per line."
-          value={hadoopConfig}
-          onChange={onChange}
-          placeholder="fs.defaultFS=hdfs://namenode:8020&#10;mapreduce.input.fileinputformat.split.minsize=1048576"
-          mono={true}
-        />
-      </div>
+  <CollapsibleSection
+    title="Advanced Source Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    {pluginType === 'streaming' && (
+      <PropertyField
+        id="cdapSourcePullFrequency"
+        name="pullFrequency"
+        label="Pull Frequency (s)"
+        type="number"
+        tooltip="Streaming pull frequency in seconds for streaming plugins."
+        value={pullFrequency}
+        onChange={onChange}
+        placeholder="60"
+        mono={true}
+      />
     )}
-  </div>
+
+    <div className="grid grid-cols-2 gap-2">
+      <PropertyField
+        id="cdapSourceStartOffset"
+        name="startOffset"
+        label="Start Offset"
+        type="number"
+        tooltip="Initial record or partition offset for plugin reading."
+        value={startOffset}
+        onChange={onChange}
+        placeholder="0"
+        mono={true}
+      />
+      <PropertyField
+        id="cdapSourceMaxRecords"
+        name="maxRecords"
+        label="Max Records"
+        type="number"
+        tooltip="Bounded reading limit for records."
+        value={maxRecords}
+        onChange={onChange}
+        placeholder="Unlimited"
+        mono={true}
+      />
+    </div>
+
+    <PropertyField
+      id="cdapSourceHadoopConfig"
+      name="hadoopConfig"
+      label="Hadoop Configuration Overrides"
+      type="textarea"
+      rows={3}
+      tooltip="Hadoop Configuration properties as key=value per line."
+      value={hadoopConfig}
+      onChange={onChange}
+      placeholder="fs.defaultFS=hdfs://namenode:8020&#10;mapreduce.input.fileinputformat.split.minsize=1048576"
+      mono={true}
+    />
+  </CollapsibleSection>
 );
 
 /**
@@ -310,12 +306,7 @@ export const CdapIOSourceProperties: React.FC<CdapIOSourcePropertiesProps> = ({ 
   const isValueClassEmpty = !String(valueClass).trim();
 
   // NOTE: Fallback chain for system instructions per architecture spec
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a single property key and invokes onChange while pruning legacy alias keys.
@@ -347,18 +338,6 @@ export const CdapIOSourceProperties: React.FC<CdapIOSourcePropertiesProps> = ({ 
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions change.
-   *
-   * @param e - Textarea change event.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -507,21 +486,18 @@ export const CdapIOSourceProperties: React.FC<CdapIOSourcePropertiesProps> = ({ 
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="cdapSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing CDAP ingestion pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing CDAP ingestion pipelines."
         placeholder="e.g. Ingest Salesforce accounts using CdapIO.read() producing PCollection<KV<NullWritable, SalesforceRecord>>"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

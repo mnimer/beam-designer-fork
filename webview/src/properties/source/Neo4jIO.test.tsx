@@ -163,60 +163,6 @@ describe('Neo4jIOSourceProperties', () => {
     }));
   });
 
-  it('supports Secret Manager authentication mode and handles IPC secretsLoaded', () => {
-    const node = {
-      data: {
-        label: 'Neo4j Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<Neo4jIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    expect(screen.getByPlaceholderText(/neo4j-username/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/neo4j-password/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-proj/secrets/neo4j-user-secret',
-          { id: 'neo4j-pass-secret', name: 'neo4j-pass-secret' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#neo4j-source-secret-options option[value="neo4j-user-secret"]');
-    const option2 = document.querySelector('datalist#neo4j-source-secret-options option[value="neo4j-pass-secret"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error when secret discovery fails', () => {
-    const node = {
-      data: {
-        label: 'Neo4j Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<Neo4jIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager')).toBeInTheDocument();
-  });
-
   it('expands Advanced Source Settings and updates parameters', () => {
     const node = {
       data: {
@@ -278,7 +224,7 @@ describe('Neo4jIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('30000')).toHaveValue(0);
   });
 
-  it('resolves system instructions via fallback chain and handles edits', () => {
+  it('updates system_instructions when instructions textarea is edited', () => {
     const node = {
       data: {
         label: 'Neo4j Source',

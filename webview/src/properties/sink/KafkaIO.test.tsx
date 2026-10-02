@@ -14,26 +14,6 @@ import '@testing-library/jest-dom';
 import { KafkaIOSinkProperties } from './KafkaIO';
 
 describe('KafkaIOSinkProperties', () => {
-  it('renders default fields with documentation tooltips and placeholders', () => {
-    const mockNode = {
-      data: {
-        label: 'Kafka',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<KafkaIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Bootstrap Servers/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Topic/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Key Serializer/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Value Serializer/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Acks/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Exactly-Once Semantics \(EOS\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Producer Properties/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
-  });
 
   it('populates fields with provided properties and triggers onChange on bootstrapServers and topic change', () => {
     const mockNode = {

@@ -28,6 +28,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
@@ -105,12 +108,7 @@ export const HCatalogIOSourceProperties: React.FC<HCatalogIOSourcePropertiesProp
   const isTableEmpty = !table.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -144,14 +142,6 @@ export const HCatalogIOSourceProperties: React.FC<HCatalogIOSourcePropertiesProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Metastore Connection & Table Card */}
@@ -351,72 +341,60 @@ export const HCatalogIOSourceProperties: React.FC<HCatalogIOSourcePropertiesProp
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <PropertyField
+          id="hcatSourceHiveSitePath"
+          name="hiveSitePath"
+          label="hive-site.xml Path"
+          tooltip="Optional filesystem path to a custom hive-site.xml configuration file on the worker."
+          value={hiveSitePath}
+          onChange={handleChange}
+          placeholder="/etc/hive/conf/hive-site.xml"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <PropertyField
-              id="hcatSourceHiveSitePath"
-              name="hiveSitePath"
-              label="hive-site.xml Path"
-              tooltip="Optional filesystem path to a custom hive-site.xml configuration file on the worker."
-              value={hiveSitePath}
-              onChange={handleChange}
-              placeholder="/etc/hive/conf/hive-site.xml"
-              mono={true}
-            />
-
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="hcatSourceSplitSize"
-                name="splitSize"
-                label="Split Size Hint (bytes)"
-                type="number"
-                tooltip="Desired bundle split size in bytes for reading HCatalog input splits."
-                value={splitSize}
-                onChange={handleChange}
-                placeholder="67108864"
-                mono={true}
-              />
-              <PropertyField
-                id="hcatSourceClientTimeoutSeconds"
-                name="clientTimeoutSeconds"
-                label="Client Timeout (seconds)"
-                type="number"
-                tooltip="Thrift socket timeout in seconds for Hive Metastore client operations."
-                value={clientTimeoutSeconds}
-                onChange={handleChange}
-                placeholder="120"
-                mono={true}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="hcatSourceSplitSize"
+            name="splitSize"
+            label="Split Size Hint (bytes)"
+            type="number"
+            tooltip="Desired bundle split size in bytes for reading HCatalog input splits."
+            value={splitSize}
+            onChange={handleChange}
+            placeholder="67108864"
+            mono={true}
+          />
+          <PropertyField
+            id="hcatSourceClientTimeoutSeconds"
+            name="clientTimeoutSeconds"
+            label="Client Timeout (seconds)"
+            type="number"
+            tooltip="Thrift socket timeout in seconds for Hive Metastore client operations."
+            value={clientTimeoutSeconds}
+            onChange={handleChange}
+            placeholder="120"
+            mono={true}
+          />
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="hcatSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing HCatalogIO read pipeline transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing HCatalogIO read pipeline transforms."
         placeholder="e.g. Read HCatRecord records from partitioned table and extract column fields"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

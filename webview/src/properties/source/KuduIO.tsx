@@ -23,15 +23,20 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for Kudu authentication. */
 export interface SecretItem {
   id: string;
   name: string;
   fullName?: string;
 }
 
+/** Props for the {@link KuduIOSourceProperties} component. */
 export interface KuduIOSourcePropertiesProps {
   node: {
     data: {
@@ -68,6 +73,7 @@ export interface KuduIOSourcePropertiesProps {
  * @returns Array of normalized SecretItem entries
  */
 
+/** Props for the Kudu authentication settings card. */
 interface KuduSourceAuthCardProps {
   authMode: 'none' | 'kerberos' | 'secret_manager';
   principal: string;
@@ -183,6 +189,7 @@ const KuduSourceAuthCard: React.FC<KuduSourceAuthCardProps> = ({
   );
 };
 
+/** Props for the Kudu advanced performance tuning card. */
 interface KuduSourceAdvancedCardProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -204,56 +211,47 @@ const KuduSourceAdvancedCard: React.FC<KuduSourceAdvancedCardProps> = ({
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <PropertyField
+        id="kuduSourceBatchSizeBytes"
+        name="batchSizeBytes"
+        label="Batch Size (Bytes)"
+        type="number"
+        value={batchSizeBytes}
+        onChange={onChange}
+        placeholder="e.g. 1048576 (1MB)"
+        tooltip="Target batch size in bytes for scanner RPC requests from tablet servers. Maps to withBatchSize()."
+        min={0}
+      />
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <PropertyField
-            id="kuduSourceBatchSizeBytes"
-            name="batchSizeBytes"
-            label="Batch Size (Bytes)"
-            type="number"
-            value={batchSizeBytes}
-            onChange={onChange}
-            placeholder="e.g. 1048576 (1MB)"
-            tooltip="Target batch size in bytes for scanner RPC requests from tablet servers. Maps to withBatchSize()."
-            min={0}
-          />
+      <PropertyField
+        id="kuduSourceScanRequestTimeoutMs"
+        name="scanRequestTimeoutMs"
+        label="Scan Request Timeout (ms)"
+        type="number"
+        value={scanRequestTimeoutMs}
+        onChange={onChange}
+        placeholder="e.g. 30000"
+        tooltip="Timeout in milliseconds for individual Kudu scanner RPC requests."
+        min={0}
+      />
 
-          <PropertyField
-            id="kuduSourceScanRequestTimeoutMs"
-            name="scanRequestTimeoutMs"
-            label="Scan Request Timeout (ms)"
-            type="number"
-            value={scanRequestTimeoutMs}
-            onChange={onChange}
-            placeholder="e.g. 30000"
-            tooltip="Timeout in milliseconds for individual Kudu scanner RPC requests."
-            min={0}
-          />
-
-          <PropertyField
-            id="kuduSourceSocketReadTimeoutMs"
-            name="socketReadTimeoutMs"
-            label="Socket Read Timeout (ms)"
-            type="number"
-            value={socketReadTimeoutMs}
-            onChange={onChange}
-            placeholder="e.g. 10000"
-            tooltip="Socket read timeout in milliseconds for Kudu tablet server connections."
-            min={0}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="kuduSourceSocketReadTimeoutMs"
+        name="socketReadTimeoutMs"
+        label="Socket Read Timeout (ms)"
+        type="number"
+        value={socketReadTimeoutMs}
+        onChange={onChange}
+        placeholder="e.g. 10000"
+        tooltip="Socket read timeout in milliseconds for Kudu tablet server connections."
+        min={0}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -290,12 +288,7 @@ export const KuduIOSourceProperties: React.FC<KuduIOSourcePropertiesProps> = ({ 
   const isTableEmpty = !table.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -330,15 +323,6 @@ export const KuduIOSourceProperties: React.FC<KuduIOSourcePropertiesProps> = ({ 
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Master Addresses & Table Connection */}
@@ -446,19 +430,19 @@ export const KuduIOSourceProperties: React.FC<KuduIOSourcePropertiesProps> = ({ 
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="kuduSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Custom prompt instructions for generating the Apache Beam KuduIO source step..."
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        rows={4}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

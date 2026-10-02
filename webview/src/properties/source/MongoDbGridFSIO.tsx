@@ -26,15 +26,20 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for MongoDB GridFS authentication. */
 export interface SecretItem {
   id: string;
   name: string;
   fullName?: string;
 }
 
+/** Props for the {@link MongoDbGridFSIOSourceProperties} component. */
 export interface MongoDbGridFSIOSourcePropertiesProps {
   node: {
     data: {
@@ -71,6 +76,7 @@ export interface MongoDbGridFSIOSourcePropertiesProps {
  * @returns Array of normalized SecretItem entries
  */
 
+/** Props for the MongoDB GridFS authentication section. */
 interface MongoDbGridFSSourceAuthSectionProps {
   authMode: 'uri_embedded' | 'secret_manager';
   usernameSecret: string;
@@ -158,6 +164,7 @@ const MongoDbGridFSSourceAuthSection: React.FC<MongoDbGridFSSourceAuthSectionPro
   );
 };
 
+/** Props for the MongoDB GridFS advanced SSL and connection section. */
 interface MongoDbGridFSSourceAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -181,73 +188,64 @@ const MongoDbGridFSSourceAdvancedSection: React.FC<MongoDbGridFSSourceAdvancedSe
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
-
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSourceSslEnabled"
-                type="checkbox"
-                name="sslEnabled"
-                checked={sslEnabled}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>SSL / TLS Enabled</span>
-              <InfoTooltip text="Enables SSL/TLS encrypted transport layer security." />
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSourceSslInvalidHostNameAllowed"
-                type="checkbox"
-                name="sslInvalidHostNameAllowed"
-                checked={sslInvalidHostNameAllowed}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Allow Invalid Hostname</span>
-              <InfoTooltip text="Allows SSL connections when hostname does not match the certificate." />
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
-              <input
-                id="mongoGridFSSourceIgnoreSSLCertificate"
-                type="checkbox"
-                name="ignoreSSLCertificate"
-                checked={ignoreSSLCertificate}
-                onChange={onChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
-              />
-              <span>Ignore SSL Certificate</span>
-              <InfoTooltip text="Configures whether to trust invalid or self-signed SSL certificates." />
-            </label>
-          </div>
-
-          <PropertyField
-            id="mongoGridFSSourceMaxConnectionIdleTime"
-            name="maxConnectionIdleTime"
-            label="Max Connection Idle Time (ms)"
-            type="number"
-            value={maxConnectionIdleTime}
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSourceSslEnabled"
+            type="checkbox"
+            name="sslEnabled"
+            checked={sslEnabled}
             onChange={onChange}
-            placeholder="0 (Unlimited)"
-            min={0}
-            tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed."
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
           />
-        </div>
-      )}
-    </div>
+          <span>SSL / TLS Enabled</span>
+          <InfoTooltip text="Enables SSL/TLS encrypted transport layer security." />
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSourceSslInvalidHostNameAllowed"
+            type="checkbox"
+            name="sslInvalidHostNameAllowed"
+            checked={sslInvalidHostNameAllowed}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Allow Invalid Hostname</span>
+          <InfoTooltip text="Allows SSL connections when hostname does not match the certificate." />
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--vscode-text-secondary)]">
+          <input
+            id="mongoGridFSSourceIgnoreSSLCertificate"
+            type="checkbox"
+            name="ignoreSSLCertificate"
+            checked={ignoreSSLCertificate}
+            onChange={onChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)]"
+          />
+          <span>Ignore SSL Certificate</span>
+          <InfoTooltip text="Configures whether to trust invalid or self-signed SSL certificates." />
+        </label>
+      </div>
+
+      <PropertyField
+        id="mongoGridFSSourceMaxConnectionIdleTime"
+        name="maxConnectionIdleTime"
+        label="Max Connection Idle Time (ms)"
+        type="number"
+        value={maxConnectionIdleTime}
+        onChange={onChange}
+        placeholder="0 (Unlimited)"
+        min={0}
+        tooltip="Maximum idle time of a pooled connection in milliseconds before it is closed."
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -288,12 +286,7 @@ export const MongoDbGridFSIOSourceProperties: React.FC<MongoDbGridFSIOSourceProp
   const isDatabaseEmpty = !database.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -328,15 +321,6 @@ export const MongoDbGridFSIOSourceProperties: React.FC<MongoDbGridFSIOSourceProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* MongoDB Connection URI */}
@@ -440,19 +424,19 @@ export const MongoDbGridFSIOSourceProperties: React.FC<MongoDbGridFSIOSourceProp
         onChange={handleChange}
       />
 
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="mongoGridFSSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={4}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Custom prompt instructions for generating the Apache Beam MongoDbGridFSIO source step..."
         tooltip="Optional custom prompt instructions injected into LLM code generation for this transform."
+        rows={4}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -27,9 +27,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for Hadoop authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -38,6 +44,9 @@ export interface SecretItem {
 
 export type HadoopAuthMode = 'simple' | 'kerberos' | 'secret_manager';
 
+/**
+ * Props for the HadoopFormatIOSinkProperties component.
+ */
 export interface HadoopFormatIOSinkPropertiesProps {
   node: {
     data: {
@@ -72,6 +81,9 @@ export interface HadoopFormatIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SinkFormatSection component.
+ */
 interface SinkFormatSectionProps {
   outputFormatClass: string;
   outputKeyClass: string;
@@ -173,6 +185,9 @@ const SinkFormatSection: React.FC<SinkFormatSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkPartitioningSection component.
+ */
 interface SinkPartitioningSectionProps {
   partitioningEnabled: boolean;
   numReducers: number | string;
@@ -237,6 +252,9 @@ const SinkPartitioningSection: React.FC<SinkPartitioningSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAuthSection component.
+ */
 interface SinkAuthSectionProps {
   authMode: HadoopAuthMode;
   kerberosPrincipal: string;
@@ -332,6 +350,9 @@ const SinkAuthSection: React.FC<SinkAuthSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAdvancedSection component.
+ */
 interface SinkAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -355,62 +376,53 @@ const SinkAdvancedSection: React.FC<SinkAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="hadoop-sink-core-site"
+          name="coreSitePath"
+          label="Core-Site.xml Path"
+          tooltip="Optional filesystem path to core-site.xml configuration file."
+          value={coreSitePath}
+          onChange={onChange}
+          placeholder="/etc/hadoop/conf/core-site.xml"
+        />
+        <PropertyField
+          id="hadoop-sink-hdfs-site"
+          name="hdfsSitePath"
+          label="HDFS-Site.xml Path"
+          tooltip="Optional filesystem path to hdfs-site.xml configuration file."
+          value={hdfsSitePath}
+          onChange={onChange}
+          placeholder="/etc/hadoop/conf/hdfs-site.xml"
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="hadoop-sink-core-site"
-              name="coreSitePath"
-              label="Core-Site.xml Path"
-              tooltip="Optional filesystem path to core-site.xml configuration file."
-              value={coreSitePath}
-              onChange={onChange}
-              placeholder="/etc/hadoop/conf/core-site.xml"
-            />
-            <PropertyField
-              id="hadoop-sink-hdfs-site"
-              name="hdfsSitePath"
-              label="HDFS-Site.xml Path"
-              tooltip="Optional filesystem path to hdfs-site.xml configuration file."
-              value={hdfsSitePath}
-              onChange={onChange}
-              placeholder="/etc/hadoop/conf/hdfs-site.xml"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="hadoop-sink-default-fs"
-              name="defaultFs"
-              label="Default FS (fs.defaultFS)"
-              tooltip="Default Hadoop file system URI (maps to fs.defaultFS, e.g. hdfs://namenode:8020)."
-              value={defaultFs}
-              onChange={onChange}
-              placeholder="hdfs://namenode:8020"
-            />
-            <PropertyField
-              id="hadoop-sink-commit-algorithm"
-              name="outputCommitAlgorithm"
-              label="Output Commit Algorithm"
-              tooltip="FileOutputCommitter commit algorithm version (1: safe two-stage commit, 2: faster direct commit to final directory)."
-              value={outputCommitAlgorithm}
-              onChange={onChange}
-              placeholder="2"
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="hadoop-sink-default-fs"
+          name="defaultFs"
+          label="Default FS (fs.defaultFS)"
+          tooltip="Default Hadoop file system URI (maps to fs.defaultFS, e.g. hdfs://namenode:8020)."
+          value={defaultFs}
+          onChange={onChange}
+          placeholder="hdfs://namenode:8020"
+        />
+        <PropertyField
+          id="hadoop-sink-commit-algorithm"
+          name="outputCommitAlgorithm"
+          label="Output Commit Algorithm"
+          tooltip="FileOutputCommitter commit algorithm version (1: safe two-stage commit, 2: faster direct commit to final directory)."
+          value={outputCommitAlgorithm}
+          onChange={onChange}
+          placeholder="2"
+        />
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -456,12 +468,7 @@ export const HadoopFormatIOSinkProperties: React.FC<HadoopFormatIOSinkProperties
   const isDirEmpty = !outputDir.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -489,17 +496,6 @@ export const HadoopFormatIOSinkProperties: React.FC<HadoopFormatIOSinkProperties
     }
   };
 
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -565,21 +561,18 @@ export const HadoopFormatIOSinkProperties: React.FC<HadoopFormatIOSinkProperties
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="hadoop-sink-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this HadoopFormatIO sink transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
+        tooltip="Custom system instructions passed to the LLM when generating code for this HadoopFormatIO sink transform."
         placeholder="e.g. Configuration conf = new Configuration(); conf.setClass('mapreduce.job.outputformat.class', TextOutputFormat.class, OutputFormat.class); conf.set('mapreduce.job.id', 'beam_job'); HadoopFormatIO.<Text, Text>write().withConfiguration(conf)"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

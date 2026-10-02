@@ -31,12 +31,16 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 
 export const YAML_DOC_BASE = 'https://beam.apache.org/releases/yamldoc/current/';
 
 export type DatabaseType = 'mysql' | 'postgres' | 'oracle' | 'sqlserver';
 
+/** Metadata descriptor for a supported relational database flavor and its driver capabilities. */
 export interface DbFlavor {
   value: DatabaseType;
   label: string;
@@ -122,15 +126,6 @@ function exampleUrl(f: DbFlavor): string {
   return `jdbc:${f.urlScheme}://my-host:${f.defaultPort}/database`;
 }
 
-/**
- * Opens the Beam YAML documentation anchor in the external browser via VS Code IPC.
- */
-function openMultiDbDocs(anchor: string): void {
-  const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscodeApi) {
-    vscodeApi.postMessage({ command: 'openExternal', url: `${YAML_DOC_BASE}#${anchor}` });
-  }
-}
 
 /**
  * Validates the JDBC URL for blankness and embedded passwords (`JdbcReadSchemaTransformProvider` L404).
@@ -236,6 +231,7 @@ function applyPropertyPatch(
   return next;
 }
 
+/** React Flow node data model for multi-database source panels. */
 export interface MultiDbNodeData {
   properties?: Record<string, unknown>;
   system_instructions?: string;
@@ -243,6 +239,7 @@ export interface MultiDbNodeData {
   [key: string]: unknown;
 }
 
+/** Props for the {@link MySQLPostgreSQLOracleSQLServerSourceProperties} component. */
 export interface MySQLPostgreSQLOracleSQLServerSourcePropertiesProps {
   node: {
     data: MultiDbNodeData;
@@ -250,6 +247,11 @@ export interface MySQLPostgreSQLOracleSQLServerSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for multi-engine relational database source nodes (MySQL, PostgreSQL, Oracle, SQL Server).
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
   MySQLPostgreSQLOracleSQLServerSourcePropertiesProps
 > = ({ node, onChange }) => {
@@ -281,13 +283,7 @@ export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
   const driverClassName = String(properties.driverClassName ?? '');
   const driverJars = String(properties.driverJars ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Validation
   const currentUrlError = urlError(url);
@@ -395,14 +391,10 @@ export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
           <span className="font-semibold text-slate-200">
             Beam YAML transform: <code className="text-slate-300">{flavor.readTransform}</code>
           </span>
-          <button
-            type="button"
-            aria-label={`Open ${flavor.readTransform} documentation`}
-            onClick={() => openMultiDbDocs(`readfrom${flavor.anchor}`)}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink
+            url={`${YAML_DOC_BASE}#readfrom${flavor.anchor}`}
+            ariaLabel={`Open ${flavor.readTransform} documentation`}
+          />
         </div>
         <p className="text-slate-400">
           Reads rows from MySQL, PostgreSQL, Oracle, or SQL Server via Beam YAML standard JDBC schema transforms.
@@ -610,7 +602,7 @@ export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
       />
 
       {/* 12. Output Parallelization & 13. Disable Auto Commit */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 items-end gap-2">
         <div className="flex flex-col gap-2">
           <label
             htmlFor="multidbSourceOutputParallelization"
@@ -717,23 +709,13 @@ export const MySQLPostgreSQLOracleSQLServerSourceProperties: React.FC<
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 18. Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="multidbSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleTextChange}
-          placeholder="Enter custom instructions for multi-database YAML source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="multidbSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for multi-database YAML source code generation..."
+        onChange={(value) => update({ system_instructions: value })}
+      />
     </div>
   );
 };

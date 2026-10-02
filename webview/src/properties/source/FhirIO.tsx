@@ -24,6 +24,7 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export type FhirReadMode =
@@ -33,6 +34,7 @@ export type FhirReadMode =
   | 'deidentify'
   | 'getPatientEverything';
 
+/** Props for the {@link FhirIOSourceProperties} component. */
 export interface FhirIOSourcePropertiesProps {
   node?: any;
   nodeId?: string;
@@ -346,18 +348,12 @@ export const FhirIOSourceProperties: React.FC<FhirIOSourcePropertiesProps> = ({
       </details>
 
       {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="fhirSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., dead-letter handling via getFailedReads() / HealthcareIOErrorToTableRow)."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., dead-letter handling via getFailedReads() / HealthcareIOErrorToTableRow)."
         placeholder="e.g., Route FhirIO.Read.Result.getFailedReads() to a BigQuery dead-letter table using HealthcareIOErrorToTableRow..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

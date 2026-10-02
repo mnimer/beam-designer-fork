@@ -29,9 +29,14 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { BEAM_WRITE_COMPRESSION_TYPES } from '../source/FileIO';
 
+/**
+ * React Flow node shape for the Contextual Text sink panel, including its persisted configuration data.
+ */
 export interface ContextualTextIOSinkNode {
   data: {
     label: string;
@@ -54,6 +59,9 @@ export interface ContextualTextIOSinkNode {
   };
 }
 
+/**
+ * Props for the ContextualTextIOSinkProperties component.
+ */
 export interface ContextualTextIOSinkPropertiesProps {
   node: ContextualTextIOSinkNode;
   onChange: (properties: any) => void;
@@ -168,12 +176,7 @@ export const ContextualTextIOSinkProperties: React.FC<ContextualTextIOSinkProper
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, number, and select input updates.
@@ -193,19 +196,6 @@ export const ContextualTextIOSinkProperties: React.FC<ContextualTextIOSinkProper
     });
   };
 
-  /**
-   * Updates AI prompt / system instructions for code synthesis.
-   *
-   * @param e Form change event from textarea
-   */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -301,24 +291,19 @@ export const ContextualTextIOSinkProperties: React.FC<ContextualTextIOSinkProper
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="contextualTextSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for TextIO.write() / WriteToText sink code generation..."
-          rows={3}
-          mono={false}
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="contextualTextSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for TextIO.write() / WriteToText sink code generation..."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -42,8 +42,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 const CLOUD_BIGTABLE_DOCS_URL = 'https://cloud.google.com/bigtable/docs/hbase-dataflow-java';
 
@@ -85,11 +89,13 @@ const RESERVED_SOURCE_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'google.bigtable.app_profile.id',
 ]);
 
+/** Key-value configuration entry for Cloud Bigtable settings. */
 export interface CloudBigtableConfigEntry {
   key: string;
   value: string;
 }
 
+/** Props for the {@link CloudBigtableSourceProperties} component. */
 export interface CloudBigtableSourcePropertiesProps {
   node: {
     data: {
@@ -101,6 +107,12 @@ export interface CloudBigtableSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Validates the Google Cloud project ID format.
+ *
+ * @param value The project ID string to validate.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateProjectId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -112,6 +124,12 @@ function validateProjectId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates the Cloud Bigtable instance ID format.
+ *
+ * @param value The instance ID string to validate.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateInstanceId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -123,6 +141,12 @@ function validateInstanceId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates the Cloud Bigtable table ID format and length.
+ *
+ * @param value The table ID string to validate.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateTableId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -137,6 +161,12 @@ function validateTableId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates the optional Cloud Bigtable app profile ID format.
+ *
+ * @param value The app profile ID string to validate.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateAppProfileId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -148,6 +178,12 @@ function validateAppProfileId(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates comma-separated Cloud Bigtable column family names.
+ *
+ * @param value The comma-separated column family string.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateColumnFamilies(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -160,6 +196,12 @@ function validateColumnFamilies(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates comma-separated Cloud Bigtable family:qualifier column pairs.
+ *
+ * @param value The comma-separated column pairs string.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateColumns(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -172,6 +214,14 @@ function validateColumns(value: string): string | null {
   return null;
 }
 
+/**
+ * Validates a custom Cloud Bigtable configuration key-value entry.
+ *
+ * @param entry The key-value configuration entry.
+ * @param index The index of the entry in the list.
+ * @param allEntries The full list of entries to check for duplicates.
+ * @returns An error message string if invalid, or null if valid.
+ */
 function validateConfigEntry(
   entry: CloudBigtableConfigEntry,
   index: number,
@@ -202,8 +252,13 @@ function validateConfigEntry(
   return null;
 }
 
+/**
+ * Dedicated property panel for the Cloud Bigtable source node. Configures project, instance, table, and scan filters.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CloudBigtableSourceProperties: React.FC<CloudBigtableSourcePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const projectId = String(properties.projectId ?? '');
   const instanceId = String(properties.instanceId ?? '');
@@ -223,13 +278,7 @@ export const CloudBigtableSourceProperties: React.FC<CloudBigtableSourceProperti
     ? (properties.configuration as CloudBigtableConfigEntry[])
     : [];
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Dynamic asset discovery (R2 PubSubIO datalist pattern)
   const { items: projects, loading: projectsLoading, error: projectsError } = useAssetLoader<string>('projects');
@@ -286,20 +335,6 @@ export const CloudBigtableSourceProperties: React.FC<CloudBigtableSourceProperti
       ? 'Max Timestamp must not be smaller than Min Timestamp'
       : null;
 
-  const openDocs = () => {
-    const vscode = (window as unknown as { vscode?: { postMessage?: (msg: unknown) => void } }).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({ command: 'openExternal', url: CLOUD_BIGTABLE_DOCS_URL });
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value
-    });
-  };
 
   const handleAddConfig = () => {
     onChange({
@@ -327,26 +362,13 @@ export const CloudBigtableSourceProperties: React.FC<CloudBigtableSourceProperti
     onChange(nextProps);
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">Cloud Bigtable (HBase) Source</span>
-          <button
-            type="button"
-            onClick={openDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={CLOUD_BIGTABLE_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Scans rows and cell versions from a Google Cloud Bigtable table using the HBase client API (CloudBigtableIO.read).
@@ -617,23 +639,18 @@ export const CloudBigtableSourceProperties: React.FC<CloudBigtableSourceProperti
         </button>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="cbtSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Cloud Bigtable (HBase) source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="cbtSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Cloud Bigtable (HBase) source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

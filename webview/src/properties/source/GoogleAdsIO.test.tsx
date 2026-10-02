@@ -5,12 +5,12 @@
  *
  * Purpose:
  * Unit tests validating GoogleAdsIOSourceProperties rendering, readMode switching,
- * Customer ID hyphen/empty validation, GAQL query updates, Secret Manager dynamic
- * discovery (`getSecrets`), OAuth2 Secret Manager fields, and system_instructions.
+ * Customer ID hyphen/empty validation, GAQL query updates,
+ * OAuth2 Secret Manager fields, and system_instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { GoogleAdsIOSourceProperties } from './GoogleAdsIO';
 
@@ -145,34 +145,6 @@ describe('GoogleAdsIOSourceProperties', () => {
     expect(container.querySelector('input[name="refreshTokenSecret"]')).not.toBeInTheDocument();
   });
 
-  it('requests secrets via vscode.postMessage(getSecrets) and populates datalist options', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    render(
-      <GoogleAdsIOSourceProperties
-        node={{ data: { label: 'GoogleAds', properties: { authMode: 'secretManager' } } }}
-        onChange={vi.fn()}
-      />
-    );
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ name: 'projects/123/secrets/google-ads-dev-token', id: 'google-ads-dev-token' }],
-          },
-        })
-      );
-    });
-
-    const datalist = document.getElementById('google-ads-secrets-list');
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'google-ads-dev-token');
-  });
 
   it('updates system_instructions when code generation instructions textarea is edited', () => {
     const mockOnChange = vi.fn();

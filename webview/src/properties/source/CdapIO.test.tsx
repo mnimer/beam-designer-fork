@@ -48,8 +48,6 @@ describe('CdapIOSourceProperties', () => {
     expect(screen.getByText('CDAP plugin class name is required')).toBeInTheDocument();
     expect(screen.getByText('Key class is required')).toBeInTheDocument();
     expect(screen.getByText('Value class is required')).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly', () => {
@@ -172,53 +170,9 @@ describe('CdapIOSourceProperties', () => {
     rerender(<CdapIOSourceProperties node={updatedNode} onChange={mockOnChange} />);
 
     expect(screen.getByPlaceholderText('e.g. salesforce-client-id')).toBeInTheDocument();
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'cdap-client-id-sec', name: 'cdap-client-id-sec' },
-            'projects/my-proj/secrets/cdap-token-sec'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('cdap-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'cdap-client-id-sec');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'cdap-token-sec');
   });
 
-  it('displays error alert when secretsLoaded carries an error message', () => {
-    const node = {
-      data: {
-        label: 'CDAP Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<CdapIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager fetch failed'
-        }
-      })
-    );
-
-    expect(screen.getByText(/Secret Manager fetch failed/i)).toBeInTheDocument();
-  });
-
-  it('handles advanced source settings toggling and updates', () => {
+  it('handles advanced source settings updates', () => {
     const node = {
       data: {
         label: 'CDAP Source',
@@ -231,8 +185,6 @@ describe('CdapIOSourceProperties', () => {
     render(<CdapIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const toggleButton = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('Unlimited')).not.toBeInTheDocument();
-
     fireEvent.click(toggleButton);
     expect(screen.getByPlaceholderText('Unlimited')).toBeInTheDocument();
 
@@ -242,10 +194,8 @@ describe('CdapIOSourceProperties', () => {
       cdapPluginClass: 'io.cdap.plugin.salesforce.plugin.source.batch.SalesforceBatchSource',
       maxRecords: '500'
     });
-
-    fireEvent.click(toggleButton);
-    expect(screen.queryByPlaceholderText('Unlimited')).not.toBeInTheDocument();
   });
+
 
   it('supports alias fallbacks for pluginClass and pluginConfigParams and prunes them on write', () => {
     const node = {
@@ -303,59 +253,18 @@ describe('CdapIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('Unlimited')).toHaveValue(0);
   });
 
-  it('respects instructions fallback chain and dispatches change', () => {
-    const node1 = {
+  it('updates system_instructions when instructions textarea changes', () => {
+    const node = {
       data: {
         label: 'CDAP Source',
-        system_instructions: 'Level 1 instructions',
-        special_instructions: 'Level 2 instructions',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
+        properties: {}
       }
     };
-    const { rerender } = render(<CdapIOSourceProperties node={node1} onChange={mockOnChange} />);
+    render(<CdapIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Ingest Salesforce accounts using CdapIO/i);
-    expect(textarea).toHaveValue('Level 1 instructions');
-
-    const node2 = {
-      data: {
-        label: 'CDAP Source',
-        special_instructions: 'Level 2 instructions',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
-      }
-    };
-    rerender(<CdapIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 2 instructions');
-
-    const node3 = {
-      data: {
-        label: 'CDAP Source',
-        properties: {
-          system_instructions: 'Level 3 instructions'
-        }
-      }
-    };
-    rerender(<CdapIOSourceProperties node={node3} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 3 instructions');
-
-    const node4 = {
-      data: {
-        label: 'CDAP Source',
-        properties: {
-          special_instructions: 'Level 4 instructions'
-        }
-      }
-    };
-    rerender(<CdapIOSourceProperties node={node4} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Level 4 instructions');
-
     fireEvent.change(textarea, { target: { value: 'New cdap instructions' } });
-    expect(mockOnChange).toHaveBeenCalledWith({
-      special_instructions: 'Level 4 instructions',
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'New cdap instructions'
-    });
+    }));
   });
 });

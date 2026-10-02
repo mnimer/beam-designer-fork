@@ -22,10 +22,20 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 export const TREP_SINK_DOCS_URL = 'https://github.com/Refinitiv/websocket-api';
 
+/**
+ * Validates that a string is a valid TCP/IP port number (1-65535).
+ *
+ * @param val Port string to test
+ * @returns True if valid port
+ */
 function isValidPort(val: string): boolean {
   if (!/^\d+$/.test(val.trim())) {
     return false;
@@ -34,10 +44,10 @@ function isValidPort(val: string): boolean {
   return n >= 1 && n <= 65535;
 }
 
-interface VsCodeApi {
-  postMessage: (message: Record<string, unknown>) => void;
-}
 
+/**
+ * Props for the TrepWsIOSinkProperties component.
+ */
 export interface TrepWsIOSinkPropertiesProps {
   node: {
     data: {
@@ -49,11 +59,14 @@ export interface TrepWsIOSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Properties panel component for configuring TrepWsIO sinks.
+ */
 export const TrepWsIOSinkProperties: React.FC<TrepWsIOSinkPropertiesProps> = ({
   node,
   onChange,
 }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const hostname = String(properties.hostname ?? '');
@@ -82,13 +95,7 @@ export const TrepWsIOSinkProperties: React.FC<TrepWsIOSinkPropertiesProps> = ({
   const takeExclusiveSignOnControl = properties.takeExclusiveSignOnControl !== false;
   const discoveryPath = String(properties.discoveryPath ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const discoveryActive = ertAuthEnabled && serviceDiscovery;
 
@@ -128,33 +135,6 @@ export const TrepWsIOSinkProperties: React.FC<TrepWsIOSinkPropertiesProps> = ({
       ? 'Path must start with /'
       : null;
 
-  const handleOpenDocs = () => {
-    const vscode = (window as unknown as { vscode?: VsCodeApi }).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'openExternal', url: TREP_SINK_DOCS_URL });
-    }
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    onChange({
-      ...properties,
-      [name]: val,
-    });
-  };
-
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header Row with Documentation Link */}
@@ -163,13 +143,7 @@ export const TrepWsIOSinkProperties: React.FC<TrepWsIOSinkPropertiesProps> = ({
           <span className="font-semibold text-slate-200">
             TrepWsIO Sink (WebSocket API Post Bridge)
           </span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={TREP_SINK_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Contributes market data updates to LSEG / Refinitiv TREP or RTO via the WebSocket API Post protocol (tr_json2).
@@ -596,23 +570,18 @@ export const TrepWsIOSinkProperties: React.FC<TrepWsIOSinkPropertiesProps> = ({
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="trepSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          mono={false}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for TrepWsIO sink code generation..."
-        />
-      </div>
+      <SystemInstructionsField
+        id="trepSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for TrepWsIO sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

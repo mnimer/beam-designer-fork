@@ -22,6 +22,9 @@ import { Key, Lock, RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../InfoTooltip';
 import { PropertyField } from '../PropertyField';
 
+/**
+ * Secret metadata descriptor loaded for Pulsar credentials.
+ */
 export interface SecretItem {
   name: string;
   fullName?: string;
@@ -31,6 +34,9 @@ export interface SecretItem {
 
 export type PulsarAuthMode = 'none' | 'token' | 'oauth2' | 'tls';
 
+/**
+ * Props for the {@link PulsarAuthFields} component.
+ */
 export interface PulsarAuthFieldsProps {
   /** Prefix for generating unique element ids (e.g. 'pulsar' or 'pulsar-sink'). */
   idPrefix?: string;

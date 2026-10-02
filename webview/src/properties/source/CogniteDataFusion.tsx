@@ -28,12 +28,19 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
-export const CDF_DOCS_URL = 'https://github.com/cognitedata/cdf-beam-connector-java';
+import { CDF_DOCS_URL, CDF_AUTH_TYPE_OPTIONS } from '../cdf/cdfOptions';
+import { parseIsoDurationMs, isIntegerInRange } from '../cdf/cdfValidators';
 
+export { CDF_DOCS_URL };
+
+/** Metadata describing a Cognite Data Fusion resource type and its supported query capabilities. */
 export interface SourceResourceMeta {
   value: string;
   label: string;
@@ -69,32 +76,24 @@ const REQUEST_PARAM_KEYS = [
   'requestJson',
 ] as const;
 
-/**
- * Parses an ISO-8601 duration subset (`PnDTnHnMn.nS`) into milliseconds.
- * Returns null if the string is not a valid duration or has no components.
- */
-function parseIsoDurationMs(input: string): number | null {
-  const trimmed = input.trim();
-  const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d{1,9})?)S)?)?$/i.exec(trimmed);
-  if (!match) {
-    return null;
-  }
-  const [, days, hours, minutes, seconds] = match;
-  if (days === undefined && hours === undefined && minutes === undefined && seconds === undefined) {
-    return null;
-  }
-  const dMs = days ? Number(days) * 86_400_000 : 0;
-  const hMs = hours ? Number(hours) * 3_600_000 : 0;
-  const mMs = minutes ? Number(minutes) * 60_000 : 0;
-  const sMs = seconds ? Number(seconds) * 1_000 : 0;
-  return dMs + hMs + mMs + sMs;
-}
 
+/**
+ * Validates that each non-empty line conforms to a key=value format.
+ *
+ * @param text The multiline string to validate.
+ * @returns True if all non-empty lines match key=value syntax.
+ */
 function isValidKeyValueLines(text: string): boolean {
   const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
   return lines.every((line) => /^\s*[^=\s][^=]*=.*$/.test(line));
 }
 
+/**
+ * Validates that comma- or newline-separated tokens are all numeric internal IDs.
+ *
+ * @param text The string containing delimiter-separated tokens.
+ * @returns True if every non-empty token consists solely of digits.
+ */
 function isValidInternalIdList(text: string): boolean {
   const tokens = text
     .split(/[,\r\n]+/)
@@ -103,6 +102,12 @@ function isValidInternalIdList(text: string): boolean {
   return tokens.every((t) => /^\d+$/.test(t));
 }
 
+/**
+ * Validates that a string is a parseable non-null JSON object and not an array.
+ *
+ * @param text The JSON string to validate.
+ * @returns True if the string parses to a non-array plain object.
+ */
 function isPlainJsonObject(text: string): boolean {
   try {
     const parsed: unknown = JSON.parse(text);
@@ -112,18 +117,10 @@ function isPlainJsonObject(text: string): boolean {
   }
 }
 
-function isIntegerInRange(val: string, min: number, max: number): boolean {
-  if (!/^-?\d+$/.test(val.trim())) {
-    return false;
-  }
-  const n = Number(val.trim());
-  return n >= min && n <= max;
-}
 
-interface VsCodeApi {
-  postMessage: (message: Record<string, unknown>) => void;
-}
 
+
+/** Props for the {@link CogniteDataFusionSourceProperties} component. */
 export interface CogniteDataFusionSourcePropertiesProps {
   node: {
     data: {
@@ -135,6 +132,11 @@ export interface CogniteDataFusionSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the Cognite Data Fusion source node. Configures CDF project credentials, resource types, and query filters.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSourcePropertiesProps> = ({
   node,
   onChange,
@@ -192,13 +194,7 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
   const maxRetries = String(properties.maxRetries ?? '');
   const readFileBinaryBatchSize = String(properties.readFileBinaryBatchSize ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const selectedResource = SOURCE_RESOURCES.find((r) => r.value === resourceType);
   const effectiveReadMode = selectedResource?.supportsAggregate ? readMode : 'items';
@@ -335,12 +331,7 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
       ? 'File binary batch size must be an integer between 1 and 10'
       : null;
 
-  const handleOpenDocs = () => {
-    const vscode = (window as unknown as { vscode?: VsCodeApi }).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'openExternal', url: CDF_DOCS_URL });
-    }
-  };
+
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -405,15 +396,6 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
     onChange(next);
   };
 
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   const showRequestParams = !selectedResource || selectedResource.supportsRequestParams;
 
   return (
@@ -424,13 +406,7 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
           <span className="font-semibold text-slate-200">
             Cognite Data Fusion Source
           </span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={CDF_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Reads industrial assets, events, time series, files, and RAW rows from Cognite Data Fusion (CogniteIO).
@@ -490,8 +466,11 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
             onChange={handleChange}
             className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
           >
-            <option value="clientCredentials">OpenID Connect (client credentials)</option>
-            <option value="apiKey">API key (legacy)</option>
+            {CDF_AUTH_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -1112,23 +1091,18 @@ export const CogniteDataFusionSourceProperties: React.FC<CogniteDataFusionSource
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="cdfSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          mono={false}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Cognite Data Fusion source code generation..."
-        />
-      </div>
+      <SystemInstructionsField
+        id="cdfSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Cognite Data Fusion source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

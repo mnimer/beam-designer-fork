@@ -18,7 +18,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the FlatMap step transform.
+ */
 interface FlatMapNode {
   data: {
     system_instructions?: string;
@@ -36,11 +41,20 @@ interface FlatMapNode {
   };
 }
 
+/**
+ * Props for the {@link FlatMapProperties} component.
+ */
 interface FlatMapPropertiesProps {
   node: FlatMapNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Property configuration panel for the Apache Beam FlatMap one-to-many transform.
+ *
+ * @param props The selected flat map node and change notification callback.
+ * @returns The rendered flat map properties panel.
+ */
 export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const splitVia = properties.splitVia || '';
@@ -50,12 +64,7 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
   const isDelimiterInvalid = splitVia === 'Token' && !delimiter;
   const isRegexInvalid = splitVia === 'Regex' && !regexPattern.trim();
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles changes to the split via strategy dropdown
@@ -96,19 +105,6 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
       delimiter,
       regexPattern: newRegex,
       system_instructions: systemInstructions,
-    });
-  };
-
-  /**
-   * Handles changes to the code generation instructions textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      splitVia,
-      delimiter,
-      regexPattern,
-      system_instructions: e.target.value,
     });
   };
 
@@ -171,20 +167,19 @@ export const FlatMapProperties: React.FC<FlatMapPropertiesProps> = ({ node, onCh
         Map single input elements to 0 or more output elements (e.g. splitting strings or flattening arrays).
       </div>
 
-      {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
-      <div className="flex-1 min-h-4" />
-
-      <PropertyField
+      <SystemInstructionsField
         id="flatMapSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter code generation instructions for FlatMap..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            splitVia,
+            delimiter,
+            regexPattern,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

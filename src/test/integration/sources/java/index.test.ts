@@ -3,6 +3,11 @@
  */
 import { describe, it, expect } from 'vitest';
 
+/**
+ * Runs all Java source integration tests sequentially.
+ *
+ * @returns Promise that resolves when all test suites finish executing.
+ */
 export async function runAllSourcesJavaTests(): Promise<void> {
     console.log('Running all Source integration tests for java...');
     await (await import('./pubsub-source.test')).runPubsubSourceTest();

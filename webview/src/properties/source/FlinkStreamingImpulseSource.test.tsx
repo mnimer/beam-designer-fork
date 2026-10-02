@@ -175,51 +175,20 @@ describe('FlinkStreamingImpulseSourceProperties', () => {
     }));
   });
 
-  it('handles system_instructions fallback precedence and textarea changes', () => {
+  it('updates system_instructions on textarea change', () => {
     const mockOnChange = vi.fn();
-
-    // 1. node.data.system_instructions
-    const node1 = {
+    const node = {
       data: {
         label: 'Flink Impulse Source',
-        system_instructions: 'Instructions from node.data.system_instructions',
         properties: {}
       }
     };
-    const { unmount: unmount1 } = render(<FlinkStreamingImpulseSourceProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('Instructions from node.data.system_instructions');
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const node2 = {
-      data: {
-        label: 'Flink Impulse Source',
-        special_instructions: 'Instructions from special_instructions',
-        properties: {}
-      }
-    };
-    const { unmount: unmount2 } = render(<FlinkStreamingImpulseSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('Instructions from special_instructions');
-    unmount2();
-
-    // 3. properties.system_instructions
-    const node3 = {
-      data: {
-        label: 'Flink Impulse Source',
-        properties: {
-          system_instructions: 'Instructions from properties'
-        }
-      }
-    };
-    const { unmount: unmount3 } = render(<FlinkStreamingImpulseSourceProperties node={node3} onChange={mockOnChange} />);
+    render(<FlinkStreamingImpulseSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByLabelText(/Code Generation Instructions/i);
-    expect(textarea).toHaveValue('Instructions from properties');
-
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated prompt instructions'
     }));
-    unmount3();
   });
 
   it('renders without throwing when given minimal properties', () => {

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ParquetIOSinkProperties } from './ParquetIO';
 
@@ -45,41 +45,6 @@ describe('ParquetIOSinkProperties', () => {
     expect(screen.getByText('Destination Directory is required.')).toBeInTheDocument();
   });
 
-  it('posts getStorageBuckets command and populates GCS bucket datalist via StoragePathField', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        label: 'ParquetIO',
-        properties: {
-          to: 'gs://bucket/output/'
-        }
-      }
-    };
-
-    const { container } = render(<ParquetIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['parquet-export-bucket', 'parquet-warehouse']
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://parquet-export-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://parquet-warehouse/');
-  });
 
   it('renders with populated properties and no validation error', () => {
     const mockNode: any = {

@@ -24,6 +24,12 @@
     "onView:dataflowExplorer"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Pipelines can be viewed and edited in untrusted workspaces. Running pipelines and generating code are disabled until the workspace is trusted."
+    }
+  },
   "contributes": {
     "languages": [
       {
@@ -215,15 +221,19 @@
     "test:integration:steps:java": "vitest run --config vitest.integration.config.mts src/test/integration/steps/java",
     "test:integration:steps:python": "vitest run --config vitest.integration.config.mts src/test/integration/steps/python",
     "test:webview": "npm --prefix webview test",
-    "test:all": "npm run test:unit && npm run test:webview"
+    "test:all": "npm run test:unit && npm run test:webview",
+    "test:changed": "vitest run --changed --passWithNoTests && npm --prefix webview run test:changed"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.1",
     "@types/node": "^20.17.0",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "@vscode/vsce": "^3.2.1",
     "eslint": "^8.28.0",
+    "eslint-plugin-jsdoc": "^48.11.0",
+    "globals": "^15.15.0",
     "typescript": "^5.3.3",
     "vitest": "^4.1.11"
   },

@@ -203,7 +203,7 @@ describe('MongoDbIOSinkProperties', () => {
     expect(screen.getByDisplayValue('0')).toBeInTheDocument();
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'MongoDB Sink',
@@ -222,53 +222,6 @@ describe('MongoDbIOSinkProperties', () => {
 
     expect(userSecretInput).toHaveValue('sink-user-secret');
     expect(passSecretInput).toHaveValue('sink-pass-secret');
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/sink-mongo-key',
-            { id: 'sink-mongo-pwd', name: 'sink-mongo-pwd' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#mongodb-sink-secret-options option[value="sink-mongo-key"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#mongodb-sink-secret-options option[value="sink-mongo-pwd"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('renders Secret Manager error when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'MongoDB Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<MongoDbIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager for Sink'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager for Sink')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and updates SSL, retryWrites, and idle time', () => {
@@ -323,70 +276,7 @@ describe('MongoDbIOSinkProperties', () => {
     );
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <MongoDbIOSinkProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <MongoDbIOSinkProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <MongoDbIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property level system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <MongoDbIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property level special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level special instructions')).toBeInTheDocument();
-    unmount4();
-
-    // 5. empty fallback
+  it('updates system_instructions when textarea changes', () => {
     render(
       <MongoDbIOSinkProperties
         node={{

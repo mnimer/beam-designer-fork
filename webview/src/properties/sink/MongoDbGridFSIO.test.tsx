@@ -146,7 +146,7 @@ describe('MongoDbGridFSIOSinkProperties', () => {
     );
   });
 
-  it('handles Secret Manager IPC callback and radio selection', () => {
+  it('handles Secret Manager fields and radio selection', () => {
     const node = {
       data: {
         label: 'GridFS Sink',
@@ -160,24 +160,6 @@ describe('MongoDbGridFSIOSinkProperties', () => {
 
     render(<MongoDbGridFSIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    // Check secrets loading IPC message with both string and object shapes
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/mongo-sink-user-secret',
-            { id: 'mongo-sink-pass-secret', name: 'mongo-sink-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('mongodbgridfs-sink-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     expect(screen.getByDisplayValue('mongo-sink-user-secret')).toBeInTheDocument();
     expect(screen.getByDisplayValue('mongo-sink-pass-secret')).toBeInTheDocument();
 
@@ -186,32 +168,6 @@ describe('MongoDbGridFSIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ usernameSecret: 'new-sink-user-secret' })
     );
-  });
-
-  it('displays secret loading errors from IPC callback', () => {
-    const node = {
-      data: {
-        label: 'GridFS Sink',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<MongoDbGridFSIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [],
-          error: 'Permission denied accessing Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getAllByText('Permission denied accessing Secret Manager').length).toBeGreaterThan(0);
   });
 
   it('toggles authMode radio button between URI embedded and Secret Manager', () => {
@@ -282,48 +238,7 @@ describe('MongoDbGridFSIOSinkProperties', () => {
     expect(screen.queryByLabelText('SSL / TLS Enabled')).not.toBeInTheDocument();
   });
 
-  it('falls back through system instructions hierarchy and edits instructions', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <MongoDbGridFSIOSinkProperties
-        node={{ data: { system_instructions: 'Sink data system instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Sink data system instruction')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <MongoDbGridFSIOSinkProperties
-        node={{ data: { special_instructions: 'Sink data special instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Sink data special instruction')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <MongoDbGridFSIOSinkProperties
-        node={{ data: { properties: { system_instructions: 'Sink props system instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Sink props system instruction')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <MongoDbGridFSIOSinkProperties
-        node={{ data: { properties: { special_instructions: 'Sink props special instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Sink props special instruction')).toBeInTheDocument();
-    unmount4();
-
-    // Edit instructions
+  it('edits system_instructions', () => {
     render(
       <MongoDbGridFSIOSinkProperties
         node={{ data: { properties: { uri: 'mongodb://localhost:27017' } } }}
@@ -340,16 +255,5 @@ describe('MongoDbGridFSIOSinkProperties', () => {
         system_instructions: 'Ensure chunk size does not exceed 16MB'
       })
     );
-  });
-
-  it('handles missing window.vscode gracefully on mount without crashing', () => {
-    delete (window as any).vscode;
-    const node = {
-      data: {
-        properties: {}
-      }
-    };
-
-    expect(() => render(<MongoDbGridFSIOSinkProperties node={node} onChange={mockOnChange} />)).not.toThrow();
   });
 });

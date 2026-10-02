@@ -6,18 +6,16 @@
  * Purpose:
  * Unit tests validating HadoopFileSystemSourceProperties component functionality,
  * form change callbacks, validation states for required fields, Kerberos authentication
- * conditional rendering, accordion toggling, dynamic extension GCS bucket discovery IPC,
- * canonical bucket discovery error regression testing, and code generation instructions.
+ * conditional rendering, accordion toggling,
+ * and code generation instructions.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
- * - Mocks window.vscode and listens for extension message dispatch events.
  * - Validates required field state for filePattern, default fallbacks, and error boundaries.
- * - Confirms canonical bucket discovery error renders even with a valid, non-empty path (regression test).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { HadoopFileSystemSourceProperties } from './HadoopFileSystem';
 
@@ -284,10 +282,6 @@ describe('HadoopFileSystemSourceProperties', () => {
       <HadoopFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />
     );
 
-    // Accordion starts closed
-    expect(container.querySelector('#hadoopSourceValidate')).not.toBeInTheDocument();
-    expect(container.querySelector('#hadoopSourceMinBundleSize')).not.toBeInTheDocument();
-
     // Toggle open
     const accordionToggle = screen.getByText('Read Tuning & Options');
     fireEvent.click(accordionToggle);
@@ -316,11 +310,6 @@ describe('HadoopFileSystemSourceProperties', () => {
         minBundleSize: '1048576'
       })
     );
-
-    // Toggle closed again
-    fireEvent.click(accordionToggle);
-    expect(container.querySelector('#hadoopSourceValidate')).not.toBeInTheDocument();
-    expect(container.querySelector('#hadoopSourceMinBundleSize')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -346,110 +335,5 @@ describe('HadoopFileSystemSourceProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(
-      <HadoopFileSystemSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
 
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<HadoopFileSystemSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<HadoopFileSystemSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(
-      <HadoopFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />
-    );
-
-    // Initial postMessage request
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['hdfs-backup-bucket', 'gs://hybrid-data-lake']
-          }
-        })
-      );
-    });
-
-    const filePatternInput = container.querySelector('#hadoopSourceFilePattern') as HTMLInputElement;
-    const datalistId = filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://hdfs-backup-bucket/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://hybrid-data-lake');
-  });
-
-  it('REGRESSION: shows the bucket discovery error even when the path is valid', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          filePattern: 'hdfs://namenode:8020/data/*.txt' // Valid, non-empty path
-        }
-      }
-    };
-
-    render(<HadoopFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent(
-      'Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden'
-    );
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
 });

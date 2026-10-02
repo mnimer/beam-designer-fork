@@ -188,49 +188,11 @@ describe('CassandraIOSinkProperties', () => {
     expect(usernameSecretInput).toBeInTheDocument();
     expect(passwordSecretInput).toBeInTheDocument();
 
-    // Simulate secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-project/secrets/sink-cassandra-user',
-          { id: 'sink-cassandra-pass', name: 'sink-cassandra-pass' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#cassandra-sink-secret-options option[value="sink-cassandra-user"]');
-    const option2 = document.querySelector('datalist#cassandra-sink-secret-options option[value="sink-cassandra-pass"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-
     // Type in secret fields
     fireEvent.change(passwordSecretInput, { target: { name: 'passwordSecret', value: 'sink-cassandra-pass' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       passwordSecret: 'sink-cassandra-pass'
     }));
-  });
-
-  it('displays error when Secret Manager loading fails', () => {
-    const node = {
-      data: {
-        label: 'Cassandra Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<CassandraIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager in sink'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager in sink')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and updates parameters', () => {
@@ -313,29 +275,13 @@ describe('CassandraIOSinkProperties', () => {
   });
 
   it('respects system_instructions fallback chain', () => {
-    // 1. From special_instructions in node.data
-    const node1 = {
+    const node = {
       data: {
         label: 'Cassandra Sink',
-        special_instructions: 'Fallback instructions 1',
         properties: {}
       }
     };
-    const { unmount } = render(<CassandraIOSinkProperties node={node1} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write mutated Cassandra entities/i)).toHaveValue('Fallback instructions 1');
-    unmount();
-
-    // 2. From properties.special_instructions
-    const node2 = {
-      data: {
-        label: 'Cassandra Sink',
-        properties: {
-          special_instructions: 'Fallback instructions 2'
-        }
-      }
-    };
-    render(<CassandraIOSinkProperties node={node2} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Write mutated Cassandra entities/i)).toHaveValue('Fallback instructions 2');
+    render(<CassandraIOSinkProperties node={node} onChange={mockOnChange} />);
 
     // Modifying textarea calls onChange with system_instructions
     const textarea = screen.getByPlaceholderText(/Write mutated Cassandra entities/i);

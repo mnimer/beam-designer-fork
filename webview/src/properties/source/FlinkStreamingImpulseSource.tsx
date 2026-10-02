@@ -23,7 +23,10 @@
 import React from 'react';
 import { Server, Zap, CheckCircle2 } from 'lucide-react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** Persisted configuration properties for the Flink streaming impulse source node. */
 export interface FlinkStreamingImpulseSourcePropertiesData {
   intervalMs?: number | string;
   messageCount?: number | string;
@@ -33,6 +36,7 @@ export interface FlinkStreamingImpulseSourcePropertiesData {
   [key: string]: any;
 }
 
+/** React Flow node shape for the Flink streaming impulse source panel, including its persisted configuration data. */
 export interface FlinkStreamingImpulseSourceNode {
   data: {
     label: string;
@@ -43,6 +47,7 @@ export interface FlinkStreamingImpulseSourceNode {
   };
 }
 
+/** Props for the {@link FlinkStreamingImpulseSourceProperties} component. */
 export interface FlinkStreamingImpulseSourcePropertiesProps {
   node: FlinkStreamingImpulseSourceNode;
   onChange: (properties: any) => void;
@@ -64,12 +69,7 @@ export const FlinkStreamingImpulseSourceProperties: React.FC<FlinkStreamingImpul
   const flinkMaster = properties.flinkMaster ?? '';
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -106,13 +106,6 @@ export const FlinkStreamingImpulseSourceProperties: React.FC<FlinkStreamingImpul
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   // Validation calculations
   const intervalStr = String(intervalMs).trim();
   const intervalNum = Number(intervalStr);
@@ -256,25 +249,20 @@ export const FlinkStreamingImpulseSourceProperties: React.FC<FlinkStreamingImpul
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="flink-source-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific FlinkStreamingImpulseSource node (e.g. interval tuning, watermark emission, or synthetic payload mapping)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Emit synthetic impulses every 250ms and map elements into JSON payload objects with event timestamp."
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="flink-source-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific FlinkStreamingImpulseSource node (e.g. interval tuning, watermark emission, or synthetic payload mapping)."
+        placeholder="e.g. Emit synthetic impulses every 250ms and map elements into JSON payload objects with event timestamp."
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -19,45 +19,13 @@ import React from 'react';
 import {
   GripVertical,
   Plus,
-  Radio,
-  Database,
-  Cable,
-  Share2,
-  HardDrive,
-  Cloud,
-  Clock,
-  Layers,
-  BarChart,
-  Box,
-  FileCode,
-  Terminal,
-  Calendar,
-  Filter,
-  GitMerge,
-  Key,
-  Hash,
-  Shuffle,
-  Activity,
-  Type,
-  Grid,
-  Code,
-  FileText,
-  Folder,
-  ListOrdered,
-  Zap,
-  Workflow,
-  Cpu,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Wrench
+  Box
 } from 'lucide-react';
+import { getNodeIcon } from './common/nodeIcons';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap,
-  Workflow, Cpu, ArrowDownToLine, ArrowUpFromLine, Wrench
-};
-
+/**
+ * Props for the {@link SidebarItem} component.
+ */
 export interface SidebarItemProps {
   /** Display label for the node */
   label: string;
@@ -124,7 +92,7 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
   onAddNode
 }) => {
   // Retrieve the matching Lucide icon component
-  const IconComponent = iconComponentMap[iconName] || Box;
+  const IconComponent = getNodeIcon(iconName, Box);
   const theme = getThemeClasses(type);
 
   /**
@@ -163,6 +131,7 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 transition-colors ${theme.iconBox}`}
         >
+          {/* eslint-disable-next-line react-hooks/static-components */}
           <IconComponent className={`w-4 h-4 ${theme.icon}`} />
         </div>
 

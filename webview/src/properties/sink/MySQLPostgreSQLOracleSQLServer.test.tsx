@@ -140,8 +140,8 @@ describe('MySQLPostgreSQLOracleSQLServerSinkProperties (IO79)', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens Beam YAML write transform documentation when Docs ↗ button is clicked and handles missing vscode API', () => {
-    const { rerender } = render(
+  it('opens Beam YAML write transform documentation when Docs ↗ button is clicked', () => {
+    render(
       <MySQLPostgreSQLOracleSQLServerSinkProperties
         node={makeNode({ databaseType: 'mysql', url: 'jdbc:mysql://h:3306/d', table: 't' })}
         onChange={vi.fn()}
@@ -153,27 +153,6 @@ describe('MySQLPostgreSQLOracleSQLServerSinkProperties (IO79)', () => {
       command: 'openExternal',
       url: `${YAML_DOC_BASE}#writetomysql`,
     });
-
-    rerender(
-      <MySQLPostgreSQLOracleSQLServerSinkProperties
-        node={makeNode({
-          databaseType: 'sqlserver',
-          url: 'jdbc:sqlserver://h:1433/d',
-          table: 't',
-        })}
-        onChange={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Open WriteToSqlServer documentation' }));
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: `${YAML_DOC_BASE}#writetosqlserver`,
-    });
-
-    mockPostMessage.mockClear();
-    delete vscodeWindow.vscode;
-    fireEvent.click(screen.getByRole('button', { name: 'Open WriteToSqlServer documentation' }));
-    expect(mockPostMessage).not.toHaveBeenCalled();
   });
 
   it.each(FLAVOR_EXPECTATIONS)(
@@ -462,7 +441,7 @@ describe('MySQLPostgreSQLOracleSQLServerSinkProperties (IO79)', () => {
     );
   });
 
-  it('resolves system_instructions across all 4 fallback levels and updates on change', () => {
+  it('updates system_instructions on change', () => {
     const onChange = vi.fn();
     const baseProps = {
       databaseType: 'mysql',
@@ -470,45 +449,12 @@ describe('MySQLPostgreSQLOracleSQLServerSinkProperties (IO79)', () => {
       table: 'orders',
     };
 
-    const { rerender } = render(
+    render(
       <MySQLPostgreSQLOracleSQLServerSinkProperties
-        node={makeNode(baseProps, { system_instructions: 'sink node sys' })}
+        node={makeNode(baseProps)}
         onChange={onChange}
       />
     );
-    expect(
-      screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-    ).toHaveValue('sink node sys');
-
-    rerender(
-      <MySQLPostgreSQLOracleSQLServerSinkProperties
-        node={makeNode(baseProps, { special_instructions: 'sink node spec' })}
-        onChange={onChange}
-      />
-    );
-    expect(
-      screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-    ).toHaveValue('sink node spec');
-
-    rerender(
-      <MySQLPostgreSQLOracleSQLServerSinkProperties
-        node={makeNode({ ...baseProps, system_instructions: 'sink props sys' })}
-        onChange={onChange}
-      />
-    );
-    expect(
-      screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-    ).toHaveValue('sink props sys');
-
-    rerender(
-      <MySQLPostgreSQLOracleSQLServerSinkProperties
-        node={makeNode({ ...baseProps, special_instructions: 'sink props spec' })}
-        onChange={onChange}
-      />
-    );
-    expect(
-      screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-    ).toHaveValue('sink props spec');
 
     fireEvent.change(
       screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' }),

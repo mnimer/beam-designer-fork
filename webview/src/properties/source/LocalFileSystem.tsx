@@ -27,10 +27,14 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Sliders } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** React Flow node shape for the LocalFileSystem source panel, including its persisted configuration data. */
 export interface LocalFileSystemSourceNode {
   data: {
     label: string;
@@ -52,6 +56,7 @@ export interface LocalFileSystemSourceNode {
   };
 }
 
+/** Props for the {@link LocalFileSystemSourceProperties} component. */
 export interface LocalFileSystemSourcePropertiesProps {
   node: LocalFileSystemSourceNode;
   onChange: (properties: any) => void;
@@ -87,48 +92,7 @@ export const EMPTY_MATCH_TREATMENT_OPTIONS = [
   { value: 'ALLOW_IF_WILDCARD', label: 'ALLOW_IF_WILDCARD (Allow zero files only when pattern contains wildcards)' }
 ];
 
-interface CollapsibleSectionProps {
-  title: string;
-  icon?: React.ReactNode;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-/**
- * Reusable collapsible section component conforming to the 8pt grid
- * and standard VS Code theme tokens.
- */
-const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
-  title,
-  icon,
-  isOpen,
-  onToggle,
-  children
-}) => {
-  return (
-    <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-3 text-xs font-bold uppercase text-[var(--vscode-text-primary)] hover:bg-[var(--vscode-hover)] transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          {icon}
-          <span>{title}</span>
-        </div>
-        {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-      </button>
-
-      {isOpen && (
-        <div className="p-3 pt-0 flex flex-col gap-3 border-t border-[var(--vscode-border-light)] mt-2">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-};
-
+/** Props for the select dropdown input field. */
 interface SelectFieldProps {
   id: string;
   name: string;
@@ -205,12 +169,7 @@ export const LocalFileSystemSourceProperties: React.FC<LocalFileSystemSourceProp
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -229,13 +188,6 @@ export const LocalFileSystemSourceProperties: React.FC<LocalFileSystemSourceProp
   /**
    * Updates AI prompt / system instructions
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   /**
    * Toggles the advanced tuning accordion state
    */
@@ -366,22 +318,21 @@ export const LocalFileSystemSourceProperties: React.FC<LocalFileSystemSourceProp
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="localSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this LocalFileSystem reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read CSV files from local directory /data/input/ and parse each row."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="localSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this LocalFileSystem reader step."
+        placeholder="e.g. Read CSV files from local directory /data/input/ and parse each row."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

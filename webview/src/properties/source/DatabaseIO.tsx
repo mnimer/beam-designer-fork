@@ -27,11 +27,15 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for DatabaseIO authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -40,6 +44,7 @@ export interface SecretItem {
 
 export type DatabaseEngine = 'postgresql' | 'mysql' | 'sqlserver' | 'oracle' | 'generic';
 
+/** Preset configuration settings for a supported relational database engine. */
 export interface DatabaseEnginePreset {
   label: string;
   defaultDriver: string;
@@ -88,6 +93,7 @@ export const SSL_MODES = [
   { value: 'prefer', label: 'Prefer' }
 ];
 
+/** Props for the {@link DatabaseIOSourceProperties} component. */
 export interface DatabaseIOSourcePropertiesProps {
   node: {
     data: {
@@ -224,81 +230,72 @@ const AdvancedSourceSection: React.FC<AdvancedSourceSectionProps> = ({
   driverJars,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Source Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Source Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <div className="grid grid-cols-2 gap-2">
+      <PropertyField
+        id="dbSourceConnectTimeout"
+        name="connectTimeout"
+        label="Connect Timeout (s)"
+        type="number"
+        tooltip="Connection timeout in seconds."
+        value={connectTimeout}
+        onChange={onChange}
+        placeholder="30"
+        mono={true}
+      />
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <div className="grid grid-cols-2 gap-2">
-          <PropertyField
-            id="dbSourceConnectTimeout"
-            name="connectTimeout"
-            label="Connect Timeout (s)"
-            type="number"
-            tooltip="Connection timeout in seconds."
-            value={connectTimeout}
-            onChange={onChange}
-            placeholder="30"
-            mono={true}
-          />
-
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="dbSourceSslMode"
-              className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
-            >
-              <span>SSL Mode</span>
-              <InfoTooltip text="Database SSL connection negotiation strategy." />
-            </label>
-            <select
-              id="dbSourceSslMode"
-              name="sslMode"
-              value={sslMode}
-              onChange={onChange}
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
-            >
-              {SSL_MODES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <PropertyField
-          id="dbSourceDriverJars"
-          name="driverJars"
-          label="Driver JARs / Classpath"
-          tooltip="Optional comma-delimited path or GCS URI to JDBC driver JARs for workers."
-          value={driverJars}
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="dbSourceSslMode"
+          className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
+        >
+          <span>SSL Mode</span>
+          <InfoTooltip text="Database SSL connection negotiation strategy." />
+        </label>
+        <select
+          id="dbSourceSslMode"
+          name="sslMode"
+          value={sslMode}
           onChange={onChange}
-          placeholder="e.g. gs://my-bucket/jars/mysql-connector.jar"
-          mono={true}
-        />
-
-        <PropertyField
-          id="dbSourceConnectionProperties"
-          name="connectionProperties"
-          label="Extra Connection Properties"
-          type="textarea"
-          rows={3}
-          tooltip="Custom JDBC connection properties as key=value pairs per line."
-          value={connectionProperties}
-          onChange={onChange}
-          placeholder="ssl=true&#10;tcpKeepAlive=true"
-          mono={true}
-        />
+          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono"
+        >
+          {SSL_MODES.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
       </div>
-    )}
-  </div>
+    </div>
+
+    <PropertyField
+      id="dbSourceDriverJars"
+      name="driverJars"
+      label="Driver JARs / Classpath"
+      tooltip="Optional comma-delimited path or GCS URI to JDBC driver JARs for workers."
+      value={driverJars}
+      onChange={onChange}
+      placeholder="e.g. gs://my-bucket/jars/mysql-connector.jar"
+      mono={true}
+    />
+
+    <PropertyField
+      id="dbSourceConnectionProperties"
+      name="connectionProperties"
+      label="Extra Connection Properties"
+      type="textarea"
+      rows={3}
+      tooltip="Custom JDBC connection properties as key=value pairs per line."
+      value={connectionProperties}
+      onChange={onChange}
+      placeholder="ssl=true&#10;tcpKeepAlive=true"
+      mono={true}
+    />
+  </CollapsibleSection>
 );
 
 /**
@@ -340,12 +337,7 @@ export const DatabaseIOSourceProperties: React.FC<DatabaseIOSourcePropertiesProp
   const isTableOrQueryEmpty = !String(table).trim() && !String(query).trim();
 
   // NOTE: Fallback chain for system instructions per architecture spec
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a single property key and invokes onChange while pruning legacy alias keys.
@@ -414,13 +406,6 @@ export const DatabaseIOSourceProperties: React.FC<DatabaseIOSourcePropertiesProp
    *
    * @param e - Textarea change event.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Database Engine Selector */}
@@ -627,21 +612,18 @@ export const DatabaseIOSourceProperties: React.FC<DatabaseIOSourcePropertiesProp
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="dbSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing database ingestion pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing database ingestion pipelines."
         placeholder="e.g. Read records using JdbcIO with custom RowMapper or Python ReadFromJdbc"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

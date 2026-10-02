@@ -6,11 +6,11 @@
  * Purpose:
  * Unit tests validating RequestResponseIOSourceProperties rendering, endpointUrl validation,
  * HTTP method and coder selection, repeater/throttler toggles, conditional Redis cache fields,
- * Secret Manager dynamic discovery (`getSecrets`), and system_instructions.
+ * Secret Manager auth mode, and system_instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { RequestResponseIOSourceProperties } from './RequestResponseIO';
 
@@ -129,34 +129,6 @@ describe('RequestResponseIOSourceProperties', () => {
     expect(container.querySelector('input[name="authHeaderName"]')).not.toBeInTheDocument();
   });
 
-  it('requests secrets via vscode.postMessage(getSecrets) and populates datalist', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    render(
-      <RequestResponseIOSourceProperties
-        node={{ data: { label: 'Web APIs', properties: { authMode: 'secretManager' } } }}
-        onChange={vi.fn()}
-      />
-    );
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ name: 'projects/123/secrets/webapi-token', id: 'webapi-token' }],
-          },
-        })
-      );
-    });
-
-    const datalist = document.getElementById('rrio-source-secrets-list');
-    expect(datalist?.children.length).toBe(1);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'webapi-token');
-  });
 
   it('updates system_instructions when code generation instructions textarea is edited', () => {
     const mockOnChange = vi.fn();

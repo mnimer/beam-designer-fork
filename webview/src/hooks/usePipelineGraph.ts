@@ -18,7 +18,14 @@ import {
   type Connection,
 } from 'reactflow';
 import { validateDagTopology, type DagValidationResult } from '../utils/dagValidator';
+import { computeLayoutedNodes } from '../graph/layout';
+import { createNodeId, createNodesForPaletteItem } from '../graph/nodeFactory';
+import { isPubSubSourceNode, isPubSubNode, isDicomIoNode } from '../graph/nodeKinds';
+import { pipelineConfigReducer } from '../state/pipelineConfigReducer';
 
+/**
+ * Data payload stored within React Flow nodes for Apache Beam transforms.
+ */
 export interface PipelineNodeData {
   label: string;
   type: string;
@@ -40,6 +47,9 @@ export type PipelineNode = Node<PipelineNodeData>;
 export const initialNodes: PipelineNode[] = [];
 export const initialEdges: Edge[] = [];
 
+/**
+ * Options for configuring the {@link usePipelineGraph} hook.
+ */
 export interface UsePipelineGraphOptions {
   takeSnapshot: () => void;
   setPipelineConfig: React.Dispatch<React.SetStateAction<any>>;
@@ -47,6 +57,12 @@ export interface UsePipelineGraphOptions {
   fitView?: (options?: any) => void;
 }
 
+/**
+ * Custom React hook managing pipeline graph nodes, edges, selection, validation, layout, and transform mutations.
+ *
+ * @param options Graph initialization and synchronization options.
+ * @returns State and event handlers for the React Flow canvas.
+ */
 export function usePipelineGraph({
   takeSnapshot,
   setPipelineConfig,
@@ -58,9 +74,7 @@ export function usePipelineGraph({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  const hasPubSubSource = nodes.some(
-    (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-  );
+  const hasPubSubSource = nodes.some(isPubSubSourceNode);
 
   // Wrap state changes to set needsRebuild: true when structural nodes change
   const handleNodesChange = useCallback(
@@ -68,7 +82,7 @@ export function usePipelineGraph({
       onNodesChange(changes);
       const requiresRebuild = changes.some((c: any) => c.type === 'add' || c.type === 'remove');
       if (requiresRebuild) {
-        setPipelineConfig((prev: any) => (prev.needsRebuild ? prev : { ...prev, needsRebuild: true }));
+        setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
       }
     },
     [onNodesChange, setPipelineConfig]
@@ -80,7 +94,7 @@ export function usePipelineGraph({
       onEdgesChange(changes);
       const requiresRebuild = changes.some((c: any) => c.type === 'remove');
       if (requiresRebuild) {
-        setPipelineConfig((prev: any) => (prev.needsRebuild ? prev : { ...prev, needsRebuild: true }));
+        setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
       }
     },
     [onEdgesChange, setPipelineConfig]
@@ -106,7 +120,7 @@ export function usePipelineGraph({
     (params: Connection | Edge) => {
       takeSnapshot();
       setEdges((eds) => addEdge(params, eds));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setEdges, takeSnapshot, setPipelineConfig]
   );
@@ -137,7 +151,7 @@ export function usePipelineGraph({
           return node;
         })
       );
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setNodes, takeSnapshot, setPipelineConfig]
   );
@@ -160,7 +174,7 @@ export function usePipelineGraph({
           return node;
         })
       );
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setNodes, takeSnapshot, setPipelineConfig]
   );
@@ -175,7 +189,7 @@ export function usePipelineGraph({
       const windowNode = nodes.find((n) => n.id === windowNodeId);
       if (!windowNode) return;
 
-      const kvMapperId = `kv_mapper_${Date.now()}`;
+      const kvMapperId = createNodeId('kv_mapper_');
       const newKVMapperNode: PipelineNode = {
         id: kvMapperId,
         type: 'pipeline',
@@ -223,7 +237,7 @@ export function usePipelineGraph({
       // Update both nodes and edges states
       setNodes((nds) => nds.concat(newKVMapperNode));
       setEdges(updatedEdges);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
   );
@@ -240,11 +254,11 @@ export function usePipelineGraph({
       const alreadyConnected = edges.some((e) => {
         if (e.target !== targetNodeId) return false;
         const src = nodes.find((n) => n.id === e.source);
-        return src?.data?.beam_transform === 'PubSubIO' || src?.data?.label?.includes('PubSub');
+        return isPubSubNode(src);
       });
       if (alreadyConnected) return;
 
-      const pubSubId = `pubsub_${Date.now()}`;
+      const pubSubId = createNodeId('pubsub_');
       const newPubSubNode: PipelineNode = {
         id: pubSubId,
         type: 'pipeline',
@@ -272,94 +286,10 @@ export function usePipelineGraph({
       takeSnapshot();
       setNodes((nds) => nds.concat(newPubSubNode));
       setEdges((eds) => eds.concat(connectorEdge));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
   );
-
-  // Computes topological columns using Kahn's algorithm and positions nodes left-to-right
-  const computeLayoutedNodes = useCallback((targetNodes: PipelineNode[], targetEdges: Edge[]): PipelineNode[] => {
-    // 1. Build adjacency lists
-    const adj: Record<string, string[]> = {};
-    const inDegree: Record<string, number> = {};
-
-    targetNodes.forEach((n) => {
-      adj[n.id] = [];
-      inDegree[n.id] = 0;
-    });
-
-    targetEdges.forEach((e) => {
-      if (adj[e.source] && adj[e.target] !== undefined) {
-        adj[e.source].push(e.target);
-        inDegree[e.target]++;
-      }
-    });
-
-    // 2. Queue for Kahn's topological sort to compute columns (ranks)
-    const ranks: Record<string, number> = {};
-    const queue: string[] = [];
-
-    // Find all root nodes (in-degree = 0)
-    targetNodes.forEach((n) => {
-      if (inDegree[n.id] === 0) {
-        queue.push(n.id);
-        ranks[n.id] = 0;
-      }
-    });
-
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      const currRank = ranks[curr];
-
-      adj[curr].forEach((neighbor) => {
-        ranks[neighbor] = Math.max(ranks[neighbor] || 0, currRank + 1);
-        inDegree[neighbor]--;
-        if (inDegree[neighbor] === 0) {
-          queue.push(neighbor);
-        }
-      });
-    }
-
-    // If there are leftover nodes due to cycles, assign fallback ranks
-    targetNodes.forEach((n) => {
-      if (ranks[n.id] === undefined) {
-        if (n.data?.type === 'SOURCE') ranks[n.id] = 0;
-        else if (n.data?.type === 'SINK') ranks[n.id] = 2;
-        else ranks[n.id] = 1;
-      }
-    });
-
-    // 3. Group nodes by their calculated column rank
-    const columns: Record<number, string[]> = {};
-    targetNodes.forEach((n) => {
-      const r = ranks[n.id];
-      if (!columns[r]) columns[r] = [];
-      columns[r].push(n.id);
-    });
-
-    // 4. Calculate new positions
-    return targetNodes.map((node) => {
-      const rank = ranks[node.id];
-      const colNodes = columns[rank];
-      const index = colNodes.indexOf(node.id);
-
-      // Spacing constants adhering to 8pt design
-      const colWidth = 300;
-      const rowHeight = 120;
-      const startX = 80;
-      const startY = 150;
-
-      const x = startX + rank * colWidth;
-      // Center the column vertically
-      const totalHeight = (colNodes.length - 1) * rowHeight;
-      const y = startY + index * rowHeight - totalHeight / 2;
-
-      return {
-        ...node,
-        position: { x, y },
-      };
-    });
-  }, []);
 
   const triggerFitView = useCallback(() => {
     if (fitView) {
@@ -374,7 +304,7 @@ export function usePipelineGraph({
     takeSnapshot();
     setNodes(newNodes);
     triggerFitView();
-  }, [nodes, edges, computeLayoutedNodes, setNodes, takeSnapshot, triggerFitView]);
+  }, [nodes, edges, setNodes, takeSnapshot, triggerFitView]);
 
   const onDragStart = useCallback(
     (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
@@ -416,95 +346,21 @@ export function usePipelineGraph({
       };
       const position = project ? project(rawPos) : rawPos;
 
-      // Special handling for FileIO Source: Spawns both FileIO.match() and FileIO.readMatches() connected by an edge
-      if (data.type === 'SOURCE' && (data.label === 'FileIO' || data.beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode: PipelineNode = {
-          id: `${now}`,
-          type: data.nodeType,
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match',
-          },
-        };
-
-        const readMatchesNode: PipelineNode = {
-          id: `${now + 1}`,
-          type: data.nodeType,
-          position: {
-            x: position.x + 240,
-            y: position.y,
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches',
-          },
-        };
-
-        const edge: Edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
-        setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-        return;
-      }
-
-      const newNode: PipelineNode = {
-        id: `${Date.now()}`,
-        type: data.nodeType,
+      const { nodes: newNodes, edges: newEdges } = createNodesForPaletteItem(
+        data,
         position,
-        data: {
-          label: data.label,
-          type: data.type,
-          iconName: data.iconName,
-          ...(data.beamTransform ? { beam_transform: data.beamTransform } : {}),
-        },
-      };
+        nodes,
+        edges
+      );
 
       takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-
-      if (data.type === 'STEP') {
-        if (data.label === 'Parse Message') {
-          const pubSubSource = nodes.find(
-            (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-          );
-          if (pubSubSource) {
-            const newEdge: Edge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-            setEdges((eds) => eds.concat(newEdge));
-          }
-        } else {
-          const hasStep = nodes.some((n) => n.data?.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find((n) => n.data?.type === 'SOURCE');
-            if (sourceNode) {
-              const newEdge: Edge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-              setEdges((eds) => eds.concat(newEdge));
-            }
-          }
-        }
+      setNodes((prev) => [...prev, ...newNodes]);
+      if (newEdges.length > 0) {
+        setEdges((prev) => [...prev, ...newEdges]);
       }
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
-    [project, setNodes, setEdges, nodes, takeSnapshot, setPipelineConfig]
+    [project, setNodes, setEdges, nodes, edges, takeSnapshot, setPipelineConfig]
   );
 
   /**
@@ -519,106 +375,24 @@ export function usePipelineGraph({
         y: 100 + (nodeCount % 6) * 60,
       };
 
-      if (type === 'SOURCE' && (label === 'FileIO' || beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode: PipelineNode = {
-          id: `${now}`,
-          type: 'pipeline',
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match',
-          },
-        };
-
-        const readMatchesNode: PipelineNode = {
-          id: `${now + 1}`,
-          type: 'pipeline',
-          position: {
-            x: position.x + 240,
-            y: position.y,
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches',
-          },
-        };
-
-        const edge: Edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        const nextNodes = nodes.concat([matchNode, readMatchesNode]);
-        const nextEdges = edges.concat(edge);
-        const layoutedNodes = computeLayoutedNodes(nextNodes, nextEdges);
-
-        takeSnapshot();
-        setNodes(layoutedNodes);
-        setEdges(nextEdges);
-        setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-        triggerFitView();
-        return;
-      }
-
-      const newNode: PipelineNode = {
-        id: `${Date.now()}`,
-        type: 'pipeline',
+      const { nodes: newNodes, edges: newEdges } = createNodesForPaletteItem(
+        { label, type, iconName, beamTransform, nodeType: 'pipeline' },
         position,
-        data: {
-          label,
-          type,
-          iconName,
-          ...(beamTransform ? { beam_transform: beamTransform } : {}),
-        },
-      };
+        nodes,
+        edges
+      );
 
-      let autoEdge: Edge | null = null;
-      if (type === 'STEP') {
-        if (label === 'Parse Message') {
-          const pubSubSource = nodes.find(
-            (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-          );
-          if (pubSubSource) {
-            autoEdge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-          }
-        } else {
-          const hasStep = nodes.some((n) => n.data?.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find((n) => n.data?.type === 'SOURCE');
-            if (sourceNode) {
-              autoEdge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-            }
-          }
-        }
-      }
-
-      const nextNodes = nodes.concat(newNode);
-      const nextEdges = autoEdge ? edges.concat(autoEdge) : edges;
-      const layoutedNodes = computeLayoutedNodes(nextNodes, nextEdges);
+      const nextEdges = newEdges.length > 0 ? [...edges, ...newEdges] : edges;
 
       takeSnapshot();
-      setNodes(layoutedNodes);
-      if (autoEdge) {
-        setEdges(nextEdges);
+      setNodes((prev) => computeLayoutedNodes([...prev, ...newNodes], nextEdges));
+      if (newEdges.length > 0) {
+        setEdges((prev) => [...prev, ...newEdges]);
       }
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
       triggerFitView();
     },
-    [nodes, edges, computeLayoutedNodes, setNodes, setEdges, takeSnapshot, setPipelineConfig, triggerFitView]
+    [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig, triggerFitView]
   );
 
   // Deletes currently selected node or edge and records undo snapshot
@@ -628,12 +402,12 @@ export function usePipelineGraph({
       setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
       setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
       setSelectedNodeId(null);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     } else if (selectedEdgeId) {
       takeSnapshot();
       setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdgeId));
       setSelectedEdgeId(null);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     }
   }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, setPipelineConfig]);
 
@@ -656,8 +430,7 @@ export function usePipelineGraph({
       const hasCycle = cycleSet.has(node.id);
       const hasValidationError = isMissingUpstream || isInvalidUpstream;
       const isOrphan = orphanSet.has(node.id);
-      const isDicom =
-        node.data?.beam_transform === 'DicomIO' || node.data?.label?.includes('DicomIO');
+      const isDicom = isDicomIoNode(node);
       const transformName = isDicom ? 'DicomIO' : 'FhirIO';
       const requiredMode = isDicom ? 'readStudyMetadata' : 'readResources';
       const readMode = node.data?.properties?.readMode || requiredMode;

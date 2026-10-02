@@ -25,11 +25,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for HadoopFormatIO authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -38,6 +42,7 @@ export interface SecretItem {
 
 export type HadoopAuthMode = 'simple' | 'kerberos' | 'secret_manager';
 
+/** Props for the {@link HadoopFormatIOSourceProperties} component. */
 export interface HadoopFormatIOSourcePropertiesProps {
   node: {
     data: {
@@ -76,6 +81,7 @@ export interface HadoopFormatIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/** Props for the Hadoop input format and key/value class configuration section. */
 interface SourceFormatSectionProps {
   inputFormatClass: string;
   keyClass: string;
@@ -169,6 +175,7 @@ const HADOOP_TRANSLATION_LABELS: Partial<Record<MappingStrategy, string>> = {
   customClass: 'Custom SimpleFunction Classes (Optional)'
 };
 
+/** Props for the Hadoop source key/value translation and schema mapping section. */
 interface SourceTranslationSectionProps {
   translationStrategy: MappingStrategy | string;
   schemaFields: SchemaField[];
@@ -286,6 +293,7 @@ const SourceTranslationSection: React.FC<SourceTranslationSectionProps> = ({
   );
 };
 
+/** Props for the Hadoop authentication configuration section. */
 interface SourceAuthSectionProps {
   authMode: HadoopAuthMode;
   kerberosPrincipal: string;
@@ -381,6 +389,7 @@ const SourceAuthSection: React.FC<SourceAuthSectionProps> = ({
   );
 };
 
+/** Props for the Hadoop advanced filesystem and split settings section. */
 interface SourceAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -404,64 +413,55 @@ const SourceAdvancedSection: React.FC<SourceAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="hadoop-source-core-site"
+          name="coreSitePath"
+          label="Core-Site.xml Path"
+          tooltip="Optional filesystem path to core-site.xml configuration file."
+          value={coreSitePath}
+          onChange={onChange}
+          placeholder="/etc/hadoop/conf/core-site.xml"
+        />
+        <PropertyField
+          id="hadoop-source-hdfs-site"
+          name="hdfsSitePath"
+          label="HDFS-Site.xml Path"
+          tooltip="Optional filesystem path to hdfs-site.xml configuration file."
+          value={hdfsSitePath}
+          onChange={onChange}
+          placeholder="/etc/hadoop/conf/hdfs-site.xml"
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="hadoop-source-core-site"
-              name="coreSitePath"
-              label="Core-Site.xml Path"
-              tooltip="Optional filesystem path to core-site.xml configuration file."
-              value={coreSitePath}
-              onChange={onChange}
-              placeholder="/etc/hadoop/conf/core-site.xml"
-            />
-            <PropertyField
-              id="hadoop-source-hdfs-site"
-              name="hdfsSitePath"
-              label="HDFS-Site.xml Path"
-              tooltip="Optional filesystem path to hdfs-site.xml configuration file."
-              value={hdfsSitePath}
-              onChange={onChange}
-              placeholder="/etc/hadoop/conf/hdfs-site.xml"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="hadoop-source-default-fs"
-              name="defaultFs"
-              label="Default FS (fs.defaultFS)"
-              tooltip="Default Hadoop file system URI (maps to fs.defaultFS, e.g. hdfs://namenode:8020)."
-              value={defaultFs}
-              onChange={onChange}
-              placeholder="hdfs://namenode:8020"
-            />
-            <PropertyField
-              id="hadoop-source-split-size"
-              name="splitSizeHint"
-              label="Split Size Hint (Bytes)"
-              type="number"
-              min={0}
-              tooltip="Maximum input split size in bytes (maps to mapreduce.input.fileinputformat.split.maxsize)."
-              value={splitSizeHint}
-              onChange={onChange}
-              placeholder="67108864"
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="hadoop-source-default-fs"
+          name="defaultFs"
+          label="Default FS (fs.defaultFS)"
+          tooltip="Default Hadoop file system URI (maps to fs.defaultFS, e.g. hdfs://namenode:8020)."
+          value={defaultFs}
+          onChange={onChange}
+          placeholder="hdfs://namenode:8020"
+        />
+        <PropertyField
+          id="hadoop-source-split-size"
+          name="splitSizeHint"
+          label="Split Size Hint (Bytes)"
+          type="number"
+          min={0}
+          tooltip="Maximum input split size in bytes (maps to mapreduce.input.fileinputformat.split.maxsize)."
+          value={splitSizeHint}
+          onChange={onChange}
+          placeholder="67108864"
+        />
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -510,12 +510,7 @@ export const HadoopFormatIOSourceProperties: React.FC<HadoopFormatIOSourceProper
   const isValueEmpty = !valueClass.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -561,13 +556,6 @@ export const HadoopFormatIOSourceProperties: React.FC<HadoopFormatIOSourceProper
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* InputFormat Class and Types */}
@@ -634,21 +622,19 @@ export const HadoopFormatIOSourceProperties: React.FC<HadoopFormatIOSourceProper
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="hadoop-source-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this HadoopFormatIO source transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom system instructions passed to the LLM when generating code for this HadoopFormatIO source transform."
         placeholder="e.g. Configuration conf = new Configuration(); conf.setClass('mapreduce.job.inputformat.class', TextInputFormat.class, InputFormat.class); HadoopFormatIO.<LongWritable, Text>read().withConfiguration(conf)"
+        rows={4}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, act } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AvroIOSourceProperties } from './AvroIO';
 
@@ -71,42 +71,6 @@ describe('AvroIOSourceProperties', () => {
         filePattern: 'gs://new-bucket/*.avro'
       })
     );
-  });
-
-  it('posts getStorageBuckets command and populates GCS bucket datalist via StoragePathField', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        label: 'AvroIO',
-        properties: {
-          filePattern: 'gs://bucket/*.avro'
-        }
-      }
-    };
-
-    const { container } = render(<AvroIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['avro-raw-events', 'avro-curated']
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://avro-raw-events/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://avro-curated/');
   });
 
   it('handles switching record types (GenericRecord, SpecificRecord, ParseGeneric) without rendering Java recordClass input', () => {

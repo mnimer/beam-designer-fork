@@ -25,12 +25,20 @@
  * - Adheres strictly to the 8pt grid system for spacing and sizing.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Key, Lock, RefreshCw, Layers } from 'lucide-react';
+import React from 'react';
+import { Lock, Layers } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { ExpansionServiceFields } from '../../components/common/ExpansionServiceFields';
+import { SecretPicker } from '../../components/common/SecretPicker';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
+/**
+ * Secret item loaded from Secret Manager for AMQP broker authentication.
+ */
 export interface SecretItem {
   name: string;
   fullName?: string;
@@ -39,6 +47,9 @@ export interface SecretItem {
   [key: string]: any;
 }
 
+/**
+ * React Flow node shape for the AMQP sink panel, including its persisted configuration data.
+ */
 export interface AmqpIOSinkNode {
   data: {
     label: string;
@@ -67,6 +78,9 @@ export interface AmqpIOSinkNode {
   };
 }
 
+/**
+ * Props for the AmqpIOSinkProperties component.
+ */
 export interface AmqpIOSinkPropertiesProps {
   node: AmqpIOSinkNode;
   onChange: (properties: any) => void;
@@ -79,7 +93,7 @@ export interface AmqpIOSinkPropertiesProps {
  * @returns React functional component.
  */
 export const AmqpIOSinkProperties: React.FC<AmqpIOSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   // Form field state values with fallbacks
   const address = properties.address || '';
@@ -97,79 +111,10 @@ export const AmqpIOSinkProperties: React.FC<AmqpIOSinkPropertiesProps> = ({ node
   const expansionServiceMode = properties.expansionServiceMode || 'auto';
   const expansionServiceEndpoint = properties.expansionServiceEndpoint || '';
 
-  // Local UI states
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager secrets from the extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-        setSecretError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Refreshes secrets list from Secret Manager via extension message.
-   */
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  /**
-   * Handles generic text, select, and checkbox input changes.
-   * 
-   * @param e Form change event from input, select, or textarea.
-   */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === 'checkbox';
-    const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
-
-    const newProperties = {
-      ...properties,
-      [name]: isCheckbox ? checked : value
-    };
-
-    onChange(newProperties);
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Applies protocol prefix helper to the target address, swapping default ports where appropriate.
@@ -191,18 +136,6 @@ export const AmqpIOSinkProperties: React.FC<AmqpIOSinkPropertiesProps> = ({ node
     });
   };
 
-  /**
-   * Handles system instructions textarea change for custom LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
-  };
 
   // Field validation flags
   const isAddressMissing = !address.trim();
@@ -418,52 +351,21 @@ export const AmqpIOSinkProperties: React.FC<AmqpIOSinkPropertiesProps> = ({ node
           value={username}
           onChange={handleChange}
           placeholder="e.g. amqp-username"
-          datalist={secrets.map((sec) => ({ value: sec.id || sec.name, label: sec.name }))}
-          loading={isLoadingSecrets}
+          datalist={secrets.options}
+          loading={secrets.loading}
           mono={true}
         />
 
         {/* Secret Manager Secret */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="amqp-sink-secret-name" className="flex items-center text-xs font-bold uppercase text-slate-500 gap-1">
-              <Key size={12} />
-              <span>GCP Secret Manager Secret</span>
-              <InfoTooltip
-                text="Select a secret from Google Cloud Secret Manager to provide AMQP broker credentials securely without hardcoding secrets."
-                position="auto"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={handleRefreshSecrets}
-              disabled={isLoadingSecrets}
-              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-              title="Refresh secrets from Secret Manager"
-            >
-              <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          <PropertyField
-            id="amqp-sink-secret-name"
-            name="secretName"
-            value={secretName}
-            onChange={handleChange}
-            placeholder="e.g. amqp-broker-password"
-            datalist={secrets.map((sec) => ({ value: sec.id || sec.name, label: sec.name }))}
-            loading={isLoadingSecrets}
-            error={secretError}
-            invalid={!!secretError}
-            helperText={
-              secrets.length > 0
-                ? 'Select from discovered secrets or type a custom secret ID.'
-                : 'No secrets automatically loaded. Enter secret resource name directly.'
-            }
-            mono={true}
-          />
-        </div>
+        <SecretPicker
+          id="amqp-sink-secret-name"
+          name="secretName"
+          value={secretName}
+          onChange={handleChange}
+          secrets={secrets}
+          placeholder="e.g. amqp-broker-password"
+          tooltip="Select a secret from Google Cloud Secret Manager to provide AMQP broker credentials securely without hardcoding secrets."
+        />
       </div>
 
       {/* 4. Python Cross-Language Expansion Service */}
@@ -475,25 +377,19 @@ export const AmqpIOSinkProperties: React.FC<AmqpIOSinkPropertiesProps> = ({ node
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
-      {/* 5. Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="amqp-sink-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific AMQP sink node (e.g. mapping POJO fields to Proton Message body, headers, or correlation IDs)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Map output elements to Proton Message instances with destination address and durable delivery flag"
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="amqp-sink-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific AMQP sink node (e.g. mapping POJO fields to Proton Message body, headers, or correlation IDs)."
+        placeholder="e.g. Map output elements to Proton Message instances with destination address and durable delivery flag"
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

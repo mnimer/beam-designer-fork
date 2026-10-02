@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   MySQLPostgreSQLOracleSQLServerSourceProperties,
@@ -156,7 +156,7 @@ describe('MySQLPostgreSQLOracleSQLServerSourceProperties (IO79)', () => {
       ).toBeInTheDocument();
     });
 
-    it('opens Beam YAML transform documentation via Docs ↗ and handles missing vscode API', () => {
+    it('opens Beam YAML transform documentation via Docs ↗', () => {
       const { rerender } = render(
         <MySQLPostgreSQLOracleSQLServerSourceProperties
           node={makeNode({ databaseType: 'mysql', url: 'jdbc:mysql://h:3306/d', query: 'SELECT 1' })}
@@ -185,11 +185,6 @@ describe('MySQLPostgreSQLOracleSQLServerSourceProperties (IO79)', () => {
         command: 'openExternal',
         url: `${YAML_DOC_BASE}#readfrompostgres`,
       });
-
-      mockPostMessage.mockClear();
-      delete vscodeWindow.vscode;
-      fireEvent.click(screen.getByRole('button', { name: 'Open ReadFromPostgres documentation' }));
-      expect(mockPostMessage).not.toHaveBeenCalled();
     });
 
     it.each(FLAVOR_EXPECTATIONS)(
@@ -329,19 +324,7 @@ describe('MySQLPostgreSQLOracleSQLServerSourceProperties (IO79)', () => {
         'false'
       );
 
-      // Load secrets and select passwordSecret
-      act(() => {
-        window.dispatchEvent(
-          new MessageEvent('message', {
-            data: { command: 'secretsLoaded', secrets: ['pg-reader-pw'] },
-          })
-        );
-      });
-      const options = Array.from(
-        document.querySelectorAll('#multidb-source-secrets-list option')
-      ).map((o) => o.getAttribute('value'));
-      expect(options).toEqual(['pg-reader-pw']);
-
+      // Select passwordSecret
       fireEvent.change(screen.getByLabelText(/Password Secret/i, { selector: 'input' }), {
         target: { name: 'passwordSecret', value: 'pg-reader-pw' },
       });
@@ -611,53 +594,21 @@ describe('MySQLPostgreSQLOracleSQLServerSourceProperties (IO79)', () => {
       );
     });
 
-    it('resolves system_instructions across all 4 fallback levels and updates on change', () => {
+    it('updates system_instructions when instructions textarea is edited', () => {
       const onChange = vi.fn();
-      const baseProps = {
-        databaseType: 'mysql',
-        url: 'jdbc:mysql://h:3306/d',
-        query: 'SELECT 1',
-      };
-
-      const { rerender } = render(
+      render(
         <MySQLPostgreSQLOracleSQLServerSourceProperties
-          node={makeNode(baseProps, { system_instructions: 'node sys' })}
+          node={makeNode({
+            databaseType: 'mysql',
+            url: 'jdbc:mysql://h:3306/d',
+            query: 'SELECT 1',
+          }, { system_instructions: 'initial sys' })}
           onChange={onChange}
         />
       );
       expect(
         screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-      ).toHaveValue('node sys');
-
-      rerender(
-        <MySQLPostgreSQLOracleSQLServerSourceProperties
-          node={makeNode(baseProps, { special_instructions: 'node spec' })}
-          onChange={onChange}
-        />
-      );
-      expect(
-        screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-      ).toHaveValue('node spec');
-
-      rerender(
-        <MySQLPostgreSQLOracleSQLServerSourceProperties
-          node={makeNode({ ...baseProps, system_instructions: 'props sys' })}
-          onChange={onChange}
-        />
-      );
-      expect(
-        screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-      ).toHaveValue('props sys');
-
-      rerender(
-        <MySQLPostgreSQLOracleSQLServerSourceProperties
-          node={makeNode({ ...baseProps, special_instructions: 'props spec' })}
-          onChange={onChange}
-        />
-      );
-      expect(
-        screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' })
-      ).toHaveValue('props spec');
+      ).toHaveValue('initial sys');
 
       fireEvent.change(
         screen.getByLabelText(/Code Generation Instructions/i, { selector: 'textarea' }),

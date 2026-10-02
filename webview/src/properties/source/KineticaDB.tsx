@@ -28,7 +28,11 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 export const KINETICA_DOC_URL = 'https://github.com/kineticadb/kinetica-connector-beam';
 
@@ -90,21 +94,14 @@ const KINETICA_COLUMN_PROPERTIES = [
 
 const VALID_COLUMN_PROPERTIES_SET: ReadonlySet<string> = new Set(KINETICA_COLUMN_PROPERTIES);
 
+/** Column definition describing a Kinetica entity POJO field and column properties. */
 export interface KineticaEntityColumn {
   name: string;
   javaType: string;
   columnProperties: string;
 }
 
-/**
- * Opens the Kinetica Beam connector documentation in the external browser via VS Code IPC.
- */
-function openKineticaDocs(): void {
-  const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscodeApi) {
-    vscodeApi.postMessage({ command: 'openExternal', url: KINETICA_DOC_URL });
-  }
-}
+
 
 /**
  * Validates the Kinetica `headNodeURL` property (single URL or comma-separated HA URLs).
@@ -187,6 +184,7 @@ function validateEntityColumns(columns: KineticaEntityColumn[]): {
   return { listError: null, rowErrors };
 }
 
+/** Props for the {@link KineticaEntityColumnsEditor} component. */
 export interface KineticaEntityColumnsEditorProps {
   idPrefix: string;
   columns: KineticaEntityColumn[];
@@ -312,6 +310,7 @@ export const KineticaEntityColumnsEditor: React.FC<KineticaEntityColumnsEditorPr
   );
 };
 
+/** React Flow node data model for the KineticaDB source panel. */
 export interface KineticaDBNodeData {
   properties?: {
     headNodeURL?: string;
@@ -329,6 +328,7 @@ export interface KineticaDBNodeData {
   [key: string]: unknown;
 }
 
+/** Props for the {@link KineticaDBSourceProperties} component. */
 export interface KineticaDBSourcePropertiesProps {
   node: {
     data: KineticaDBNodeData;
@@ -336,11 +336,16 @@ export interface KineticaDBSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the KineticaDB source node. Configures cluster head node URLs, credentials, table names, and entity columns.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const KineticaDBSourceProperties: React.FC<KineticaDBSourcePropertiesProps> = ({
   node,
   onChange,
 }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const headNodeURL = String(properties.headNodeURL ?? '');
   const username = String(properties.username ?? '');
@@ -351,29 +356,13 @@ export const KineticaDBSourceProperties: React.FC<KineticaDBSourcePropertiesProp
     ? properties.entityColumns
     : [];
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const headNodeUrlError = validateHeadNodeUrl(headNodeURL);
   const usernameError = !username.trim() ? 'Username is required.' : null;
   const passwordSecretError = !passwordSecret.trim() ? 'Password secret is required.' : null;
   const tableError = !table.trim() ? 'Table is required.' : null;
   const entityClassError = validateEntityClassName(entityClassName);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value,
-    });
-  };
 
   const handleColumnsChange = (nextColumns: KineticaEntityColumn[]) => {
     onChange({
@@ -390,14 +379,7 @@ export const KineticaDBSourceProperties: React.FC<KineticaDBSourcePropertiesProp
           <span className="font-semibold text-slate-200">
             Transform: <code className="text-slate-300">KineticaIO.read()</code>
           </span>
-          <button
-            type="button"
-            aria-label="Open KineticaIO documentation"
-            onClick={openKineticaDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={KINETICA_DOC_URL} ariaLabel="Open KineticaIO documentation" />
         </div>
         <p className="text-slate-400">
           Reads typed RecordObject entities from a Kinetica GPU-accelerated database table.
@@ -505,23 +487,18 @@ export const KineticaDBSourceProperties: React.FC<KineticaDBSourcePropertiesProp
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="kineticaSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter custom instructions for KineticaDB source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="kineticaSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for KineticaDB source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

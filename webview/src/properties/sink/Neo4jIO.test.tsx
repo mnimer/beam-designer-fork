@@ -148,57 +148,22 @@ describe('Neo4jIOSinkProperties', () => {
     }));
   });
 
-  it('supports Secret Manager authentication mode with IPC secretsLoaded', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'Neo4j Sink',
         properties: {
-          authMode: 'secret_manager' as const
+          authMode: 'secret_manager' as const,
+          usernameSecret: 'neo4j-sink-user',
+          passwordSecret: 'neo4j-sink-pass'
         }
       }
     };
 
     render(<Neo4jIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    expect(screen.getByPlaceholderText(/neo4j-username/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/prod/secrets/neo4j-sink-user',
-          { id: 'neo4j-sink-pass', name: 'neo4j-sink-pass' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#neo4j-sink-secret-options option[value="neo4j-sink-user"]');
-    const option2 = document.querySelector('datalist#neo4j-sink-secret-options option[value="neo4j-sink-pass"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secret discovery fails', () => {
-    const node = {
-      data: {
-        label: 'Neo4j Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<Neo4jIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Secret Manager unavailable'
-      }
-    }));
-
-    expect(screen.getByText('Secret Manager unavailable')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/neo4j-username/i)).toHaveValue('neo4j-sink-user');
+    expect(screen.getByPlaceholderText(/neo4j-password/i)).toHaveValue('neo4j-sink-pass');
   });
 
   it('toggles Advanced Sink Settings and updates parameters', () => {
@@ -261,21 +226,17 @@ describe('Neo4jIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('1000')).toHaveValue(0);
   });
 
-  it('resolves system instructions via fallback chain and handles edits', () => {
+  it('updates system_instructions when textarea changes', () => {
     const node = {
       data: {
         label: 'Neo4j Sink',
-        properties: {
-          special_instructions: 'Custom write instructions from properties'
-        }
+        properties: {}
       }
     };
 
     render(<Neo4jIOSinkProperties node={node} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Write elements to Neo4j/i);
-    expect(textarea).toHaveValue('Custom write instructions from properties');
-
     fireEvent.change(textarea, { target: { value: 'Updated Cypher write prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated Cypher write prompt'

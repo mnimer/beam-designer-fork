@@ -39,11 +39,14 @@ import React, { useState } from 'react';
 import { Sliders } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { type SecretItem, normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/** React Flow node shape for the S3FileSystem source panel, including its persisted configuration data. */
 export interface S3FileSystemSourceNode {
   data: {
     label: string;
@@ -69,6 +72,7 @@ export interface S3FileSystemSourceNode {
   };
 }
 
+/** Props for the {@link S3FileSystemSourceProperties} component. */
 export interface S3FileSystemSourcePropertiesProps {
   node: S3FileSystemSourceNode;
   onChange: (properties: any) => void;
@@ -154,12 +158,7 @@ export const S3FileSystemSourceProperties: React.FC<S3FileSystemSourceProperties
   const isFilePatternInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -173,17 +172,6 @@ export const S3FileSystemSourceProperties: React.FC<S3FileSystemSourceProperties
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   * @param e Native change event from textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -388,22 +376,21 @@ export const S3FileSystemSourceProperties: React.FC<S3FileSystemSourceProperties
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="s3SourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this S3FileSystem reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Read Parquet files from S3 with AWS region us-west-2 and parse records into Beam Rows."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="s3SourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Read Parquet files from S3 with AWS region us-west-2 and parse records into Beam Rows."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this S3FileSystem reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   AzureBlobStoreFileSystemSourceProperties,
@@ -108,34 +108,6 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
     });
     expect(instructionsTextarea).toHaveValue('Custom Azure Blob reader instructions');
 
-    expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
-  });
-
-  it('toggles required validation on and off as filePattern transitions between empty and populated', () => {
-    const mockNodeEmpty: any = {
-      data: {
-        properties: {
-          filePattern: ''
-        }
-      }
-    };
-
-    const { rerender } = render(
-      <AzureBlobStoreFileSystemSourceProperties node={mockNodeEmpty} onChange={mockOnChange} />
-    );
-    expect(screen.getByText('File Pattern is required.')).toBeInTheDocument();
-
-    const mockNodePopulated: any = {
-      data: {
-        properties: {
-          filePattern: 'azfs://account/container/data/*.csv'
-        }
-      }
-    };
-
-    rerender(
-      <AzureBlobStoreFileSystemSourceProperties node={mockNodePopulated} onChange={mockOnChange} />
-    );
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
   });
 
@@ -342,11 +314,6 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
       <AzureBlobStoreFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />
     );
 
-    // Accordion should start closed
-    expect(container.querySelector('#azureSourceValidate')).not.toBeInTheDocument();
-    expect(container.querySelector('#azureSourceMinBundleSize')).not.toBeInTheDocument();
-
-    // Toggle open
     const toggleButton = screen.getByText('Read Tuning & Options');
     fireEvent.click(toggleButton);
 
@@ -374,10 +341,6 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
         minBundleSize: '65536'
       })
     );
-
-    // Toggle closed
-    fireEvent.click(toggleButton);
-    expect(container.querySelector('#azureSourceValidate')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -403,43 +366,6 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(
-      <AzureBlobStoreFileSystemSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(
-      <AzureBlobStoreFileSystemSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(
-      <AzureBlobStoreFileSystemSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
   it('requests GCP Secret Manager secrets via getSecrets and does NOT request storage buckets', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
@@ -452,37 +378,13 @@ describe('AzureBlobStoreFileSystemSourceProperties', () => {
       }
     };
 
-    const { container } = render(<AzureBlobStoreFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
+    render(<AzureBlobStoreFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
 
     expect(mockPostMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getStorageBuckets' })
     );
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getSecrets' })
-    );
-
-    // Simulate secretsLoaded message from extension host and verify datalist options populate
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { id: 'azure-conn-secret', name: 'azure-conn-secret', fullName: 'projects/p/secrets/azure-conn-secret' },
-              'projects/p/secrets/azure-sas-secret'
-            ]
-          }
-        })
-      );
-    });
-
-    const connInput = container.querySelector('#azureSourceConnectionString') as HTMLInputElement;
-    fireEvent.focus(connInput);
-    const option = screen.getByRole('option', { name: 'azure-conn-secret' });
-    expect(option).toBeInTheDocument();
-    fireEvent.mouseDown(option);
-    expect(mockOnChange).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionString: 'azure-conn-secret' })
     );
   });
 

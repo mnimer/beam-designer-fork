@@ -5,7 +5,7 @@
  *
  * Purpose:
  * Validates RedisIOSourceProperties form rendering, hydration from properties,
- * input change dispatches, IPC callbacks for GCP Secret Manager secrets,
+ * input change dispatches, Secret Manager authentication mode,
  * readMode toggle (static pattern vs dynamic key patterns), advanced settings collapse,
  * error and edge cases, and code generation instructions fallback resolution.
  */
@@ -175,7 +175,7 @@ describe('RedisIOSourceProperties', () => {
     expect(screen.getByText(/Keys will be read dynamically from pattern strings/i)).toBeInTheDocument();
   });
 
-  it('supports Secret Manager authentication mode and handles IPC secretsLoaded', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'Redis Source',
@@ -188,44 +188,6 @@ describe('RedisIOSourceProperties', () => {
     render(<RedisIOSourceProperties node={node} onChange={mockOnChange} />);
 
     expect(screen.getByPlaceholderText(/redis-auth-password/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-proj/secrets/redis-prod-pw',
-          { id: 'redis-staging-pw', name: 'redis-staging-pw' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#redis-source-secret-options option[value="redis-prod-pw"]');
-    const option2 = document.querySelector('datalist#redis-source-secret-options option[value="redis-staging-pw"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error when secret discovery fails', () => {
-    const node = {
-      data: {
-        label: 'Redis Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<RedisIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager')).toBeInTheDocument();
   });
 
   it('expands Advanced Source Settings and updates parameters', () => {

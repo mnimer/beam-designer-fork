@@ -21,7 +21,11 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 const PYODBC_DOCS_URL = 'https://github.com/314e/beam-pyodbc-connector';
 
@@ -36,13 +40,13 @@ const HOST_RE = /^[A-Za-z0-9._\-\\[\]:]+$/;
 const CREDENTIAL_KEYS = new Set(['pwd', 'password', 'uid', 'user', 'user id', 'username']);
 const DEDICATED_KEYS = new Set(['driver', 'dsn', 'server', 'database', 'port']);
 
-function openPyodbcDocs(): void {
-  const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-  if (vscode) {
-    vscode.postMessage({ command: 'openExternal', url: PYODBC_DOCS_URL });
-  }
-}
 
+/**
+ * Returns default network port string based on driver name heuristics.
+ *
+ * @param driver The ODBC driver name string.
+ * @returns The default port number string or placeholder label.
+ */
 function getPyodbcDefaultPort(driver: string): string {
   if (/sql server/i.test(driver)) {
     return '1433';
@@ -56,6 +60,12 @@ function getPyodbcDefaultPort(driver: string): string {
   return 'driver default';
 }
 
+/**
+ * Validates the ODBC driver name string.
+ *
+ * @param v The driver name to validate.
+ * @returns Error message string if invalid, or null if valid.
+ */
 function validateDriver(v: string): string | null {
   const trimmed = v.trim();
   if (!trimmed) {
@@ -67,6 +77,12 @@ function validateDriver(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates the database hostname or IP address format.
+ *
+ * @param v The host string to validate.
+ * @returns Error message string if invalid, or null if valid.
+ */
 function validateHost(v: string): string | null {
   const trimmed = v.trim();
   if (!trimmed) {
@@ -78,6 +94,12 @@ function validateHost(v: string): string | null {
   return null;
 }
 
+/**
+ * Validates the database network port number.
+ *
+ * @param v The port value to validate.
+ * @returns Error message string if invalid, or null if valid.
+ */
 function validatePort(v: string | number): string | null {
   const s = String(v).trim();
   if (!s) {
@@ -93,6 +115,12 @@ function validatePort(v: string | number): string | null {
   return null;
 }
 
+/**
+ * Validates semicolon-delimited ODBC extra connection string attributes.
+ *
+ * @param v The attributes string to validate.
+ * @returns Error message string if invalid, or null if valid.
+ */
 function validateExtraAttributes(v: string): string | null {
   if (!v.trim()) {
     return null;
@@ -118,6 +146,7 @@ function validateExtraAttributes(v: string): string | null {
   return null;
 }
 
+/** Props for the {@link PyodbcSourceProperties} component. */
 export interface PyodbcSourcePropertiesProps {
   node: {
     data: {
@@ -129,8 +158,13 @@ export interface PyodbcSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the Pyodbc source node. Configures ODBC driver, host, credentials, and SQL queries.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const PyodbcSourceProperties: React.FC<PyodbcSourcePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   const driver = String(properties.driver ?? '');
   const host = String(properties.host ?? '');
@@ -141,13 +175,7 @@ export const PyodbcSourceProperties: React.FC<PyodbcSourcePropertiesProps> = ({ 
   const extraAttributes = String(properties.extraAttributes ?? '');
   const query = String(properties.query ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   const driverError = validateDriver(driver);
   const hostError = validateHost(host);
@@ -158,26 +186,13 @@ export const PyodbcSourceProperties: React.FC<PyodbcSourcePropertiesProps> = ({ 
   const extraAttributesError = validateExtraAttributes(extraAttributes);
   const queryError = query.trim() ? null : 'Query is required.';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      [e.target.name]: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">Pyodbc Source (ReadFromDB / pyodbc)</span>
-          <button
-            type="button"
-            onClick={openPyodbcDocs}
-            className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0"
-          >
-            Docs ↗
-          </button>
+          <ExternalDocsLink url={PYODBC_DOCS_URL} />
         </div>
         <p className="text-slate-400">
           Queries an ODBC-compliant database from Python Beam pipelines using pyodbc drivers.
@@ -307,24 +322,19 @@ export const PyodbcSourceProperties: React.FC<PyodbcSourcePropertiesProps> = ({ 
         placeholder="SELECT * FROM test_db.tests"
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* S9: Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="pyodbcSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          mono={false}
-          tooltip="Custom instructions for LLM code generation for this Pyodbc source node."
-          value={systemInstructions}
-          onChange={handleChange}
-          placeholder="Enter custom instructions for pyodbc read code generation..."
-        />
-      </div>
+      <SystemInstructionsField
+        id="pyodbcSourceSystemInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions for LLM code generation for this Pyodbc source node."
+        placeholder="Enter custom instructions for pyodbc read code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

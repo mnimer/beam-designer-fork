@@ -25,9 +25,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for Datastore authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -36,6 +42,9 @@ export interface SecretItem {
 
 export type DatastoreMutationMode = 'upsert' | 'deleteEntity' | 'deleteKey';
 
+/**
+ * Props for the DatastoreIOSinkProperties component.
+ */
 export interface DatastoreIOSinkPropertiesProps {
   node: {
     data: {
@@ -66,6 +75,9 @@ export interface DatastoreIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the DatastoreSinkInstanceCard component.
+ */
 interface SinkInstanceCardProps {
   projectId: string;
   databaseId: string;
@@ -130,6 +142,9 @@ const DatastoreSinkInstanceCard: React.FC<SinkInstanceCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the DatastoreSinkMutationModeCard component.
+ */
 interface SinkMutationModeCardProps {
   mutationMode: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
@@ -186,6 +201,9 @@ const DatastoreSinkMutationModeCard: React.FC<SinkMutationModeCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the DatastoreSinkKeyCard component.
+ */
 interface SinkKeyCardProps {
   kind: string;
   keyNameOrIdField: string;
@@ -245,6 +263,9 @@ const DatastoreSinkKeyCard: React.FC<SinkKeyCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the DatastoreSinkThroughputCard component.
+ */
 interface SinkThroughputCardProps {
   hintNumWorkers: number | string;
   rampupThrottlingDisabled: boolean;
@@ -294,6 +315,9 @@ const DatastoreSinkThroughputCard: React.FC<SinkThroughputCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the DatastoreSinkAuthCard component.
+ */
 interface SinkAuthCardProps {
   authMode: string;
   serviceAccountSecret: string;
@@ -366,6 +390,9 @@ const DatastoreSinkAuthCard: React.FC<SinkAuthCardProps> = ({
   </div>
 );
 
+/**
+ * Props for the DatastoreSinkAdvancedGroup component.
+ */
 interface SinkAdvancedGroupProps {
   showAdvanced: boolean;
   localhost: string;
@@ -384,47 +411,38 @@ const DatastoreSinkAdvancedGroup: React.FC<SinkAdvancedGroupProps> = ({
   onToggle,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Sink Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Sink Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <PropertyField
+      id="datastoreSinkLocalhost"
+      name="localhost"
+      label="Localhost Emulator Endpoint"
+      tooltip="Directs API requests to a local Cloud Datastore emulator host:port (e.g. localhost:8081). Maps to withLocalhost()."
+      value={localhost}
+      onChange={onChange}
+      placeholder="localhost:8081"
+      mono={true}
+    />
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="datastoreSinkLocalhost"
-          name="localhost"
-          label="Localhost Emulator Endpoint"
-          tooltip="Directs API requests to a local Cloud Datastore emulator host:port (e.g. localhost:8081). Maps to withLocalhost()."
-          value={localhost}
-          onChange={onChange}
-          placeholder="localhost:8081"
-          mono={true}
-        />
+    <PropertyField
+      id="datastoreSinkBatchSize"
+      name="batchSize"
+      label="Batch Size"
+      type="number"
+      tooltip="Note: DatastoreV1 write transforms do not have a withBatchSize() builder; the SDK automatically batches entities dynamically up to Cloud Datastore's 500-mutation RPC limit. This property serves as a pipeline configuration hint for client-side batching."
+      value={batchSize}
+      onChange={onChange}
+      placeholder="500"
+      mono={true}
+    />
 
-        <PropertyField
-          id="datastoreSinkBatchSize"
-          name="batchSize"
-          label="Batch Size"
-          type="number"
-          tooltip="Note: DatastoreV1 write transforms do not have a withBatchSize() builder; the SDK automatically batches entities dynamically up to Cloud Datastore's 500-mutation RPC limit. This property serves as a pipeline configuration hint for client-side batching."
-          value={batchSize}
-          onChange={onChange}
-          placeholder="500"
-          mono={true}
-        />
-
-        <div className="p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)] text-xs text-[var(--vscode-text-secondary)]">
-          <span>Datastore write operations automatically perform exponential backoff retries and gradual ramp-up rate throttling to prevent transaction contention.</span>
-        </div>
-      </div>
-    )}
-  </div>
+    <div className="p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)] text-xs text-[var(--vscode-text-secondary)]">
+      <span>Datastore write operations automatically perform exponential backoff retries and gradual ramp-up rate throttling to prevent transaction contention.</span>
+    </div>
+  </CollapsibleSection>
 );
 
 /**
@@ -459,12 +477,7 @@ export const DatastoreIOSinkProperties: React.FC<DatastoreIOSinkPropertiesProps>
   const isProjectIdEmpty = !String(projectId).trim();
 
   // NOTE: Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -493,18 +506,6 @@ export const DatastoreIOSinkProperties: React.FC<DatastoreIOSinkPropertiesProps>
     }
   };
 
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: Dispatch system_instructions update to parent
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -550,21 +551,17 @@ export const DatastoreIOSinkProperties: React.FC<DatastoreIOSinkPropertiesProps>
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="datastoreSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing DatastoreIO pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing DatastoreIO pipelines."
         placeholder="e.g. Write SensorRollup entities to Datastore using DatastoreIO.v1().write()"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

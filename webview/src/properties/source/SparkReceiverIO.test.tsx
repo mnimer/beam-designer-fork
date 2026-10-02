@@ -5,7 +5,7 @@
  *
  * Purpose:
  * Validates SparkReceiverIOSourceProperties form rendering, hydration, dispatching,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, Secret Manager authentication, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -98,7 +98,7 @@ describe('SparkReceiverIOSourceProperties', () => {
     );
   });
 
-  it('handles Secret Manager IPC callback and radio selection', () => {
+  it('supports Secret Manager authentication mode and updates secret inputs', () => {
     const node = {
       data: {
         label: 'Spark Receiver Source',
@@ -113,24 +113,6 @@ describe('SparkReceiverIOSourceProperties', () => {
 
     render(<SparkReceiverIOSourceProperties node={node} onChange={mockOnChange} />);
 
-    // IPC message with string and object shapes
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/spark-api-key',
-            { id: 'spark-token-secret', name: 'spark-token-secret' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('sparkreceiver-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     expect(screen.getByDisplayValue('spark-api-key')).toBeInTheDocument();
     expect(screen.getByDisplayValue('spark-user')).toBeInTheDocument();
     expect(screen.getByDisplayValue('spark-pass')).toBeInTheDocument();
@@ -140,32 +122,6 @@ describe('SparkReceiverIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ authSecret: 'new-api-key-secret' })
     );
-  });
-
-  it('displays secret loading errors from IPC callback', () => {
-    const node = {
-      data: {
-        label: 'Spark Receiver Source',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<SparkReceiverIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [],
-          error: 'Access denied reading secrets'
-        }
-      })
-    );
-
-    expect(screen.getAllByText('Access denied reading secrets').length).toBeGreaterThan(0);
   });
 
   it('toggles authMode radio button between none and Secret Manager', () => {
@@ -243,48 +199,7 @@ describe('SparkReceiverIOSourceProperties', () => {
     expect(screen.queryByPlaceholderText('e.g. 200')).not.toBeInTheDocument();
   });
 
-  it('falls back through system instructions hierarchy and edits instructions', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <SparkReceiverIOSourceProperties
-        node={{ data: { system_instructions: 'Data system instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Data system instruction')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <SparkReceiverIOSourceProperties
-        node={{ data: { special_instructions: 'Data special instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Data special instruction')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <SparkReceiverIOSourceProperties
-        node={{ data: { properties: { system_instructions: 'Props system instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Props system instruction')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <SparkReceiverIOSourceProperties
-        node={{ data: { properties: { special_instructions: 'Props special instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Props special instruction')).toBeInTheDocument();
-    unmount4();
-
-    // Edit instructions
+  it('updates system_instructions when textarea changes', () => {
     render(
       <SparkReceiverIOSourceProperties
         node={{ data: { properties: { receiverClass: 'com.example.TestReceiver' } } }}
@@ -301,16 +216,5 @@ describe('SparkReceiverIOSourceProperties', () => {
         system_instructions: 'Ensure custom coder is passed'
       })
     );
-  });
-
-  it('handles missing window.vscode gracefully on mount without crashing', () => {
-    delete (window as any).vscode;
-    const node = {
-      data: {
-        properties: {}
-      }
-    };
-
-    expect(() => render(<SparkReceiverIOSourceProperties node={node} onChange={mockOnChange} />)).not.toThrow();
   });
 });

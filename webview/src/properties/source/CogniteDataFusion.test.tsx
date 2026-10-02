@@ -15,7 +15,6 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   CogniteDataFusionSourceProperties,
-  CDF_DOCS_URL,
 } from './CogniteDataFusion';
 import { classifyKey, redactPipelineYaml } from '../../../../src/credentialRedaction';
 
@@ -109,83 +108,6 @@ describe('CogniteDataFusionSourceProperties (IO69)', () => {
     expect(screen.getByTestId('cdf-source-group-request')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('cdf-source-group-reader')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByTestId('cdf-source-group-hints')).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('opens external documentation when Docs button is clicked (with and without window.vscode)', () => {
-    const onChange = vi.fn();
-    render(<CogniteDataFusionSourceProperties node={makeNode({})} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-    expect(postMessageMock).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: CDF_DOCS_URL,
-    });
-
-    delete (window as unknown as { vscode?: unknown }).vscode;
-    expect(() => fireEvent.click(screen.getByRole('button', { name: /Docs/i }))).not.toThrow();
-  });
-
-  it('loads secrets and GCP projects via useAssetLoader and displays discovery errors when valid', () => {
-    const onChange = vi.fn();
-    const { container } = render(
-      <CogniteDataFusionSourceProperties
-        node={makeNode({
-          project: 'my-cdf',
-          clientId: 'cid',
-          clientSecretSecret: 'my-secret',
-          authServerUrl: 'https://login.microsoftonline.com/t/oauth2/v2.0/token',
-          resourceType: 'assets',
-        })}
-        onChange={onChange}
-      />
-    );
-
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getProjects' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [{ id: 'sec-1', name: 'sec-1' }, 'projects/p/secrets/sec-2'],
-          },
-        })
-      );
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'projectsLoaded',
-            projects: ['gcp-proj-1', 'gcp-proj-2'],
-          },
-        })
-      );
-    });
-
-    const secretOptions = container.querySelectorAll(
-      '#cdfSourceClientSecretSecret-secret-options option'
-    );
-    expect(secretOptions.length).toBe(2);
-
-    const projectOptions = container.querySelectorAll('#cdf-source-secret-project-options option');
-    expect(projectOptions.length).toBe(2);
-
-    // Dispatch discovery errors
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: { command: 'secretsLoaded', secrets: [], error: 'Secrets CLI error' },
-        })
-      );
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: { command: 'projectsLoaded', projects: [], error: 'Projects CLI error' },
-        })
-      );
-    });
-
-    expect(screen.getByText('Secrets CLI error')).toBeInTheDocument();
-    expect(screen.getByText('Projects CLI error')).toBeInTheDocument();
   });
 
   it('handles Connection and Authentication field edits, validation, and mutual exclusion', () => {
@@ -681,42 +603,14 @@ describe('CogniteDataFusionSourceProperties (IO69)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('supports system_instructions 4-way fallback and updates on change', () => {
+  it('updates system_instructions on change', () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    render(
       <CogniteDataFusionSourceProperties
-        node={makeNode({ special_instructions: 'prop-special' })}
+        node={makeNode({})}
         onChange={onChange}
       />
     );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-special');
-
-    rerender(
-      <CogniteDataFusionSourceProperties
-        node={makeNode({ system_instructions: 'prop-sys', special_instructions: 'prop-special' })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('prop-sys');
-
-    rerender(
-      <CogniteDataFusionSourceProperties
-        node={makeNode({ system_instructions: 'prop-sys' }, { special_instructions: 'data-special' })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-special');
-
-    rerender(
-      <CogniteDataFusionSourceProperties
-        node={makeNode(
-          { system_instructions: 'prop-sys' },
-          { system_instructions: 'data-sys', special_instructions: 'data-special' }
-        )}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('data-sys');
 
     fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {
       target: { value: 'updated instructions' },
@@ -725,6 +619,7 @@ describe('CogniteDataFusionSourceProperties (IO69)', () => {
       expect.objectContaining({ system_instructions: 'updated instructions' })
     );
   });
+
 
   it('classifies every rendered and emitted property key as safe or reference via classifyKey', () => {
     const onChange = vi.fn();

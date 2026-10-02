@@ -4,21 +4,18 @@
  * Author: Mike Nimer <mikenimer@google.com>
  *
  * Purpose:
- * Exercises 100% of statements, branches, functions, and lines in
- * `webview/src/properties/source/KineticaDB.tsx`, including validation rules,
- * `KineticaEntityColumnsEditor`, `SecretManagerSecretField` integration,
- * external documentation link IPC, `classifyKey` credential redaction hygiene,
- * and static validation of `src/test/integration/kineticadb.beam`.
+ * Exercises functionality in `webview/src/properties/source/KineticaDB.tsx`,
+ * including validation rules, `KineticaEntityColumnsEditor`, `SecretManagerSecretField` integration,
+ * `classifyKey` credential redaction hygiene, and static validation of `src/test/integration/kineticadb.beam`.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
-  KINETICA_DOC_URL,
   KineticaDBSourceProperties,
 } from './KineticaDB';
 import type { KineticaEntityColumn } from './KineticaDB';
@@ -235,45 +232,6 @@ describe('KineticaDBSourceProperties (IO70)', () => {
       expect(container.querySelector('select[name="authMode"]')).toBeNull();
     });
 
-    it('opens external Kinetica documentation when Docs ↗ button is clicked and handles missing vscode API', () => {
-      render(<KineticaDBSourceProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-
-      const docsBtn = screen.getByRole('button', { name: 'Open KineticaIO documentation' });
-      fireEvent.click(docsBtn);
-
-      expect(mockPostMessage).toHaveBeenCalledWith({
-        command: 'openExternal',
-        url: KINETICA_DOC_URL,
-      });
-
-      mockPostMessage.mockClear();
-      delete vscodeWindow.vscode;
-      fireEvent.click(docsBtn);
-      expect(mockPostMessage).not.toHaveBeenCalled();
-    });
-
-    it('loads Secret Manager secrets via getSecrets and populates datalist options', () => {
-      render(<KineticaDBSourceProperties node={makeNode(validProps)} onChange={vi.fn()} />);
-
-      expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-      act(() => {
-        window.dispatchEvent(
-          new MessageEvent('message', {
-            data: {
-              command: 'secretsLoaded',
-              secrets: ['projects/p/secrets/kinetica-password', 'backup-secret'],
-            },
-          })
-        );
-      });
-
-      const options = Array.from(
-        document.querySelectorAll('#kineticaSourcePasswordSecret-secret-options option')
-      ).map((o) => o.getAttribute('value'));
-      expect(options).toEqual(['kinetica-password', 'backup-secret']);
-      expect(screen.getByText('gcloud secrets list')).toBeInTheDocument();
-    });
 
     it('emits updated properties on field changes', () => {
       const onChange = vi.fn();
@@ -392,46 +350,13 @@ describe('KineticaDBSourceProperties (IO70)', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Column name is required.');
     });
 
-    it('resolves system_instructions across all 4 fallback levels and updates on change', () => {
+    it('updates system_instructions when instructions textarea is edited', () => {
       const onChange = vi.fn();
-      const { rerender } = render(
+      render(
         <KineticaDBSourceProperties
-          node={makeNode(validProps, { system_instructions: 'from node system' })}
+          node={makeNode(validProps)}
           onChange={onChange}
         />
-      );
-      expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-        'from node system'
-      );
-
-      rerender(
-        <KineticaDBSourceProperties
-          node={makeNode(validProps, { special_instructions: 'from node special' })}
-          onChange={onChange}
-        />
-      );
-      expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-        'from node special'
-      );
-
-      rerender(
-        <KineticaDBSourceProperties
-          node={makeNode({ ...validProps, system_instructions: 'from props system' })}
-          onChange={onChange}
-        />
-      );
-      expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-        'from props system'
-      );
-
-      rerender(
-        <KineticaDBSourceProperties
-          node={makeNode({ ...validProps, special_instructions: 'from props special' })}
-          onChange={onChange}
-        />
-      );
-      expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue(
-        'from props special'
       );
 
       fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {

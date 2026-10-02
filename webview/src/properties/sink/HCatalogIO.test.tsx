@@ -147,7 +147,7 @@ describe('HCatalogIOSinkProperties', () => {
     }));
   });
 
-  it('supports Secret Manager authentication mode with IPC secretsLoaded', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'HCatalog Sink',
@@ -160,44 +160,6 @@ describe('HCatalogIOSinkProperties', () => {
     render(<HCatalogIOSinkProperties node={node} onChange={mockOnChange} />);
 
     expect(screen.getByPlaceholderText(/hive-auth-credentials/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/gcp/secrets/hcat-sink-token',
-          { id: 'hcat-secret', name: 'hcat-secret' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#hcatalog-sink-secret-options option[value="hcat-sink-token"]');
-    const option2 = document.querySelector('datalist#hcatalog-sink-secret-options option[value="hcat-secret"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secret discovery fails', () => {
-    const node = {
-      data: {
-        label: 'HCatalog Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<HCatalogIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access Secret Manager'
-      }
-    }));
-
-    expect(screen.getByText('Failed to access Secret Manager')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and updates parameters', () => {
@@ -262,12 +224,12 @@ describe('HCatalogIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('120')).toHaveValue(0);
   });
 
-  it('resolves system instructions via fallback chain and handles edits', () => {
+  it('dispatches system instructions updates', () => {
     const node = {
       data: {
         label: 'HCatalog Sink',
         properties: {
-          special_instructions: 'Custom write instructions for HCatalog sink'
+          system_instructions: 'Custom write instructions for HCatalog sink'
         }
       }
     };

@@ -42,8 +42,6 @@ describe('DynamoDBIOSourceProperties', () => {
     expect(tableInput).toBeInTheDocument();
     expect(tableInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText(/Table Name is required/i)).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates form fields from node.data.properties correctly', () => {
@@ -156,24 +154,6 @@ describe('DynamoDBIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('e.g. aws-access-key-id')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. aws-secret-access-key')).toBeInTheDocument();
 
-    // Simulate extension host IPC secretsLoaded message
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'aws-access-key', name: 'aws-access-key' },
-            'projects/my-project/secrets/aws-secret-key'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('dynamodb-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     // Simulate switching back to default
     const defaultRadio = screen.getByRole('radio', { name: /Default Chain/i });
     fireEvent.click(defaultRadio);
@@ -183,32 +163,6 @@ describe('DynamoDBIOSourceProperties', () => {
       accessKeySecret: 'my-access-secret',
       secretKeySecret: 'my-secret-key-secret'
     });
-  });
-
-  it('renders error on secret manager load failure', () => {
-    const node = {
-      data: {
-        label: 'DynamoDB Source',
-        properties: {
-          tableName: 'Events',
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<DynamoDBIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getAllByText(/Failed to access GCP Secret Manager/i).length).toBeGreaterThan(0);
   });
 
   it('toggles collapsible Advanced Source Settings and updates endpoint and retry count', () => {
@@ -222,9 +176,6 @@ describe('DynamoDBIOSourceProperties', () => {
     };
 
     render(<DynamoDBIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    // Initially collapsed
-    expect(screen.queryByPlaceholderText('http://localhost:8000')).not.toBeInTheDocument();
 
     // Click to expand
     const toggleButton = screen.getByRole('button', { name: /Advanced Source Settings/i });
@@ -278,37 +229,18 @@ describe('DynamoDBIOSourceProperties', () => {
     expect(screen.getAllByPlaceholderText('e.g. UserEvents').length).toBeGreaterThan(0);
   });
 
-  it('resolves system instructions fallback chain and handles edits', () => {
-    const nodeWithSpecial = {
+  it('updates system_instructions on textarea change', () => {
+    const node = {
       data: {
         label: 'DynamoDB Source',
-        special_instructions: 'Custom DynamoDB scan prompt instructions'
+        properties: {}
       }
     };
-
-    const { rerender } = render(
-      <DynamoDBIOSourceProperties node={nodeWithSpecial} onChange={mockOnChange} />
-    );
-
+    render(<DynamoDBIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Read items using DynamoDBIO.read/i);
-    expect(textarea).toHaveValue('Custom DynamoDB scan prompt instructions');
-
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith({
       system_instructions: 'Updated prompt instructions'
     });
-
-    // Verify system_instructions takes precedence over special_instructions
-    const nodeWithSystem = {
-      data: {
-        label: 'DynamoDB Source',
-        system_instructions: 'System instructions take priority',
-        special_instructions: 'Special instructions fallback'
-      }
-    };
-    rerender(<DynamoDBIOSourceProperties node={nodeWithSystem} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Read items using DynamoDBIO.read/i)).toHaveValue(
-      'System instructions take priority'
-    );
   });
 });

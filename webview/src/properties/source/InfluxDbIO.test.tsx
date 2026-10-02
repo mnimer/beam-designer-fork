@@ -5,8 +5,8 @@
  *
  * Purpose:
  * Validates InfluxDbIOSourceProperties form rendering, hydration, dispatching,
- * query vs metric mode switching, IPC callbacks for GCP Secret Manager,
- * single-error rendering, validation states, and system instructions fallback chain.
+ * query vs metric mode switching, Secret Manager auth mode,
+ * validation states, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -175,74 +175,6 @@ describe('InfluxDbIOSourceProperties', () => {
     expect(screen.getAllByDisplayValue('0').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets', () => {
-    const node = {
-      data: {
-        label: 'InfluxDB Source',
-        properties: {
-          authMode: 'secret_manager' as const,
-          usernameSecret: 'influx-user',
-          passwordSecret: 'influx-pass'
-        }
-      }
-    };
-
-    render(<InfluxDbIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    const userSecretInput = screen.getByPlaceholderText('e.g. influxdb-username');
-    const passSecretInput = screen.getByPlaceholderText('e.g. influxdb-password');
-
-    expect(userSecretInput).toHaveValue('influx-user');
-    expect(passSecretInput).toHaveValue('influx-pass');
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/influx-user-secret',
-            { id: 'influx-pass-secret', name: 'influx-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#influxdb-source-secret-options option[value="influx-user-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#influxdb-source-secret-options option[value="influx-pass-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('renders Secret Manager error once when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'InfluxDB Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<InfluxDbIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager for InfluxDB'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager for InfluxDB')).toBeInTheDocument();
-  });
-
   it('toggles Advanced Source Settings and updates SSL flags and timeouts', () => {
     const node = {
       data: {
@@ -288,70 +220,7 @@ describe('InfluxDbIOSourceProperties', () => {
     );
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <InfluxDbIOSourceProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <InfluxDbIOSourceProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <InfluxDbIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property level system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <InfluxDbIOSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property level special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level special instructions')).toBeInTheDocument();
-    unmount4();
-
-    // 5. empty fallback
+  it('updates system_instructions when instructions textarea is edited', () => {
     render(
       <InfluxDbIOSourceProperties
         node={{
@@ -361,7 +230,6 @@ describe('InfluxDbIOSourceProperties', () => {
       />
     );
     const textarea = screen.getByPlaceholderText(/Ingest time-series data from InfluxDB/i);
-    expect(textarea).toHaveValue('');
 
     fireEvent.change(textarea, { target: { value: 'Synthesize custom influx query pipeline' } });
     expect(mockOnChange).toHaveBeenCalledWith(

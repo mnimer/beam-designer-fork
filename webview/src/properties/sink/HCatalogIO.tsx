@@ -29,8 +29,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
 /**
  * Secret item descriptor returned from extension host discovery.
@@ -106,12 +109,7 @@ export const HCatalogIOSinkProperties: React.FC<HCatalogIOSinkPropertiesProps> =
   const isTableEmpty = !table.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -138,19 +136,6 @@ export const HCatalogIOSinkProperties: React.FC<HCatalogIOSinkPropertiesProps> =
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -355,70 +340,53 @@ export const HCatalogIOSinkProperties: React.FC<HCatalogIOSinkPropertiesProps> =
       </div>
 
       {/* Collapsible Advanced Sink Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Sink Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Sink Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <PropertyField
+          id="hcatSinkHiveSitePath"
+          name="hiveSitePath"
+          label="hive-site.xml Path"
+          tooltip="Optional filesystem path to a custom hive-site.xml configuration file on the worker."
+          value={hiveSitePath}
+          onChange={handleChange}
+          placeholder="/etc/hive/conf/hive-site.xml"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <PropertyField
-              id="hcatSinkHiveSitePath"
-              name="hiveSitePath"
-              label="hive-site.xml Path"
-              tooltip="Optional filesystem path to a custom hive-site.xml configuration file on the worker."
-              value={hiveSitePath}
-              onChange={handleChange}
-              placeholder="/etc/hive/conf/hive-site.xml"
-              mono={true}
-            />
+        <PropertyField
+          id="hcatSinkClientTimeoutSeconds"
+          name="clientTimeoutSeconds"
+          label="Client Timeout (seconds)"
+          type="number"
+          tooltip="Thrift socket timeout in seconds for Hive Metastore client operations."
+          value={clientTimeoutSeconds}
+          onChange={handleChange}
+          placeholder="120"
+          mono={true}
+        />
 
-            <PropertyField
-              id="hcatSinkClientTimeoutSeconds"
-              name="clientTimeoutSeconds"
-              label="Client Timeout (seconds)"
-              type="number"
-              tooltip="Thrift socket timeout in seconds for Hive Metastore client operations."
-              value={clientTimeoutSeconds}
-              onChange={handleChange}
-              placeholder="120"
-              mono={true}
-            />
-
-            <PropertyField
-              id="hcatSinkCommitBehavior"
-              name="commitBehavior"
-              label="Commit Behavior"
-              tooltip="Specifies partition commit strategy or staging directory cleanup upon write completion."
-              value={commitBehavior}
-              onChange={handleChange}
-              placeholder="e.g. DIRECT_WRITE or STAGED"
-              mono={true}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <PropertyField
+          id="hcatSinkCommitBehavior"
+          name="commitBehavior"
+          label="Commit Behavior"
+          tooltip="Specifies partition commit strategy or staging directory cleanup upon write completion."
+          value={commitBehavior}
+          onChange={handleChange}
+          placeholder="e.g. DIRECT_WRITE or STAGED"
+          mono={true}
+        />
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="hcatSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing HCatalogIO write pipeline transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing HCatalogIO write pipeline transforms."
         placeholder="e.g. Write PCollection<HCatRecord> into partitioned table matching schema field order exactly"
-        mono={true}
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
       />
     </div>
   );

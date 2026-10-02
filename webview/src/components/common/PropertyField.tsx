@@ -19,11 +19,17 @@ import React, { useId, useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { InfoTooltip } from '../InfoTooltip';
 
+/**
+ * Option descriptor for select-style property fields.
+ */
 export interface PropertyFieldOption {
   value: string;
   label?: string;
 }
 
+/**
+ * Props for the {@link PropertyField} component.
+ */
 export interface PropertyFieldProps {
   /** HTML input id. If omitted, a unique accessibility id is automatically generated. */
   id?: string;
@@ -127,7 +133,7 @@ export const PropertyField: React.FC<PropertyFieldProps> = ({
   readOnly,
   rows = 3,
   className,
-  containerClassName = 'flex flex-col gap-2',
+  containerClassName = 'flex flex-col justify-end gap-2',
   onChange,
   onValueChange,
   children,

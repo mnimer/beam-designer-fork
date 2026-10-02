@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   S3FileSystemSinkProperties,
@@ -565,38 +565,7 @@ describe('S3FileSystemSinkProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<S3FileSystemSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<S3FileSystemSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<S3FileSystemSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests GCP Secret Manager secrets via getSecrets and does NOT request storage buckets', () => {
+  it('requests GCP Secret Manager secrets and does NOT request storage buckets', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
 
@@ -613,29 +582,9 @@ describe('S3FileSystemSinkProperties', () => {
     expect(mockPostMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ command: 'getStorageBuckets' })
     );
-    expect(mockPostMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ command: 'getSecrets' })
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { id: 'aws-s3-access-key-id', name: 'aws-s3-access-key-id', fullName: 'projects/p/secrets/aws-s3-access-key-id' },
-              'projects/p/secrets/aws-s3-secret-access-key'
-            ]
-          }
-        })
-      );
-    });
 
     const accessKeyInput = container.querySelector('#s3SinkAccessKeyId') as HTMLInputElement;
-    fireEvent.focus(accessKeyInput);
-    const option = screen.getByRole('option', { name: 'aws-s3-access-key-id' });
-    expect(option).toBeInTheDocument();
-    fireEvent.mouseDown(option);
+    fireEvent.change(accessKeyInput, { target: { name: 'accessKeyId', value: 'aws-s3-access-key-id' } });
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ accessKeyId: 'aws-s3-access-key-id' })
     );

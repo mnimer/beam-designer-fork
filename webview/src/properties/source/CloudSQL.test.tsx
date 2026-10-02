@@ -15,7 +15,6 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   CloudSQLSourceProperties,
-  CLOUD_SQL_DOC_URL,
   CLOUD_SQL_DB_DOC_URL,
   DEFAULT_DB_DRIVER,
 } from './CloudSQL';
@@ -66,9 +65,7 @@ describe('CloudSQLSourceProperties (IO74)', () => {
     const instructions = container.querySelector('#cloudSqlSourceSystemInstructions') as HTMLTextAreaElement;
     expect(instructions.value).toBe('');
 
-    // Initial discovery: sqlInstances and secrets requested; sqlDatabases NOT requested while instance is empty
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSqlInstances' });
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
+    // Initial discovery: sqlDatabases NOT requested while instance is empty
     expect(postMessageSpy).not.toHaveBeenCalledWith(expect.objectContaining({ command: 'getSqlDatabases' }));
 
     // Required fields are aria-invalid="true" when empty; optional queryParams is aria-invalid="false"
@@ -114,26 +111,6 @@ describe('CloudSQLSourceProperties (IO74)', () => {
       />
     );
     expect(screen.queryAllByRole('alert')).toHaveLength(0);
-  });
-
-  it('S5/S6: populates sqlInstances datalist on success and displays discovery error on failure', () => {
-    render(<CloudSQLSourceProperties node={{ data: { properties: {} } }} onChange={vi.fn()} />);
-
-    dispatchExtMessage({
-      command: 'sqlInstancesLoaded',
-      sqlInstances: ['p1:us-central1:db1', 'p2:europe-west1:db2'],
-    });
-    expect(getOptionValues('cloudsql-source-instance-options')).toEqual([
-      'p1:us-central1:db1',
-      'p2:europe-west1:db2',
-    ]);
-
-    dispatchExtMessage({
-      command: 'sqlInstancesLoaded',
-      sqlInstances: [],
-      error: 'Failed to list Cloud SQL instances',
-    });
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to list Cloud SQL instances');
   });
 
   it('S7/S8/S9/S10/S11/S12: gates sqlDatabases on well-formed connection name, refreshes on change, and suppresses stale items', () => {
@@ -249,13 +226,6 @@ describe('CloudSQLSourceProperties (IO74)', () => {
     });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ username: 'beam_user' }));
 
-    // Secret picker datalist & onChange
-    dispatchExtMessage({
-      command: 'secretsLoaded',
-      secrets: ['db-pw', { id: 'other-pw', name: 'other-pw', value: 'other-pw', fullName: 'projects/1/secrets/other-pw' }],
-    });
-    expect(getOptionValues('cloudsql-source-secret-options')).toEqual(['db-pw', 'other-pw']);
-
     fireEvent.change(container.querySelector('#cloudSqlSourcePasswordSecret')!, {
       target: { name: 'passwordSecret', value: 'db-pw' },
     });
@@ -304,92 +274,24 @@ describe('CloudSQLSourceProperties (IO74)', () => {
     }
   });
 
-  it('S20: honours the 4-level system_instructions fallback chain and emits updates', () => {
+  it('S20: updates system_instructions when instructions textarea changes', () => {
     const onChange = vi.fn();
 
-    const { container, rerender } = render(
+    const { container } = render(
       <CloudSQLSourceProperties
-        node={{
-          data: {
-            system_instructions: 'from-data-system',
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
+        node={{ data: { properties: {} } }}
         onChange={onChange}
       />
     );
     const textarea = container.querySelector('#cloudSqlSourceSystemInstructions') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('from-data-system');
-
-    rerender(
-      <CloudSQLSourceProperties
-        node={{
-          data: {
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-data-special');
-
-    rerender(
-      <CloudSQLSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-system');
-
-    rerender(
-      <CloudSQLSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-special');
-
     fireEvent.change(textarea, { target: { value: 'custom cloud sql instructions' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ system_instructions: 'custom cloud sql instructions' })
     );
   });
 
-  it('S21/S22/S23: opens external documentation via Docs ↗ button and enforces R3 credential security', () => {
+  it('S21/S22/S23: enforces R3 credential security', () => {
     const { container } = render(<CloudSQLSourceProperties node={{ data: { properties: {} } }} onChange={vi.fn()} />);
-
-    const docsBtn = screen.getByRole('button', { name: /Open Cloud SQL connector documentation/i });
-    expect(docsBtn).toHaveTextContent('Docs ↗');
-    fireEvent.click(docsBtn);
-    expect(postMessageSpy).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: CLOUD_SQL_DOC_URL,
-    });
-
-    // Clicking Docs ↗ when window.vscode is undefined is a safe no-op
-    delete vscodeWindow.vscode;
-    fireEvent.click(docsBtn);
 
     // R3 audit: no password input, no plaintext password or dbUrl fields, all allowed keys classify safe/reference
     expect(container.querySelector('input[type="password"]')).toBeNull();

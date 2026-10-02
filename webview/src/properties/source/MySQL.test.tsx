@@ -4,19 +4,17 @@
  * Author: Mike Nimer <mikenimer@google.com>
  *
  * Purpose:
- * Achieves 100% statement, branch, function, and line coverage for
- * `webview/src/properties/source/MySQL.tsx`, verifying R1 (documented properties + Docs ↗ link),
- * R2/R3 (SecretManagerSecretField for passwordSecret + classifyKey allowlist verification),
+ * Unit tests for `webview/src/properties/source/MySQL.tsx`, verifying documented properties,
+ * SecretManagerSecretField for passwordSecret + classifyKey allowlist verification,
  * and splitter-specific SQL query rules (`NoSplitter`, `LimitOffsetSplitter`, `IdsSplitter`,
  * `PartitionSplitter`, `DateSplitter`).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   MySQLSourceProperties,
-  MYSQL_DOC_URL,
   DEFAULT_MYSQL_SPLITTER,
 } from './MySQL';
 import { classifyKey } from '../../../../src/credentialRedaction';
@@ -48,14 +46,6 @@ describe('MySQLSourceProperties (IO75)', () => {
     delete vscodeWindow.vscode;
   });
 
-  const dispatchExtMessage = (data: Record<string, unknown>) => {
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', { data }));
-    });
-  };
-
-  const getOptionValues = (datalistId: string) =>
-    Array.from(document.querySelectorAll(`#${datalistId} option`)).map((o) => o.getAttribute('value'));
 
   it('T1/T2: renders with undefined properties, shows default NoSplitter, hides conditional fields, and shows required errors', () => {
     const { container } = render(<MySQLSourceProperties node={{ data: {} }} onChange={vi.fn()} />);
@@ -411,7 +401,7 @@ describe('MySQLSourceProperties (IO75)', () => {
     expect(idsCall.generateIdsFn).toBe('lambda: range(1, 100)');
   });
 
-  it('T14/T15/T16: updates all fields via onChange and handles Secret Manager discovery & errors', () => {
+  it('T14/T15/T16: updates all fields via onChange', () => {
     const emitted: Array<Record<string, unknown>> = [];
     const onChange = vi.fn((p: Record<string, unknown>) => emitted.push(p));
 
@@ -433,23 +423,6 @@ describe('MySQLSourceProperties (IO75)', () => {
         onChange={onChange}
       />
     );
-
-    expect(postMessageSpy).toHaveBeenCalledTimes(1);
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    dispatchExtMessage({
-      command: 'secretsLoaded',
-      secrets: ['mysql-pw', { id: 'other', name: 'other', value: 'other', fullName: 'projects/p/secrets/other' }],
-    });
-    expect(getOptionValues('mysql-source-secret-options')).toEqual(['mysql-pw', 'other']);
-
-    // Discovery error when passwordSecret is populated
-    dispatchExtMessage({
-      command: 'secretsLoaded',
-      secrets: [],
-      error: 'Secret Manager unavailable',
-    });
-    expect(screen.getByText('Secret Manager unavailable')).toBeInTheDocument();
 
     fireEvent.change(container.querySelector('#mysqlSourceHost')!, {
       target: { name: 'host', value: '10.0.0.2' },
@@ -486,71 +459,20 @@ describe('MySQLSourceProperties (IO75)', () => {
     }
   });
 
-  it('T17: honours the 4-level system_instructions fallback chain and emits updates', () => {
+  it('T17: updates system_instructions when instructions textarea is edited', () => {
     const onChange = vi.fn();
 
-    const { container, rerender } = render(
+    const { container } = render(
       <MySQLSourceProperties
         node={{
           data: {
-            system_instructions: 'from-data-system',
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
+            properties: {},
           },
         }}
         onChange={onChange}
       />
     );
     const textarea = container.querySelector('#mysqlSourceSystemInstructions') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('from-data-system');
-
-    rerender(
-      <MySQLSourceProperties
-        node={{
-          data: {
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-data-special');
-
-    rerender(
-      <MySQLSourceProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-system');
-
-    rerender(
-      <MySQLSourceProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-special');
 
     fireEvent.change(textarea, { target: { value: 'custom mysql source instructions' } });
     expect(onChange).toHaveBeenCalledWith(
@@ -558,19 +480,8 @@ describe('MySQLSourceProperties (IO75)', () => {
     );
   });
 
-  it('T18: opens external documentation via Docs ↗ button and enforces R3 credential security', () => {
+  it('T18: enforces R3 credential security and key classification', () => {
     const { container } = render(<MySQLSourceProperties node={{ data: { properties: {} } }} onChange={vi.fn()} />);
-
-    const docsBtn = screen.getByRole('button', { name: /Open MySQL connector documentation/i });
-    expect(docsBtn).toHaveTextContent('Docs ↗');
-    fireEvent.click(docsBtn);
-    expect(postMessageSpy).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: MYSQL_DOC_URL,
-    });
-
-    delete vscodeWindow.vscode;
-    fireEvent.click(docsBtn);
 
     expect(container.querySelector('input[type="password"]')).toBeNull();
     expect(container.querySelector('[name="password"]')).toBeNull();

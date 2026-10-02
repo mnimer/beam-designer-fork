@@ -23,11 +23,15 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for Elasticsearch authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -36,6 +40,7 @@ export interface SecretItem {
 
 export type ElasticsearchAuthMode = 'none' | 'basic_secret_manager' | 'api_key_secret';
 
+/** Props for the {@link ElasticsearchIOSourceProperties} component. */
 export interface ElasticsearchIOSourcePropertiesProps {
   node: {
     data: {
@@ -69,6 +74,7 @@ export interface ElasticsearchIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/** Props for the Elasticsearch target cluster and index configuration section. */
 interface SourceTargetSectionProps {
   addresses: string;
   index: string;
@@ -143,6 +149,7 @@ const SourceTargetSection: React.FC<SourceTargetSectionProps> = ({
   );
 };
 
+/** Props for the Elasticsearch query and pagination configuration section. */
 interface SourceQuerySectionProps {
   query: string;
   scrollKeepalive: string;
@@ -221,6 +228,7 @@ const SourceQuerySection: React.FC<SourceQuerySectionProps> = ({
   );
 };
 
+/** Props for the Elasticsearch authentication configuration section. */
 interface SourceAuthSectionProps {
   authMode: ElasticsearchAuthMode;
   usernameSecret: string;
@@ -318,6 +326,7 @@ const SourceAuthSection: React.FC<SourceAuthSectionProps> = ({
   );
 };
 
+/** Props for the Elasticsearch advanced connection settings section. */
 interface SourceAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -345,83 +354,74 @@ const SourceAdvancedSection: React.FC<SourceAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="es-source-connect-timeout"
+          name="connectTimeout"
+          label="Connect Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Elasticsearch client connection timeout in milliseconds (maps to withConnectTimeout)."
+          value={connectTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+        <PropertyField
+          id="es-source-socket-timeout"
+          name="socketTimeout"
+          label="Socket Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Elasticsearch client socket timeout in milliseconds (maps to withSocketTimeout)."
+          value={socketTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="es-source-connect-timeout"
-              name="connectTimeout"
-              label="Connect Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Elasticsearch client connection timeout in milliseconds (maps to withConnectTimeout)."
-              value={connectTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-            <PropertyField
-              id="es-source-socket-timeout"
-              name="socketTimeout"
-              label="Socket Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Elasticsearch client socket timeout in milliseconds (maps to withSocketTimeout)."
-              value={socketTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-          </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="es-source-trust-self-signed"
+          name="trustSelfSignedCerts"
+          type="checkbox"
+          checked={trustSelfSignedCerts}
+          onChange={onChange}
+          className="accent-[var(--vscode-highlight)] cursor-pointer"
+        />
+        <label htmlFor="es-source-trust-self-signed" className="text-xs text-[var(--vscode-text-primary)] cursor-pointer flex items-center gap-1.5">
+          <span>Trust Self-Signed Certificates</span>
+          <InfoTooltip text="Configures the client to trust self-signed SSL/TLS certificates (maps to withTrustSelfSignedCerts)." />
+        </label>
+      </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              id="es-source-trust-self-signed"
-              name="trustSelfSignedCerts"
-              type="checkbox"
-              checked={trustSelfSignedCerts}
-              onChange={onChange}
-              className="accent-[var(--vscode-highlight)] cursor-pointer"
-            />
-            <label htmlFor="es-source-trust-self-signed" className="text-xs text-[var(--vscode-text-primary)] cursor-pointer flex items-center gap-1.5">
-              <span>Trust Self-Signed Certificates</span>
-              <InfoTooltip text="Configures the client to trust self-signed SSL/TLS certificates (maps to withTrustSelfSignedCerts)." />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="es-source-keystore-path"
-              name="keystorePath"
-              label="Keystore Path"
-              tooltip="Path to SSL truststore/keystore file (maps to withKeystorePath)."
-              value={keystorePath}
-              onChange={onChange}
-              placeholder="/path/to/keystore.jks"
-            />
-            <PropertyField
-              id="es-source-keystore-password-secret"
-              name="keystorePasswordSecret"
-              label="Keystore Password Secret"
-              tooltip="Secret Manager secret ID containing the SSL keystore password (maps to withKeystorePassword)."
-              value={keystorePasswordSecret}
-              onChange={onChange}
-              placeholder="e.g. es-keystore-pwd"
-              list="elasticsearch-source-secret-options"
-              datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="es-source-keystore-path"
+          name="keystorePath"
+          label="Keystore Path"
+          tooltip="Path to SSL truststore/keystore file (maps to withKeystorePath)."
+          value={keystorePath}
+          onChange={onChange}
+          placeholder="/path/to/keystore.jks"
+        />
+        <PropertyField
+          id="es-source-keystore-password-secret"
+          name="keystorePasswordSecret"
+          label="Keystore Password Secret"
+          tooltip="Secret Manager secret ID containing the SSL keystore password (maps to withKeystorePassword)."
+          value={keystorePasswordSecret}
+          onChange={onChange}
+          placeholder="e.g. es-keystore-pwd"
+          list="elasticsearch-source-secret-options"
+          datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name || s.id }))}
+        />
+      </div>
+    </CollapsibleSection>
   );
 };
 
@@ -471,12 +471,7 @@ export const ElasticsearchIOSourceProperties: React.FC<ElasticsearchIOSourceProp
     });
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -509,13 +504,6 @@ export const ElasticsearchIOSourceProperties: React.FC<ElasticsearchIOSourceProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Cluster Addresses & Target Index */}
@@ -562,21 +550,19 @@ export const ElasticsearchIOSourceProperties: React.FC<ElasticsearchIOSourceProp
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="es-source-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this Elasticsearch source transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom system instructions passed to the LLM when generating code for this Elasticsearch source transform."
         placeholder="e.g. ElasticsearchIO.read().withConnectionConfiguration(ConnectionConfiguration.create(new String[]{'http://localhost:9200'}, 'sensor_readings')).withQuery('...')"
+        rows={4}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

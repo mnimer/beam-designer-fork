@@ -26,11 +26,16 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
 import { Sliders } from 'lucide-react';
 
+/**
+ * Node definition for TFRecordIO sink configuration.
+ */
 export interface TFRecordIOSinkNode {
   data: {
     label: string;
@@ -51,6 +56,9 @@ export interface TFRecordIOSinkNode {
   };
 }
 
+/**
+ * Props for the TFRecordIOSinkProperties component.
+ */
 export interface TFRecordIOSinkPropertiesProps {
   node: TFRecordIOSinkNode;
   onChange: (properties: any) => void;
@@ -69,6 +77,9 @@ export const TFRECORD_SINK_CODER_OPTIONS = [
 
 export const TFRECORD_SINK_CODERS = TFRECORD_SINK_CODER_OPTIONS;
 
+/**
+ * Properties panel component for configuring TFRecordIO sinks.
+ */
 export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const to = properties.to || '';
@@ -87,12 +98,7 @@ export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> =
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -105,16 +111,6 @@ export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> =
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -214,22 +210,21 @@ export const TFRecordIOSinkProperties: React.FC<TFRecordIOSinkPropertiesProps> =
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="tfrecordSinkInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TFRecordIO writer step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Ensure TFRecord writer configures GZIP compression and shards into 10 partitions."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="tfrecordSinkInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this TFRecordIO writer step."
+        placeholder="e.g. Ensure TFRecord writer configures GZIP compression and shards into 10 partitions."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="resize-y h-24"
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

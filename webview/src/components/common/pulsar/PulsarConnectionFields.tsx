@@ -20,6 +20,9 @@ import React from 'react';
 import { Server } from 'lucide-react';
 import { PropertyField } from '../PropertyField';
 
+/**
+ * Props for the {@link PulsarConnectionFields} component.
+ */
 export interface PulsarConnectionFieldsProps {
   /** Prefix for generating unique element ids (e.g. 'pulsar' or 'pulsar-sink'). */
   idPrefix?: string;

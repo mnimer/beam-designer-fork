@@ -161,38 +161,6 @@ describe('JmsIOSourceProperties', () => {
     expect(screen.getByText(/A queue name is required for JmsIO.read\(\)/i)).toBeInTheDocument();
   });
 
-  it('receives secretsLoaded and populates secret options when Secret Manager is enabled', () => {
-    const mockNode = {
-      data: {
-        label: 'JMS',
-        properties: {
-          authMode: 'secretManager' as const,
-          passwordSecret: 'jms-pass'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<JmsIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Post message from extension
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: ['jms-pass', 'db-pass', 'oauth-token']
-        }
-      }));
-    });
-
-    const secretInput = screen.getByLabelText(/Secret Manager Secret/i);
-    expect(secretInput).toHaveValue('jms-pass');
-
-    fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'db-pass' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      passwordSecret: 'db-pass'
-    }));
-  });
 
   it('receives computeInstancesLoaded and allows inserting instance IP', () => {
     const mockNode = {

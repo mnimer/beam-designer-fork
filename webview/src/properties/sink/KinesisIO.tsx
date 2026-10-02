@@ -24,12 +24,18 @@
  * - Persists custom code generation instructions for LLM prompt tailoring.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { RefreshCw, ShieldCheck, KeyRound, Radio, SplitSquareVertical } from 'lucide-react';
 import { AWS_REGION_PRESETS } from '../source/KinesisIO';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
+/**
+ * React Flow node shape for the Kinesis sink panel, including its persisted configuration data.
+ */
 export interface KinesisIOSinkNode {
   data: {
     label: string;
@@ -64,6 +70,9 @@ export interface KinesisIOSinkNode {
   };
 }
 
+/**
+ * Props for the KinesisIOSinkProperties component.
+ */
 interface KinesisIOSinkPropertiesProps {
   node: KinesisIOSinkNode;
   onChange: (properties: any) => void;
@@ -98,52 +107,10 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
   const verifyCertificate = properties.verifyCertificate ?? true;
   const expansionService = properties.expansionService || '';
 
-  // Local state for secret fetching
-  const [secrets, setSecrets] = useState<string[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState<boolean>(false);
+  const secrets = useSecretOptions();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // Request Secret Manager secrets from the extension host
-  const requestSecrets = () => {
-    setIsLoadingSecrets(true);
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  // Listen for secretsLoaded event from the VS Code extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        setSecretError(message.error || null);
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets payload so both legacy string arrays and SecretItem objects ({name, id, fullName, value})
-        // resolve to the short secret ID, preventing "[object Object]" rendering in dropdown options.
-        const secretIds = rawSecrets.map((s: any) =>
-          typeof s === 'string' ? (s.split('/').filter(Boolean).pop() || s) : (s.id || s.name || '')
-        ).filter(Boolean);
-        setSecrets(secretIds);
-        setIsLoadingSecrets(false);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // Initial fetch on mount
-    requestSecrets();
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -166,17 +133,6 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
     onChange(newProperties);
   };
 
-  /**
-   * Handles custom system instructions textarea change for LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   // Region preset handling
   const isRegionPreset = AWS_REGION_PRESETS.some(r => r.value === region && r.value !== 'custom');
@@ -311,11 +267,12 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
               </span>
               <button
                 type="button"
-                onClick={requestSecrets}
+                onClick={secrets.refresh}
+                disabled={secrets.loading}
                 title="Refresh secrets from gcloud"
                 className="text-xs text-[var(--vscode-text-muted)] hover:text-rose-400 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <RefreshCw className={`w-3 h-3 ${isLoadingSecrets ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${secrets.loading ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
             </div>
@@ -330,8 +287,9 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
               onChange={handleChange}
               placeholder="e.g. aws-access-key-id"
               list="kinesis-sink-secrets-list"
-              datalist={secrets}
-              error={secretError}
+              datalist={secrets.options}
+              loading={secrets.loading}
+              error={secrets.error}
             />
 
             {/* Secret Key Secret */}
@@ -344,8 +302,9 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
               onChange={handleChange}
               placeholder="e.g. aws-secret-access-key"
               list="kinesis-sink-secrets-list"
-              datalist={secrets}
-              error={secretError}
+              datalist={secrets.options}
+              loading={secrets.loading}
+              error={secrets.error}
             />
           </div>
         )}
@@ -572,21 +531,13 @@ export const KinesisIOSinkProperties: React.FC<KinesisIOSinkPropertiesProps> = (
         </div>
       </div>
 
-      {/* Flexible Spacer adhering to 8pt grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* SECTION 7: CODE GENERATION INSTRUCTIONS */}
-      <PropertyField
+      <SystemInstructionsField
         id="kinesisSinkSystemInstructions"
-        type="textarea"
-        name="system_instructions"
-        label="Code Generation Instructions"
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter custom instructions for Kinesis sink code generation (e.g. partition key hashing, retry policies, dead-letter routing)..."
-        rows={3}
-        mono={false}
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]"
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
       />
     </div>
   );

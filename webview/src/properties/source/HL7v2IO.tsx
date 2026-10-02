@@ -26,6 +26,7 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export type HL7v2ReadMode =
@@ -36,6 +37,7 @@ export type HL7v2ReadMode =
   | 'getAll'
   | 'readAllRequests';
 
+/** Props for the {@link HL7v2IOSourceProperties} component. */
 export interface HL7v2IOSourcePropertiesProps {
   node?: any;
   nodeId?: string;
@@ -301,18 +303,12 @@ export const HL7v2IOSourceProperties: React.FC<HL7v2IOSourcePropertiesProps> = (
       </details>
 
       {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="hl7v2SourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., extracting schematizedData or routing HL7v2IO.Read.Result.getFailedReads())."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., extracting schematizedData or routing HL7v2IO.Read.Result.getFailedReads())."
         placeholder="e.g., Extract HL7v2Message.getSchematizedData() and route HL7v2IO.Read.Result.getFailedReads() to dead-letter storage..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

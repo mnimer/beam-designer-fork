@@ -30,6 +30,8 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { SelectField } from '../../components/common/SelectField';
 import { StoragePathField } from '../../components/common/StoragePathField';
@@ -37,6 +39,7 @@ import { MappingStrategyField, type MappingStrategy } from '../../components/com
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { FileCode } from 'lucide-react';
 
+/** React Flow node shape for the CsvIO source panel, including its persisted configuration data. */
 export interface CsvIOSourceNode {
   data: {
     label: string;
@@ -65,6 +68,7 @@ export interface CsvIOSourceNode {
   };
 }
 
+/** Props for the {@link CsvIOSourceProperties} component. */
 export interface CsvIOSourcePropertiesProps {
   node: CsvIOSourceNode;
   onChange: (properties: any) => void;
@@ -198,12 +202,7 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles form input changes for text, select, and checkbox fields.
@@ -238,13 +237,6 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
    *
    * @param e Form change event from textarea
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input with GCS Bucket Datalist */}
@@ -398,22 +390,21 @@ export const CsvIOSourceProperties: React.FC<CsvIOSourcePropertiesProps> = ({ no
       </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="csvSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this CsvIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse timestamp using ISO-8601 format, handle empty strings as null, or use specific Row coder."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="csvSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this CsvIO reader step."
+        placeholder="e.g. Parse timestamp using ISO-8601 format, handle empty strings as null, or use specific Row coder."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

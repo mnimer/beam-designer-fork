@@ -26,11 +26,13 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export type DicomReadMode = 'readStudyMetadata' | 'dicomSearch';
 export type DicomSearchType = 'studies' | 'series' | 'instances';
 
+/** Props for the {@link DicomIOSourceProperties} component. */
 export interface DicomIOSourcePropertiesProps {
   node?: any;
   nodeId?: string;
@@ -384,18 +386,12 @@ export const DicomIOSourceProperties: React.FC<DicomIOSourcePropertiesProps> = (
       </details>
 
       {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="dicomSourceSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., routing DicomIO.ReadStudyMetadata.Result.getFailedReads())."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., routing DicomIO.ReadStudyMetadata.Result.getFailedReads())."
         placeholder="e.g., Parse DICOM study metadata JSON and route failed reads from getFailedReads() to dead-letter logging..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

@@ -21,6 +21,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
@@ -101,12 +104,7 @@ export const RedisIOSourceProperties: React.FC<RedisIOSourcePropertiesProps> = (
   const isKeyPatternEmpty = readMode === 'keyPattern' && !keyPattern.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -133,19 +131,6 @@ export const RedisIOSourceProperties: React.FC<RedisIOSourcePropertiesProps> = (
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -359,88 +344,76 @@ export const RedisIOSourceProperties: React.FC<RedisIOSourcePropertiesProps> = (
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="redisSourceConnectionTimeout"
+            name="connectionTimeout"
+            label="Connection Timeout (ms)"
+            type="number"
+            tooltip="Connection timeout in milliseconds. Defaults to driver default."
+            value={connectionTimeout}
+            onChange={handleChange}
+            placeholder="2000"
+            mono={true}
+          />
+          <PropertyField
+            id="redisSourceSocketTimeout"
+            name="socketTimeout"
+            label="Socket Timeout (ms)"
+            type="number"
+            tooltip="Socket timeout in milliseconds for reading data from Redis."
+            value={socketTimeout}
+            onChange={handleChange}
+            placeholder="2000"
+            mono={true}
+          />
+        </div>
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="redisSourceConnectionTimeout"
-                name="connectionTimeout"
-                label="Connection Timeout (ms)"
-                type="number"
-                tooltip="Connection timeout in milliseconds. Defaults to driver default."
-                value={connectionTimeout}
-                onChange={handleChange}
-                placeholder="2000"
-                mono={true}
-              />
-              <PropertyField
-                id="redisSourceSocketTimeout"
-                name="socketTimeout"
-                label="Socket Timeout (ms)"
-                type="number"
-                tooltip="Socket timeout in milliseconds for reading data from Redis."
-                value={socketTimeout}
-                onChange={handleChange}
-                placeholder="2000"
-                mono={true}
-              />
-            </div>
+        <PropertyField
+          id="redisSourceMaxAttempts"
+          name="maxAttempts"
+          label="Max Attempts"
+          type="number"
+          tooltip="Maximum number of connection/read attempts before failing."
+          value={maxAttempts}
+          onChange={handleChange}
+          placeholder="5"
+          mono={true}
+        />
 
-            <PropertyField
-              id="redisSourceMaxAttempts"
-              name="maxAttempts"
-              label="Max Attempts"
-              type="number"
-              tooltip="Maximum number of connection/read attempts before failing."
-              value={maxAttempts}
-              onChange={handleChange}
-              placeholder="5"
-              mono={true}
-            />
-
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="redisSourceClusterMode"
-                type="checkbox"
-                name="clusterMode"
-                checked={clusterMode}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-              />
-              <label htmlFor="redisSourceClusterMode" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Redis Cluster Mode</span>
-                <InfoTooltip text="Enables cluster topology awareness when connecting to a multi-node Redis cluster. Switches the underlying client to JedisCluster. Note that logical database index is ignored in cluster mode." />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="redisSourceClusterMode"
+            type="checkbox"
+            name="clusterMode"
+            checked={clusterMode}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+          />
+          <label htmlFor="redisSourceClusterMode" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+            <span>Redis Cluster Mode</span>
+            <InfoTooltip text="Enables cluster topology awareness when connecting to a multi-node Redis cluster. Switches the underlying client to JedisCluster. Note that logical database index is ignored in cluster mode." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="redisSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Redis pipeline reader transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Redis pipeline reader transforms."
         placeholder="e.g. Ingest cache keys matching user:* and convert KV pairs into UserSession records"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -12,7 +12,7 @@
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
  * - Mocks window.vscode to verify no getStorageBuckets messages are dispatched.
- * - Validates required field states, default fallbacks, instruction fallbacks, and accordion toggling.
+ * - Validates required field states, default fallbacks, instruction editing, and accordion toggling.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -232,11 +232,6 @@ describe('LocalFileSystemSourceProperties', () => {
 
     const { container } = render(<LocalFileSystemSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Accordion should start closed
-    expect(container.querySelector('#localSourceValidate')).not.toBeInTheDocument();
-    expect(container.querySelector('#localSourceMinBundleSize')).not.toBeInTheDocument();
-    expect(container.querySelector('#localSourceWatchInterval')).not.toBeInTheDocument();
-
     // Toggle open
     const toggleButton = screen.getByText('Read Tuning & Options');
     fireEvent.click(toggleButton);
@@ -277,10 +272,6 @@ describe('LocalFileSystemSourceProperties', () => {
         watchForNewFilesInterval: '60'
       })
     );
-
-    // Toggle closed
-    fireEvent.click(toggleButton);
-    expect(container.querySelector('#localSourceValidate')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -302,37 +293,6 @@ describe('LocalFileSystemSourceProperties', () => {
         system_instructions: 'Read local JSON lines from /tmp/beam/input/'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<LocalFileSystemSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<LocalFileSystemSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<LocalFileSystemSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
   });
 
   it('does NOT request storage buckets via vscode.postMessage (no bucket discovery for local filesystem)', () => {

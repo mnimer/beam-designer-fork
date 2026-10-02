@@ -24,11 +24,17 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/**
+ * Secret item loaded from Secret Manager for Solr authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -37,6 +43,9 @@ export interface SecretItem {
 
 export type SolrAuthMode = 'none' | 'basic_secret_manager';
 
+/**
+ * Props for the SolrIOSinkProperties component.
+ */
 export interface SolrIOSinkPropertiesProps {
   node: {
     data: {
@@ -65,6 +74,9 @@ export interface SolrIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the SinkTargetSection component.
+ */
 interface SinkTargetSectionProps {
   zkHost: string;
   collection: string;
@@ -132,6 +144,9 @@ const SinkTargetSection: React.FC<SinkTargetSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkBatchSection component.
+ */
 interface SinkBatchSectionProps {
   maxBatchSize: number | string;
   retryMaxAttempts: number | string;
@@ -193,6 +208,9 @@ const SinkBatchSection: React.FC<SinkBatchSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAuthSection component.
+ */
 interface SinkAuthSectionProps {
   authMode: SolrAuthMode;
   usernameSecret: string;
@@ -273,6 +291,9 @@ const SinkAuthSection: React.FC<SinkAuthSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SolrIO sink advanced settings section.
+ */
 interface SinkAdvancedSectionProps {
   showAdvanced: boolean;
   onToggle: () => void;
@@ -294,57 +315,48 @@ const SinkAdvancedSection: React.FC<SinkAdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="solr-sink-connect-timeout"
+          name="connectTimeout"
+          label="Connect Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Solr client connection timeout in milliseconds."
+          value={connectTimeout}
+          onChange={onChange}
+          placeholder="15000"
+        />
+        <PropertyField
+          id="solr-sink-socket-timeout"
+          name="socketTimeout"
+          label="Socket Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="Solr client socket timeout in milliseconds."
+          value={socketTimeout}
+          onChange={onChange}
+          placeholder="30000"
+        />
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="solr-sink-connect-timeout"
-              name="connectTimeout"
-              label="Connect Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Solr client connection timeout in milliseconds."
-              value={connectTimeout}
-              onChange={onChange}
-              placeholder="15000"
-            />
-            <PropertyField
-              id="solr-sink-socket-timeout"
-              name="socketTimeout"
-              label="Socket Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="Solr client socket timeout in milliseconds."
-              value={socketTimeout}
-              onChange={onChange}
-              placeholder="30000"
-            />
-          </div>
-
-          <PropertyField
-            id="solr-sink-commit-within"
-            name="commitWithinMs"
-            label="Commit Within (ms)"
-            type="number"
-            min={0}
-            tooltip="Maximum time in milliseconds before documents are soft-committed in SolrCloud."
-            value={commitWithinMs}
-            onChange={onChange}
-            placeholder="10000"
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="solr-sink-commit-within"
+        name="commitWithinMs"
+        label="Commit Within (ms)"
+        type="number"
+        min={0}
+        tooltip="Maximum time in milliseconds before documents are soft-committed in SolrCloud."
+        value={commitWithinMs}
+        onChange={onChange}
+        placeholder="10000"
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -387,12 +399,7 @@ export const SolrIOSinkProperties: React.FC<SolrIOSinkPropertiesProps> = ({ node
     (zkHost.trim().toLowerCase().startsWith('http://') || zkHost.trim().toLowerCase().startsWith('https://'));
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -418,18 +425,6 @@ export const SolrIOSinkProperties: React.FC<SolrIOSinkPropertiesProps> = ({ node
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
   };
 
   return (
@@ -472,21 +467,19 @@ export const SolrIOSinkProperties: React.FC<SolrIOSinkPropertiesProps> = ({ node
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="solr-sink-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this Solr sink transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
+        tooltip="Custom system instructions passed to the LLM when generating code for this Solr sink transform."
         placeholder="e.g. SolrIO.write().withConnectionConfiguration(SolrIO.ConnectionConfiguration.create('zk1:2181,zk2:2181/solr')).to('products_search').withMaxBatchSize(1000)"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

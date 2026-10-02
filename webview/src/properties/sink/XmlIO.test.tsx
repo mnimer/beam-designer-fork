@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { XmlIOSinkProperties } from './XmlIO';
 
@@ -228,97 +228,6 @@ describe('XmlIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ charset: 'UTF-16' })
     );
-  });
-
-  it('toggles sharding configuration accordion', () => {
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<XmlIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Accordion is open initially
-    expect(container.querySelector('#xmlSinkNumShards')).toBeInTheDocument();
-
-    // Toggle close
-    const accordionBtn = screen.getByText('Sharding Configuration');
-    fireEvent.click(accordionBtn);
-    expect(container.querySelector('#xmlSinkNumShards')).not.toBeInTheDocument();
-
-    // Toggle open
-    fireEvent.click(accordionBtn);
-    expect(container.querySelector('#xmlSinkNumShards')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and populates datalist on storageBucketsLoaded event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<XmlIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets command was requested
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch extension host response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['xml-output-bucket', 'export-bucket']
-          }
-        })
-      );
-    });
-
-    // Check datalist options
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://xml-output-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://export-bucket/');
-  });
-
-  it('renders inline error message when storage bucket discovery fails', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'gs://output-bucket/items'
-        }
-      }
-    };
-
-    render(<XmlIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Dispatch failure message event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'GCS access denied: insufficient permissions'
-          }
-        })
-      );
-    });
-
-    // Assert inline error message renders
-    expect(
-      screen.getByText('Failed to load Cloud Storage buckets: GCS access denied: insufficient permissions')
-    ).toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {

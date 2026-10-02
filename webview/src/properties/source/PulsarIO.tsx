@@ -21,17 +21,22 @@
  * - Adheres strictly to the 8pt grid system for spacing and sizing.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Layers } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { ExpansionServiceFields } from '../../components/common/ExpansionServiceFields';
 import { PulsarConnectionFields } from '../../components/common/pulsar/PulsarConnectionFields';
 import { PulsarAuthFields } from '../../components/common/pulsar/PulsarAuthFields';
 import type { PulsarAuthMode, SecretItem } from '../../components/common/pulsar/PulsarAuthFields';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
 export type { SecretItem, PulsarAuthMode };
 
+/** Persisted configuration properties for the Apache Pulsar source node. */
 export interface PulsarIOSourcePropertiesData {
   clientUrl?: string;
   adminUrl?: string;
@@ -57,6 +62,7 @@ export interface PulsarIOSourcePropertiesData {
   [key: string]: any;
 }
 
+/** React Flow node shape for the PulsarIO source panel, including its persisted configuration data. */
 export interface PulsarIOSourceNode {
   data: {
     label: string;
@@ -67,6 +73,7 @@ export interface PulsarIOSourceNode {
   };
 }
 
+/** Props for the {@link PulsarIOSourceProperties} component. */
 export interface PulsarIOSourcePropertiesProps {
   node: PulsarIOSourceNode;
   onChange: (properties: any) => void;
@@ -82,7 +89,7 @@ export const PULSAR_TOPIC_REGEX = /^(persistent|non-persistent):\/\/[a-zA-Z0-9_.
  * @returns React component.
  */
 export const PulsarIOSourceProperties: React.FC<PulsarIOSourcePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties<PulsarIOSourcePropertiesData>(node, onChange);
 
   const clientUrl = properties.clientUrl || '';
   const adminUrl = properties.adminUrl || '';
@@ -102,68 +109,12 @@ export const PulsarIOSourceProperties: React.FC<PulsarIOSourcePropertiesProps> =
   const expansionServiceMode = properties.expansionServiceMode || 'auto';
   const expansionServiceEndpoint = properties.expansionServiceEndpoint || '';
 
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message?.command === 'secretsLoaded') {
-        const raw = Array.isArray(message.secrets) ? message.secrets : [];
-        const loaded: SecretItem[] = raw.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-        setSecretError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === 'checkbox';
-    onChange({
-      ...properties,
-      [name]: isCheckbox ? (e.target as HTMLInputElement).checked : value
-    });
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handlePropertyPatch = (name: string, value: any) => {
     onChange({ ...properties, [name]: value });
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({ ...properties, system_instructions: e.target.value });
   };
 
   const isTopicMissing = !topic.trim();
@@ -221,10 +172,10 @@ export const PulsarIOSourceProperties: React.FC<PulsarIOSourcePropertiesProps> =
         tlsCertSecretName={tlsCertSecretName}
         tlsKeySecretName={tlsKeySecretName}
         tlsTrustCertSecretName={tlsTrustCertSecretName}
-        secrets={secrets}
-        secretError={secretError}
-        isLoadingSecrets={isLoadingSecrets}
-        onRefreshSecrets={handleRefreshSecrets}
+        secrets={secrets.secrets.map((s) => ({ name: s.id, value: s.id, id: s.id, fullName: s.fullName }))}
+        secretError={secrets.error}
+        isLoadingSecrets={secrets.loading}
+        onRefreshSecrets={secrets.refresh}
         onChange={handleChange}
       />
 
@@ -313,25 +264,20 @@ export const PulsarIOSourceProperties: React.FC<PulsarIOSourcePropertiesProps> =
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 6. Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="pulsar-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific Pulsar Source node (e.g. custom deserializer, message routing, dead-letter queue handling)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Parse PulsarMessage payload as UTF-8 JSON, extract event timestamp from metadata, and route malformed records to DLQ."
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="pulsar-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific Pulsar Source node (e.g. custom deserializer, message routing, dead-letter queue handling)."
+        placeholder="e.g. Parse PulsarMessage payload as UTF-8 JSON, extract event timestamp from metadata, and route malformed records to DLQ."
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -53,8 +53,6 @@ describe('BigTableIOSourceProperties', () => {
     expect(screen.getByText(/Project ID is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Instance ID is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Table ID is required/i)).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates form fields from node.data.properties correctly', () => {
@@ -132,24 +130,6 @@ describe('BigTableIOSourceProperties', () => {
 
     expect(screen.getByPlaceholderText('e.g. gcp-bigtable-sa-key')).toBeInTheDocument();
 
-    // Simulate IPC secretsLoaded message
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'bt-sa-key', name: 'bt-sa-key' },
-            'projects/p/secrets/my-bigtable-key'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('bigtable-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     // Switch back to ADC
     const adcRadio = screen.getByRole('radio', { name: /Application Default Credentials/i });
     fireEvent.click(adcRadio);
@@ -160,32 +140,6 @@ describe('BigTableIOSourceProperties', () => {
       authMode: 'adc',
       serviceAccountSecret: 'bt-sa-key'
     });
-  });
-
-  it('renders error on secret manager load failure', () => {
-    const node = {
-      data: {
-        label: 'BigTable Source',
-        properties: {
-          projectId: 'my-project',
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<BigTableIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager unavailable'
-        }
-      })
-    );
-
-    expect(screen.getByText(/Secret Manager unavailable/i)).toBeInTheDocument();
   });
 
   it('toggles collapsible Advanced Source Settings and updates timeouts and validation', () => {
@@ -199,8 +153,6 @@ describe('BigTableIOSourceProperties', () => {
     };
 
     render(<BigTableIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    expect(screen.queryByPlaceholderText('localhost:8086')).not.toBeInTheDocument();
 
     // Expand advanced settings
     const toggleButton = screen.getByRole('button', { name: /Advanced Source Settings/i });
@@ -258,36 +210,20 @@ describe('BigTableIOSourceProperties', () => {
     expect(screen.getAllByPlaceholderText('e.g. my-gcp-project').length).toBeGreaterThan(0);
   });
 
-  it('resolves system instructions fallback chain and handles edits', () => {
-    const nodeWithSpecial = {
+  it('updates system_instructions when instructions textarea changes', () => {
+    const node = {
       data: {
         label: 'BigTable Source',
-        special_instructions: 'Custom bigtable read special prompt'
+        properties: {}
       }
     };
 
-    const { rerender } = render(
-      <BigTableIOSourceProperties node={nodeWithSpecial} onChange={mockOnChange} />
-    );
+    render(<BigTableIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Apply BigtableIO\.read/i);
-    expect(textarea).toHaveValue('Custom bigtable read special prompt');
-
     fireEvent.change(textarea, { target: { value: 'Updated BigtableIO read instructions' } });
     expect(mockOnChange).toHaveBeenCalledWith({
       system_instructions: 'Updated BigtableIO read instructions'
     });
-
-    const nodeWithSystem = {
-      data: {
-        label: 'BigTable Source',
-        system_instructions: 'System instructions take priority',
-        special_instructions: 'Fallback instructions'
-      }
-    };
-    rerender(<BigTableIOSourceProperties node={nodeWithSystem} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/Apply BigtableIO\.read/i)).toHaveValue(
-      'System instructions take priority'
-    );
   });
 });

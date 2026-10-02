@@ -178,7 +178,7 @@ describe('KuduIOSinkProperties', () => {
     );
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets in sink datalist', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'Kudu Sink',
@@ -193,54 +193,6 @@ describe('KuduIOSinkProperties', () => {
 
     const secretInput = screen.getByPlaceholderText('e.g. kudu-client-credentials');
     expect(secretInput).toHaveValue('my-sink-secret');
-
-    // Simulate secretsLoaded event
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/kudu-sink-secret',
-            { id: 'kudu-sink-token', name: 'kudu-sink-token' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#kudu-sink-secret-options option[value="kudu-sink-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#kudu-sink-secret-options option[value="kudu-sink-token"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'Kudu Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<KuduIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access Secret Manager')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and handles numeric fields including 0', () => {
@@ -290,69 +242,6 @@ describe('KuduIOSinkProperties', () => {
     expect(screen.getByText('Table name is required')).toBeInTheDocument();
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <KuduIOSinkProperties
-        node={{
-          data: {
-            system_instructions: 'Node sink instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node sink instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <KuduIOSinkProperties
-        node={{
-          data: {
-            special_instructions: 'Node special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <KuduIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Properties system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Properties system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <KuduIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Properties special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Properties special instructions')).toBeInTheDocument();
-    unmount4();
-  });
 
   it('updates system_instructions when textarea changes', () => {
     const node = {

@@ -102,11 +102,10 @@ describe('CosmosIOSourceProperties', () => {
     );
   });
 
-  it('falls back from special_instructions to system_instructions', () => {
+  it('updates system_instructions when instructions textarea changes', () => {
     const node = {
       data: {
         label: 'Cosmos Source',
-        special_instructions: 'Legacy prompt instruction',
         properties: {}
       }
     };
@@ -114,6 +113,12 @@ describe('CosmosIOSourceProperties', () => {
     const { container } = render(<CosmosIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const inst = container.querySelector('#cosmosSourceInstructions') as HTMLTextAreaElement;
-    expect(inst.value).toBe('Legacy prompt instruction');
+    fireEvent.change(inst, { target: { value: 'Use CosmosIO.read()' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system_instructions: 'Use CosmosIO.read()'
+      })
+    );
   });
 });

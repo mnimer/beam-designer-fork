@@ -21,13 +21,17 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for Cassandra authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -36,6 +40,7 @@ export interface SecretItem {
 
 export type CassandraConsistencyLevel = 'ONE' | 'QUORUM' | 'LOCAL_QUORUM' | 'ALL' | 'LOCAL_ONE';
 
+/** Props for the {@link CassandraIOSourceProperties} component. */
 export interface CassandraIOSourcePropertiesProps {
   node: {
     data: {
@@ -115,12 +120,7 @@ export const CassandraIOSourceProperties: React.FC<CassandraIOSourcePropertiesPr
   const isTableEmpty = !String(table).trim();
 
   // NOTE: Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -155,19 +155,6 @@ export const CassandraIOSourceProperties: React.FC<CassandraIOSourcePropertiesPr
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: Dispatch system_instructions update to parent
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -398,89 +385,77 @@ export const CassandraIOSourceProperties: React.FC<CassandraIOSourcePropertiesPr
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <PropertyField
+          id="cassandraSourceMinNumberOfSplits"
+          name="minNumberOfSplits"
+          label="Min Number of Splits"
+          type="number"
+          tooltip="Enforce a minimum number of splits for reading, useful when system.size_estimates is unpopulated. Maps to withMinNumberOfSplits()."
+          value={minNumberOfSplits}
+          onChange={handleChange}
+          placeholder="10"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <PropertyField
-              id="cassandraSourceMinNumberOfSplits"
-              name="minNumberOfSplits"
-              label="Min Number of Splits"
-              type="number"
-              tooltip="Enforce a minimum number of splits for reading, useful when system.size_estimates is unpopulated. Maps to withMinNumberOfSplits()."
-              value={minNumberOfSplits}
-              onChange={handleChange}
-              placeholder="10"
-              mono={true}
-            />
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="cassandraSourceConnectTimeout"
+            name="connectTimeout"
+            label="Connect Timeout (ms)"
+            type="number"
+            tooltip="Socket connection timeout in milliseconds. Maps to withConnectTimeout()."
+            value={connectTimeout}
+            onChange={handleChange}
+            placeholder="5000"
+            mono={true}
+          />
 
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="cassandraSourceConnectTimeout"
-                name="connectTimeout"
-                label="Connect Timeout (ms)"
-                type="number"
-                tooltip="Socket connection timeout in milliseconds. Maps to withConnectTimeout()."
-                value={connectTimeout}
-                onChange={handleChange}
-                placeholder="5000"
-                mono={true}
-              />
+          <PropertyField
+            id="cassandraSourceReadTimeout"
+            name="readTimeout"
+            label="Read Timeout (ms)"
+            type="number"
+            tooltip="Socket read timeout in milliseconds. Maps to withReadTimeout()."
+            value={readTimeout}
+            onChange={handleChange}
+            placeholder="12000"
+            mono={true}
+          />
+        </div>
 
-              <PropertyField
-                id="cassandraSourceReadTimeout"
-                name="readTimeout"
-                label="Read Timeout (ms)"
-                type="number"
-                tooltip="Socket read timeout in milliseconds. Maps to withReadTimeout()."
-                value={readTimeout}
-                onChange={handleChange}
-                placeholder="12000"
-                mono={true}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="cassandraSourceSsl"
-                type="checkbox"
-                name="ssl"
-                checked={ssl}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-              />
-              <label htmlFor="cassandraSourceSsl" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Enable SSL / TLS</span>
-                <InfoTooltip text="Enables SSL/TLS encrypted communication with the Cassandra cluster. Maps to withSsl()." />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="cassandraSourceSsl"
+            type="checkbox"
+            name="ssl"
+            checked={ssl}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+          />
+          <label htmlFor="cassandraSourceSsl" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+            <span>Enable SSL / TLS</span>
+            <InfoTooltip text="Enables SSL/TLS encrypted communication with the Cassandra cluster. Maps to withSsl()." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="cassandraSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing CassandraIO pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing CassandraIO pipelines."
         placeholder="e.g. Read Cassandra rows and convert to Beam Schema Row PCollection"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

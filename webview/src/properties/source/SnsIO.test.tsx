@@ -5,7 +5,7 @@
  * 
  * Purpose:
  * Validates SnsIOSourceProperties form rendering, SQS vs Pub/Sub ingestion pattern switching,
- * IPC callbacks for GCP Secret Manager and Pub/Sub topics, input validation, and system instructions.
+ * GCP Secret Manager and Pub/Sub topic configuration, input validation, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -84,7 +84,7 @@ describe('SnsIOSourceProperties', () => {
     });
   });
 
-  it('switches to Pub/Sub bridge mode and loads topics from extension host', () => {
+  it('switches to Pub/Sub bridge mode and validates topic input', () => {
     const node = {
       data: {
         label: 'SNS Source',
@@ -98,17 +98,6 @@ describe('SnsIOSourceProperties', () => {
 
     expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
     expect(screen.getByText(/Pub\/Sub topic is required for Pub\/Sub Bridge mode/i)).toBeInTheDocument();
-
-    // Simulate topicsLoaded event from extension
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'topicsLoaded',
-        topics: ['projects/my-project/topics/sns-bridge-topic']
-      }
-    }));
-
-    const option = document.querySelector('datalist#source-pubsub-topics option[value="projects/my-project/topics/sns-bridge-topic"]');
-    expect(option).not.toBeNull();
   });
 
   it('toggles unwrapEnvelope checkbox and updates properties', () => {
@@ -149,16 +138,6 @@ describe('SnsIOSourceProperties', () => {
     const secretKeyInput = screen.getByPlaceholderText(/Secret Key Secret/i);
     expect(accessKeyInput).toBeInTheDocument();
     expect(secretKeyInput).toBeInTheDocument();
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [{ id: 'my-aws-key', name: 'my-aws-key' }]
-      }
-    }));
-
-    const secretOption = document.querySelector('datalist#source-secret-options option[value="my-aws-key"]');
-    expect(secretOption).not.toBeNull();
   });
 
   it('toggles Advanced Source Settings and updates parameters', () => {
@@ -210,50 +189,5 @@ describe('SnsIOSourceProperties', () => {
     }));
   });
 
-  it('displays error when secrets loading fails in secret manager mode', () => {
-    const node = {
-      data: {
-        label: 'SNS Source',
-        properties: {
-          ingestionMode: 'sqs' as const,
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<SnsIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to authenticate with GCP Secret Manager'
-      }
-    }));
-
-    expect(screen.getByText('Failed to authenticate with GCP Secret Manager')).toBeInTheDocument();
-  });
-
-  it('displays error when pubsub topics loading fails in pubsub mode', () => {
-    const node = {
-      data: {
-        label: 'SNS Source',
-        properties: {
-          ingestionMode: 'pubsub' as const,
-          pubsubTopic: 'projects/my-project/topics/valid-topic'
-        }
-      }
-    };
-
-    render(<SnsIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'topicsLoaded',
-        error: 'Failed to fetch Pub/Sub topics'
-      }
-    }));
-
-    expect(screen.getByText('Failed to fetch Pub/Sub topics')).toBeInTheDocument();
-  });
 });
 

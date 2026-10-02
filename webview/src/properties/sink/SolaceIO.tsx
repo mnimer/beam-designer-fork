@@ -27,12 +27,20 @@
  * - Adheres strictly to the 8pt grid system for spacing, padding, and layout.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Server, Lock, RefreshCw, Radio, Send } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { ExpansionServiceFields } from '../../components/common/ExpansionServiceFields';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
+/**
+ * Secret item loaded from Secret Manager for Solace broker authentication.
+ */
 export interface SecretItem {
   name: string;
   fullName?: string;
@@ -41,6 +49,9 @@ export interface SecretItem {
   [key: string]: any;
 }
 
+/**
+ * Compute Engine instance information for Solace broker resolution.
+ */
 export interface ComputeInstanceItem {
   name: string;
   status: string;
@@ -48,6 +59,9 @@ export interface ComputeInstanceItem {
   externalIp: string;
 }
 
+/**
+ * React Flow node shape for the Solace sink panel, including its persisted configuration data.
+ */
 export interface SolaceIOSinkNode {
   data: {
     label: string;
@@ -79,6 +93,9 @@ export interface SolaceIOSinkNode {
   };
 }
 
+/**
+ * Props for the SolaceIOSinkProperties component.
+ */
 export interface SolaceIOSinkPropertiesProps {
   node: SolaceIOSinkNode;
   onChange: (properties: any) => void;
@@ -91,7 +108,7 @@ export interface SolaceIOSinkPropertiesProps {
  * @returns React functional component.
  */
 export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
 
   // Form field state values with fallbacks
   const jcsmpHost = properties.jcsmpHost || '';
@@ -110,85 +127,12 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
   const expansionServiceMode = properties.expansionServiceMode || 'auto';
   const expansionServiceEndpoint = properties.expansionServiceEndpoint || '';
 
-  // Local UI states
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [instanceError, setInstanceError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  // Asset loaders
+  const secrets = useSecretOptions();
+  const { items: instances, error: instanceError } = useAssetLoader<ComputeInstanceItem>('computeInstances');
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager secrets and Compute Engine instances from the extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-        setSecretError(message.error || null);
-      } else if (message.command === 'computeInstancesLoaded') {
-        setInstances(Array.isArray(message.instances) ? message.instances : []);
-        setInstanceError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Refreshes secrets list from Secret Manager via extension message.
-   */
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  /**
-   * Handles generic text, select, and checkbox input changes.
-   * 
-   * @param e Form change event from input, select, or textarea.
-   */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === 'checkbox';
-    const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
-
-    const newProperties = {
-      ...properties,
-      [name]: isCheckbox ? checked : value
-    };
-
-    onChange(newProperties);
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles switching destination type between Topic and Queue.
@@ -224,19 +168,6 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
     onChange({
       ...properties,
       jcsmpHost: `${ip}:55555`
-    });
-  };
-
-  /**
-   * Handles system instructions textarea change for custom LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
     });
   };
 
@@ -363,8 +294,8 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
           aria-invalid={isUsernameMissing}
           invalid={isUsernameMissing}
           error={isUsernameMissing ? 'Username is required.' : null}
-          datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
-          loading={isLoadingSecrets}
+          datalist={secrets.options}
+          loading={secrets.loading}
           tooltip="Google Cloud Secret Manager secret resource containing the client username for basic authentication to the Solace broker."
           mono={true}
         />
@@ -383,12 +314,12 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
             </label>
             <button
               type="button"
-              onClick={handleRefreshSecrets}
-              disabled={isLoadingSecrets}
+              onClick={secrets.refresh}
+              disabled={secrets.loading}
               className="text-xs text-blue-400 hover:underline flex items-center gap-1"
               title="Refresh secrets from Secret Manager"
             >
-              <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
+              <RefreshCw size={11} className={secrets.loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
           </div>
@@ -403,10 +334,10 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
             aria-required="true"
             aria-invalid={isPasswordSecretMissing}
             invalid={isPasswordSecretMissing}
-            error={isPasswordSecretMissing ? 'Password secret is required.' : (secretError || null)}
+            error={isPasswordSecretMissing ? 'Password secret is required.' : (secrets.error || null)}
             list="solace-sink-secrets-datalist"
-            datalist={secrets.map((s) => ({ value: s.id || s.name, label: s.name }))}
-            loading={isLoadingSecrets}
+            datalist={secrets.options}
+            loading={secrets.loading}
             helperText={
               <span>
                 Values auto-populated from{' '}
@@ -419,9 +350,9 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
             mono={true}
           />
           {/* NOTE: Generated code resolves the secret from Google Cloud Secret Manager at runtime. */}
-          {secretError && (
+          {secrets.error && (
             <span className="text-xs text-red-400 mt-1" role="alert">
-              {secretError}
+              {secrets.error}
             </span>
           )}
         </div>
@@ -629,25 +560,20 @@ export const SolaceIOSinkProperties: React.FC<SolaceIOSinkPropertiesProps> = ({ 
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 5. Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="solace-sink-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific Solace sink node (e.g. custom message payload serialization, correlation ID setting, or header mapping)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Serialize domain POJO into JSON BytesXMLMessage with delivery mode PERSISTENT..."
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="solace-sink-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific Solace sink node (e.g. custom message payload serialization, correlation ID setting, or header mapping)."
+        placeholder="e.g. Serialize domain POJO into JSON BytesXMLMessage with delivery mode PERSISTENT..."
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

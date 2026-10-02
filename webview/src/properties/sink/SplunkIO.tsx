@@ -24,6 +24,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -33,6 +35,9 @@ export const SPLUNK_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'env', label: 'Environment Variable / PipelineOptions' },
 ];
 
+/**
+ * Node definition for SplunkIO sink configuration.
+ */
 export interface SplunkIOSinkNode {
   data: {
     label: string;
@@ -62,6 +67,9 @@ export interface SplunkIOSinkNode {
   };
 }
 
+/**
+ * Props for the SplunkIOSinkProperties component.
+ */
 export interface SplunkIOSinkPropertiesProps {
   node: SplunkIOSinkNode;
   onChange: (properties: any) => void;
@@ -103,12 +111,7 @@ export const SplunkIOSinkProperties: React.FC<SplunkIOSinkPropertiesProps> = ({ 
   const isUrlInvalid = !url.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles standard text, number, and select input changes.
@@ -133,16 +136,6 @@ export const SplunkIOSinkProperties: React.FC<SplunkIOSinkPropertiesProps> = ({ 
     onChange({
       ...properties,
       [name]: checked,
-    });
-  };
-
-  /**
-   * Handles code generation instructions textarea change.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
     });
   };
 
@@ -347,24 +340,20 @@ export const SplunkIOSinkProperties: React.FC<SplunkIOSinkPropertiesProps> = ({ 
         </div>
       </details>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="splunkSinkInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling PCollection<SplunkWriteError> dead-letter output)." />
-        </label>
-        <textarea
-          id="splunkSinkInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Convert JSON strings to SplunkEvent via SplunkEvent.newBuilder() and route SplunkWriteError dead-letter records..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="splunkSinkInstructions"
+        value={systemInstructions}
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. handling PCollection<SplunkWriteError> dead-letter output)."
+        placeholder="e.g. Convert JSON strings to SplunkEvent via SplunkEvent.newBuilder() and route SplunkWriteError dead-letter records..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

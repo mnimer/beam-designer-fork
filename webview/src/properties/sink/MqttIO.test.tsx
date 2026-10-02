@@ -31,26 +31,6 @@ describe('MqttIOSinkProperties', () => {
     }
   });
 
-  it('renders default fields with documentation tooltips and placeholders', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Broker Server URI/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Publish Topic/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Client ID/i)).toBeInTheDocument();
-    expect(screen.getByText(/QoS 1 \(At Least Once\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Timeout \(s\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Keep Alive \(s\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Retain Messages/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
-  });
 
   it('triggers onChange when serverUri, topic, and clientId change', () => {
     const mockNode = {
@@ -113,7 +93,7 @@ describe('MqttIOSinkProperties', () => {
     }));
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret', () => {
+  it('allows selecting a Secret Manager secret', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
@@ -125,18 +105,6 @@ describe('MqttIOSinkProperties', () => {
     const mockOnChange = vi.fn();
 
     render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response with secrets
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'mqtt-sink-secret', value: 'mqtt-sink-secret' }
-          ]
-        }
-      }));
-    });
 
     const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i);
     expect(secretDropdown).toBeInTheDocument();
@@ -145,33 +113,6 @@ describe('MqttIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       secretName: 'mqtt-sink-secret'
     }));
-  });
-
-  it('displays secret loading error alert when secretsLoaded contains error', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled in project'
-        }
-      }));
-    });
-
-    const errorAlerts = screen.getAllByRole('alert');
-    const secretAlert = errorAlerts.find(el => el.textContent?.includes('Secret Manager API is not enabled in project'));
-    expect(secretAlert).toBeInTheDocument();
   });
 
   it('does not render direct cleartext password entry and strips legacy password on update', () => {

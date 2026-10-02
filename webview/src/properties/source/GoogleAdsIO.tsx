@@ -22,6 +22,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -31,6 +33,7 @@ export const GOOGLE_ADS_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'adc', label: 'Application Default Credentials / PipelineOptions' },
 ];
 
+/** React Flow node shape for the GoogleAdsIO source panel, including its persisted configuration data. */
 export interface GoogleAdsIOSourceNode {
   data: {
     label: string;
@@ -56,6 +59,7 @@ export interface GoogleAdsIOSourceNode {
   };
 }
 
+/** Props for the {@link GoogleAdsIOSourceProperties} component. */
 export interface GoogleAdsIOSourcePropertiesProps {
   node: GoogleAdsIOSourceNode;
   onChange: (properties: any) => void;
@@ -91,12 +95,7 @@ export const GoogleAdsIOSourceProperties: React.FC<GoogleAdsIOSourcePropertiesPr
   const isQueryInvalid = readMode === 'read' && !query.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles standard text and select input changes.
@@ -112,13 +111,6 @@ export const GoogleAdsIOSourceProperties: React.FC<GoogleAdsIOSourcePropertiesPr
   /**
    * Handles code generation instructions textarea change.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Read Mode Selector (read vs readAll) */}
@@ -275,24 +267,20 @@ export const GoogleAdsIOSourceProperties: React.FC<GoogleAdsIOSourcePropertiesPr
         </div>
       </details>
 
-      {/* Spacer to push instructions to the bottom */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-        <label htmlFor="googleAdsSourceInstructions" className="flex items-center text-xs font-bold uppercase text-slate-500">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. extracting fields from GoogleAdsRow protobuf messages)." />
-        </label>
-        <textarea
-          id="googleAdsSourceInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Extract campaign.id, campaign.name, and metrics.impressions from each GoogleAdsRow into a Beam Row..."
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="googleAdsSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Extract campaign.id, campaign.name, and metrics.impressions from each GoogleAdsRow into a Beam Row..."
+        tooltip="Optional custom prompt instructions supplied to Gemini during pipeline code generation (e.g. extracting fields from GoogleAdsRow protobuf messages)."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-800/80"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -24,6 +24,12 @@ interface BeamFileContent {
     pipelineConfig?: Record<string, unknown>;
 }
 
+/**
+ * Recursively locates all `.beam` pipeline files within a directory.
+ *
+ * @param dir The root directory to search.
+ * @returns An array of absolute file paths to discovered `.beam` files.
+ */
 function getBeamFiles(dir: string): string[] {
     if (!fs.existsSync(dir)) return [];
     const entries = fs.readdirSync(dir, { withFileTypes: true });

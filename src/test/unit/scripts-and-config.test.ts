@@ -87,11 +87,6 @@ describe('Vitest and Test Suite Configuration', () => {
         expect(integConfigContent).toContain("src/test/integration/**/*.test.ts");
         expect(integConfigContent).toContain("180000");
     });
-
-    it('0-byte error-handling.test.ts has been removed to prevent vitest suite failure (failure case)', () => {
-        const errorHandlingTest = path.join(rootDir, 'src/test/error-handling.test.ts');
-        expect(fs.existsSync(errorHandlingTest)).toBe(false);
-    });
 });
 
 describe('Package.json Scripts', () => {

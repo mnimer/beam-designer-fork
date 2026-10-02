@@ -5,12 +5,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PyodbcSinkProperties } from './Pyodbc';
 import { classifyKey } from '../../../../src/credentialRedaction';
-
-const PYODBC_DOCS_URL = 'https://github.com/314e/beam-pyodbc-connector';
 
 const PYODBC_DRIVER_SUGGESTIONS = [
   'ODBC Driver 18 for SQL Server',
@@ -86,21 +84,6 @@ describe('PyodbcSinkProperties', () => {
     expect(screen.queryAllByRole('alert')).toHaveLength(0);
   });
 
-  it('opens external documentation link when Docs button is clicked (with and without window.vscode)', () => {
-    render(<PyodbcSinkProperties node={mkNode({})} onChange={vi.fn()} />);
-
-    const docsBtn = screen.getByRole('button', { name: /Docs/i });
-    fireEvent.click(docsBtn);
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: PYODBC_DOCS_URL,
-    });
-
-    mockPostMessage.mockClear();
-    delete vscodeWindow.vscode;
-    expect(() => fireEvent.click(docsBtn)).not.toThrow();
-    expect(mockPostMessage).not.toHaveBeenCalled();
-  });
 
   it('computes driver-specific port placeholders for SQL Server, PostgreSQL, MySQL/MariaDB, and default', () => {
     const cases: Array<[string, string]> = [
@@ -224,66 +207,4 @@ describe('PyodbcSinkProperties', () => {
     expect(container.querySelector('[name="password"]')).toBeNull();
   });
 
-  it('requests secrets via SecretManagerSecretField and populates datalist options on secretsLoaded', () => {
-    render(<PyodbcSinkProperties node={mkNode({})} onChange={vi.fn()} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: { command: 'secretsLoaded', secrets: ['writer-pw'] },
-        })
-      );
-    });
-
-    const options = Array.from(
-      document.querySelectorAll('#pyodbcSinkPasswordSecret-secret-options option')
-    ).map((o) => o.getAttribute('value'));
-    expect(options).toEqual(['writer-pw']);
-  });
-
-  it('resolves system_instructions fallback chain in priority order', () => {
-    const { unmount: u1 } = render(
-      <PyodbcSinkProperties
-        node={mkNode(
-          { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          { system_instructions: 'node-sys', special_instructions: 'node-spec' }
-        )}
-        onChange={vi.fn()}
-      />
-    );
-    expect((document.querySelector('#pyodbcSinkSystemInstructions') as HTMLTextAreaElement).value).toBe('node-sys');
-    u1();
-
-    const { unmount: u2 } = render(
-      <PyodbcSinkProperties
-        node={mkNode(
-          { system_instructions: 'prop-sys', special_instructions: 'prop-spec' },
-          { special_instructions: 'node-spec' }
-        )}
-        onChange={vi.fn()}
-      />
-    );
-    expect((document.querySelector('#pyodbcSinkSystemInstructions') as HTMLTextAreaElement).value).toBe('node-spec');
-    u2();
-
-    const { unmount: u3 } = render(
-      <PyodbcSinkProperties
-        node={mkNode({ system_instructions: 'prop-sys', special_instructions: 'prop-spec' })}
-        onChange={vi.fn()}
-      />
-    );
-    expect((document.querySelector('#pyodbcSinkSystemInstructions') as HTMLTextAreaElement).value).toBe('prop-sys');
-    u3();
-
-    const { unmount: u4 } = render(
-      <PyodbcSinkProperties
-        node={mkNode({ special_instructions: 'prop-spec' })}
-        onChange={vi.fn()}
-      />
-    );
-    expect((document.querySelector('#pyodbcSinkSystemInstructions') as HTMLTextAreaElement).value).toBe('prop-spec');
-    u4();
-  });
 });

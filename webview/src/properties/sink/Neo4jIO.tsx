@@ -23,8 +23,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
 /**
  * Secret item descriptor returned from extension host discovery.
@@ -107,12 +110,7 @@ export const Neo4jIOSinkProperties: React.FC<Neo4jIOSinkPropertiesProps> = ({ no
   const isCypherEmpty = !cypher.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -139,19 +137,6 @@ export const Neo4jIOSinkProperties: React.FC<Neo4jIOSinkPropertiesProps> = ({ no
     } else {
       updateProperty(name, value);
     }
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -336,76 +321,64 @@ export const Neo4jIOSinkProperties: React.FC<Neo4jIOSinkPropertiesProps> = ({ no
       </div>
 
       {/* Collapsible Advanced Sink Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Sink Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Sink Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="neo4jSinkMaxTransactionRetryTimeMs"
+            name="maxTransactionRetryTimeMs"
+            label="Max Retry Time (ms)"
+            type="number"
+            tooltip="Maximum transaction retry time in milliseconds for transient write failures."
+            value={maxTransactionRetryTimeMs}
+            onChange={handleChange}
+            placeholder="30000"
+            mono={true}
+          />
+          <PropertyField
+            id="neo4jSinkConnectionPoolSize"
+            name="connectionPoolSize"
+            label="Connection Pool Size"
+            type="number"
+            tooltip="Maximum connection pool size for Neo4j driver (DriverConfiguration)."
+            value={connectionPoolSize}
+            onChange={handleChange}
+            placeholder="50"
+            mono={true}
+          />
+        </div>
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="neo4jSinkMaxTransactionRetryTimeMs"
-                name="maxTransactionRetryTimeMs"
-                label="Max Retry Time (ms)"
-                type="number"
-                tooltip="Maximum transaction retry time in milliseconds for transient write failures."
-                value={maxTransactionRetryTimeMs}
-                onChange={handleChange}
-                placeholder="30000"
-                mono={true}
-              />
-              <PropertyField
-                id="neo4jSinkConnectionPoolSize"
-                name="connectionPoolSize"
-                label="Connection Pool Size"
-                type="number"
-                tooltip="Maximum connection pool size for Neo4j driver (DriverConfiguration)."
-                value={connectionPoolSize}
-                onChange={handleChange}
-                placeholder="50"
-                mono={true}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="neo4jSinkEncrypted"
-                type="checkbox"
-                name="encrypted"
-                checked={encrypted}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-              />
-              <label htmlFor="neo4jSinkEncrypted" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Enable TLS / Encryption</span>
-                <InfoTooltip text="Enables TLS encryption for bolt connections in driver configuration." />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="neo4jSinkEncrypted"
+            type="checkbox"
+            name="encrypted"
+            checked={encrypted}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+          />
+          <label htmlFor="neo4jSinkEncrypted" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+            <span>Enable TLS / Encryption</span>
+            <InfoTooltip text="Enables TLS encryption for bolt connections in driver configuration." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="neo4jSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Neo4j writeUnwind pipeline transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Neo4j writeUnwind pipeline transforms."
         placeholder="e.g. Write elements to Neo4j using writeUnwind with MERGE on Person nodes"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

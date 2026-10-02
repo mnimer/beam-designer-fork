@@ -28,11 +28,15 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
 
 export const MYSQL_DOC_URL = 'https://github.com/esakik/beam-mysql-connector#getting-started';
 export const DEFAULT_MYSQL_SPLITTER = 'NoSplitter';
 
+/** Option descriptor for MySQL bounded source splitters and their documentation hints. */
 export interface MySQLSplitterOption {
   value: string;
   label: string;
@@ -177,6 +181,7 @@ function getSplitterHelperText(splitter: string): string {
   return found ? found.helperText : MYSQL_SPLITTER_OPTIONS[0].helperText;
 }
 
+/** Props for the {@link MySQLSourceProperties} component. */
 export interface MySQLSourcePropertiesProps {
   node: {
     data: {
@@ -201,6 +206,11 @@ export interface MySQLSourcePropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Dedicated property panel for the MySQL source node. Configures host credentials, queries, and partition splitters.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const MySQLSourceProperties: React.FC<MySQLSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
 
@@ -237,12 +247,7 @@ export const MySQLSourceProperties: React.FC<MySQLSourcePropertiesProps> = ({ no
       ? 'Number of ids substituted into {ids} per bundle (IdsSplitter(batch_size)). Defaults to 1,000,000.'
       : 'Rows per LIMIT/OFFSET bundle (LimitOffsetSplitter(batch_size)). Defaults to 1,000,000. Upstream note: LimitOffsetSplitter wraps the query as a subquery and counts rows before splitting.';
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -263,34 +268,17 @@ export const MySQLSourceProperties: React.FC<MySQLSourcePropertiesProps> = ({ no
     onChange(newProperties);
   };
 
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
-  const handleOpenDocs = () => {
-    const vscodeApi = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-    if (vscodeApi) {
-      vscodeApi.postMessage({ command: 'openExternal', url: MYSQL_DOC_URL });
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Header & Documentation Link */}
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-slate-200">MySQL Source (ReadFromMySQL)</span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
+          <ExternalDocsLink
+            url={MYSQL_DOC_URL}
+            ariaLabel="Open MySQL connector documentation"
             className="text-blue-400 hover:text-blue-300 font-semibold cursor-pointer shrink-0 focus:outline-none"
-            aria-label="Open MySQL connector documentation"
-          >
-            Docs ↗
-          </button>
+          />
         </div>
         <p className="text-slate-400">
           Reads rows from a MySQL database using SQL SELECT queries and parallel splitters (beam-mysql-connector).
@@ -447,23 +435,18 @@ export const MySQLSourceProperties: React.FC<MySQLSourcePropertiesProps> = ({ no
         />
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="mysqlSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for MySQL source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="mysqlSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for MySQL source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

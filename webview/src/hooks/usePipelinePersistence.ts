@@ -9,7 +9,11 @@
 
 import { useEffect, useRef } from 'react';
 import YAML from 'yaml';
+import { getVsCodeApi } from '../bridge/vscodeApi';
 
+/**
+ * Serializable state snapshot representing an Apache Beam pipeline design.
+ */
 export interface PipelineState {
   nodes: any[];
   edges: any[];
@@ -18,6 +22,9 @@ export interface PipelineState {
   pipelineConfig: any;
 }
 
+/**
+ * Options for configuring debounced pipeline autosave in {@link usePipelinePersistence}.
+ */
 export interface UsePipelinePersistenceOptions {
   nodes: any[];
   edges: any[];
@@ -129,7 +136,7 @@ export function usePipelinePersistence({
     console.log('[@usePipelinePersistence] Save effect scheduled');
 
     const timer = setTimeout(() => {
-      const activeVsCode = vscode !== undefined ? vscode : (typeof window !== 'undefined' ? (window as any).vscode : null);
+      const activeVsCode = vscode !== undefined ? vscode : (getVsCodeApi() ?? null);
       if (activeVsCode) {
         // P6: Dirty check - skip post entirely if byte-identical to last saved YAML
         if (lastSavedYamlRef.current === yamlStr) {

@@ -22,12 +22,14 @@
  * - Strictly follows the 8pt grid system (multiples of 8px) and VS Code theme variables.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { normalizeSecretItem, SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
-import type { AuthModeOption, SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import type { AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
 export type JmsAuthMode = 'secretManager';
 
@@ -43,6 +45,7 @@ export function resolveAuthMode(_authMode?: string, _password?: string): JmsAuth
   return 'secretManager';
 }
 
+/** Preset mapping JMS provider name to connection factory class and broker URL. */
 export interface JmsProviderPreset {
   label: string;
   factoryClass: string;
@@ -87,6 +90,7 @@ export const JMS_PROVIDER_PRESETS: JmsProviderPreset[] = [
   }
 ];
 
+/** Compute Engine VM instance metadata discovered for broker IP selection. */
 export interface ComputeInstanceInfo {
   name: string;
   zone: string;
@@ -95,6 +99,7 @@ export interface ComputeInstanceInfo {
   status: string;
 }
 
+/** React Flow node shape for the JmsIO source panel, including its persisted configuration data. */
 interface JmsIOSourceNode {
   data: {
     label: string;
@@ -121,6 +126,7 @@ interface JmsIOSourceNode {
   };
 }
 
+/** Props for the {@link JmsIOSourceProperties} component. */
 interface JmsIOSourcePropertiesProps {
   node: JmsIOSourceNode;
   onChange: (properties: any) => void;
@@ -147,30 +153,8 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
   const maxNumRecords = properties.maxNumRecords ?? '';
   const maxReadTime = properties.maxReadTime ?? '';
 
-  // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
-  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
-  const [computeInstances, setComputeInstances] = useState<ComputeInstanceInfo[]>([]);
-
-  // NOTE: Listen for gcloud responses from the VS Code extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'computeInstancesLoaded') {
-        setComputeInstances(message.instances || []);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // Request available Secret Manager secrets and Compute Engine instances from extension
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  const secrets = useSecretOptions();
+  const { items: computeInstances } = useAssetLoader<ComputeInstanceInfo>('computeInstances');
 
   // System instructions text with fallbacks
   const systemInstructions =
@@ -301,13 +285,6 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
    * 
    * @param e Textarea change event.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-xs">
       {/* Provider Preset & Connection Factory */}
@@ -435,8 +412,8 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
           onChange={handleChange}
           placeholder="jms-broker-username"
           list="jms-source-username-secrets-list"
-          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
-          loading={secretsLoading}
+          datalist={secrets.options}
+          loading={secrets.loading}
           mono={true}
         />
 
@@ -449,7 +426,8 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
           secretNameId="jmsPasswordSecret"
           secretNameName="passwordSecret"
           secretPlaceholder="jms-broker-password"
-          secrets={secrets}
+          secrets={secrets.secrets}
+          secretError={secrets.error}
           serviceName="JMS"
           onChange={handleChange}
         />
@@ -496,23 +474,20 @@ export const JmsIOSourceProperties: React.FC<JmsIOSourcePropertiesProps> = ({ no
         </div>
       </div>
 
-      {/* Code Generation Instructions Spacer and Section */}
-      <div className="flex-1 min-h-[16px]" />
-
-      <div className="flex flex-col gap-1 pt-2 border-t border-[var(--vscode-border)]">
-        <label htmlFor="jmsSystemInstructions" className="text-xs font-bold uppercase text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Special instructions passed to the AI code generator specifically for this JMS Source node (e.g. custom message mapping, error handling)." />
-        </label>
-        <textarea
-          id="jmsSystemInstructions"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Map incoming TextMessage payload to JSON POJO and log any deserialization errors"
-          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] focus:border-[var(--vscode-focusBorder,#3b82f6)] text-sm font-mono focus:outline-none resize-y"
-        />
-      </div>
+      {/* Code Generation Instructions Section (renders its own bottom-push spacer) */}
+      <SystemInstructionsField
+        id="jmsSystemInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Map incoming TextMessage payload to JSON POJO and log any deserialization errors"
+        tooltip="Special instructions passed to the AI code generator specifically for this JMS Source node (e.g. custom message mapping, error handling)."
+        wrapperClassName="flex flex-col gap-1 pt-2 border-t border-[var(--vscode-border)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

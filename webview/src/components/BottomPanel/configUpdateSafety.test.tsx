@@ -24,9 +24,12 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { DeploymentTab } from './DeploymentTab';
 import { SourceCodeTab } from './SourceCodeTab';
+import { renderWithBottomPanel } from './testUtils';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('config updates never clobber sibling fields (regression)', () => {
   const jobConfig = {
@@ -52,7 +55,7 @@ describe('config updates never clobber sibling fields (regression)', () => {
 
   it('runner change sends an updater, not a snapshot-derived object', () => {
     const setJobConfig = vi.fn();
-    render(<DeploymentTab {...deploymentProps} setJobConfig={setJobConfig} />);
+    renderWithBottomPanel(<DeploymentTab />, { ...deploymentProps, setJobConfig });
 
     const runner = screen.getByDisplayValue('Dataflow');
     fireEvent.change(runner, { target: { value: 'DirectRunner' } });
@@ -67,7 +70,7 @@ describe('config updates never clobber sibling fields (regression)', () => {
 
   it('the runner updater preserves every other job config field', () => {
     const setJobConfig = vi.fn();
-    render(<DeploymentTab {...deploymentProps} setJobConfig={setJobConfig} />);
+    renderWithBottomPanel(<DeploymentTab />, { ...deploymentProps, setJobConfig });
 
     fireEvent.change(screen.getByDisplayValue('Dataflow'), {
       target: { value: 'DirectRunner' },
@@ -92,22 +95,13 @@ describe('config updates never clobber sibling fields (regression)', () => {
     const setLanguage = vi.fn();
     // SourceCodeTab owns the Language radios; BottomPanel is what adapts setLanguage onto
     // setPipelineConfig, so assert the adapter contract here via BottomPanel below.
-    render(
-      <SourceCodeTab
-        language="Java"
-        setLanguage={setLanguage}
-        outputFolder="out"
-        setOutputFolder={vi.fn()}
-        onPickFolder={vi.fn()}
-        onRegenerate={vi.fn()}
-        generatedCode=""
-        needsRebuild={false}
-        files={[]}
-        selectedFile={null}
-        onSelectFile={vi.fn()}
-        selectedFileContent={null}
-        isGenerating={false}
-      />
+    renderWithBottomPanel(
+      <SourceCodeTab />,
+      {
+        language: 'Java',
+        setLanguage,
+        outputFolder: 'out',
+      }
     );
 
     // Selecting Python must report the new value; the Java radio starts checked because

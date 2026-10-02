@@ -22,11 +22,15 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { parseHealthcareDatasetPath } from '../source/DicomIO';
 
 export type DicomUploadInputType = 'bytes' | 'fileio';
 
+/**
+ * Props for the DicomIOSinkProperties component.
+ */
 export interface DicomIOSinkPropertiesProps {
   node?: any;
   nodeId?: string;
@@ -265,18 +269,12 @@ export const DicomIOSinkProperties: React.FC<DicomIOSinkPropertiesProps> = ({
       </details>
 
       {/* Code Generation Instructions */}
-      <div className="flex-1 min-h-[16px]" />
-      <PropertyField
+      <SystemInstructionsField
         id="dicomSinkSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
-        rows={3}
-        mono={false}
-        tooltip="Custom instructions for the LLM code generator (e.g., inspecting result['success'] and result['status'] from UploadToDicomStore, or using DICOMweb STOW-RS in Java)."
         value={systemInstructions}
-        onChange={handleFieldChange}
+        tooltip="Custom instructions for the LLM code generator (e.g., inspecting result['success'] and result['status'] from UploadToDicomStore, or using DICOMweb STOW-RS in Java)."
         placeholder="e.g., Check UploadToDicomStore output dict {'success': bool, 'status': int} and route failed uploads to dead-letter storage..."
+        onChange={(value) => emitChange({ system_instructions: value })}
       />
     </div>
   );

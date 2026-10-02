@@ -23,8 +23,11 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -191,91 +194,82 @@ const DebeziumSourceAdvancedSection: React.FC<DebeziumSourceAdvancedSectionProps
   onChange
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggleAdvanced}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggleAdvanced}
+    >
+      {/* Snapshot Mode */}
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="debeziumSourceSnapshotMode"
+          className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
+        >
+          <span>Snapshot Mode</span>
+          <InfoTooltip text="Specifies how Debezium initializes data before streaming WAL/binlog changes." />
+        </label>
+        <select
+          id="debeziumSourceSnapshotMode"
+          name="snapshotMode"
+          value={snapshotMode}
+          onChange={onChange}
+          className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
+        >
+          <option value="initial">initial (Full snapshot then stream)</option>
+          <option value="when_needed">when_needed (Snapshot if no existing offset)</option>
+          <option value="never">never (Stream changes only)</option>
+          <option value="schema_only">schema_only (Capture schema without data)</option>
+        </select>
+      </div>
 
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          {/* Snapshot Mode */}
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="debeziumSourceSnapshotMode"
-              className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
-            >
-              <span>Snapshot Mode</span>
-              <InfoTooltip text="Specifies how Debezium initializes data before streaming WAL/binlog changes." />
-            </label>
-            <select
-              id="debeziumSourceSnapshotMode"
-              name="snapshotMode"
-              value={snapshotMode}
-              onChange={onChange}
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
-            >
-              <option value="initial">initial (Full snapshot then stream)</option>
-              <option value="when_needed">when_needed (Snapshot if no existing offset)</option>
-              <option value="never">never (Stream changes only)</option>
-              <option value="schema_only">schema_only (Capture schema without data)</option>
-            </select>
-          </div>
+      {/* Heartbeat & Server ID */}
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="debeziumSourceHeartbeatIntervalMs"
+          name="heartbeatIntervalMs"
+          label="Heartbeat Interval (ms)"
+          type="number"
+          value={heartbeatIntervalMs}
+          onChange={onChange}
+          placeholder="0 (Disabled)"
+          min={0}
+          tooltip="Frequency in milliseconds to send heartbeat change events to ensure offset advancement."
+        />
+        <PropertyField
+          id="debeziumSourceServerId"
+          name="serverId"
+          label="Server ID"
+          type="number"
+          value={serverId}
+          onChange={onChange}
+          placeholder="e.g. 5400"
+          tooltip="Unique MySQL/MariaDB replication client server ID (must differ from MySQL server and other replica IDs)."
+        />
+      </div>
 
-          {/* Heartbeat & Server ID */}
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="debeziumSourceHeartbeatIntervalMs"
-              name="heartbeatIntervalMs"
-              label="Heartbeat Interval (ms)"
-              type="number"
-              value={heartbeatIntervalMs}
-              onChange={onChange}
-              placeholder="0 (Disabled)"
-              min={0}
-              tooltip="Frequency in milliseconds to send heartbeat change events to ensure offset advancement."
-            />
-            <PropertyField
-              id="debeziumSourceServerId"
-              name="serverId"
-              label="Server ID"
-              type="number"
-              value={serverId}
-              onChange={onChange}
-              placeholder="e.g. 5400"
-              tooltip="Unique MySQL/MariaDB replication client server ID (must differ from MySQL server and other replica IDs)."
-            />
-          </div>
+      {/* Slot Name & Offset Storage */}
+      <PropertyField
+        id="debeziumSourceSlotName"
+        name="slotName"
+        label="Replication Slot / Publication Name"
+        value={slotName}
+        onChange={onChange}
+        placeholder="e.g. debezium_slot"
+        tooltip="PostgreSQL logical replication slot name or SQL Server CDC publication identifier."
+        mono={true}
+      />
 
-          {/* Slot Name & Offset Storage */}
-          <PropertyField
-            id="debeziumSourceSlotName"
-            name="slotName"
-            label="Replication Slot / Publication Name"
-            value={slotName}
-            onChange={onChange}
-            placeholder="e.g. debezium_slot"
-            tooltip="PostgreSQL logical replication slot name or SQL Server CDC publication identifier."
-            mono={true}
-          />
-
-          <PropertyField
-            id="debeziumSourceOffsetStorage"
-            name="offsetStorage"
-            label="Offset Storage File Path"
-            value={offsetStorage}
-            onChange={onChange}
-            placeholder="e.g. /tmp/offsets.dat"
-            tooltip="Local file path or durable store URI for persisting Debezium replication offsets."
-            mono={true}
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="debeziumSourceOffsetStorage"
+        name="offsetStorage"
+        label="Offset Storage File Path"
+        value={offsetStorage}
+        onChange={onChange}
+        placeholder="e.g. /tmp/offsets.dat"
+        tooltip="Local file path or durable store URI for persisting Debezium replication offsets."
+        mono={true}
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -364,12 +358,7 @@ export const DebeziumIOSourceProperties: React.FC<DebeziumIOSourcePropertiesProp
   const isFormatFunctionEmpty = format === 'typed' && !formatFunction.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -427,16 +416,6 @@ export const DebeziumIOSourceProperties: React.FC<DebeziumIOSourcePropertiesProp
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    // NOTE: Write directly to properties.system_instructions
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Debezium Connector Class Preset */}
@@ -660,21 +639,18 @@ export const DebeziumIOSourceProperties: React.FC<DebeziumIOSourcePropertiesProp
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="debeziumSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom instructions passed to LLM code generator when synthesizing Debezium CDC ingestion pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom instructions passed to LLM code generator when synthesizing Debezium CDC ingestion pipelines."
         placeholder="e.g. Read MySQL binlog CDC stream as JSON, deserialize change envelopes, and route mutations"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

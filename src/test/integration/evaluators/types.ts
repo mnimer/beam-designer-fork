@@ -1,8 +1,6 @@
 /**
  * Type definitions and contracts for the Multi-Agent Code Evaluation Harness.
  *
- * Author: Mike Nimer <mikenimer@google.com>
- *
  * Purpose:
  * Defines domain models, sub-agent result structures, scoring rubrics, and
  * prompt remediation guidance types used during integration testing of the
@@ -95,8 +93,6 @@ export interface MultiAgentEvaluationResult {
 
 /**
  * Executes a Gemini model call with exponential backoff on HTTP 429 / RESOURCE_EXHAUSTED.
- *
- * Author: Mike Nimer <mikenimer@google.com>
  */
 export async function generateContentWithRetry(
     ai: any,

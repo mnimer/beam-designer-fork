@@ -14,9 +14,13 @@
  * - Provides a flexible spacer and Code Generation Instructions textarea for custom LLM prompts.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/** Props for the {@link BigQuerySourceProperties} component. */
 interface BigQuerySourcePropertiesProps {
   node: {
     data: {
@@ -46,43 +50,18 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
   const propertiesRef = useRef(properties);
   propertiesRef.current = properties;
 
-  const [datasets, setDatasets] = useState<string[]>([]);
-  const [tables, setTables] = useState<string[]>([]);
-  const [datasetError, setDatasetError] = useState<string | null>(null);
-  const [tableError, setTableError] = useState<string | null>(null);
-
-  // NOTE: Listen for datasets and tables loaded messages from extension host.
-  // Uses propertiesRef to guarantee async datasetsLoaded does not overwrite newer user input.
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === 'datasetsLoaded') {
-        setDatasets(message.datasets || []);
-        setDatasetError(message.error || null);
-        if (message.projectId) {
-          onChange({ ...propertiesRef.current, projectId: message.projectId });
-        }
-      } else if (message.command === 'tablesLoaded') {
-        setTables(message.tables || []);
-        setTableError(message.error || null);
+  const { items: datasets, error: datasetError } = useAssetLoader<string>('datasets', {
+    onLoaded: (_items, rawMessage) => {
+      if (rawMessage?.projectId) {
+        onChange({ ...propertiesRef.current, projectId: rawMessage.projectId });
       }
-    };
-    window.addEventListener('message', handleMessage);
-    
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getDatasets' });
     }
+  });
 
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  useEffect(() => {
-    const vscode = (window as any).vscode;
-    if (vscode && properties.dataset) {
-      vscode.postMessage({ command: 'getTables', dataset: properties.dataset });
-    }
-  }, [properties.dataset]);
+  const { items: tables, error: tableError } = useAssetLoader<string>('tables', {
+    dataset: properties.dataset,
+    enabled: Boolean(properties.dataset),
+  });
 
   const table = properties.table || '';
   const query = properties.query || '';
@@ -91,12 +70,7 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
   const isInvalid = !table.trim() && !query.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -105,13 +79,6 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
     } else {
       onChange({ ...properties, [name]: value });
     }
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -177,23 +144,18 @@ export const BigQuerySourceProperties: React.FC<BigQuerySourcePropertiesProps> =
         </div>
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="bqSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for BigQuery source code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="bqSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for BigQuery source code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

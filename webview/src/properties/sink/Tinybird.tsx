@@ -21,8 +21,12 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import type { PropertyFieldOption } from '../../components/common/PropertyField';
 import { SecretManagerSecretField } from '../../components/common/SecretManagerSecretField';
+import { ExternalDocsLink } from '../../components/common/ExternalDocsLink';
+import { useNodeProperties } from '../../hooks/useNodeProperties';
 
 export const TINYBIRD_DOCS_URL = 'https://github.com/tinybirdco/tinybird-beam';
 export const DEFAULT_TINYBIRD_HOST = 'https://api.tinybird.co';
@@ -39,6 +43,9 @@ export const TINYBIRD_HOSTS: ReadonlyArray<PropertyFieldOption> = [
 
 export type TinybirdBatchingMode = 'batchElements' | 'groupIntoBatches' | 'none';
 
+/**
+ * Props for the TinybirdSinkProperties component.
+ */
 export interface TinybirdSinkPropertiesProps {
   node: {
     data: {
@@ -52,6 +59,12 @@ export interface TinybirdSinkPropertiesProps {
   onChange: (properties: Record<string, unknown>) => void;
 }
 
+/**
+ * Validates a comma-separated list of Tinybird column names.
+ *
+ * @param raw Raw column string
+ * @returns Error string if invalid, or null if valid
+ */
 function validateColumns(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -71,13 +84,22 @@ function validateColumns(raw: string): string | null {
   return null;
 }
 
+/**
+ * Checks whether a string represents a positive integer.
+ *
+ * @param raw String to test
+ * @returns True if raw is an integer >= 1
+ */
 function isPositiveInt(raw: string): boolean {
   const num = Number(raw);
   return Number.isInteger(num) && num >= 1;
 }
 
+/**
+ * Properties panel component for configuring Tinybird sinks.
+ */
 export const TinybirdSinkProperties: React.FC<TinybirdSinkPropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
+  const { properties, handleChange } = useNodeProperties(node, onChange);
   const [showBatching, setShowBatching] = useState(true);
 
   const host = String(properties.host ?? DEFAULT_TINYBIRD_HOST);
@@ -93,13 +115,7 @@ export const TinybirdSinkProperties: React.FC<TinybirdSinkPropertiesProps> = ({ 
   const batchSize = String(properties.batchSize ?? '');
   const maxBufferingDurationSecs = String(properties.maxBufferingDurationSecs ?? '');
 
-  const systemInstructions = String(
-    node.data.system_instructions ??
-      node.data.special_instructions ??
-      properties.system_instructions ??
-      properties.special_instructions ??
-      ''
-  );
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Validations & warnings
   const trimmedHost = host.trim();
@@ -153,36 +169,16 @@ export const TinybirdSinkProperties: React.FC<TinybirdSinkPropertiesProps> = ({ 
     }
   }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    onChange({
-      ...properties,
-      [name]: value,
-    });
-  };
-
-  const handleOpenDocs = () => {
-    const vscode = (window as unknown as { vscode?: { postMessage?: (msg: unknown) => void } }).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({ command: 'openExternal', url: TINYBIRD_DOCS_URL });
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Header + Docs Link */}
       <div className="flex flex-col gap-1.5 p-2.5 rounded bg-slate-800/40 border border-slate-700/60 text-xs text-slate-300">
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold text-slate-200">Tinybird Sink (WriteToTinybird)</span>
-          <button
-            type="button"
-            onClick={handleOpenDocs}
+          <ExternalDocsLink
+            url={TINYBIRD_DOCS_URL}
             className="text-blue-400 hover:text-blue-300 hover:underline shrink-0 font-semibold cursor-pointer"
-          >
-            Docs ↗
-          </button>
+          />
         </div>
         <p className="text-slate-400">
           Ingest batches to a Tinybird Data Source via tinybird.beam.WriteToTinybird
@@ -369,26 +365,18 @@ export const TinybirdSinkProperties: React.FC<TinybirdSinkPropertiesProps> = ({ 
         )}
       </div>
 
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label
-          htmlFor="tinybirdSinkSystemInstructions"
-          className="text-xs font-bold uppercase text-slate-500"
-        >
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="tinybirdSinkSystemInstructions"
-          name="system_instructions"
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 focus:border-blue-500 text-sm"
-          rows={3}
-          value={systemInstructions}
-          placeholder="Optional instructions passed to the LLM code generator..."
-          onChange={(e) => onChange({ ...properties, system_instructions: e.target.value })}
-        />
-      </div>
+      <SystemInstructionsField
+        id="tinybirdSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Optional instructions passed to the LLM code generator..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -27,6 +27,9 @@ import { PropertyField } from '../PropertyField';
 export type RabbitMqDestinationMode = 'queue' | 'exchange';
 export type RabbitMqExchangeType = 'direct' | 'fanout' | 'topic' | 'headers';
 
+/**
+ * Props for the {@link RabbitMqDestinationFields} component.
+ */
 export interface RabbitMqDestinationFieldsProps {
   /** Prefix for stable element IDs, e.g. 'rabbitmq-source' or 'rabbitmq-sink'. */
   idPrefix: string;

@@ -24,9 +24,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for AWS DynamoDB credentials.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -45,6 +51,9 @@ export const AWS_REGIONS = [
   { value: 'sa-east-1', label: 'South America (São Paulo) [sa-east-1]' },
 ];
 
+/**
+ * Props for the DynamoDBIOSinkProperties component.
+ */
 export interface DynamoDBIOSinkPropertiesProps {
   node: {
     data: {
@@ -109,12 +118,7 @@ export const DynamoDBIOSinkProperties: React.FC<DynamoDBIOSinkPropertiesProps> =
   const isTableEmpty = !tableName.trim();
 
   // Verbatim system instruction fallback chain
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -142,17 +146,6 @@ export const DynamoDBIOSinkProperties: React.FC<DynamoDBIOSinkPropertiesProps> =
     }
   };
 
-  /**
-   * Handles system instructions textarea modification.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -345,90 +338,77 @@ export const DynamoDBIOSinkProperties: React.FC<DynamoDBIOSinkPropertiesProps> =
       </div>
 
       {/* Collapsible Advanced Sink Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Sink Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Sink Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        {/* Custom Endpoint Override */}
+        <PropertyField
+          id="dynamodbSinkEndpointOverride"
+          name="endpointOverride"
+          label="Service Endpoint Override"
+          tooltip="Custom DynamoDB endpoint URL (e.g. http://localhost:8000 or http://localhost:4566 for LocalStack integration testing)."
+          value={endpointOverride}
+          onChange={handleChange}
+          placeholder="http://localhost:8000"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            {/* Custom Endpoint Override */}
-            <PropertyField
-              id="dynamodbSinkEndpointOverride"
-              name="endpointOverride"
-              label="Service Endpoint Override"
-              tooltip="Custom DynamoDB endpoint URL (e.g. http://localhost:8000 or http://localhost:4566 for LocalStack integration testing)."
-              value={endpointOverride}
-              onChange={handleChange}
-              placeholder="http://localhost:8000"
-              mono={true}
-            />
+        {/* Max Retries & Write Capacity Units */}
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="dynamodbSinkMaxRetries"
+            name="maxRetries"
+            label="Max Retries"
+            type="number"
+            min={0}
+            value={maxRetries}
+            onChange={handleChange}
+            placeholder="5"
+            tooltip="Maximum client retry attempts for unprocessed write items upon ProvisionedThroughputExceededException."
+            mono={true}
+          />
+          <PropertyField
+            id="dynamodbSinkWriteCapacityUnits"
+            name="writeCapacityUnits"
+            label="Write Capacity (WCU) Target"
+            type="number"
+            min={1}
+            value={writeCapacityUnits}
+            onChange={handleChange}
+            placeholder="Unlimited"
+            tooltip="Target write capacity units per second for pipeline rate limiting."
+            mono={true}
+          />
+        </div>
 
-            {/* Max Retries & Write Capacity Units */}
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="dynamodbSinkMaxRetries"
-                name="maxRetries"
-                label="Max Retries"
-                type="number"
-                min={0}
-                value={maxRetries}
-                onChange={handleChange}
-                placeholder="5"
-                tooltip="Maximum client retry attempts for unprocessed write items upon ProvisionedThroughputExceededException."
-                mono={true}
-              />
-              <PropertyField
-                id="dynamodbSinkWriteCapacityUnits"
-                name="writeCapacityUnits"
-                label="Write Capacity (WCU) Target"
-                type="number"
-                min={1}
-                value={writeCapacityUnits}
-                onChange={handleChange}
-                placeholder="Unlimited"
-                tooltip="Target write capacity units per second for pipeline rate limiting."
-                mono={true}
-              />
-            </div>
+        {/* Write Throttling Notes */}
+        <PropertyField
+          id="dynamodbSinkThrottlingNotes"
+          name="throttlingNotes"
+          label="Write Capacity Throttling Notes"
+          type="textarea"
+          rows={2}
+          value={throttlingNotes}
+          onChange={handleChange}
+          placeholder="Notes on provisioned WCU limits, exponential backoff policies, or alarm thresholds"
+          tooltip="Optional operational notes and backoff parameters for write capacity throttling."
+          mono={false}
+        />
+      </CollapsibleSection>
 
-            {/* Write Throttling Notes */}
-            <PropertyField
-              id="dynamodbSinkThrottlingNotes"
-              name="throttlingNotes"
-              label="Write Capacity Throttling Notes"
-              type="textarea"
-              rows={2}
-              value={throttlingNotes}
-              onChange={handleChange}
-              placeholder="Notes on provisioned WCU limits, exponential backoff policies, or alarm thresholds"
-              tooltip="Optional operational notes and backoff parameters for write capacity throttling."
-              mono={false}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="dynamodbSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing DynamoDBIO write pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing DynamoDBIO write pipelines."
         placeholder="e.g. Write elements using DynamoDBIO.write().withWriteRequestMapperFn(...) with deduplicateKeys"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

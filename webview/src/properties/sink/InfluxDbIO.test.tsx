@@ -151,7 +151,7 @@ describe('InfluxDbIOSinkProperties', () => {
     expect(screen.getAllByDisplayValue('0').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('supports Secret Manager authentication mode and receives IPC secrets', () => {
+  it('supports Secret Manager authentication mode', () => {
     const node = {
       data: {
         label: 'InfluxDB Sink',
@@ -170,53 +170,6 @@ describe('InfluxDbIOSinkProperties', () => {
 
     expect(userSecretInput).toHaveValue('sink-user');
     expect(passSecretInput).toHaveValue('sink-pass');
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/sink-user-secret',
-            { id: 'sink-pass-secret', name: 'sink-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const option1 = document.querySelector(
-      'datalist#influxdb-sink-secret-options option[value="sink-user-secret"]'
-    );
-    const option2 = document.querySelector(
-      'datalist#influxdb-sink-secret-options option[value="sink-pass-secret"]'
-    );
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('renders Secret Manager error once when secretsLoaded contains error', () => {
-    const node = {
-      data: {
-        label: 'InfluxDB Sink',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<InfluxDbIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Failed to access GCP Secret Manager for Sink'
-        }
-      })
-    );
-
-    expect(screen.getByText('Failed to access GCP Secret Manager for Sink')).toBeInTheDocument();
   });
 
   it('toggles Advanced Sink Settings and updates SSL flags and timeouts', () => {
@@ -264,70 +217,7 @@ describe('InfluxDbIOSinkProperties', () => {
     );
   });
 
-  it('resolves system instructions across the fallback chain', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <InfluxDbIOSinkProperties
-        node={{
-          data: {
-            system_instructions: 'Node level system instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level system instructions')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <InfluxDbIOSinkProperties
-        node={{
-          data: {
-            special_instructions: 'Node level special instructions',
-            properties: {}
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Node level special instructions')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <InfluxDbIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'Property level system instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level system instructions')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <InfluxDbIOSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'Property level special instructions'
-            }
-          }
-        }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Property level special instructions')).toBeInTheDocument();
-    unmount4();
-
-    // 5. empty fallback
+  it('dispatches system instructions updates', () => {
     render(
       <InfluxDbIOSinkProperties
         node={{

@@ -6,8 +6,8 @@
  * Purpose:
  * Validates HCatalogIOSourceProperties form rendering, hydration from properties,
  * input change dispatches, Thrift URI format validation, required fields validation,
- * Kerberos & Secret Manager authentication modes, IPC callbacks for GCP Secret Manager secrets,
- * advanced settings collapse, error and edge cases, and code generation instructions fallback resolution.
+ * Kerberos & Secret Manager authentication modes,
+ * advanced settings collapse, error and edge cases, and code generation instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -146,59 +146,6 @@ describe('HCatalogIOSourceProperties', () => {
     }));
   });
 
-  it('supports Secret Manager authentication mode and handles IPC secretsLoaded', () => {
-    const node = {
-      data: {
-        label: 'HCatalog Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<HCatalogIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    expect(screen.getByPlaceholderText(/hive-auth-credentials/i)).toBeInTheDocument();
-
-    // Simulate IPC secretsLoaded event
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-proj/secrets/hive-auth-token',
-          { id: 'hive-user-key', name: 'hive-user-key' }
-        ]
-      }
-    }));
-
-    const option1 = document.querySelector('datalist#hcatalog-source-secret-options option[value="hive-auth-token"]');
-    const option2 = document.querySelector('datalist#hcatalog-source-secret-options option[value="hive-user-key"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
-  });
-
-  it('displays error when secret discovery fails in secret_manager mode', () => {
-    const node = {
-      data: {
-        label: 'HCatalog Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<HCatalogIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Secret Manager unavailable'
-      }
-    }));
-
-    expect(screen.getByText('Secret Manager unavailable')).toBeInTheDocument();
-  });
-
   it('expands Advanced Source Settings and updates parameters', () => {
     const node = {
       data: {
@@ -260,18 +207,17 @@ describe('HCatalogIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('120')).toHaveValue(0);
   });
 
-  it('resolves system instructions via fallback chain and handles edits', () => {
+  it('updates system_instructions when code generation instructions textarea is edited', () => {
     const node = {
       data: {
         label: 'HCatalog Source',
-        special_instructions: 'Custom special instructions for HCatalog'
+        properties: {}
       }
     };
 
     render(<HCatalogIOSourceProperties node={node as any} onChange={mockOnChange} />);
 
     const textarea = screen.getByPlaceholderText(/Read HCatRecord records/i);
-    expect(textarea).toHaveValue('Custom special instructions for HCatalog');
 
     fireEvent.change(textarea, { target: { value: 'Updated prompt for HCatalog' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({

@@ -16,6 +16,9 @@
  * - Logs observable summary when migration occurs at pipeline load time.
  */
 
+/**
+ * Shape of legacy node data read from older pipeline YAML representations.
+ */
 export interface LegacyNodeData {
   label?: string;
   type?: string;

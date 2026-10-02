@@ -22,12 +22,16 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
 export type ArrowFlightAuthMode = 'none' | 'secret_manager';
 
+/**
+ * Props for the ArrowFlightIOSinkProperties component.
+ */
 export interface ArrowFlightIOSinkPropertiesProps {
   node: {
     data: {
@@ -52,6 +56,11 @@ export interface ArrowFlightIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the Arrow Flight sink node. Configures host, port, descriptor, batch size, and authentication.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const ArrowFlightIOSinkProperties: React.FC<ArrowFlightIOSinkPropertiesProps> = ({
   node,
   onChange
@@ -92,7 +101,7 @@ export const ArrowFlightIOSinkProperties: React.FC<ArrowFlightIOSinkPropertiesPr
   };
 
   return (
-    <div className="flex flex-col gap-4 text-xs text-[var(--vscode-foreground)] p-1">
+    <div className="flex-1 flex flex-col gap-4 text-xs text-[var(--vscode-foreground)] p-1">
       {/* Target Server Card */}
       <div className="flex flex-col gap-3 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
         <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
@@ -230,25 +239,14 @@ export const ArrowFlightIOSinkProperties: React.FC<ArrowFlightIOSinkPropertiesPr
         )}
       </div>
 
-      {/* System Instructions Card */}
-      <div className="flex flex-col gap-3 p-3 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-        <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-          <span>Code Generation Instructions</span>
-          <InfoTooltip text="Instructions passed to the code generator for constructing the ArrowFlightIO.write() transform." />
-        </label>
-        <PropertyField
-          id="flightSinkInstructions"
-          name="system_instructions"
-          label="System Instructions"
-          type="textarea"
-          rows={3}
-          tooltip="Custom prompt instructions passed to the LLM when synthesizing the Beam pipeline."
-          value={instructions}
-          placeholder="e.g., Write to Arrow Flight server using ArrowFlightIO.write().withHost(...).withDescriptor(...) consuming PCollection<Row>"
-          onChange={handleInputChange}
-          mono={true}
-        />
-      </div>
+      {/* Code Generation Instructions */}
+      <SystemInstructionsField
+        id="flightSinkInstructions"
+        value={instructions}
+        tooltip="Custom prompt instructions passed to the LLM when synthesizing the Beam pipeline."
+        placeholder="e.g., Write to Arrow Flight server using ArrowFlightIO.write().withHost(...).withDescriptor(...) consuming PCollection<Row>"
+        onChange={(value) => onChange({ ...props, system_instructions: value })}
+      />
     </div>
   );
 };

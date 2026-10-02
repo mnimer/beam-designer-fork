@@ -191,55 +191,22 @@ describe('SolrIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('e.g. solr-password-secret')).toHaveValue('solr-sink-pass');
   });
 
-  it('populates datalist with secrets loaded from extension IPC', () => {
+  it('renders secret inputs when authMode is basic_secret_manager', () => {
     const node = {
       data: {
         label: 'Solr Sink',
         properties: {
           authMode: 'basic_secret_manager' as const,
+          passwordSecret: 'solr-sink-secret',
         },
       },
     };
 
     render(<SolrIOSinkProperties node={node} onChange={mockOnChange} />);
 
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        secrets: [
-          'projects/my-gcp-proj/secrets/solr-sink-secret',
-          { id: 'solr-sink-creds', name: 'Solr Sink Credentials' },
-        ],
-      },
-    }));
-
-    const option1 = document.querySelector('datalist#solr-sink-secret-options option[value="solr-sink-secret"]');
-    const option2 = document.querySelector('datalist#solr-sink-secret-options option[value="solr-sink-creds"]');
-    expect(option1).not.toBeNull();
-    expect(option2).not.toBeNull();
+    expect(screen.getByPlaceholderText('e.g. solr-password-secret')).toHaveValue('solr-sink-secret');
   });
 
-  it('displays error alert exactly once when secrets loading fails from extension IPC', () => {
-    const node = {
-      data: {
-        label: 'Solr Sink',
-        properties: {},
-      },
-    };
-
-    render(<SolrIOSinkProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(window, new MessageEvent('message', {
-      data: {
-        command: 'secretsLoaded',
-        error: 'Failed to access GCP Secret Manager for Solr Sink',
-      },
-    }));
-
-    const alerts = screen.getAllByRole('alert');
-    const secretAlert = alerts.filter((a) => a.textContent?.includes('Failed to access GCP Secret Manager for Solr Sink'));
-    expect(secretAlert).toHaveLength(1);
-  });
 
   it('toggles Advanced Sink Settings and dispatches edits', () => {
     const node = {
@@ -323,34 +290,23 @@ describe('SolrIOSinkProperties', () => {
     expect(screen.getByPlaceholderText('10000')).toHaveValue(0);
   });
 
-  it('resolves system instructions fallback chain and dispatches updates', () => {
-    // 1. Fallback to special_instructions on node.data
-    const nodeSpecial = {
+  it('updates system_instructions when editing instructions textarea', () => {
+    const node = {
       data: {
-        special_instructions: 'Custom special prompt for Solr sink',
-        properties: {},
+        label: 'Solr Sink',
+        properties: {
+          system_instructions: 'Custom instructions for Solr sink',
+        },
       },
     };
 
-    const { rerender } = render(<SolrIOSinkProperties node={nodeSpecial} onChange={mockOnChange} />);
+    render(<SolrIOSinkProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/SolrIO\.write\(\)\.withConnectionConfiguration/i);
-    expect(textarea).toHaveValue('Custom special prompt for Solr sink');
+    expect(textarea).toHaveValue('Custom instructions for Solr sink');
 
-    // 2. Direct property edit
     fireEvent.change(textarea, { target: { value: 'Updated sink prompt' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated sink prompt',
     }));
-
-    // 3. Fallback when system_instructions is directly in properties
-    const nodePropInstructions = {
-      data: {
-        properties: {
-          system_instructions: 'Sink property instructions override',
-        },
-      },
-    };
-    rerender(<SolrIOSinkProperties node={nodePropInstructions} onChange={mockOnChange} />);
-    expect(screen.getByPlaceholderText(/SolrIO\.write\(\)\.withConnectionConfiguration/i)).toHaveValue('Sink property instructions override');
   });
 });

@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { CsvIOSinkProperties, CSV_COMPRESSION_TYPES, CSV_SINK_COMPRESSION_TYPES } from './CsvIO';
 
@@ -272,113 +272,6 @@ describe('CsvIOSinkProperties', () => {
         system_instructions: 'Write output records partitioned into 10 shards with custom quote rules'
       })
     );
-  });
-
-  it('posts getStorageBuckets command to vscode and populates datalist options on storageBucketsLoaded', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Sink',
-        properties: {}
-      }
-    };
-
-    const { container } = render(<CsvIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert getStorageBuckets was posted on mount
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch storageBucketsLoaded event
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['export-destination-bucket', 'warehouse-sink-bucket']
-          }
-        })
-      );
-    });
-
-    // Check datalist options attached to to field
-    const datalist = container.querySelector('datalist');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options?.length).toBe(2);
-    expect(options?.[0]).toHaveAttribute('value', 'gs://export-destination-bucket/');
-    expect(options?.[1]).toHaveAttribute('value', 'gs://warehouse-sink-bucket/');
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error on empty destination to', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Sink',
-        properties: {
-          to: ''
-        }
-      }
-    };
-
-    render(<CsvIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Failed to connect to Google Cloud Storage service'
-          }
-        })
-      );
-    });
-
-    // Verify error message is rendered inline in the DOM alongside destination required error
-    expect(screen.getByText('Destination Directory is required.')).toBeInTheDocument();
-    expect(screen.getByText(/Failed to connect to Google Cloud Storage service/i)).toBeInTheDocument();
-  });
-
-  it('surfaces bucket loading error inline when storageBucketsLoaded contains an error even with valid, non-empty to (regression test)', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'CsvIO Sink',
-        properties: {
-          to: 'gs://output-bucket/data'
-        }
-      }
-    };
-
-    render(<CsvIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Dispatch error response
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Permission denied: storage.buckets.list'
-          }
-        })
-      );
-    });
-
-    // Verify error message IS present even when destination prefix is populated and valid
-    expect(screen.queryByText('Destination Directory is required.')).not.toBeInTheDocument();
-    expect(screen.getByText(/Permission denied: storage.buckets.list/i)).toBeInTheDocument();
   });
 
   it('omits unsupported XZ compression codec and documents Java vs Python WriteToCsv compression support (regression test)', () => {

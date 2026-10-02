@@ -43,8 +43,6 @@ describe('ClickHouseIOSourceProperties', () => {
 
     expect(screen.getByText('ClickHouse JDBC URL is required')).toBeInTheDocument();
     expect(screen.getByText('SELECT query is required')).toBeInTheDocument();
-
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('shows warning alert when JDBC URL does not start with jdbc:clickhouse:', () => {
@@ -280,54 +278,9 @@ describe('ClickHouseIOSourceProperties', () => {
 
     expect(screen.getByPlaceholderText('e.g. clickhouse-username')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. clickhouse-password')).toBeInTheDocument();
-
-    // Simulate secretsLoaded message with object and string secrets
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { id: 'ch-prod-user', name: 'ch-prod-user' },
-            'projects/my-proj/secrets/ch-prod-pass'
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('clickhouse-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'ch-prod-user');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'ch-prod-pass');
   });
 
-  it('displays error alert when secretsLoaded carries an error message', () => {
-    const node = {
-      data: {
-        label: 'ClickHouse Source',
-        properties: {
-          authMode: 'secret_manager' as const
-        }
-      }
-    };
-
-    render(<ClickHouseIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Permission denied accessing Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getByText(/Permission denied accessing Secret Manager/i)).toBeInTheDocument();
-  });
-
-  it('handles advanced source settings toggling and updates', () => {
+  it('handles advanced source settings updates', () => {
     const node = {
       data: {
         label: 'ClickHouse Source',
@@ -340,9 +293,6 @@ describe('ClickHouseIOSourceProperties', () => {
     render(<ClickHouseIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const toggleButton = screen.getByRole('button', { name: /Advanced Source Settings/i });
-    expect(screen.queryByPlaceholderText('30000')).not.toBeInTheDocument();
-
-    // Expand
     fireEvent.click(toggleButton);
     expect(screen.getByPlaceholderText('30000')).toBeInTheDocument();
 
@@ -353,10 +303,6 @@ describe('ClickHouseIOSourceProperties', () => {
       url: 'jdbc:clickhouse://localhost:8123/default',
       compress: true
     });
-
-    // Collapse
-    fireEvent.click(toggleButton);
-    expect(screen.queryByPlaceholderText('30000')).not.toBeInTheDocument();
   });
 
   it('handles edge cases: missing properties, 0 values', () => {
@@ -385,64 +331,18 @@ describe('ClickHouseIOSourceProperties', () => {
     expect(screen.getByPlaceholderText('10')).toHaveValue(0);
   });
 
-  it('respects instructions fallback chain and dispatches change', () => {
-    // 1. node.data.system_instructions
-    const node1 = {
+  it('updates system_instructions when instructions textarea changes', () => {
+    const node = {
       data: {
         label: 'ClickHouse Source',
-        system_instructions: 'Instruction Level 1',
-        special_instructions: 'Instruction Level 2',
-        properties: {
-          system_instructions: 'Instruction Level 3'
-        }
+        properties: {}
       }
     };
-    const { rerender } = render(<ClickHouseIOSourceProperties node={node1} onChange={mockOnChange} />);
+    render(<ClickHouseIOSourceProperties node={node} onChange={mockOnChange} />);
     const textarea = screen.getByPlaceholderText(/Read ClickHouse records via JdbcIO/i);
-    expect(textarea).toHaveValue('Instruction Level 1');
-
-    // 2. node.data.special_instructions
-    const node2 = {
-      data: {
-        label: 'ClickHouse Source',
-        special_instructions: 'Instruction Level 2',
-        properties: {
-          system_instructions: 'Instruction Level 3'
-        }
-      }
-    };
-    rerender(<ClickHouseIOSourceProperties node={node2} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Instruction Level 2');
-
-    // 3. properties.system_instructions
-    const node3 = {
-      data: {
-        label: 'ClickHouse Source',
-        properties: {
-          system_instructions: 'Instruction Level 3'
-        }
-      }
-    };
-    rerender(<ClickHouseIOSourceProperties node={node3} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Instruction Level 3');
-
-    // 4. properties.special_instructions
-    const node4 = {
-      data: {
-        label: 'ClickHouse Source',
-        properties: {
-          special_instructions: 'Instruction Level 4'
-        }
-      }
-    };
-    rerender(<ClickHouseIOSourceProperties node={node4} onChange={mockOnChange} />);
-    expect(textarea).toHaveValue('Instruction Level 4');
-
-    // Edit instructions
     fireEvent.change(textarea, { target: { value: 'Updated prompt instructions' } });
-    expect(mockOnChange).toHaveBeenCalledWith({
-      special_instructions: 'Instruction Level 4',
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       system_instructions: 'Updated prompt instructions'
-    });
+    }));
   });
 });

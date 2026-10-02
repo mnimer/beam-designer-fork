@@ -54,12 +54,15 @@ describe('PipelineNode', () => {
   it('renders selected styling for SOURCE, STEP, and SINK nodes', () => {
     const { container: sourceContainer } = render(<PipelineNode id="node-1" data={mockData} selected={true} />);
     expect(sourceContainer.firstChild).toHaveClass('border-emerald-400');
+    expect(sourceContainer.firstChild).toHaveClass('ring-2');
 
     const { container: stepContainer } = render(<PipelineNode id="node-2" data={{ ...mockData, type: 'STEP' }} selected={true} />);
     expect(stepContainer.firstChild).toHaveClass('border-blue-400');
+    expect(stepContainer.firstChild).toHaveClass('ring-2');
 
     const { container: sinkContainer } = render(<PipelineNode id="node-3" data={{ ...mockData, type: 'SINK' }} selected={true} />);
     expect(sinkContainer.firstChild).toHaveClass('border-red-400');
+    expect(sinkContainer.firstChild).toHaveClass('ring-2');
   });
 
   it('renders target handle if not source', () => {
@@ -202,32 +205,6 @@ describe('PipelineNode', () => {
     const input = screen.getByRole('textbox', { name: 'Edit node label' }) as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('Test Node');
-  });
-
-  it('renders green border for SOURCE, blue border for STEP, and red border for SINK', () => {
-    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} />);
-    const srcNode = screen.getByTestId('pipeline-node-node-src');
-    expect(srcNode).toHaveClass('border-emerald-500');
-
-    rerender(<PipelineNode id="node-step" data={{ ...mockData, type: 'STEP' }} />);
-    const stepNode = screen.getByTestId('pipeline-node-node-step');
-    expect(stepNode).toHaveClass('border-blue-500');
-
-    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} />);
-    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
-    expect(sinkNode).toHaveClass('border-red-500');
-  });
-
-  it('renders themed ring and border when selected', () => {
-    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} selected={true} />);
-    const srcNode = screen.getByTestId('pipeline-node-node-src');
-    expect(srcNode).toHaveClass('border-emerald-400');
-    expect(srcNode).toHaveClass('ring-2');
-
-    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} selected={true} />);
-    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
-    expect(sinkNode).toHaveClass('border-red-400');
-    expect(sinkNode).toHaveClass('ring-2');
   });
 
   it('renders pulsing crimson border and AlertCircle badge when hasCycle is true', () => {

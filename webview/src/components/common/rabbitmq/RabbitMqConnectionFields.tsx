@@ -24,6 +24,9 @@ import { Server, Key, Lock, RefreshCw } from 'lucide-react';
 import { InfoTooltip } from '../../InfoTooltip';
 import { PropertyField } from '../PropertyField';
 
+/**
+ * Secret metadata descriptor for RabbitMQ credential discovery.
+ */
 export interface SecretItem {
   name: string;
   fullName?: string;
@@ -32,6 +35,9 @@ export interface SecretItem {
   [key: string]: any;
 }
 
+/**
+ * Compute Engine instance descriptor discovered for broker host autocomplete.
+ */
 export interface ComputeInstanceItem {
   name: string;
   status: string;
@@ -41,6 +47,9 @@ export interface ComputeInstanceItem {
   region?: string;
 }
 
+/**
+ * Props for the {@link RabbitMqConnectionFields} component.
+ */
 export interface RabbitMqConnectionFieldsProps {
   /** Prefix for stable element IDs, e.g. 'rabbitmq-source' or 'rabbitmq-sink'. */
   idPrefix: string;

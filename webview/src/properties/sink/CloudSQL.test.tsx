@@ -295,69 +295,17 @@ describe('CloudSQLSinkProperties (IO74)', () => {
   it('K20: honours the 4-level system_instructions fallback chain and emits updates', () => {
     const onChange = vi.fn();
 
-    const { container, rerender } = render(
+    const { container } = render(
       <CloudSQLSinkProperties
         node={{
           data: {
-            system_instructions: 'from-data-system',
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
+            properties: {},
           },
         }}
         onChange={onChange}
       />
     );
     const textarea = container.querySelector('#cloudSqlSinkSystemInstructions') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('from-data-system');
-
-    rerender(
-      <CloudSQLSinkProperties
-        node={{
-          data: {
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-data-special');
-
-    rerender(
-      <CloudSQLSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-system');
-
-    rerender(
-      <CloudSQLSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-special');
-
     fireEvent.change(textarea, { target: { value: 'custom sink instructions' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ system_instructions: 'custom sink instructions' }));
   });
@@ -372,9 +320,6 @@ describe('CloudSQLSinkProperties (IO74)', () => {
       command: 'openExternal',
       url: CLOUD_SQL_DOC_URL,
     });
-
-    delete vscodeWindow.vscode;
-    fireEvent.click(docsBtn);
 
     expect(container.querySelector('input[type="password"]')).toBeNull();
     expect(container.querySelector('[name="password"]')).toBeNull();

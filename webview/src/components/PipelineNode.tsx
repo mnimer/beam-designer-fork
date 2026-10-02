@@ -20,13 +20,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Box, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
+import { getNodeIcon } from './common/nodeIcons';
+import { isFhirIoNode, isDicomIoNode } from '../graph/nodeKinds';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap
-};
-
+/**
+ * React Flow custom node properties representing an Apache Beam pipeline transform.
+ */
 export interface PipelineNodeProps {
   id?: string;
   data: {
@@ -52,10 +52,8 @@ export interface PipelineNodeProps {
 export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }) => {
   const isSource = data.type === 'SOURCE';
   const isSink = data.type === 'SINK';
-  const isFhirSource =
-    isSource && (data.beam_transform === 'FhirIO' || data.label?.includes('FhirIO'));
-  const isDicomSource =
-    isSource && (data.beam_transform === 'DicomIO' || data.label?.includes('DicomIO'));
+  const isFhirSource = isSource && isFhirIoNode(data);
+  const isDicomSource = isSource && isDicomIoNode(data);
   const isFhirReadResources =
     isFhirSource && (data.properties?.readMode || 'readResources') === 'readResources';
   const isDicomReadMetadata =
@@ -66,7 +64,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
     isDicomReadMetadata ||
     ((isFhirSource || isDicomSource) && Boolean(data.hasValidationError));
 
-  const IconComponent = iconComponentMap[data.iconName];
+  const IconComponent = getNodeIcon(data.iconName, Box);
 
   // Inline editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -206,6 +204,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
       <div className="flex items-center gap-3 w-full">
         <div className={`p-2 rounded shrink-0 border ${getIconContainerClasses()}`}>
           {IconComponent && (
+            /* eslint-disable-next-line react-hooks/static-components */
             <IconComponent 
               className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`} 
             />

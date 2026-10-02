@@ -5,7 +5,7 @@
  *
  * Purpose:
  * Validates MongoDbGridFSIOSourceProperties form rendering, hydration, dispatching,
- * IPC callbacks for GCP Secret Manager, field validation, and system instructions fallback chain.
+ * field validation, and system instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -140,7 +140,7 @@ describe('MongoDbGridFSIOSourceProperties', () => {
     );
   });
 
-  it('handles Secret Manager IPC callback and radio selection', () => {
+  it('handles Secret Manager selection and edits usernameSecret', () => {
     const node = {
       data: {
         label: 'GridFS Source',
@@ -154,24 +154,6 @@ describe('MongoDbGridFSIOSourceProperties', () => {
 
     render(<MongoDbGridFSIOSourceProperties node={node} onChange={mockOnChange} />);
 
-    // Check secrets loading IPC message with both string and object shapes
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            'projects/my-project/secrets/mongo-user-secret',
-            { id: 'mongo-pass-secret', name: 'mongo-pass-secret' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('mongodbgridfs-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-
     expect(screen.getByDisplayValue('mongo-user-secret')).toBeInTheDocument();
     expect(screen.getByDisplayValue('mongo-pass-secret')).toBeInTheDocument();
 
@@ -180,32 +162,6 @@ describe('MongoDbGridFSIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ usernameSecret: 'new-user-secret' })
     );
-  });
-
-  it('displays secret loading errors from IPC callback', () => {
-    const node = {
-      data: {
-        label: 'GridFS Source',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<MongoDbGridFSIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [],
-          error: 'Permission denied accessing Secret Manager'
-        }
-      })
-    );
-
-    expect(screen.getAllByText('Permission denied accessing Secret Manager').length).toBeGreaterThan(0);
   });
 
   it('toggles authMode radio button between URI embedded and Secret Manager', () => {
@@ -270,54 +226,9 @@ describe('MongoDbGridFSIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({ maxConnectionIdleTime: '30000' })
     );
-
-    // Toggle accordion closed
-    fireEvent.click(accordionBtn);
-    expect(screen.queryByLabelText('SSL / TLS Enabled')).not.toBeInTheDocument();
   });
 
-  it('falls back through system instructions hierarchy and edits instructions', () => {
-    // 1. node.data.system_instructions
-    const { unmount: unmount1 } = render(
-      <MongoDbGridFSIOSourceProperties
-        node={{ data: { system_instructions: 'Data system instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Data system instruction')).toBeInTheDocument();
-    unmount1();
-
-    // 2. node.data.special_instructions
-    const { unmount: unmount2 } = render(
-      <MongoDbGridFSIOSourceProperties
-        node={{ data: { special_instructions: 'Data special instruction' } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Data special instruction')).toBeInTheDocument();
-    unmount2();
-
-    // 3. properties.system_instructions
-    const { unmount: unmount3 } = render(
-      <MongoDbGridFSIOSourceProperties
-        node={{ data: { properties: { system_instructions: 'Props system instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Props system instruction')).toBeInTheDocument();
-    unmount3();
-
-    // 4. properties.special_instructions
-    const { unmount: unmount4 } = render(
-      <MongoDbGridFSIOSourceProperties
-        node={{ data: { properties: { special_instructions: 'Props special instruction' } } }}
-        onChange={mockOnChange}
-      />
-    );
-    expect(screen.getByDisplayValue('Props special instruction')).toBeInTheDocument();
-    unmount4();
-
-    // Edit instructions
+  it('updates system_instructions when instructions textarea is edited', () => {
     render(
       <MongoDbGridFSIOSourceProperties
         node={{ data: { properties: { uri: 'mongodb://localhost:27017' } } }}

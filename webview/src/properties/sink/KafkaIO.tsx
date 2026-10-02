@@ -18,7 +18,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * Preset configuration for Kafka key or value serializer classes.
+ */
 export interface KafkaSerializerPreset {
   label: string;
   className: string;
@@ -32,6 +37,9 @@ export const KAFKA_SERIALIZER_PRESETS: KafkaSerializerPreset[] = [
   { label: 'Double (DoubleSerializer)', className: 'org.apache.kafka.common.serialization.DoubleSerializer' },
 ];
 
+/**
+ * React Flow node shape for the Kafka sink panel, including its persisted configuration data.
+ */
 interface KafkaIOSinkNode {
   data: {
     label: string;
@@ -57,6 +65,9 @@ interface KafkaIOSinkNode {
   };
 }
 
+/**
+ * Props for the KafkaIOSinkProperties component.
+ */
 interface KafkaIOSinkPropertiesProps {
   node: KafkaIOSinkNode;
   onChange: (properties: any) => void;
@@ -83,12 +94,7 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
   const eosSinkGroupId = properties.eosSinkGroupId || '';
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -106,19 +112,6 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
     };
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles custom system instructions textarea change for LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   const isKeyPreset = KAFKA_SERIALIZER_PRESETS.some(p => p.className === keySerializer);
@@ -275,7 +268,7 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
         </label>
 
         {useEOS && (
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/50">
+          <div className="grid grid-cols-2 items-end gap-2 pt-2 border-t border-slate-700/50">
             <div className="flex flex-col gap-1">
               <label htmlFor="kafkaEosNumPartitions" className="flex items-center text-xs font-semibold text-slate-400">
                 <span>Num Partitions</span>
@@ -346,24 +339,19 @@ export const KafkaIOSinkProperties: React.FC<KafkaIOSinkPropertiesProps> = ({ no
         rows={3}
       />
 
-      {/* Flexible Spacer adhering to grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="kafkaSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions supplied to the LLM when generating code for this Kafka write node."
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kafka write code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="kafkaSinkSystemInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions supplied to the LLM when generating code for this Kafka write node."
+        placeholder="Enter custom instructions for Kafka write code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

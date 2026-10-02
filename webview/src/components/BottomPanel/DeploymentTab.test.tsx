@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DeploymentTab, type LogEntry } from './DeploymentTab';
+import { renderWithBottomPanel } from './testUtils';
 
 /**
  * Unit tests for DeploymentTab component
@@ -50,7 +51,7 @@ describe('DeploymentTab', () => {
   };
 
   it('renders RUN PIPELINE button and does NOT render SCHEDULE button', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     // RUN PIPELINE button should be present
     expect(screen.getByRole('button', { name: /RUN PIPELINE/i })).toBeInTheDocument();
@@ -60,7 +61,7 @@ describe('DeploymentTab', () => {
   });
 
   it('calls onRunNow when RUN PIPELINE button is clicked', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     const runButton = screen.getByRole('button', { name: /RUN PIPELINE/i });
     fireEvent.click(runButton);
@@ -70,7 +71,7 @@ describe('DeploymentTab', () => {
 
   it('renders STOP button and calls onStopPipeline when clicked', () => {
     const onStopPipeline = vi.fn();
-    render(<DeploymentTab {...defaultProps} onStopPipeline={onStopPipeline} />);
+    renderWithBottomPanel(<DeploymentTab />, { ...defaultProps, onStopPipeline });
 
     const stopButton = screen.getByRole('button', { name: /STOP/i });
     expect(stopButton).toBeInTheDocument();
@@ -81,7 +82,7 @@ describe('DeploymentTab', () => {
   });
 
   it('renders Execution Sandbox with runner command and logs', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     expect(screen.getByText(/EXECUTION SANDBOX/i)).toBeInTheDocument();
     expect(screen.getByText(/RUNNER COMMAND/i)).toBeInTheDocument();
@@ -91,7 +92,7 @@ describe('DeploymentTab', () => {
   });
 
   it('renders GCP Cloud Console link when jobId is present', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     const consoleButton = screen.getByRole('button', { name: /Open in GCP Console/i });
     expect(consoleButton).toBeInTheDocument();
@@ -103,7 +104,7 @@ describe('DeploymentTab', () => {
   });
 
   it('toggles secret visibility on eye icon click', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     const secretInput = screen.getByDisplayValue('secret-12345');
     expect(secretInput).toHaveAttribute('type', 'password');
@@ -115,11 +116,39 @@ describe('DeploymentTab', () => {
   });
 
   it('calls onClearLogs when Clear button is clicked', () => {
-    render(<DeploymentTab {...defaultProps} />);
+    renderWithBottomPanel(<DeploymentTab />, defaultProps);
 
     const clearButton = screen.getByRole('button', { name: /Clear/i });
     fireEvent.click(clearButton);
 
     expect(defaultProps.onClearLogs).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls setJobConfig with an updater function when machineType changes and preserves jobId', () => {
+    const setJobConfig = vi.fn();
+    renderWithBottomPanel(<DeploymentTab />, { ...defaultProps, setJobConfig });
+
+    const machineTypeSelect = screen.getByDisplayValue('n1-standard-1 (1 vCPU, 3.75 GB)');
+    fireEvent.change(machineTypeSelect, { target: { value: 'n1-standard-4' } });
+
+    expect(setJobConfig).toHaveBeenCalledTimes(1);
+    const updater = setJobConfig.mock.calls[0][0];
+    expect(
+      typeof updater,
+      'setJobConfig must receive an updater function so the merge uses the freshest state'
+    ).toBe('function');
+
+    const prevState = {
+      runner: 'Dataflow',
+      machineType: 'n1-standard-1',
+      jobId: 'abc',
+      region: 'us-central1',
+      projectId: 'my-project'
+    };
+    const nextState = updater(prevState);
+    expect(nextState.machineType).toBe('n1-standard-4');
+    expect(nextState.jobId).toBe('abc');
+    expect(nextState.region).toBe('us-central1');
+    expect(nextState.projectId).toBe('my-project');
   });
 });

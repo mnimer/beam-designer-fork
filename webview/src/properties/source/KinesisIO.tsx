@@ -21,11 +21,15 @@
  * - Persists custom code generation instructions for LLM prompt tailoring.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { RefreshCw, ShieldCheck, KeyRound, Radio } from 'lucide-react';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
+/** Preset mapping AWS region label to its standard region code identifier. */
 export interface AwsRegionPreset {
   label: string;
   value: string;
@@ -45,6 +49,7 @@ export const AWS_REGION_PRESETS: AwsRegionPreset[] = [
   { label: 'Custom Region...', value: 'custom' },
 ];
 
+/** React Flow node shape for the KinesisIO source panel, including its persisted configuration data. */
 export interface KinesisIOSourceNode {
   data: {
     label: string;
@@ -79,6 +84,7 @@ export interface KinesisIOSourceNode {
   };
 }
 
+/** Props for the {@link KinesisIOSourceProperties} component. */
 interface KinesisIOSourcePropertiesProps {
   node: KinesisIOSourceNode;
   onChange: (properties: any) => void;
@@ -114,57 +120,10 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
   const expansionService = properties.expansionService || '';
 
   // Local UI State
-  const [secrets, setSecrets] = useState<string[]>([]);
-  const [secretsError, setSecretsError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
 
   // System instructions text with fallbacks
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // Listen for secrets loaded message from extension host IPC
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets payload to short secret IDs so source and sink are consistent
-        // and avoid emitting [object Object] or full resource paths to the pipeline.
-        const secretIds = rawSecrets.map((s: any) =>
-          typeof s === 'string' ? (s.split('/').filter(Boolean).pop() || s) : (s.id || s.name || '')
-        ).filter(Boolean);
-        setSecrets(secretIds);
-        setIsLoadingSecrets(false);
-        setSecretsError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Dispatches a request to the extension to load GCP Secret Manager secrets.
-   */
-  const requestSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      setSecretsError(null);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  // Automatically request secrets on mount or when switching to secretManager auth mode
-  useEffect(() => {
-    if (authMode === 'secretManager') {
-      requestSecrets();
-    }
-  }, [authMode]);
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -192,13 +151,6 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   // Region preset handling
   const isRegionPreset = AWS_REGION_PRESETS.some(r => r.value === region && r.value !== 'custom');
   const selectedRegionPreset = isRegionPreset ? region : 'custom';
@@ -336,11 +288,11 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               </span>
               <button
                 type="button"
-                onClick={requestSecrets}
+                onClick={secrets.refresh}
                 title="Refresh secrets from gcloud"
                 className="text-xs text-[var(--vscode-text-muted)] hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <RefreshCw className={`w-3 h-3 ${isLoadingSecrets ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${secrets.loading ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
             </div>
@@ -355,9 +307,9 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               onChange={handleChange}
               placeholder="e.g. aws-access-key-id"
               list="gcloud-secrets-list"
-              datalist={secrets}
-              error={secretsError}
-              invalid={!!secretsError}
+              datalist={secrets.options}
+              error={secrets.error}
+              invalid={!!secrets.error}
               mono={true}
             />
 
@@ -371,9 +323,9 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               onChange={handleChange}
               placeholder="e.g. aws-secret-access-key"
               list="gcloud-secrets-list"
-              datalist={secrets}
-              error={secretsError}
-              invalid={!!secretsError}
+              datalist={secrets.options}
+              error={secrets.error}
+              invalid={!!secrets.error}
               mono={true}
             />
           </div>
@@ -590,24 +542,19 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
       </div>
 
-      {/* Flexible Spacer adhering to 8pt grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* SECTION 6: CODE GENERATION INSTRUCTIONS */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="kinesisSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kinesis source code generation (e.g. AWS credential loading logic, error handling, dead-letter routing)..."
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="kinesisSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Kinesis source code generation (e.g. AWS credential loading logic, error handling, dead-letter routing)..."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

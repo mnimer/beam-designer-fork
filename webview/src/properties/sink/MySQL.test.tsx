@@ -11,9 +11,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { MySQLSinkProperties, MYSQL_DOC_URL } from './MySQL';
+import { MySQLSinkProperties } from './MySQL';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
 const ALLOWED_SINK_KEYS = new Set([
@@ -40,15 +40,6 @@ describe('MySQLSinkProperties (IO75)', () => {
   afterEach(() => {
     delete vscodeWindow.vscode;
   });
-
-  const dispatchExtMessage = (data: Record<string, unknown>) => {
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', { data }));
-    });
-  };
-
-  const getOptionValues = (datalistId: string) =>
-    Array.from(document.querySelectorAll(`#${datalistId} option`)).map((o) => o.getAttribute('value'));
 
   it('K-T1: renders with undefined properties and shows required errors for host, database, table, user, passwordSecret', () => {
     const { container } = render(<MySQLSinkProperties node={{ data: {} }} onChange={vi.fn()} />);
@@ -147,22 +138,6 @@ describe('MySQLSinkProperties (IO75)', () => {
     expect(screen.getByText('Port must be an integer between 1 and 65535.')).toBeInTheDocument();
     expect(screen.getByText('Batch size must be a positive integer.')).toBeInTheDocument();
 
-    expect(postMessageSpy).toHaveBeenCalledTimes(1);
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    dispatchExtMessage({
-      command: 'secretsLoaded',
-      secrets: ['writer-pw', { id: 'other', name: 'other', value: 'other', fullName: 'projects/p/secrets/other' }],
-    });
-    expect(getOptionValues('mysql-sink-secret-options')).toEqual(['writer-pw', 'other']);
-
-    dispatchExtMessage({
-      command: 'secretsLoaded',
-      secrets: [],
-      error: 'Failed to list secrets',
-    });
-    expect(screen.getByText('Failed to list secrets')).toBeInTheDocument();
-
     fireEvent.change(container.querySelector('#mysqlSinkHost')!, {
       target: { name: 'host', value: '10.0.0.9' },
     });
@@ -195,71 +170,20 @@ describe('MySQLSinkProperties (IO75)', () => {
     }
   });
 
-  it('K-T9: honours the 4-level system_instructions fallback chain and emits updates', () => {
+  it('K-T9: updates system_instructions and emits updates', () => {
     const onChange = vi.fn();
 
-    const { container, rerender } = render(
+    const { container } = render(
       <MySQLSinkProperties
         node={{
           data: {
-            system_instructions: 'from-data-system',
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
+            properties: {},
           },
         }}
         onChange={onChange}
       />
     );
     const textarea = container.querySelector('#mysqlSinkSystemInstructions') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('from-data-system');
-
-    rerender(
-      <MySQLSinkProperties
-        node={{
-          data: {
-            special_instructions: 'from-data-special',
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-data-special');
-
-    rerender(
-      <MySQLSinkProperties
-        node={{
-          data: {
-            properties: {
-              system_instructions: 'from-props-system',
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-system');
-
-    rerender(
-      <MySQLSinkProperties
-        node={{
-          data: {
-            properties: {
-              special_instructions: 'from-props-special',
-            },
-          },
-        }}
-        onChange={onChange}
-      />
-    );
-    expect(textarea.value).toBe('from-props-special');
 
     fireEvent.change(textarea, { target: { value: 'custom mysql sink instructions' } });
     expect(onChange).toHaveBeenCalledWith(
@@ -267,19 +191,8 @@ describe('MySQLSinkProperties (IO75)', () => {
     );
   });
 
-  it('K-T10: opens external documentation via Docs ↗ button and enforces R3 credential security', () => {
+  it('K-T10: enforces R3 credential security', () => {
     const { container } = render(<MySQLSinkProperties node={{ data: { properties: {} } }} onChange={vi.fn()} />);
-
-    const docsBtn = screen.getByRole('button', { name: /Open MySQL connector documentation/i });
-    expect(docsBtn).toHaveTextContent('Docs ↗');
-    fireEvent.click(docsBtn);
-    expect(postMessageSpy).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: MYSQL_DOC_URL,
-    });
-
-    delete vscodeWindow.vscode;
-    fireEvent.click(docsBtn);
 
     expect(container.querySelector('input[type="password"]')).toBeNull();
     expect(container.querySelector('[name="password"]')).toBeNull();

@@ -20,7 +20,10 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** Preset configuration mapping a human-readable label to a Kafka deserializer class name. */
 export interface KafkaDeserializerPreset {
   label: string;
   className: string;
@@ -34,6 +37,7 @@ export const KAFKA_DESERIALIZER_PRESETS: KafkaDeserializerPreset[] = [
   { label: 'Double (DoubleDeserializer)', className: 'org.apache.kafka.common.serialization.DoubleDeserializer' },
 ];
 
+/** React Flow node shape for the KafkaIO source panel, including its persisted configuration data. */
 interface KafkaIOSourceNode {
   data: {
     label: string;
@@ -61,6 +65,7 @@ interface KafkaIOSourceNode {
   };
 }
 
+/** Props for the {@link KafkaIOSourceProperties} component. */
 interface KafkaIOSourcePropertiesProps {
   node: KafkaIOSourceNode;
   onChange: (properties: any) => void;
@@ -89,12 +94,7 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
   const consumerProperties = properties.consumerProperties || '';
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -112,19 +112,6 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
     };
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles custom system instructions textarea change for LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   const isKeyPreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === keyDeserializer);
@@ -350,24 +337,19 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
         mono={true}
       />
 
-      {/* Flexible Spacer adhering to grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="kafkaSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions supplied to the LLM when generating code for this Kafka read node."
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kafka read code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="kafkaSourceSystemInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions supplied to the LLM when generating code for this Kafka read node."
+        placeholder="Enter custom instructions for Kafka read code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

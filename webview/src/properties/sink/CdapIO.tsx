@@ -24,8 +24,11 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import type { SecretItem, CdapPluginType } from '../source/CdapIO';
 
 export const CDAP_COMMON_SINK_PLUGINS = [
@@ -47,6 +50,9 @@ export const CDAP_COMMON_SINK_PLUGINS = [
   }
 ];
 
+/**
+ * Props for the CdapIOSinkProperties component.
+ */
 export interface CdapIOSinkPropertiesProps {
   node: {
     data: {
@@ -207,58 +213,49 @@ const AdvancedSinkSection: React.FC<AdvancedSinkSectionProps> = ({
   hadoopConfig,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Sink Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Sink Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <div className="grid grid-cols-2 gap-2">
+      <PropertyField
+        id="cdapSinkBatchSize"
+        name="batchSize"
+        label="Batch Size"
+        type="number"
+        tooltip="Number of records per output write batch."
+        value={batchSize}
+        onChange={onChange}
+        placeholder="1000"
+        mono={true}
+      />
+      <PropertyField
+        id="cdapSinkMaxRetries"
+        name="maxRetries"
+        label="Max Retries"
+        type="number"
+        tooltip="Maximum retry attempts on transient output flush failures."
+        value={maxRetries}
+        onChange={onChange}
+        placeholder="3"
+        mono={true}
+      />
+    </div>
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <div className="grid grid-cols-2 gap-2">
-          <PropertyField
-            id="cdapSinkBatchSize"
-            name="batchSize"
-            label="Batch Size"
-            type="number"
-            tooltip="Number of records per output write batch."
-            value={batchSize}
-            onChange={onChange}
-            placeholder="1000"
-            mono={true}
-          />
-          <PropertyField
-            id="cdapSinkMaxRetries"
-            name="maxRetries"
-            label="Max Retries"
-            type="number"
-            tooltip="Maximum retry attempts on transient output flush failures."
-            value={maxRetries}
-            onChange={onChange}
-            placeholder="3"
-            mono={true}
-          />
-        </div>
-
-        <PropertyField
-          id="cdapSinkHadoopConfig"
-          name="hadoopConfig"
-          label="Hadoop Configuration Overrides"
-          type="textarea"
-          rows={3}
-          tooltip="Hadoop Configuration properties as key=value per line."
-          value={hadoopConfig}
-          onChange={onChange}
-          placeholder="fs.defaultFS=hdfs://namenode:8020&#10;mapreduce.output.fileoutputformat.compress=false"
-          mono={true}
-        />
-      </div>
-    )}
-  </div>
+    <PropertyField
+      id="cdapSinkHadoopConfig"
+      name="hadoopConfig"
+      label="Hadoop Configuration Overrides"
+      type="textarea"
+      rows={3}
+      tooltip="Hadoop Configuration properties as key=value per line."
+      value={hadoopConfig}
+      onChange={onChange}
+      placeholder="fs.defaultFS=hdfs://namenode:8020&#10;mapreduce.output.fileoutputformat.compress=false"
+      mono={true}
+    />
+  </CollapsibleSection>
 );
 
 /**
@@ -297,12 +294,7 @@ export const CdapIOSinkProperties: React.FC<CdapIOSinkPropertiesProps> = ({ node
   const isLocksDirEmpty = !String(locksDirPath).trim();
 
   // NOTE: Fallback chain for system instructions per architecture spec
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a single property key and invokes onChange while pruning legacy alias keys.
@@ -337,17 +329,6 @@ export const CdapIOSinkProperties: React.FC<CdapIOSinkPropertiesProps> = ({ node
     }
   };
 
-  /**
-   * Handles system instructions change.
-   *
-   * @param e - Textarea change event.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -494,21 +475,17 @@ export const CdapIOSinkProperties: React.FC<CdapIOSinkPropertiesProps> = ({ node
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="cdapSinkInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing CDAP write pipelines. Note: withLocksDirPath is mandatory."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing CDAP write pipelines. Note: withLocksDirPath is mandatory."
         placeholder="e.g. Write elements using CdapIO.write() with withLocksDirPath(locksPath) consuming PCollection<KV<NullWritable, SalesforceRecord>>"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

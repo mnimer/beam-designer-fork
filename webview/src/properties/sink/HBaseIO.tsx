@@ -24,9 +24,15 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/**
+ * Secret item loaded from Secret Manager for HBase authentication.
+ */
 export interface SecretItem {
   id: string;
   name: string;
@@ -37,6 +43,9 @@ export type HBaseMutationMode = 'put' | 'delete' | 'increment';
 export type HBaseDurability = 'SYNC_WAL' | 'ASYNC_WAL' | 'SKIP_WAL';
 export type HBaseAuthMode = 'simple' | 'kerberos' | 'secret_manager';
 
+/**
+ * Props for the HBaseIOSinkProperties component.
+ */
 export interface HBaseIOSinkPropertiesProps {
   node: {
     data: {
@@ -70,6 +79,9 @@ export interface HBaseIOSinkPropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/**
+ * Props for the MutationConfigSection component.
+ */
 interface MutationConfigSectionProps {
   mutationMode: HBaseMutationMode;
   defaultColumnFamily: string;
@@ -158,6 +170,9 @@ const MutationConfigSection: React.FC<MutationConfigSectionProps> = ({
   );
 };
 
+/**
+ * Props for the SinkAuthSection component.
+ */
 interface SinkAuthSectionProps {
   authMode: HBaseAuthMode;
   kerberosPrincipal: string;
@@ -255,6 +270,9 @@ const SinkAuthSection: React.FC<SinkAuthSectionProps> = ({
   );
 };
 
+/**
+ * Props for the AdvancedSinkSection component.
+ */
 interface AdvancedSinkSectionProps {
   showAdvanced: boolean;
   /** Emitted when the user toggles the advanced drawer. */
@@ -279,67 +297,59 @@ const AdvancedSinkSection: React.FC<AdvancedSinkSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Sink Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-3 gap-2">
-            <PropertyField
-              id="hbase-sink-batch-size"
-              name="batchSize"
-              label="Batch Size"
-              type="number"
-              min={1}
-              tooltip="Maximum number of mutations buffered before issuing an RPC write call."
-              value={batchSize}
-              onChange={onChange}
-              placeholder="500"
-            />
-            <PropertyField
-              id="hbase-sink-rpc-timeout"
-              name="rpcTimeout"
-              label="RPC Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="HBase client RPC timeout in milliseconds for write requests (hbase.rpc.timeout)."
-              value={rpcTimeout}
-              onChange={onChange}
-              placeholder="60000"
-            />
-            <PropertyField
-              id="hbase-sink-retry-count"
-              name="retryCount"
-              label="Retry Count"
-              type="number"
-              min={0}
-              tooltip="Maximum number of retry attempts for failed write operations (hbase.client.retries.number)."
-              value={retryCount}
-              onChange={onChange}
-              placeholder="5"
-            />
-          </div>
+    <CollapsibleSection
+      title="Advanced Sink Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-3 gap-2">
+        <PropertyField
+          id="hbase-sink-batch-size"
+          name="batchSize"
+          label="Batch Size"
+          type="number"
+          min={1}
+          tooltip="Maximum number of mutations buffered before issuing an RPC write call."
+          value={batchSize}
+          onChange={onChange}
+          placeholder="500"
+        />
+        <PropertyField
+          id="hbase-sink-rpc-timeout"
+          name="rpcTimeout"
+          label="RPC Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="HBase client RPC timeout in milliseconds for write requests (hbase.rpc.timeout)."
+          value={rpcTimeout}
+          onChange={onChange}
+          placeholder="60000"
+        />
+        <PropertyField
+          id="hbase-sink-retry-count"
+          name="retryCount"
+          label="Retry Count"
+          type="number"
+          min={0}
+          tooltip="Maximum number of retry attempts for failed write operations (hbase.client.retries.number)."
+          value={retryCount}
+          onChange={onChange}
+          placeholder="5"
+        />
+      </div>
 
-          <PropertyField
-            id="hbase-sink-extra-config"
-            name="extraConfig"
-            label="HBase-Site.xml Overrides"
-            type="textarea"
-            rows={3}
-            tooltip="Additional key=value configuration overrides (one per line) loaded into the HBase Configuration."
-            value={extraConfig}
-            onChange={onChange}
-            placeholder="hbase.client.retries.number=5&#10;hbase.rpc.timeout=60000"
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="hbase-sink-extra-config"
+        name="extraConfig"
+        label="HBase-Site.xml Overrides"
+        type="textarea"
+        rows={3}
+        tooltip="Additional key=value configuration overrides (one per line) loaded into the HBase Configuration."
+        value={extraConfig}
+        onChange={onChange}
+        placeholder="hbase.client.retries.number=5&#10;hbase.rpc.timeout=60000"
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -382,12 +392,7 @@ export const HBaseIOSinkProperties: React.FC<HBaseIOSinkPropertiesProps> = ({ no
   const isTableIdEmpty = !tableId.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -415,17 +420,6 @@ export const HBaseIOSinkProperties: React.FC<HBaseIOSinkPropertiesProps> = ({ no
     }
   };
 
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
 
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
@@ -516,21 +510,18 @@ export const HBaseIOSinkProperties: React.FC<HBaseIOSinkPropertiesProps> = ({ no
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
-      {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="hbase-sink-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this HBase sink transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        rows={4}
+        tooltip="Custom system instructions passed to the LLM when generating code for this HBase sink transform."
         placeholder="e.g. Write Mutation records to HBase table using HBaseIO.write().withConfiguration(conf).withTableId('sensor_aggregates')"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

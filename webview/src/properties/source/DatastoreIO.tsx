@@ -21,11 +21,15 @@
  */
 
 import React, { useState } from 'react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for Datastore authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -35,6 +39,7 @@ export interface SecretItem {
 export type DatastoreQueryMode = 'kind' | 'gql';
 export type DatastoreReadConsistency = 'EVENTUAL' | 'STRONG';
 
+/** Props for the {@link DatastoreIOSourceProperties} component. */
 export interface DatastoreIOSourcePropertiesProps {
   node: {
     data: {
@@ -65,6 +70,7 @@ export interface DatastoreIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/** Props for the Datastore instance configuration subcard. */
 interface InstanceCardProps {
   projectId: string;
   databaseId: string;
@@ -129,6 +135,7 @@ const DatastoreSourceInstanceCard: React.FC<InstanceCardProps> = ({
   </div>
 );
 
+/** Props for the Datastore query configuration subcard. */
 interface QueryCardProps {
   queryMode: string;
   kind: string;
@@ -247,6 +254,7 @@ const DatastoreSourceQueryCard: React.FC<QueryCardProps> = ({
   </div>
 );
 
+/** Props for the Datastore authentication subcard. */
 interface AuthCardProps {
   authMode: string;
   serviceAccountSecret: string;
@@ -319,6 +327,7 @@ const DatastoreSourceAuthCard: React.FC<AuthCardProps> = ({
   </div>
 );
 
+/** Props for the Datastore advanced settings collapsible group. */
 interface AdvancedGroupProps {
   showAdvanced: boolean;
   localhost: string;
@@ -339,64 +348,55 @@ const DatastoreSourceAdvancedGroup: React.FC<AdvancedGroupProps> = ({
   onToggle,
   onChange
 }) => (
-  <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-    >
-      <span>Advanced Source Settings</span>
-      <span>{showAdvanced ? '▲' : '▼'}</span>
-    </button>
+  <CollapsibleSection
+    title="Advanced Source Settings"
+    isOpen={showAdvanced}
+    onToggle={onToggle}
+  >
+    <PropertyField
+      id="datastoreSourceLocalhost"
+      name="localhost"
+      label="Localhost Emulator Endpoint"
+      tooltip="Directs API requests to a local Cloud Datastore emulator host:port (e.g. localhost:8081). Maps to withLocalhost()."
+      value={localhost}
+      onChange={onChange}
+      placeholder="localhost:8081"
+      mono={true}
+    />
 
-    {showAdvanced && (
-      <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="datastoreSourceLocalhost"
-          name="localhost"
-          label="Localhost Emulator Endpoint"
-          tooltip="Directs API requests to a local Cloud Datastore emulator host:port (e.g. localhost:8081). Maps to withLocalhost()."
-          value={localhost}
-          onChange={onChange}
-          placeholder="localhost:8081"
-          mono={true}
-        />
-
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <label
-              htmlFor="datastoreSourceReadConsistency"
-              className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
-            >
-              Read Consistency
-            </label>
-            <InfoTooltip text="DatastoreIO.v1().read() has no read-consistency builder because parallel split queries in Datastore are inherently eventually consistent. STRONG consistency is only applicable to ancestor or single-key lookups executed via client calls inside a DoFn." />
-          </div>
-          <select
-            id="datastoreSourceReadConsistency"
-            name="readConsistency"
-            value={readConsistency}
-            onChange={onChange}
-            className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
-          >
-            <option value="EVENTUAL">EVENTUAL</option>
-            <option value="STRONG">STRONG</option>
-          </select>
-        </div>
-
-        <PropertyField
-          id="datastoreSourceEntityParseFn"
-          name="entityParseFn"
-          label="Entity Parse Function"
-          tooltip="Optional DoFn or parse function name converting Entity protocol buffer objects into Beam Rows or POJOs."
-          value={entityParseFn}
-          onChange={onChange}
-          placeholder="com.example.EntityToRowFn"
-          mono={true}
-        />
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        <label
+          htmlFor="datastoreSourceReadConsistency"
+          className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]"
+        >
+          Read Consistency
+        </label>
+        <InfoTooltip text="DatastoreIO.v1().read() has no read-consistency builder because parallel split queries in Datastore are inherently eventually consistent. STRONG consistency is only applicable to ancestor or single-key lookups executed via client calls inside a DoFn." />
       </div>
-    )}
-  </div>
+      <select
+        id="datastoreSourceReadConsistency"
+        name="readConsistency"
+        value={readConsistency}
+        onChange={onChange}
+        className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)]"
+      >
+        <option value="EVENTUAL">EVENTUAL</option>
+        <option value="STRONG">STRONG</option>
+      </select>
+    </div>
+
+    <PropertyField
+      id="datastoreSourceEntityParseFn"
+      name="entityParseFn"
+      label="Entity Parse Function"
+      tooltip="Optional DoFn or parse function name converting Entity protocol buffer objects into Beam Rows or POJOs."
+      value={entityParseFn}
+      onChange={onChange}
+      placeholder="com.example.EntityToRowFn"
+      mono={true}
+    />
+  </CollapsibleSection>
 );
 
 /**
@@ -433,12 +433,7 @@ export const DatastoreIOSourceProperties: React.FC<DatastoreIOSourcePropertiesPr
   const isGqlQueryEmpty = queryMode === 'gql' && !String(gqlQuery).trim();
 
   // NOTE: Fallback chain for system instructions
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -472,14 +467,6 @@ export const DatastoreIOSourceProperties: React.FC<DatastoreIOSourcePropertiesPr
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: Dispatch system_instructions update to parent
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       <DatastoreSourceInstanceCard
@@ -518,21 +505,18 @@ export const DatastoreIOSourceProperties: React.FC<DatastoreIOSourcePropertiesPr
         onChange={handleChange}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="datastoreSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional instructions passed to LLM code generator when synthesizing DatastoreIO pipelines."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional instructions passed to LLM code generator when synthesizing DatastoreIO pipelines."
         placeholder="e.g. Read Task entities from Datastore and map properties to Schema Row PCollection"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

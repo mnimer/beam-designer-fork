@@ -19,6 +19,9 @@ import { SchemaEditor, BEAM_SCHEMA_TYPES, type SchemaField } from './SchemaEdito
 
 export type MappingStrategy = 'none' | 'infer' | 'schema' | 'customClass';
 
+/**
+ * Props for the {@link MappingStrategyField} component.
+ */
 export interface MappingStrategyFieldProps {
   id: string;
   strategyName?: string;
@@ -58,6 +61,12 @@ const DEFAULT_OPTION_LABELS: Record<MappingStrategy, string> = {
   customClass: 'Custom Class Name (Optional)'
 };
 
+/**
+ * Configures row-to-schema mapping strategies (auto-infer, manual schema editor, or custom POJO/dataclass).
+ *
+ * @param props Component properties controlling selected strategy, schema fields, and change handlers.
+ * @returns Rendered strategy selector and conditional schema/class inputs.
+ */
 export const MappingStrategyField: React.FC<MappingStrategyFieldProps> = ({
   id,
   strategyName = 'mapperStrategy',

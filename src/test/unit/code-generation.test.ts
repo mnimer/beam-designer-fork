@@ -15,42 +15,11 @@ import { describe, it, expect, vi } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn(() => ({ get: vi.fn() })),
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u }),
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn(),
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            showWarningMessage: vi.fn(),
-            showInformationMessage: vi.fn(),
-            withProgress: vi.fn(),
-        },
-        ProgressLocation: {
-            Notification: 15,
-        },
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: []
+    }
+}));
 
 import {
     resolveLanguageStrategy,
@@ -440,8 +409,6 @@ describe('Java codegen prompt — dependency & pom.xml specification (regression
 /**
  * Regression tests for the Python codegen prompt.
  *
- * Author: Mike Nimer <mikenimer@google.com>
- *
  * Bug: a generated Python mock-data pipeline ran to completion but emitted nothing,
  * while the equivalent Java pipeline worked. Two independent defects, both traced to
  * this prompt:
@@ -573,8 +540,6 @@ edges:
 /**
  * Regression tests for connector facts added to the codegen prompts after the
  * 2026-09-24 integration run (54/61 passing).
- *
- * Author: Mike Nimer <mikenimer@google.com>
  *
  * Context: the run's auto-generated remediation directives recommended API that does
  * not exist. Two were caught before they reached the prompts and are pinned here so a
@@ -995,6 +960,35 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
             expect(result).toContain('beamVersion: 2.79.0');
             expect(result).toContain('pin: 2.79.0');
             expect(result).toContain('FROM apache/beam_python3.11_sdk:2.79.0');
+        });
+
+        it('does not rewrite version strings inside the user pipeline YAML (F7)', () => {
+            const result = assemblePrompt({
+                promptTemplate: 'v={{beam_version}} pin=2.76.0\n{{pipeline}}',
+                language: 'python',
+                pipelineYaml: 'note: "keep 2.76.0 and {{beam_version}} literally"',
+                dockerfileTemplate: '',
+                directRunnerTemplate: '',
+                dataflowRunnerTemplate: '',
+                sparkRunnerTemplate: '',
+                beamVersion: '2.79.0',
+            });
+            expect(result).toContain('v=2.79.0 pin=2.79.0');
+            expect(result).toContain('note: "keep 2.76.0 and {{beam_version}} literally"');
+        });
+
+        it('fallback version substitution also leaves the user pipeline YAML untouched', () => {
+            const result = assemblePrompt({
+                promptTemplate: 'v={{beam_version}}\n{{pipeline}}',
+                language: 'python',
+                pipelineYaml: 'note: "{{beam_version}}"',
+                dockerfileTemplate: '',
+                directRunnerTemplate: '',
+                dataflowRunnerTemplate: '',
+                sparkRunnerTemplate: '',
+            });
+            expect(result).toContain(`v=${FALLBACK_BEAM_VERSION}`);
+            expect(result).toContain('note: "{{beam_version}}"');
         });
 
         it('deduplicateGeneratedFiles keeps the longest non-truncated entry per filename', () => {

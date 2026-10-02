@@ -19,6 +19,9 @@ import { InfoTooltip } from '../InfoTooltip';
 import { PropertyField } from './PropertyField';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Secret metadata descriptor returned from discovery or entered in configuration.
+ */
 export interface SecretItem {
   name: string;
   id?: string;
@@ -27,6 +30,9 @@ export interface SecretItem {
   [key: string]: any;
 }
 
+/**
+ * Canonical secret record with separated identifier, display name, and resource path.
+ */
 export interface NormalizedSecret {
   id: string;
   name: string;
@@ -80,11 +86,17 @@ export function normalizeSecretItem(item: SecretItem | string): NormalizedSecret
   };
 }
 
+/**
+ * Option entry for selecting an authentication mode.
+ */
 export interface AuthModeOption {
   value: string;
   label: string;
 }
 
+/**
+ * Props for the {@link SecretManagerAuthFields} component.
+ */
 export interface SecretManagerAuthFieldsProps {
   /** Selected authentication mode (e.g. 'default', 'secretManager', 'static') */
   authMode?: string;

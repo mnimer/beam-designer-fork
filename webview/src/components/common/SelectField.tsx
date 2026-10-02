@@ -28,6 +28,9 @@
 import React from 'react';
 import { InfoTooltip } from '../InfoTooltip';
 
+/**
+ * Option descriptor for the {@link SelectField} dropdown.
+ */
 export interface SelectFieldOption {
   /** Value submitted to the change handler and persisted in node properties. */
   value: string;
@@ -35,6 +38,9 @@ export interface SelectFieldOption {
   label: string;
 }
 
+/**
+ * Props for the {@link SelectField} component.
+ */
 export interface SelectFieldProps {
   /** DOM id of the select element; also targeted by the label's htmlFor. */
   id: string;
@@ -74,7 +80,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   disabled
 }) => {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col justify-end gap-1.5">
       <label
         htmlFor={id}
         className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)] gap-1.5"

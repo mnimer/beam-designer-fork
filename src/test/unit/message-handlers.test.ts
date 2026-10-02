@@ -13,53 +13,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn(() => ({ get: vi.fn() }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => {
-                if (u.includes('throw-parse-error')) {
-                    throw new Error('URI parse error');
-                }
-                return { fsPath: u, toString: () => u };
-            }
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            showInformationMessage: vi.fn(),
-            createOutputChannel: vi.fn(() => ({
-                show: vi.fn(),
-                appendLine: vi.fn(),
-                dispose: vi.fn()
-            })),
-            showSaveDialog: vi.fn(),
-            showOpenDialog: vi.fn(),
-            terminals: []
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: []
+    }
+}));
 
 vi.mock('child_process', () => {
     return {
@@ -84,11 +42,10 @@ import {
     handleShowOutputChannel,
     handleOpenExternal,
     handleGetTables,
-    handleGetHealthcareDatasets,
     handleStopPipeline,
-    handleStopCodeGeneration,
     handleGetBigtableTables,
     handleGetSqlDatabases,
+    handleGetRunningJobs,
     mapBigtableInstances,
     mapBigtableTables,
     mapSqlInstances,
@@ -288,6 +245,24 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
             expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to open URL', expect.any(Error));
             consoleErrorSpy.mockRestore();
         });
+
+        it('does not open disallowed URI schemes like command: and opens allowed HTTPS URIs', () => {
+            const mockOpen = vi.spyOn(vscode.env, 'openExternal');
+            const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const ctx: MessageContext = {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: vi.fn()
+            };
+
+            handleOpenExternal(ctx, { command: 'openExternal', url: 'command:workbench.action.quit' });
+            expect(mockOpen).not.toHaveBeenCalled();
+
+            handleOpenExternal(ctx, { command: 'openExternal', url: 'https://console.cloud.google.com' });
+            expect(mockOpen).toHaveBeenCalledTimes(1);
+
+            consoleWarnSpy.mockRestore();
+        });
     });
 
     describe('Direct handler execution: handleGetTables', () => {
@@ -335,20 +310,6 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
         });
     });
 
-    describe('Direct handler execution: handleStopCodeGeneration', () => {
-        it('posts codeGenerationStopped and displays information message (simple case)', async () => {
-            const postToWebviewMock = vi.fn();
-            const ctx: MessageContext = {
-                context: {} as any,
-                webview: {} as any,
-                postToWebview: postToWebviewMock
-            };
-
-            await handleStopCodeGeneration(ctx, { command: 'stopCodeGeneration' });
-            expect(postToWebviewMock).toHaveBeenCalledWith({ command: 'codeGenerationStopped' });
-        });
-    });
-
     describe('Direct handler execution: handleGetBigtableTables (validation)', () => {
         it('posts an error without running gcloud for missing or unsafe instance identifiers (failure case)', async () => {
             const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -382,6 +343,42 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
                 }));
             }
             consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('Direct handler execution: handleGetRunningJobs (validation)', () => {
+        it('posts an error without running gcloud for unsafe region identifiers (failure case)', async () => {
+            const postToWebviewMock = vi.fn();
+            const ctx: MessageContext = {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: postToWebviewMock
+            };
+
+            await handleGetRunningJobs(ctx, { command: 'getRunningJobs', region: 'us-central1;rm' });
+
+            expect(postToWebviewMock).toHaveBeenCalledTimes(1);
+            expect(postToWebviewMock).toHaveBeenCalledWith(expect.objectContaining({
+                command: 'runningJobsLoaded',
+                jobs: [],
+                error: expect.stringContaining('Invalid region')
+            }));
+        });
+
+        it('permits sentinel region "ALL" without producing an Invalid region error', async () => {
+            const postToWebviewMock = vi.fn();
+            const ctx: MessageContext = {
+                context: {} as any,
+                webview: {} as any,
+                postToWebview: postToWebviewMock
+            };
+
+            await handleGetRunningJobs(ctx, { command: 'getRunningJobs', region: 'ALL' });
+
+            expect(postToWebviewMock).toHaveBeenCalledTimes(1);
+            const callArg = postToWebviewMock.mock.calls[0][0];
+            expect(callArg.command).toBe('runningJobsLoaded');
+            expect(callArg.error).toBeUndefined();
         });
     });
 
@@ -439,25 +436,6 @@ describe('A1 — Message Handler Registry & Dispatcher', () => {
             for (const raw of ['db1;x', '', undefined, '--instance=x', 'p:r:db 1']) {
                 expect(parseSqlInstanceParam(raw)).toBeNull();
             }
-        });
-    });
-
-    describe('Direct handler execution: handleGetHealthcareDatasets', () => {
-        it('executes gcloud healthcare datasets list and posts healthcareDatasetsLoaded (simple case)', async () => {
-            const postToWebviewMock = vi.fn();
-            const ctx: MessageContext = {
-                context: {} as any,
-                webview: {} as any,
-                postToWebview: postToWebviewMock
-            };
-
-            await handleGetHealthcareDatasets(ctx, { command: 'getHealthcareDatasets', location: 'us-central1' });
-            expect(postToWebviewMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    command: 'healthcareDatasetsLoaded',
-                    datasets: expect.any(Array)
-                })
-            );
         });
     });
 });

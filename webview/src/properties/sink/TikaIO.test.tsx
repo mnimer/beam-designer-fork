@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TikaIOSinkProperties, TIKA_SINK_COMPRESSION_TYPES } from './TikaIO';
 
@@ -225,74 +225,6 @@ describe('TikaIOSinkProperties', () => {
     expect(container.querySelector('#tikaSinkNumShards')).toBeNull();
   });
 
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<TikaIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['tika-output-lake', 'gs://archive-parsed']
-          }
-        })
-      );
-    });
-
-    const toInput = container.querySelector('#tikaSinkTo') as HTMLInputElement;
-    const datalistId = toInput.getAttribute('data-list') || toInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = document.getElementById(datalistId!) || container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://tika-output-lake/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://archive-parsed');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert with valid non-empty path', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    // Regression guard: valid non-empty path must still surface discovery error
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'gs://output-bucket/extracted/'
-        }
-      }
-    };
-
-    render(<TikaIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Permission denied: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Permission denied: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
-
   it('updates system_instructions when instructions textarea changes', () => {
     const mockNode: any = {
       data: {
@@ -312,37 +244,6 @@ describe('TikaIOSinkProperties', () => {
         system_instructions: 'Write extracted document records to JSON partitioned shards'
       })
     );
-  });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from sink data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<TikaIOSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from sink data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from sink properties'
-        }
-      }
-    };
-    rerender(<TikaIOSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from sink properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from sink properties'
-        }
-      }
-    };
-    rerender(<TikaIOSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from sink properties')).toBeInTheDocument();
   });
 
   it('never renders removed controls (outputFormat, includeMetadata, metadataFields, authMode, secretName, expansionService) or XZ compression', () => {

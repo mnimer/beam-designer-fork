@@ -12,27 +12,48 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+/**
+ * Props for the {@link ErrorBoundary} component.
+ */
 export interface ErrorBoundaryProps {
   children: ReactNode;
   fallbackTitle?: string;
   onReset?: () => void;
 }
 
+/**
+ * Internal state for the {@link ErrorBoundary} component tracking captured errors.
+ */
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
 }
 
+/**
+ * React ErrorBoundary component that isolates rendering errors within subtree boundaries.
+ */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
   };
 
+  /**
+   * Updates component state upon catching an error in a child component.
+   *
+   * @param error The thrown error instance.
+   * @returns Updated error boundary state with the caught error.
+   */
   public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
+  /**
+   * Catches errors in descendant components and logs diagnostic details.
+   *
+   * @param error The thrown error instance.
+   * @param errorInfo Component stack traces associated with the error.
+   */
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[@ErrorBoundary] Caught component error:', error, errorInfo);
   }
@@ -44,6 +65,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   };
 
+  /**
+   * Renders fallback error UI when an error is caught or child elements when healthy.
+   *
+   * @returns Rendered fallback alert or child elements.
+   */
   public render() {
     if (this.state.hasError) {
       return (

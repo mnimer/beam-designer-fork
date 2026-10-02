@@ -24,9 +24,13 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 
+/** Secret descriptor loaded from the secret manager for HBase authentication. */
 export interface SecretItem {
   id: string;
   name: string;
@@ -35,6 +39,7 @@ export interface SecretItem {
 
 export type HBaseAuthMode = 'simple' | 'kerberos' | 'secret_manager';
 
+/** Props for the {@link HBaseIOSourceProperties} component. */
 export interface HBaseIOSourcePropertiesProps {
   node: {
     data: {
@@ -71,6 +76,7 @@ export interface HBaseIOSourcePropertiesProps {
   onChange: (properties: any) => void;
 }
 
+/** Props for the HBase scan configuration section. */
 interface ScanConfigSectionProps {
   keyRangeStart: string;
   keyRangeStop: string;
@@ -182,6 +188,7 @@ const ScanConfigSection: React.FC<ScanConfigSectionProps> = ({
   );
 };
 
+/** Props for the HBase authentication configuration section. */
 interface AuthSectionProps {
   authMode: HBaseAuthMode;
   kerberosPrincipal: string;
@@ -279,6 +286,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
   );
 };
 
+/** Props for the HBase advanced configuration section. */
 interface AdvancedSectionProps {
   showAdvanced: boolean;
   /** Emitted when the user toggles the advanced drawer. */
@@ -301,56 +309,48 @@ const AdvancedSection: React.FC<AdvancedSectionProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-      >
-        <span>Advanced Source Settings</span>
-        <span>{showAdvanced ? '▲' : '▼'}</span>
-      </button>
-      {showAdvanced && (
-        <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-          <div className="grid grid-cols-2 gap-2">
-            <PropertyField
-              id="hbase-source-rpc-timeout"
-              name="rpcTimeout"
-              label="RPC Timeout (ms)"
-              type="number"
-              min={0}
-              tooltip="HBase client RPC timeout in milliseconds (hbase.rpc.timeout)."
-              value={rpcTimeout}
-              onChange={onChange}
-              placeholder="60000"
-            />
-            <PropertyField
-              id="hbase-source-scan-batch-size"
-              name="scanBatchSize"
-              label="Scan Batch Size (Cells)"
-              type="number"
-              min={1}
-              tooltip="Maximum number of cells returned in a single Result chunk (hbase.client.scanner.batching)."
-              value={scanBatchSize}
-              onChange={onChange}
-              placeholder="1000"
-            />
-          </div>
+    <CollapsibleSection
+      title="Advanced Source Settings"
+      isOpen={showAdvanced}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <PropertyField
+          id="hbase-source-rpc-timeout"
+          name="rpcTimeout"
+          label="RPC Timeout (ms)"
+          type="number"
+          min={0}
+          tooltip="HBase client RPC timeout in milliseconds (hbase.rpc.timeout)."
+          value={rpcTimeout}
+          onChange={onChange}
+          placeholder="60000"
+        />
+        <PropertyField
+          id="hbase-source-scan-batch-size"
+          name="scanBatchSize"
+          label="Scan Batch Size (Cells)"
+          type="number"
+          min={1}
+          tooltip="Maximum number of cells returned in a single Result chunk (hbase.client.scanner.batching)."
+          value={scanBatchSize}
+          onChange={onChange}
+          placeholder="1000"
+        />
+      </div>
 
-          <PropertyField
-            id="hbase-source-extra-config"
-            name="extraConfig"
-            label="HBase-Site.xml Overrides"
-            type="textarea"
-            rows={3}
-            tooltip="Additional key=value configuration overrides (one per line) loaded into the HBase Configuration."
-            value={extraConfig}
-            onChange={onChange}
-            placeholder="hbase.client.retries.number=3&#10;hbase.client.pause=100"
-          />
-        </div>
-      )}
-    </div>
+      <PropertyField
+        id="hbase-source-extra-config"
+        name="extraConfig"
+        label="HBase-Site.xml Overrides"
+        type="textarea"
+        rows={3}
+        tooltip="Additional key=value configuration overrides (one per line) loaded into the HBase Configuration."
+        value={extraConfig}
+        onChange={onChange}
+        placeholder="hbase.client.retries.number=3&#10;hbase.client.pause=100"
+      />
+    </CollapsibleSection>
   );
 };
 
@@ -396,12 +396,7 @@ export const HBaseIOSourceProperties: React.FC<HBaseIOSourcePropertiesProps> = (
   const isTableIdEmpty = !tableId.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node?.data?.system_instructions ??
-    node?.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers onChange callback.
@@ -434,13 +429,6 @@ export const HBaseIOSourceProperties: React.FC<HBaseIOSourcePropertiesProps> = (
    *
    * @param e React textarea change event
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4 text-[var(--vscode-text-primary)] text-sm">
       {/* Connection & Table Target Card */}
@@ -542,21 +530,19 @@ export const HBaseIOSourceProperties: React.FC<HBaseIOSourcePropertiesProps> = (
         onChange={handleChange}
       />
 
-      {/* Spacer before Instructions textarea */}
-      <div className="flex-1 min-h-[16px]" />
-
       {/* Code Generation Instructions Textarea */}
-      <PropertyField
+      <SystemInstructionsField
         id="hbase-source-instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Custom system instructions passed to the LLM when generating code for this HBase source transform."
-        type="textarea"
-        rows={4}
-        mono={false}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Custom system instructions passed to the LLM when generating code for this HBase source transform."
         placeholder="e.g. Read HBase table using HBaseIO.read().withConfiguration(conf).withTableId('sensor_readings').withKeyRange(startKey, stopKey)"
+        rows={4}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

@@ -16,6 +16,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useExtensionMessage } from './useExtensionMessage';
+import { postToHost } from '../bridge/vscodeApi';
+import { isResponseForParams } from '../utils/requestParams';
+import type { AssetResponseCommand, WebviewToHostCommand } from '../utils/protocol';
 
 export type AssetType =
   | 'datasets'
@@ -38,9 +41,12 @@ export type AssetType =
   | 'sqlDatabases'
   | 'projects';
 
+/**
+ * Configuration descriptor for an asset type IPC request/response contract.
+ */
 export interface AssetConfig {
-  requestCommand: string;
-  responseCommand: string;
+  requestCommand: WebviewToHostCommand;
+  responseCommand: AssetResponseCommand;
   responseKey: string;
   /** Request is auto-disabled until this param is a non-empty string (e.g. 'dataset', 'instance'). */
   requiredParam?: string;
@@ -151,6 +157,9 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
   }
 };
 
+/**
+ * Options for configuring asset discovery requests in {@link useAssetLoader}.
+ */
 export interface UseAssetLoaderOptions<T = any> {
   /** Optional parameter payload to send with the request (e.g. { dataset: 'my_dataset' }) */
   params?: Record<string, any>;
@@ -164,6 +173,9 @@ export interface UseAssetLoaderOptions<T = any> {
   initialItems?: T[];
 }
 
+/**
+ * Result state returned by the {@link useAssetLoader} hook.
+ */
 export interface UseAssetLoaderResult<T = any> {
   /** Loaded asset items */
   items: T[];
@@ -228,6 +240,10 @@ export function useAssetLoader<T = any>(
   // Memoize stable serialized params key to re-trigger fetch on param changes
   const paramsKey = JSON.stringify(params);
 
+  // F11: parameters of the most recent request. Responses echoing different
+  // parameters (another panel's request, or a slower earlier request) are ignored.
+  const lastRequestParamsRef = useRef<Record<string, unknown>>(params);
+
   /**
    * Dispatches request to the VS Code extension host IPC.
    */
@@ -238,17 +254,18 @@ export function useAssetLoader<T = any>(
     }
 
     setLoading(true);
-    const vscode = (window as any).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({
-        command: config.requestCommand,
-        ...params
-      });
-    }
+    lastRequestParamsRef.current = params;
+    postToHost({
+      command: config.requestCommand,
+      ...params
+    });
   }, [config.requestCommand, isEnabled, paramsKey]);
 
   // NOTE: Listen for response command from extension host using useExtensionMessage
   useExtensionMessage(config.responseCommand, (message: any) => {
+    if (!isResponseForParams(message, lastRequestParamsRef.current)) {
+      return;
+    }
     const rawItems = message[config.responseKey];
     const loadedItems: T[] = Array.isArray(rawItems) ? rawItems : [];
     const receivedError: string | null = message.error || null;

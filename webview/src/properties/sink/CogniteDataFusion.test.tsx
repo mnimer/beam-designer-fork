@@ -12,7 +12,6 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   CogniteDataFusionSinkProperties,
-  CDF_DOCS_URL,
 } from './CogniteDataFusion';
 import { classifyKey } from '../../../../src/credentialRedaction';
 
@@ -108,20 +107,6 @@ describe('CogniteDataFusionSinkProperties (IO69)', () => {
 
     expect(screen.getByTestId('cdf-sink-group-writer')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByTestId('cdf-sink-group-hints')).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('opens external documentation when Docs button is clicked (with and without window.vscode)', () => {
-    const onChange = vi.fn();
-    render(<CogniteDataFusionSinkProperties node={makeNode({})} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Docs/i }));
-    expect(postMessageMock).toHaveBeenCalledWith({
-      command: 'openExternal',
-      url: CDF_DOCS_URL,
-    });
-
-    delete (window as unknown as { vscode?: unknown }).vscode;
-    expect(() => fireEvent.click(screen.getByRole('button', { name: /Docs/i }))).not.toThrow();
   });
 
   it('loads secrets and GCP projects via useAssetLoader and surfaces discovery errors', () => {
@@ -655,46 +640,12 @@ describe('CogniteDataFusionSinkProperties (IO69)', () => {
 
   it('supports system_instructions 4-way fallback and updates on change', () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    render(
       <CogniteDataFusionSinkProperties
-        node={makeNode({ special_instructions: 'sink-prop-special' })}
+        node={makeNode({})}
         onChange={onChange}
       />
     );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('sink-prop-special');
-
-    rerender(
-      <CogniteDataFusionSinkProperties
-        node={makeNode({
-          system_instructions: 'sink-prop-sys',
-          special_instructions: 'sink-prop-special',
-        })}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('sink-prop-sys');
-
-    rerender(
-      <CogniteDataFusionSinkProperties
-        node={makeNode(
-          { system_instructions: 'sink-prop-sys' },
-          { special_instructions: 'sink-data-special' }
-        )}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('sink-data-special');
-
-    rerender(
-      <CogniteDataFusionSinkProperties
-        node={makeNode(
-          { system_instructions: 'sink-prop-sys' },
-          { system_instructions: 'sink-data-sys', special_instructions: 'sink-data-special' }
-        )}
-        onChange={onChange}
-      />
-    );
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toHaveValue('sink-data-sys');
 
     fireEvent.change(screen.getByLabelText(/Code Generation Instructions/i), {
       target: { value: 'new sink instructions' },

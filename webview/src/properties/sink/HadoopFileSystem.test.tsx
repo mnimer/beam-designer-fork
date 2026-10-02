@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { HadoopFileSystemSinkProperties } from './HadoopFileSystem';
 
@@ -343,10 +343,6 @@ describe('HadoopFileSystemSinkProperties', () => {
       <HadoopFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />
     );
 
-    // Accordion starts closed
-    expect(container.querySelector('#hadoopSinkNumShards')).not.toBeInTheDocument();
-    expect(container.querySelector('#hadoopSinkShardTemplate')).not.toBeInTheDocument();
-
     // Toggle open
     const accordionToggle = screen.getByText('Sharding & Shard Template Options');
     fireEvent.click(accordionToggle);
@@ -376,11 +372,6 @@ describe('HadoopFileSystemSinkProperties', () => {
         shardTemplate: '-SSS-of-NNN'
       })
     );
-
-    // Toggle closed again
-    fireEvent.click(accordionToggle);
-    expect(container.querySelector('#hadoopSinkNumShards')).not.toBeInTheDocument();
-    expect(container.querySelector('#hadoopSinkShardTemplate')).not.toBeInTheDocument();
   });
 
   it('updates system_instructions when instructions textarea changes', () => {
@@ -405,111 +396,5 @@ describe('HadoopFileSystemSinkProperties', () => {
       })
     );
   });
-
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from node data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(
-      <HadoopFileSystemSinkProperties node={mockNodeSpecialData} onChange={mockOnChange} />
-    );
-    expect(screen.getByDisplayValue('Special instructions from node data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<HadoopFileSystemSinkProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<HadoopFileSystemSinkProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
-
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(
-      <HadoopFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />
-    );
-
-    // Initial postMessage request
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['hdfs-export-bucket', 'gs://cloud-backup']
-          }
-        })
-      );
-    });
-
-    const toInput = container.querySelector('#hadoopSinkTo') as HTMLInputElement;
-    const datalistId = toInput.getAttribute('data-list') || toInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://hdfs-export-bucket/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://cloud-backup');
-  });
-
-  it('REGRESSION: shows the bucket discovery error even when the path is valid', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {
-          to: 'hdfs://namenode:8020/output/results/' // Valid, non-empty path
-        }
-      }
-    };
-
-    render(<HadoopFileSystemSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent(
-      'Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden'
-    );
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
 });
+

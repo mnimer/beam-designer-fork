@@ -6,19 +6,17 @@
  * Purpose:
  * Unit tests validating TikaIOSourceProperties component functionality,
  * change callbacks, validation states for required filePattern,
- * dynamic GCS bucket discovery IPC and regression guard, composition notice,
+ * composition notice,
  * emitted ParseResult schema summary display (including isSuccess() and getError()),
  * code generation instructions, and regression guards against removed non-API fields.
  * 
  * Architectural Decisions:
  * - Uses Vitest and @testing-library/react for component testing.
- * - Mocks window.vscode and listens for extension message dispatch events.
  * - Tests required field states for filePattern independently.
- * - Asserts the bucket-discovery error surfaces with a valid, non-empty path.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { TikaIOSourceProperties } from './TikaIO';
 
@@ -205,76 +203,6 @@ describe('TikaIOSourceProperties', () => {
     expect(screen.getByText('getError() — Throwable')).toBeInTheDocument();
   });
 
-  it('requests storage buckets via vscode.postMessage and renders datalist suggestions upon message event', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode: any = {
-      data: {
-        properties: {}
-      }
-    };
-
-    const { container } = render(<TikaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Assert initial IPC request was dispatched to extension host
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getStorageBuckets' });
-
-    // Simulate extension response event with bucket array
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: ['doc-archive', 'gs://pdf-lakehouse']
-          }
-        })
-      );
-    });
-
-    const filePatternInput = container.querySelector('#tikaSourceFilePattern') as HTMLInputElement;
-    const datalistId = filePatternInput.getAttribute('data-list') || filePatternInput.getAttribute('list');
-    expect(datalistId).toBeTruthy();
-    const datalist = document.getElementById(datalistId!) || container.querySelector(`datalist#${datalistId}`);
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'gs://doc-archive/');
-    expect(datalist?.children[1]).toHaveAttribute('value', 'gs://pdf-lakehouse');
-  });
-
-  it('surfaces bucket discovery error inline using muted/red text alert with valid non-empty path', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    // Regression guard: valid non-empty path must still surface discovery error
-    const mockNode: any = {
-      data: {
-        properties: {
-          filePattern: 'gs://documents-bucket/archive/**/*.pdf'
-        }
-      }
-    };
-
-    render(<TikaIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response error
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'storageBucketsLoaded',
-            buckets: [],
-            error: 'Google Cloud API error: 403 Forbidden'
-          }
-        })
-      );
-    });
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent('Failed to load Cloud Storage buckets: Google Cloud API error: 403 Forbidden');
-    expect(errorAlert).toHaveClass('text-red-400');
-  });
 
   it('updates system_instructions when instructions textarea changes', () => {
     const mockNode: any = {
@@ -297,36 +225,6 @@ describe('TikaIOSourceProperties', () => {
     );
   });
 
-  it('falls back to special_instructions and property-level instructions when present', () => {
-    const mockNodeSpecialData: any = {
-      data: {
-        special_instructions: 'Special instructions from data',
-        properties: {}
-      }
-    };
-    const { rerender } = render(<TikaIOSourceProperties node={mockNodeSpecialData} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from data')).toBeInTheDocument();
-
-    const mockNodePropertySys: any = {
-      data: {
-        properties: {
-          system_instructions: 'System instructions from properties'
-        }
-      }
-    };
-    rerender(<TikaIOSourceProperties node={mockNodePropertySys} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('System instructions from properties')).toBeInTheDocument();
-
-    const mockNodePropertySpecial: any = {
-      data: {
-        properties: {
-          special_instructions: 'Special instructions from properties'
-        }
-      }
-    };
-    rerender(<TikaIOSourceProperties node={mockNodePropertySpecial} onChange={mockOnChange} />);
-    expect(screen.getByDisplayValue('Special instructions from properties')).toBeInTheDocument();
-  });
 
   it('never renders removed non-API controls (parseSynchronously, minBundleSize, authMode, secretName, expansionService)', () => {
     const mockLegacyNode: any = {

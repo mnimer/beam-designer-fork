@@ -23,6 +23,9 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { MappingStrategyField, type MappingStrategy } from '../../components/common/MappingStrategyField';
 import { resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
@@ -117,12 +120,7 @@ export const Neo4jIOSourceProperties: React.FC<Neo4jIOSourcePropertiesProps> = (
   const isCypherEmpty = !cypher.trim();
 
   // Fallback chain for system instructions
-  const systemInstructions =
-    node.data?.system_instructions ??
-    node.data?.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Updates a generic property value and triggers the onChange callback.
@@ -157,19 +155,6 @@ export const Neo4jIOSourceProperties: React.FC<Neo4jIOSourcePropertiesProps> = (
       schemaFields: data.schemaFields,
       schema: data.schema,
       schemaString: data.schemaString
-    });
-  };
-
-  /**
-   * Handles system instructions textarea modifications.
-   *
-   * @param e React textarea change event
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // NOTE: LLM generation prompt is stored in system_instructions property
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -350,87 +335,75 @@ export const Neo4jIOSourceProperties: React.FC<Neo4jIOSourcePropertiesProps> = (
       </div>
 
       {/* Collapsible Advanced Source Settings */}
-      <div className="flex flex-col border border-[var(--vscode-border-light)] rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between p-2 bg-[var(--vscode-subcard-bg)] text-xs font-bold uppercase text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)] transition-colors cursor-pointer"
-        >
-          <span>Advanced Source Settings</span>
-          <span>{showAdvanced ? '▲' : '▼'}</span>
-        </button>
+      <CollapsibleSection
+        title="Advanced Source Settings"
+        isOpen={showAdvanced}
+        onToggle={() => setShowAdvanced(!showAdvanced)}
+      >
+        <PropertyField
+          id="neo4jSourceSessionConfig"
+          name="sessionConfig"
+          label="Session Configuration"
+          tooltip="Advanced session configuration such as custom bookmarks or fetch size passed to withSessionConfig()."
+          value={sessionConfig}
+          onChange={handleChange}
+          placeholder="e.g. defaultAccessMode=READ,fetchSize=1000"
+          mono={true}
+        />
 
-        {showAdvanced && (
-          <div className="p-3 bg-[var(--vscode-workbench-bg)] flex flex-col gap-3 border-t border-[var(--vscode-border-light)]">
-            <PropertyField
-              id="neo4jSourceSessionConfig"
-              name="sessionConfig"
-              label="Session Configuration"
-              tooltip="Advanced session configuration such as custom bookmarks or fetch size passed to withSessionConfig()."
-              value={sessionConfig}
-              onChange={handleChange}
-              placeholder="e.g. defaultAccessMode=READ,fetchSize=1000"
-              mono={true}
-            />
+        <div className="grid grid-cols-2 gap-2">
+          <PropertyField
+            id="neo4jSourceConnectionPoolSize"
+            name="connectionPoolSize"
+            label="Connection Pool Size"
+            type="number"
+            tooltip="Maximum connection pool size for Neo4j driver (DriverConfiguration)."
+            value={connectionPoolSize}
+            onChange={handleChange}
+            placeholder="50"
+            mono={true}
+          />
+          <PropertyField
+            id="neo4jSourceMaxTransactionRetryTimeMs"
+            name="maxTransactionRetryTimeMs"
+            label="Max Retry Time (ms)"
+            type="number"
+            tooltip="Maximum transaction retry time in milliseconds for transient failures."
+            value={maxTransactionRetryTimeMs}
+            onChange={handleChange}
+            placeholder="30000"
+            mono={true}
+          />
+        </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <PropertyField
-                id="neo4jSourceConnectionPoolSize"
-                name="connectionPoolSize"
-                label="Connection Pool Size"
-                type="number"
-                tooltip="Maximum connection pool size for Neo4j driver (DriverConfiguration)."
-                value={connectionPoolSize}
-                onChange={handleChange}
-                placeholder="50"
-                mono={true}
-              />
-              <PropertyField
-                id="neo4jSourceMaxTransactionRetryTimeMs"
-                name="maxTransactionRetryTimeMs"
-                label="Max Retry Time (ms)"
-                type="number"
-                tooltip="Maximum transaction retry time in milliseconds for transient failures."
-                value={maxTransactionRetryTimeMs}
-                onChange={handleChange}
-                placeholder="30000"
-                mono={true}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
-              <input
-                id="neo4jSourceEncrypted"
-                type="checkbox"
-                name="encrypted"
-                checked={encrypted}
-                onChange={handleChange}
-                className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
-              />
-              <label htmlFor="neo4jSourceEncrypted" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
-                <span>Enable TLS / Encryption</span>
-                <InfoTooltip text="Enables TLS encryption for bolt connections in driver configuration." />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-[16px]" />
+        <div className="flex items-center gap-2 p-2 bg-[var(--vscode-subcard-bg)] rounded-md border border-[var(--vscode-border-light)]">
+          <input
+            id="neo4jSourceEncrypted"
+            type="checkbox"
+            name="encrypted"
+            checked={encrypted}
+            onChange={handleChange}
+            className="rounded border-[var(--vscode-border)] text-[var(--vscode-highlight)] accent-[var(--vscode-highlight)] focus:ring-0"
+          />
+          <label htmlFor="neo4jSourceEncrypted" className="flex items-center gap-1.5 text-xs text-[var(--vscode-text-secondary)] cursor-pointer">
+            <span>Enable TLS / Encryption</span>
+            <InfoTooltip text="Enables TLS encryption for bolt connections in driver configuration." />
+          </label>
+        </div>
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="neo4jSourceInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Neo4j readAll pipeline transforms."
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
+        tooltip="Optional custom prompt instructions passed to the LLM code generator when synthesizing Neo4j readAll pipeline transforms."
         placeholder="e.g. Read graph nodes matching Person and map Record fields to custom POJO"
-        mono={true}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

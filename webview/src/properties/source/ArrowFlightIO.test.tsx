@@ -46,9 +46,6 @@ describe('ArrowFlightIOSourceProperties', () => {
     const cmdInput = container.querySelector('#flightSourceCommand');
     expect(cmdInput).toBeInTheDocument();
     expect(screen.getByText('Flight command is required')).toBeInTheDocument();
-
-    // Extension IPC check
-    expect(postMessageSpy).toHaveBeenCalledWith({ command: 'getSecrets' });
   });
 
   it('hydrates all populated properties correctly', () => {
@@ -161,42 +158,10 @@ describe('ArrowFlightIOSourceProperties', () => {
     expect(container.querySelector('#flightSourceTokenSecret')).toBeInTheDocument();
   });
 
-  it('handles message event for secretsLoaded IPC', () => {
+  it('updates system_instructions when instructions textarea changes', () => {
     const node = {
       data: {
         label: 'Arrow Flight Source',
-        properties: {
-          authMode: 'secret_manager'
-        }
-      }
-    };
-
-    render(<ArrowFlightIOSourceProperties node={node} onChange={mockOnChange} />);
-
-    fireEvent(
-      window,
-      new MessageEvent('message', {
-        data: {
-          type: 'secretsLoaded',
-          secrets: [
-            { id: 'sec-1', name: 'arrow-token-1', fullName: 'projects/p/secrets/arrow-token-1' },
-            { id: 'sec-2', name: 'arrow-token-2' }
-          ]
-        }
-      })
-    );
-
-    const datalist = document.getElementById('arrowflight-source-secret-options');
-    expect(datalist).toBeInTheDocument();
-    expect(datalist?.children.length).toBe(2);
-    expect(datalist?.children[0]).toHaveAttribute('value', 'sec-1');
-  });
-
-  it('falls back from special_instructions to system_instructions', () => {
-    const node = {
-      data: {
-        label: 'Arrow Flight Source',
-        special_instructions: 'Legacy prompt instruction',
         properties: {}
       }
     };
@@ -204,6 +169,12 @@ describe('ArrowFlightIOSourceProperties', () => {
     const { container } = render(<ArrowFlightIOSourceProperties node={node} onChange={mockOnChange} />);
 
     const inst = container.querySelector('#flightSourceInstructions') as HTMLTextAreaElement;
-    expect(inst.value).toBe('Legacy prompt instruction');
+    fireEvent.change(inst, { target: { value: 'Use ArrowFlightIO.read()' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system_instructions: 'Use ArrowFlightIO.read()'
+      })
+    );
   });
 });
