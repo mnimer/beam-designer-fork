@@ -42,7 +42,7 @@ import {
 
 import { usePipelinePersistence } from './hooks/usePipelinePersistence';
 import { usePipelineGraph, type PipelineNodeData } from './hooks/usePipelineGraph';
-import { useVsCodeBridge, findMainPipelineFile, type PipelineConfig } from './hooks/useVsCodeBridge';
+import { useVsCodeBridge, findMainPipelineFile, PLACEHOLDER_PROJECT_ID, type PipelineConfig } from './hooks/useVsCodeBridge';
 import { pipelineConfigReducer } from './state/pipelineConfigReducer';
 import { useRuntimeVariables, DEFAULT_RUNTIME_VARIABLES } from './hooks/useRuntimeVariables';
 import { usePipelineExecution } from './hooks/usePipelineExecution';
@@ -165,7 +165,7 @@ function App() {
     region: 'us-central1',
     projectId: ''
   });
-  const [projectId, setProjectId] = useState('YOUR_PROJECT_ID');
+  const [projectId, setProjectId] = useState(PLACEHOLDER_PROJECT_ID);
   const [filename, setFilename] = useState('default_job');
   const [pipelineConfig, setPipelineConfig] = useState<PipelineConfig>({
     language: 'Python',

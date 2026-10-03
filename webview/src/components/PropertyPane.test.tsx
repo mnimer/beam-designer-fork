@@ -60,7 +60,7 @@ describe('PropertyPane', () => {
     expect(mockClipboard.writeText).toHaveBeenCalledWith('$VAR1');
   });
 
-  it('renders PropertyPane for Create SOURCE node with JSON string elements (e.g. from avro-sink.beam)', () => {
+  it('renders PropertyPane for Create SOURCE node with JSON string elements (e.g. from avro-sink.beam)', async () => {
     const avroSinkSourceNode = {
       id: 'source-1',
       type: 'pipeline',
@@ -85,7 +85,8 @@ describe('PropertyPane', () => {
     );
 
     expect(screen.getByText('SOURCE')).toBeInTheDocument();
-    expect(screen.getByText('In-Memory Elements')).toBeInTheDocument();
+    // The Create panel is code-split; wait for its chunk to load.
+    expect(await screen.findByText('In-Memory Elements')).toBeInTheDocument();
     const textareas = screen.getAllByPlaceholderText(/Element \d/);
     expect(textareas).toHaveLength(2);
     expect(textareas[0]).toHaveValue('{"id": 1, "name": "alpha", "score": 99.5}');
