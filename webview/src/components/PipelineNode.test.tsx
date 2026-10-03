@@ -6,10 +6,13 @@ import { PipelineNode } from './PipelineNode';
 
 // Mock React Flow handles
 vi.mock('reactflow', () => ({
-  Handle: ({ type, position, id }: any) => <div data-testid={`handle-${type}-${position}${id ? `-${id}` : ''}`} />,
+  Handle: ({ type, position, id, title }: any) => (
+    <div data-testid={`handle-${type}-${position}${id ? `-${id}` : ''}`} title={title} />
+  ),
   Position: {
     Left: 'left',
-    Right: 'right'
+    Right: 'right',
+    Top: 'top'
   },
   useReactFlow: () => ({
     setNodes: vi.fn()
@@ -126,6 +129,44 @@ describe('PipelineNode', () => {
     expect(screen.queryByTestId('handle-source-right')).not.toBeInTheDocument();
     expect(screen.queryByTestId('handle-source-right-valid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('handle-source-right-error')).not.toBeInTheDocument();
+  });
+
+  it('renders a top side_input target handle (with tooltip and Side Input label) for ParDo steps while keeping the id-less main handle', () => {
+    const parDoData = { ...mockData, type: 'STEP', label: 'Enrich', beam_transform: 'ParDo' };
+    render(<PipelineNode id="node-1" data={parDoData} />);
+
+    // Main (primary) input handle keeps no id for backwards compatibility with saved edges
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    // Auxiliary side input handle on top + visible label badge
+    const sideHandle = screen.getByTestId('handle-target-top-side_input');
+    expect(sideHandle).toBeInTheDocument();
+    expect(sideHandle).toHaveAttribute('title', 'Side Input (PCollectionView)');
+    const sideLabel = screen.getByTestId('side-input-handle-label');
+    expect(sideLabel).toBeInTheDocument();
+    expect(sideLabel).toHaveTextContent('Side Input');
+    // Output handles unchanged
+    expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right-error')).toBeInTheDocument();
+  });
+
+  it('does not render a side_input handle or label for non-ParDo steps, sources, or sinks', () => {
+    const { unmount: unmountStep } = render(
+      <PipelineNode id="node-1" data={{ ...mockData, type: 'STEP', beam_transform: 'Map' }} />
+    );
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
+    unmountStep();
+
+    const { unmount: unmountSource } = render(
+      <PipelineNode id="node-2" data={{ ...mockData, type: 'SOURCE', beam_transform: 'ParDo' }} />
+    );
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
+    unmountSource();
+
+    render(<PipelineNode id="node-3" data={{ ...mockData, type: 'SINK', beam_transform: 'LogMessage' }} />);
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
   });
 
   it('opens text input on label double-click and commits on Enter', () => {

@@ -151,3 +151,111 @@ describe('Extension Host validateDagTopology', () => {
         expect(invalidUpstreamRes.errors[0]).toContain('DicomIO.dicomSearch() on node "DicomIO Source" (dicom_1) does not accept an upstream connection');
     });
 });
+
+describe('Extension Host validateDagTopology — ParDo side inputs (F1)', () => {
+    const sourceNode: DagNode = { id: 'src', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } };
+    const lookupNode: DagNode = { id: 'lookup', data: { label: 'Lookup Table', type: 'SOURCE', beam_transform: 'BigQueryIO' } };
+    const sinkNode: DagNode = { id: 'sink', data: { label: 'BigQuery', type: 'SINK', beam_transform: 'BigQueryIO' } };
+
+    const parDoNode = (sideInputs?: unknown): DagNode => ({
+        id: 'pardo',
+        data: {
+            label: 'Enrich',
+            type: 'STEP',
+            beam_transform: 'ParDo',
+            properties: sideInputs === undefined ? {} : { sideInputs },
+        },
+    });
+
+    it('approves a ParDo with a main input and a side input edge', () => {
+        const edges: DagEdge[] = [
+            { id: 'e1', source: 'src', target: 'pardo' },
+            { id: 'e2', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+            { id: 'e3', source: 'pardo', target: 'sink', sourceHandle: 'valid' },
+        ];
+        const res = validateDagTopology(
+            [sourceNode, lookupNode, parDoNode([{ sourceNodeId: 'lookup', variableName: 'lookupTable', viewType: 'MAP', refreshPattern: 'STATIC' }]), sinkNode],
+            edges
+        );
+        expect(res.isValid).toBe(true);
+        expect(res.missingUpstreamNodeIds).toEqual([]);
+        expect(res.sideInputMismatchNodeIds).toEqual([]);
+        expect(res.sortedNodeIds.indexOf('lookup')).toBeLessThan(res.sortedNodeIds.indexOf('pardo'));
+    });
+
+    it('treats an explicit targetHandle "main" as the primary input', () => {
+        const edges: DagEdge[] = [
+            { id: 'e1', source: 'src', target: 'pardo', targetHandle: 'main' },
+            { id: 'e2', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+            { id: 'e3', source: 'pardo', target: 'sink' },
+        ];
+        const res = validateDagTopology([sourceNode, lookupNode, parDoNode(), sinkNode], edges);
+        expect(res.isValid).toBe(true);
+        expect(res.missingUpstreamNodeIds).toEqual([]);
+    });
+
+    it('flags a ParDo that only has side input edges as missing its main input', () => {
+        const edges: DagEdge[] = [
+            { id: 'e2', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+            { id: 'e3', source: 'pardo', target: 'sink' },
+        ];
+        const res = validateDagTopology([lookupNode, parDoNode(), sinkNode], edges);
+        expect(res.isValid).toBe(false);
+        expect(res.missingUpstreamNodeIds).toEqual(['pardo']);
+        expect(res.errors[0]).toContain('ParDo node "Enrich" (pardo) only has side input connections');
+    });
+
+    it('does not flag a ParDo with no incoming edges at all as side-input-only (orphan rules apply instead)', () => {
+        const res = validateDagTopology(
+            [sourceNode, parDoNode(), sinkNode],
+            [{ id: 'e1', source: 'src', target: 'sink' }]
+        );
+        expect(res.missingUpstreamNodeIds).toEqual([]);
+        expect(res.orphanNodeIds).toEqual(['pardo']);
+    });
+
+    it('flags configured sideInputs that have no matching side_input edge', () => {
+        const edges: DagEdge[] = [
+            { id: 'e1', source: 'src', target: 'pardo' },
+            { id: 'e3', source: 'pardo', target: 'sink' },
+        ];
+        const res = validateDagTopology(
+            [sourceNode, lookupNode, parDoNode([{ sourceNodeId: 'lookup', sourceLabel: 'Lookup Table', variableName: 'lookupTable', viewType: 'MAP', refreshPattern: 'STATIC' }]), sinkNode],
+            edges
+        );
+        expect(res.isValid).toBe(false);
+        expect(res.sideInputMismatchNodeIds).toEqual(['pardo']);
+        expect(res.errors.some((e) => e.includes('configures side input(s) lookupTable ("Lookup Table" lookup) without a matching side_input edge'))).toBe(true);
+    });
+
+    it('flags configured sideInputs that reference a deleted upstream node', () => {
+        const edges: DagEdge[] = [
+            { id: 'e1', source: 'src', target: 'pardo' },
+            { id: 'e2', source: 'ghost', target: 'pardo', targetHandle: 'side_input' }, // dangling edge to a deleted node
+            { id: 'e3', source: 'pardo', target: 'sink' },
+        ];
+        const res = validateDagTopology(
+            [sourceNode, parDoNode([{ sourceNodeId: 'ghost', variableName: 'ghostView', viewType: 'SINGLETON', refreshPattern: 'STATIC' }]), sinkNode],
+            edges
+        );
+        expect(res.isValid).toBe(false);
+        expect(res.sideInputMismatchNodeIds).toEqual(['pardo']);
+    });
+
+    it('ignores side-input rules for non-ParDo steps and malformed sideInputs values', () => {
+        const mapNode: DagNode = { id: 'map', data: { label: 'Map', type: 'STEP', beam_transform: 'Map', properties: { sideInputs: [{ sourceNodeId: 'nope' }] } } };
+        const edges: DagEdge[] = [
+            { id: 'e1', source: 'src', target: 'map' },
+            { id: 'e2', source: 'map', target: 'sink' },
+        ];
+        const res = validateDagTopology([sourceNode, mapNode, sinkNode], edges);
+        expect(res.isValid).toBe(true);
+        expect(res.sideInputMismatchNodeIds).toEqual([]);
+
+        const malformed = validateDagTopology(
+            [sourceNode, parDoNode('not-an-array'), sinkNode],
+            [{ id: 'e1', source: 'src', target: 'pardo' }, { id: 'e2', source: 'pardo', target: 'sink' }]
+        );
+        expect(malformed.isValid).toBe(true);
+    });
+});

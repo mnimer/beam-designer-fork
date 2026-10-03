@@ -168,7 +168,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ⬜ Not Started |
+| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ✅ Done |
 
 ---
 
@@ -749,7 +749,7 @@ Ordered by risk-reduction per unit of effort.
 - **34.** Multi-PCollection Operations & Sampling: `multi-source-flatten-bigquery` (I16), `cogroupbykey-relational-join` (I17), and `distinct-statistical-sampling` (I18).
 
 **Phase 8 — Core Transform Enhancements**
-- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)**
+- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)** **(✅ Done)**
 
 
 ---

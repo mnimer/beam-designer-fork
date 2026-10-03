@@ -347,3 +347,53 @@ describe('validateDagTopology (Kahn\'s Algorithm)', () => {
     );
   });
 });
+
+describe('validateDagTopology — ParDo side inputs (F1)', () => {
+  const sourceNode: DagNode = { id: 'src', data: { label: 'PubSub', type: 'SOURCE', beam_transform: 'PubSubIO' } };
+  const lookupNode: DagNode = { id: 'lookup', data: { label: 'Lookup Table', type: 'SOURCE', beam_transform: 'BigQueryIO' } };
+  const sinkNode: DagNode = { id: 'sink', data: { label: 'BigQuery', type: 'SINK', beam_transform: 'BigQueryIO' } };
+  const parDoNode = (sideInputs?: unknown): DagNode => ({
+    id: 'pardo',
+    data: { label: 'Enrich', type: 'STEP', beam_transform: 'ParDo', properties: sideInputs === undefined ? {} : { sideInputs } },
+  });
+
+  it('accepts main + side input edges on a ParDo', () => {
+    const res = validateDagTopology(
+      [sourceNode, lookupNode, parDoNode([{ sourceNodeId: 'lookup', variableName: 'lookupTable', viewType: 'MAP', refreshPattern: 'STATIC' }]), sinkNode],
+      [
+        { id: 'e1', source: 'src', target: 'pardo' },
+        { id: 'e2', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+        { id: 'e3', source: 'pardo', target: 'sink', sourceHandle: 'valid' },
+      ]
+    );
+    expect(res.isValid).toBe(true);
+    expect(res.missingUpstreamNodeIds).toEqual([]);
+    expect(res.sideInputMismatchNodeIds).toEqual([]);
+  });
+
+  it('flags a side-input-only ParDo in missingUpstreamNodeIds', () => {
+    const res = validateDagTopology(
+      [lookupNode, parDoNode(), sinkNode],
+      [
+        { id: 'e2', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+        { id: 'e3', source: 'pardo', target: 'sink' },
+      ]
+    );
+    expect(res.isValid).toBe(false);
+    expect(res.missingUpstreamNodeIds).toEqual(['pardo']);
+    expect(res.errors[0]).toContain('only has side input connections');
+  });
+
+  it('flags stale sideInputs bindings without a matching side_input edge', () => {
+    const res = validateDagTopology(
+      [sourceNode, lookupNode, parDoNode([{ sourceNodeId: 'lookup', variableName: 'lookupTable', viewType: 'MAP', refreshPattern: 'STATIC' }]), sinkNode],
+      [
+        { id: 'e1', source: 'src', target: 'pardo' },
+        { id: 'e3', source: 'pardo', target: 'sink' },
+      ]
+    );
+    expect(res.isValid).toBe(false);
+    expect(res.sideInputMismatchNodeIds).toEqual(['pardo']);
+    expect(res.errors.some((e) => e.includes('without a matching side_input edge'))).toBe(true);
+  });
+});

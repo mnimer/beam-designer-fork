@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePipelineGraph } from './usePipelineGraph';
+import { usePipelineGraph, type PipelineNode } from './usePipelineGraph';
 
 describe('usePipelineGraph', () => {
   it('initializes with empty nodes and edges arrays', () => {
@@ -299,3 +299,132 @@ describe('usePipelineGraph', () => {
   });
 });
 
+
+describe('usePipelineGraph — ParDo side inputs (F1)', () => {
+  const baseNodes = (): PipelineNode[] => [
+    { id: 'src', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'PubSub', type: 'SOURCE', iconName: 'Radio', beam_transform: 'PubSubIO' } },
+    { id: 'lookup', type: 'pipeline', position: { x: 0, y: 200 }, data: { label: 'Lookup Table', type: 'SOURCE', iconName: 'Database', beam_transform: 'BigQueryIO' } },
+    { id: 'pardo', type: 'pipeline', position: { x: 300, y: 0 }, data: { label: 'Enrich', type: 'STEP', iconName: 'Code', beam_transform: 'ParDo', properties: {} } },
+    { id: 'map', type: 'pipeline', position: { x: 300, y: 200 }, data: { label: 'Map', type: 'STEP', iconName: 'Code', beam_transform: 'Map', properties: {} } },
+    { id: 'sink', type: 'pipeline', position: { x: 600, y: 0 }, data: { label: 'BigQuery', type: 'SINK', iconName: 'Database', beam_transform: 'BigQueryIO' } },
+  ];
+
+  const setup = () => {
+    const takeSnapshot = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const hook = renderHook(() => usePipelineGraph({ takeSnapshot, setPipelineConfig }));
+    act(() => {
+      hook.result.current.setNodes(baseNodes());
+    });
+    return { ...hook, takeSnapshot, setPipelineConfig };
+  };
+
+  it('isValidConnection only accepts side_input connections on ParDo targets', () => {
+    const { result } = setup();
+    expect(result.current.isValidConnection({ source: 'lookup', target: 'pardo', sourceHandle: null, targetHandle: 'side_input' })).toBe(true);
+    expect(result.current.isValidConnection({ source: 'lookup', target: 'map', sourceHandle: null, targetHandle: 'side_input' })).toBe(false);
+  });
+
+  it('auto-creates a sideInputs binding when an edge connects to the side_input handle', () => {
+    const { result } = setup();
+
+    act(() => {
+      result.current.onConnect({ source: 'src', target: 'pardo', sourceHandle: null, targetHandle: null });
+      result.current.onConnect({ source: 'lookup', target: 'pardo', sourceHandle: null, targetHandle: 'side_input' });
+    });
+
+    const pardo = result.current.nodes.find((n) => n.id === 'pardo')!;
+    expect(pardo.data.properties?.sideInputs).toEqual([
+      expect.objectContaining({
+        sourceNodeId: 'lookup',
+        sourceLabel: 'Lookup Table',
+        variableName: 'lookupTable',
+        viewType: 'SINGLETON',
+        refreshPattern: 'STATIC',
+      }),
+    ]);
+    // Non-ParDo nodes are never touched
+    expect(result.current.nodes.find((n) => n.id === 'map')!.data.properties?.sideInputs).toBeUndefined();
+  });
+
+  it('removes the binding when the side_input edge is deleted and preserves user config for surviving bindings', () => {
+    const { result } = setup();
+
+    act(() => {
+      result.current.setEdges([
+        { id: 'e-main', source: 'src', target: 'pardo' },
+        { id: 'e-side', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+      ]);
+    });
+    expect(result.current.nodes.find((n) => n.id === 'pardo')!.data.properties?.sideInputs).toHaveLength(1);
+
+    // User customises the binding through the property panel
+    act(() => {
+      result.current.handleApplyProperties('pardo', {
+        sideInputs: [
+          { sourceNodeId: 'lookup', sourceLabel: 'Lookup Table', variableName: 'rates', viewType: 'MAP', hasDefaultValue: false, defaultValue: '', refreshPattern: 'STATIC', updateIntervalSeconds: 3600 },
+        ],
+      });
+    });
+    expect(result.current.nodes.find((n) => n.id === 'pardo')!.data.properties?.sideInputs[0]).toMatchObject({ variableName: 'rates', viewType: 'MAP' });
+
+    // Edge removal → binding dropped
+    act(() => {
+      result.current.setEdges((eds) => eds.filter((e) => e.id !== 'e-side'));
+    });
+    expect(result.current.nodes.find((n) => n.id === 'pardo')!.data.properties?.sideInputs).toEqual([]);
+  });
+
+  it('refreshes sourceLabel when the upstream node is renamed', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setEdges([
+        { id: 'e-main', source: 'src', target: 'pardo' },
+        { id: 'e-side', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+      ]);
+    });
+    act(() => {
+      result.current.handleNodeLabelChange('lookup', 'FX Rates');
+    });
+    expect(result.current.nodes.find((n) => n.id === 'pardo')!.data.properties?.sideInputs[0]).toMatchObject({
+      sourceLabel: 'FX Rates',
+      variableName: 'lookupTable', // identifier is user-owned and must not be regenerated on rename
+    });
+  });
+
+  it('renders side_input edges dashed with a "side" label and leaves main edges untouched', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setEdges([
+        { id: 'e-main', source: 'src', target: 'pardo' },
+        { id: 'e-side', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+        { id: 'e-out', source: 'pardo', target: 'sink', sourceHandle: 'valid' },
+      ]);
+    });
+
+    const side = result.current.displayEdges.find((e) => e.id === 'e-side')!;
+    expect(side.style).toMatchObject({ strokeDasharray: '5 4', stroke: '#facc15' });
+    expect(side.label).toBe('side');
+
+    const main = result.current.displayEdges.find((e) => e.id === 'e-main')!;
+    expect(main.style?.strokeDasharray).toBeUndefined();
+    expect(main.label).toBeUndefined();
+  });
+
+  it('flags a side-input-only ParDo with a ParDo-specific validation error', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setEdges([
+        { id: 'e-side', source: 'lookup', target: 'pardo', targetHandle: 'side_input' },
+        { id: 'e-out', source: 'pardo', target: 'sink', sourceHandle: 'valid' },
+        { id: 'e-src', source: 'src', target: 'map' },
+        { id: 'e-map', source: 'map', target: 'sink' },
+      ]);
+    });
+
+    expect(result.current.dagValidation.missingUpstreamNodeIds).toEqual(['pardo']);
+    const pardo = result.current.displayNodes.find((n) => n.id === 'pardo')!;
+    expect(pardo.data.hasValidationError).toBe(true);
+    expect(pardo.data.validationError).toContain('only has side input connections');
+  });
+});

@@ -637,6 +637,7 @@ function App() {
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 isValidConnection={isValidConnection}
+                connectionRadius={32}
                 fitView
                 onNodeClick={(_, node) => {
                   setSelectedNodeId(node.id);

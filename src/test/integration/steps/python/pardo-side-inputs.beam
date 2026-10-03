@@ -1,0 +1,175 @@
+nodes:
+  - id: source-orders
+    type: pipeline
+    position:
+      x: 80
+      y: 270
+    data:
+      label: Create Orders
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"orderId": "o-1001", "currency": "EUR", "amount": 120.0}'
+          - '{"orderId": "o-1002", "currency": "GBP", "amount": 80.0}'
+          - '{"orderId": "o-1003", "currency": "USD", "amount": 50.0}'
+          - '{"orderId": "o-1004", "currency": "JPY", "amount": 10000.0}'
+    width: 180
+    height: 62
+  - id: source-fx-rates
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: Create FX Rates
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"currency": "EUR", "rate": 1.08}'
+          - '{"currency": "GBP", "rate": 1.27}'
+          - '{"currency": "USD", "rate": 1.0}'
+    width: 180
+    height: 62
+  - id: step-fx-rates-kv
+    type: pipeline
+    position:
+      x: 400
+      y: 150
+    data:
+      label: Key Rates By Currency
+      type: STEP
+      iconName: Hash
+      beam_transform: KVMapper
+      properties:
+        keyPropertyName: currency
+    width: 180
+    height: 62
+  - id: source-target-currency
+    type: pipeline
+    position:
+      x: 80
+      y: 30
+    data:
+      label: Create Target Currency
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - USD
+    width: 180
+    height: 62
+  - id: step-enrich-pardo
+    type: pipeline
+    position:
+      x: 712
+      y: 270
+    data:
+      label: Enrich Orders With FX Side Inputs
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: >-
+          For each incoming order JSON string, parse it and look up the order's currency in the
+          fxRates side input MAP (key = currency code, value = the rate record whose "rate" field is
+          the multiplier to the target currency). Read the target currency code from the
+          targetCurrency SINGLETON side input. Emit a JSON string with fields orderId, currency,
+          amount, targetCurrency, rate and convertedAmount (amount * rate, rounded to 2 decimals).
+          If the currency is missing from the MAP, route the original payload to the error output.
+        system_instructions: >-
+          Wrap the generated code in a try/catch, returning all errors to a separate pcollection.
+          Read side inputs ONLY via the keyword arguments declared on process(self, element, fxRates, targetCurrency).
+        sideInputs:
+          - sourceNodeId: step-fx-rates-kv
+            sourceLabel: Key Rates By Currency
+            variableName: fxRates
+            viewType: MAP
+            hasDefaultValue: false
+            defaultValue: ""
+            refreshPattern: STATIC
+            updateIntervalSeconds: 3600
+          - sourceNodeId: source-target-currency
+            sourceLabel: Create Target Currency
+            variableName: targetCurrency
+            viewType: SINGLETON
+            hasDefaultValue: true
+            defaultValue: USD
+            refreshPattern: STATIC
+            updateIntervalSeconds: 3600
+      system_instructions: ""
+    width: 180
+    height: 62
+  - id: sink-log
+    type: pipeline
+    position:
+      x: 1112
+      y: 210
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Enriched-Order]"
+    width: 180
+    height: 62
+  - id: sink-log-errors
+    type: pipeline
+    position:
+      x: 1112
+      y: 330
+    data:
+      label: Log Errors
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Enrichment-Error]"
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-orders-to-step-enrich-pardo
+    source: source-orders
+    target: step-enrich-pardo
+  - id: edge-source-fx-rates-to-step-fx-rates-kv
+    source: source-fx-rates
+    target: step-fx-rates-kv
+  - id: edge-step-fx-rates-kv-to-step-enrich-pardo-side
+    source: step-fx-rates-kv
+    sourceHandle: valid
+    target: step-enrich-pardo
+    targetHandle: side_input
+  - id: edge-source-target-currency-to-step-enrich-pardo-side
+    source: source-target-currency
+    target: step-enrich-pardo
+    targetHandle: side_input
+  - id: edge-step-enrich-pardo-to-sink-log
+    source: step-enrich-pardo
+    sourceHandle: valid
+    target: sink-log
+  - id: edge-step-enrich-pardo-to-sink-log-errors
+    source: step-enrich-pardo
+    sourceHandle: error
+    target: sink-log-errors
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: pardo-side-inputs-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/pardo-side-inputs-python
+  needsRebuild: false
