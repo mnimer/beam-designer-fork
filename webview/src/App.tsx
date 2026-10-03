@@ -285,7 +285,7 @@ function App() {
   });
 
   // Hook 3: Pipeline Persistence with 2-second debounce and dirty-check (P6, A6)
-  usePipelinePersistence({
+  const { lastSavedYamlRef, serializePipeline } = usePipelinePersistence({
     nodes,
     edges,
     runtimeVariables,
@@ -426,8 +426,15 @@ function App() {
       console.warn('Blocked regenerateCode: validation failed', combinedValidationErrors);
       return;
     }
+    lastSavedYamlRef.current = serializePipeline({
+      nodes,
+      edges,
+      runtimeVariables,
+      jobConfig,
+      pipelineConfig,
+    });
     ipcRegenerate({ nodes, edges, runtimeVariables, jobConfig });
-  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, isCodegenValid, combinedValidationErrors]);
+  }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isCodegenValid, combinedValidationErrors, lastSavedYamlRef, serializePipeline]);
 
   // Resize state for Bottom Panel
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);

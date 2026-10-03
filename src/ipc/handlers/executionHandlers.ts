@@ -10,6 +10,7 @@ import { handleRegenerateCode } from '../../codeGeneration';
 import { getDesignerOutputChannel } from '../../core/outputChannel';
 import { EditorSession } from '../../editor/EditorSession';
 import { resolveOutputFolder } from '../../editor/outputFolder';
+import { savePipelineFiles } from '../../editor/pipelineFileWriter';
 import { isSafeFolderPath, isAllowedExecutableScript } from '../../security/scriptGuard';
 import {
     buildRunnerEnvironment,
@@ -233,7 +234,7 @@ export async function handleStopCodeGeneration(ctx: MessageContext, _message: an
 
 /**
  * Handler for 'regenerateCode' command.
- * Invokes modular AI code generation pipeline.
+ * Automatically saves the `.beam` pipeline file to disk and invokes the AI code generation pipeline.
  *
  * @param ctx Message context
  * @param message Incoming IPC message with code generation parameters
@@ -244,6 +245,32 @@ export async function handleRegenerateCodeCommand(ctx: MessageContext, message: 
         ctx.postToWebview({ command: 'codeRegenerated', success: false, error: UNTRUSTED_WORKSPACE_MESSAGE });
         return;
     }
+
+    // Automatically persist the latest .beam YAML and flush the open TextDocument to disk
+    const targetUri = ctx.document ? ctx.document.uri : ctx.uri;
+    if (targetUri && targetUri.scheme !== 'untitled' && typeof message?.data === 'string') {
+        await savePipelineFiles(
+            targetUri,
+            message.data,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            ctx.syncState
+        );
+        const openDoc = ctx.document ?? vscode.workspace.textDocuments?.find(
+            (doc) => doc.uri.toString() === targetUri.toString()
+        );
+        if (openDoc && typeof (openDoc as any).save === 'function') {
+            await (openDoc as any).save();
+        }
+    }
+
     const session = sessionOf(ctx);
     // Starting a new generation aborts any generation still running for this panel.
     const controller = session.beginGeneration();
