@@ -121,4 +121,49 @@ describe('computeLayoutedNodes', () => {
       y: START_Y,
     });
   });
+
+  it('positions side_input branches in rows above the main flow and widens columns for long labels', () => {
+    const nodes: PipelineNode[] = [
+      { id: 'source-orders', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Create Orders', type: 'SOURCE', iconName: 'Box' } },
+      { id: 'source-fx-rates', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Create FX Rates', type: 'SOURCE', iconName: 'Box' } },
+      { id: 'step-fx-rates-kv', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Key Rates By Currency', type: 'STEP', iconName: 'Hash' } },
+      { id: 'source-target-currency', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Create Target Currency', type: 'SOURCE', iconName: 'Box' } },
+      { id: 'step-enrich-pardo', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Enrich Orders With FX Side Inputs', type: 'STEP', iconName: 'Code' } },
+      { id: 'sink-log', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Log Message', type: 'SINK', iconName: 'Terminal' } },
+      { id: 'sink-log-errors', type: 'pipeline', position: { x: 0, y: 0 }, data: { label: 'Log Errors', type: 'SINK', iconName: 'Terminal' } },
+    ];
+
+    const edges: Edge[] = [
+      { id: 'e1', source: 'source-orders', target: 'step-enrich-pardo' },
+      { id: 'e2', source: 'source-fx-rates', target: 'step-fx-rates-kv' },
+      { id: 'e3', source: 'step-fx-rates-kv', sourceHandle: 'valid', target: 'step-enrich-pardo', targetHandle: 'side_input' },
+      { id: 'e4', source: 'source-target-currency', target: 'step-enrich-pardo', targetHandle: 'side_input' },
+      { id: 'e5', source: 'step-enrich-pardo', sourceHandle: 'valid', target: 'sink-log' },
+      { id: 'e6', source: 'step-enrich-pardo', sourceHandle: 'error', target: 'sink-log-errors' },
+    ];
+
+    const result = computeLayoutedNodes(nodes, edges);
+    const byId = Object.fromEntries(result.map((n) => [n.id, n]));
+
+    // 1. "Create Orders" is directly to the left of the ParDo on the same horizontal row
+    expect(byId['source-orders'].position.y).toBe(byId['step-enrich-pardo'].position.y);
+    expect(byId['source-orders'].position.x).toBeLessThan(byId['step-enrich-pardo'].position.x);
+
+    // 2. "Create FX Rates" is one row above "Create Orders", with "Key Rates By Currency" to its right on the same row
+    expect(byId['source-fx-rates'].position.y).toBe(byId['source-orders'].position.y - ROW_HEIGHT);
+    expect(byId['step-fx-rates-kv'].position.y).toBe(byId['source-fx-rates'].position.y);
+    expect(byId['step-fx-rates-kv'].position.x).toBeGreaterThan(byId['source-fx-rates'].position.x);
+    expect(byId['step-fx-rates-kv'].position.x).toBeLessThan(byId['step-enrich-pardo'].position.x);
+
+    // 3. "Create Target Currency" is one row above "Create FX Rates"
+    expect(byId['source-target-currency'].position.y).toBe(byId['source-fx-rates'].position.y - ROW_HEIGHT);
+    expect(byId['source-target-currency'].position.x).toBe(byId['source-fx-rates'].position.x);
+
+    // 4. Both Log sinks are well to the right of the wide ParDo (no overlap) and centered around the ParDo's Y
+    expect(byId['sink-log'].position.x).toBeGreaterThanOrEqual(byId['step-enrich-pardo'].position.x + 400);
+    expect(byId['sink-log-errors'].position.x).toBe(byId['sink-log'].position.x);
+    expect((byId['sink-log'].position.y + byId['sink-log-errors'].position.y) / 2).toBe(
+      byId['step-enrich-pardo'].position.y
+    );
+  });
 });

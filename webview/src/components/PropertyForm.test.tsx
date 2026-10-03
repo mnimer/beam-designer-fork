@@ -9,12 +9,12 @@
  * registered Beam transforms and IO components.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import fs from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import { PropertyForm, PROPERTY_FORM_REGISTRY, getPropertyFormComponent } from './PropertyForm';
+import { PropertyForm, PROPERTY_FORM_REGISTRY, getPropertyFormComponent, loadPropertyForm } from './PropertyForm';
 import { migrateLegacyNodes } from '../utils/legacyNodeMigration';
 import { getNodeDocumentation } from '../utils/nodeDocumentation';
 
@@ -81,12 +81,32 @@ import { ParDoProperties } from '../properties/step/ParDo';
 import { AggregationProperties } from '../properties/step/Aggregations';
 import { OtherProperties } from '../properties/step/Other';
 
+/**
+ * Resolves the concrete (eagerly imported) panel component a node dispatches to.
+ * Registry entries are code-split lazy wrappers, so identity assertions against the
+ * real component must go through `loadPropertyForm`.
+ *
+ * @param node Node-like object with immutable metadata.
+ * @returns The concrete component, or undefined when unregistered.
+ */
+async function resolvePropertyForm(node: unknown) {
+  const entry = getPropertyFormComponent(node);
+  return entry ? loadPropertyForm(entry) : undefined;
+}
+
+/**
+ * Waits until the Suspense placeholder for the lazily-loaded panel has gone away
+ * (tolerates the chunk already being cached, in which case it never appears).
+ */
+const waitForPanelToLoad = () =>
+  waitFor(() => expect(screen.queryByTestId('property-form-loading')).not.toBeInTheDocument());
+
 describe('PropertyForm', () => {
   // =========================================================================
   // Core Regression Tests: Immutable Metadata vs User-Editable Label
   // =========================================================================
 
-  it('REGRESSION: renders BigQuery form when label contains a different connector name (e.g. "my PubSub-ish step")', () => {
+  it('REGRESSION: renders BigQuery form when label contains a different connector name (e.g. "my PubSub-ish step")', async () => {
     const mockNode = {
       data: {
         label: 'my PubSub-ish step',
@@ -100,12 +120,12 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     // Must render BigQuerySinkProperties (with Table Name placeholder)
-    expect(screen.getByPlaceholderText('my_table')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('my_table')).toBeInTheDocument();
     // Must NOT render PubSub properties
     expect(screen.queryByPlaceholderText('projects/my-project/topics/my-topic')).not.toBeInTheDocument();
   });
 
-  it('REGRESSION: renders PubSub form when label contains a different connector name (e.g. "BigQuery Ingestion")', () => {
+  it('REGRESSION: renders PubSub form when label contains a different connector name (e.g. "BigQuery Ingestion")', async () => {
     const mockNode = {
       data: {
         label: 'BigQuery Ingestion',
@@ -119,12 +139,12 @@ describe('PropertyForm', () => {
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
     // Must render PubSubProperties
-    expect(screen.getByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('projects/my-project/topics/my-topic')).toBeInTheDocument();
     // Must NOT render BigQuery properties
     expect(screen.queryByPlaceholderText('my_table')).not.toBeInTheDocument();
   });
 
-  it('REGRESSION: renders Kafka form when node is renamed away from connector name to a custom label', () => {
+  it('REGRESSION: renders Kafka form when node is renamed away from connector name to a custom label', async () => {
     const mockNode = {
       data: {
         label: 'Custom Ingest Queue #42',
@@ -140,7 +160,7 @@ describe('PropertyForm', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
+    expect(await screen.findByLabelText(/Bootstrap Servers/i)).toHaveValue('localhost:9092');
     expect(screen.getByLabelText(/Topic\(s\)/i)).toHaveValue('orders');
   });
 
@@ -206,7 +226,7 @@ describe('PropertyForm', () => {
   // Metadata Resolution & Lookup Branches
   // =========================================================================
 
-  it('resolves componentType metadata as alternative to beam_transform', () => {
+  it('resolves componentType metadata as alternative to beam_transform', async () => {
     const mockNode = {
       data: {
         label: 'Custom Component',
@@ -215,18 +235,18 @@ describe('PropertyForm', () => {
         properties: {}
       }
     };
-    const Component = getPropertyFormComponent(mockNode);
+    const Component = await resolvePropertyForm(mockNode);
     expect(Component).toBe(ParDoProperties);
 
     const mockOnChange = vi.fn();
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
-    expect(screen.getByText('Code Generation Prompt')).toBeInTheDocument();
+    expect(await screen.findByText('Code Generation Prompt')).toBeInTheDocument();
   });
 
   describe('getPropertyFormComponent resolution branches', () => {
-    it('branch 1: resolves via type-qualified key (${type}:${transform})', () => {
+    it('branch 1: resolves via type-qualified key (${type}:${transform})', async () => {
       const node = { data: { type: 'SOURCE', beam_transform: 'PubSubIO', properties: {} } };
-      expect(getPropertyFormComponent(node)).toBe(PubSubProperties);
+      expect(await resolvePropertyForm(node)).toBe(PubSubProperties);
     });
 
     it('branch 2: prevents cross-direction fallback when opposite type is registered', () => {
@@ -234,9 +254,9 @@ describe('PropertyForm', () => {
       expect(getPropertyFormComponent(node)).toBeUndefined();
     });
 
-    it('branch 3: resolves via direct transform key when no qualified key exists', () => {
+    it('branch 3: resolves via direct transform key when no qualified key exists', async () => {
       const node = { data: { type: 'STEP', beam_transform: 'ParDo', properties: {} } };
-      expect(getPropertyFormComponent(node)).toBe(ParDoProperties);
+      expect(await resolvePropertyForm(node)).toBe(ParDoProperties);
     });
   });
 
@@ -317,9 +337,9 @@ describe('PropertyForm', () => {
 
   it.each(ROUTING_CASES)(
     'resolves $type:$beam_transform to $name',
-    ({ type, beam_transform, ExpectedComponent }) => {
+    async ({ type, beam_transform, ExpectedComponent }) => {
       expect(
-        getPropertyFormComponent({
+        await resolvePropertyForm({
           data: { type, beam_transform, properties: {} },
         })
       ).toBe(ExpectedComponent);
@@ -349,7 +369,7 @@ describe('PropertyForm', () => {
 });
 
 describe('Real Sample Pipelines Acceptance Tests', () => {
-  it('loads real resources/samples/pubsub-to-bigquery.beam and asserts every node resolves to a real property form without unregistered warnings', () => {
+  it('loads real resources/samples/pubsub-to-bigquery.beam and asserts every node resolves to a real property form without unregistered warnings', async () => {
     const filePath = path.resolve(__dirname, '../../../resources/samples/pubsub-to-bigquery.beam');
     expect(fs.existsSync(filePath)).toBe(true);
 
@@ -367,12 +387,12 @@ describe('Real Sample Pipelines Acceptance Tests', () => {
       // Must NOT render the unregistered fallback
       expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
 
-      // Must render form inputs/controls (real property form)
-      expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+      // Must render form inputs/controls (real property form) once its chunk has loaded
+      await waitFor(() => expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0));
     }
   });
 
-  it('loads real resources/samples/generate-mock-data.beam and asserts every node resolves to a real property form without unregistered warnings', () => {
+  it('loads real resources/samples/generate-mock-data.beam and asserts every node resolves to a real property form without unregistered warnings', async () => {
     const filePath = path.resolve(__dirname, '../../../resources/samples/generate-mock-data.beam');
     expect(fs.existsSync(filePath)).toBe(true);
 
@@ -390,8 +410,8 @@ describe('Real Sample Pipelines Acceptance Tests', () => {
       // Must NOT render the unregistered fallback
       expect(screen.queryByText(/No property form registered for type/i)).not.toBeInTheDocument();
 
-      // Must render form inputs/controls (real property form)
-      expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0);
+      // Must render form inputs/controls (real property form) once its chunk has loaded
+      await waitFor(() => expect(container.querySelectorAll('input, select, textarea').length).toBeGreaterThan(0));
     }
   });
 });
@@ -421,7 +441,7 @@ describe('PropertyForm dispatch for messaging & streaming connectors', () => {
 // =========================================================================
 
 describe('Node Documentation & Docs Link Across Property Panels', () => {
-  it('renders a short description and a single "Docs ↗" link that dispatches openExternal for Source, Step, and Sink panels', () => {
+  it('renders a short description and a single "Docs ↗" link that dispatches openExternal for Source, Step, and Sink panels', async () => {
     const postMessage = vi.fn();
     (window as unknown as { vscode?: { postMessage: typeof postMessage } }).vscode = { postMessage };
 
@@ -441,6 +461,7 @@ describe('Node Documentation & Docs Link Across Property Panels', () => {
         expect(doc).toBeDefined();
 
         const { unmount } = render(<PropertyForm node={{ data }} onChange={vi.fn()} />);
+        await waitForPanelToLoad();
 
         expect(screen.getByText(doc!.description)).toBeInTheDocument();
         const docsButtons = screen.getAllByText('Docs ↗');

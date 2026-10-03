@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { PROPERTY_FORM_REGISTRY } from './propertyFormRegistry';
+import { PROPERTY_FORM_REGISTRY, loadPropertyForm } from './propertyFormRegistry';
 
 /**
  * Derives the node type from a registry key prefix.
@@ -58,12 +58,15 @@ function placementProblem(container: HTMLElement): string | null | 'absent' {
 }
 
 describe('Code Generation Instructions placement', () => {
-  it('is pushed to the bottom of every dedicated property panel', () => {
+  it('is pushed to the bottom of every dedicated property panel', async () => {
     const seen = new Set<unknown>();
     const problems: string[] = [];
     let checked = 0;
 
-    for (const [key, Component] of Object.entries(PROPERTY_FORM_REGISTRY)) {
+    for (const [key, entry] of Object.entries(PROPERTY_FORM_REGISTRY)) {
+      // Registry entries are lazy wrappers; resolve the concrete panel so it can be
+      // rendered synchronously and inspected without a Suspense boundary.
+      const Component = await loadPropertyForm(entry);
       if (seen.has(Component)) continue;
       seen.add(Component);
       const type = nodeTypeForKey(key);

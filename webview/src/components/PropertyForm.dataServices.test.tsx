@@ -14,7 +14,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { NodesCard } from './NodesCard';
-import { getPropertyFormComponent } from './PropertyForm';
+import { getPropertyFormComponent, loadPropertyForm } from './PropertyForm';
 import { CloudBigtableSourceProperties } from '../properties/source/CloudBigtable';
 import { CogniteDataFusionSourceProperties } from '../properties/source/CogniteDataFusion';
 import { KineticaDBSourceProperties } from '../properties/source/KineticaDB';
@@ -112,12 +112,13 @@ describe('Data Services connectors (IO68–IO79) registration', () => {
 
   it.each(DATA_SERVICES_ROUTING_CASES)(
     'resolves $type:$transform to $name',
-    ({ type, transform, ExpectedComponent }) => {
-      expect(
-        getPropertyFormComponent({
-          data: { type, beam_transform: transform, properties: {} },
-        })
-      ).toBe(ExpectedComponent);
+    async ({ type, transform, ExpectedComponent }) => {
+      // Registry entries are code-split lazy wrappers; resolve to the concrete component.
+      const entry = getPropertyFormComponent({
+        data: { type, beam_transform: transform, properties: {} },
+      });
+      expect(entry).toBeDefined();
+      expect(await loadPropertyForm(entry!)).toBe(ExpectedComponent);
     }
   );
 });

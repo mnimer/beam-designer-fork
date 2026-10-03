@@ -6,9 +6,13 @@
  * Handles React Flow node and edge state management, drag-and-drop ingestion,
  * connection validation, topological auto-layout, edge redirection (M16),
  * property application, and node deletion.
+ *
+ * Side inputs (F1): edges targeting the `side_input` handle on ParDo nodes are rendered with a
+ * dashed violet stroke and a "side" label, and `properties.sideInputs` on every ParDo node is
+ * auto-synchronised with those edges so the property panel and canvas never drift apart.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useNodesState,
   useEdgesState,
@@ -22,6 +26,11 @@ import { computeLayoutedNodes } from '../graph/layout';
 import { createNodeId, createNodesForPaletteItem } from '../graph/nodeFactory';
 import { isPubSubSourceNode, isPubSubNode, isDicomIoNode } from '../graph/nodeKinds';
 import { pipelineConfigReducer } from '../state/pipelineConfigReducer';
+import {
+  isParDoNodeData,
+  isSideInputEdge,
+  syncSideInputBindings,
+} from '../../../src/shared/sideInputs';
 
 /**
  * Data payload stored within React Flow nodes for Apache Beam transforms.
@@ -100,13 +109,57 @@ export function usePipelineGraph({
     [onEdgesChange, setPipelineConfig]
   );
 
-  // Disallow direct connection from SOURCE to SINK without intervening transform steps
+  /**
+   * Keeps `properties.sideInputs` on every ParDo node in lockstep with the edges connected to
+   * its `side_input` handle (connect → binding added with defaults, disconnect → binding removed,
+   * upstream rename → `sourceLabel` refreshed). The updater returns the SAME array reference when
+   * nothing changed, so React bails out of the state update and no render loop is possible.
+   */
+  useEffect(() => {
+    setNodes((nds) => {
+      const labelFor = (id: string) => nds.find((n) => n.id === id)?.data?.label;
+      let changed = false;
+      const next = nds.map((node) => {
+        if (!isParDoNodeData(node.data)) {
+          return node;
+        }
+        const connected = edges
+          .filter((e) => e.target === node.id && isSideInputEdge(e))
+          .map((e) => e.source);
+        const existing = node.data.properties?.sideInputs;
+        const hasExisting = Array.isArray(existing) && existing.length > 0;
+        if (connected.length === 0 && !hasExisting) {
+          return node; // Nothing to sync; avoid writing empty arrays into legacy pipelines
+        }
+        const { bindings, changed: bindingsChanged } = syncSideInputBindings(existing, connected, labelFor);
+        if (!bindingsChanged) {
+          return node;
+        }
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            properties: { ...(node.data.properties || {}), sideInputs: bindings },
+          },
+        };
+      });
+      return changed ? next : nds;
+    });
+  }, [edges, nodes, setNodes]);
+
+  // Disallow direct connection from SOURCE to SINK without intervening transform steps,
+  // and only accept `side_input` connections on ParDo targets.
   const isValidConnection = useCallback(
     (connection: Connection) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const targetNode = nodes.find((n) => n.id === connection.target);
 
       if (sourceNode?.data?.type === 'SOURCE' && targetNode?.data?.type === 'SINK') {
+        return false;
+      }
+
+      if (isSideInputEdge(connection as any) && !isParDoNodeData(targetNode?.data)) {
         return false;
       }
 
@@ -423,18 +476,27 @@ export function usePipelineGraph({
     const orphanSet = new Set(dagValidation.orphanNodeIds);
     const missingUpstreamSet = new Set(dagValidation.missingUpstreamNodeIds || []);
     const invalidUpstreamSet = new Set(dagValidation.invalidUpstreamNodeIds || []);
+    const sideInputMismatchSet = new Set(dagValidation.sideInputMismatchNodeIds || []);
 
     return nodes.map((node) => {
       const isMissingUpstream = missingUpstreamSet.has(node.id);
       const isInvalidUpstream = invalidUpstreamSet.has(node.id);
+      const isSideInputMismatch = sideInputMismatchSet.has(node.id);
       const hasCycle = cycleSet.has(node.id);
-      const hasValidationError = isMissingUpstream || isInvalidUpstream;
+      const hasValidationError = isMissingUpstream || isInvalidUpstream || isSideInputMismatch;
       const isOrphan = orphanSet.has(node.id);
+      const isParDo = isParDoNodeData(node.data);
       const isDicom = isDicomIoNode(node);
       const transformName = isDicom ? 'DicomIO' : 'FhirIO';
       const requiredMode = isDicom ? 'readStudyMetadata' : 'readResources';
       const readMode = node.data?.properties?.readMode || requiredMode;
-      const validationError = isMissingUpstream
+      // ParDo side input errors carry their own validator message (keyed by "(nodeId)")
+      const parDoError = isParDo && (isMissingUpstream || isSideInputMismatch)
+        ? dagValidation.errors.find((e) => e.startsWith('ParDo node') && e.includes(`(${node.id})`))
+        : undefined;
+      const validationError = parDoError
+        ? parDoError
+        : isMissingUpstream
         ? `${transformName}.${requiredMode}() requires an upstream PubSubIO node connected in front of it.`
         : isInvalidUpstream
         ? `${transformName}.${readMode}() does not accept an upstream connection. Remove the connected upstream node or switch back to ${transformName}.${requiredMode}().`
@@ -496,6 +558,22 @@ export function usePipelineGraph({
             stroke: '#ef4444',
             strokeDasharray: '5,5',
             strokeWidth: 2,
+          },
+        };
+      }
+      if (isSideInputEdge(edge)) {
+        return {
+          ...edge,
+          label: edge.label ?? 'side',
+          labelStyle: { fill: '#fde047', fontSize: 10, fontWeight: 600, ...(edge.labelStyle || {}) },
+          labelBgStyle: { fill: '#1E202A', fillOpacity: 0.9, ...(edge.labelBgStyle || {}) },
+          labelBgPadding: edge.labelBgPadding ?? [4, 2],
+          labelBgBorderRadius: edge.labelBgBorderRadius ?? 4,
+          style: {
+            ...edge.style,
+            stroke: '#facc15',
+            strokeDasharray: '5 4',
+            strokeWidth: 1.5,
           },
         };
       }

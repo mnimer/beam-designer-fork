@@ -13,6 +13,8 @@
  * - Double-clicking the label or clicking the pencil button toggles an inline input field with 'nodrag' class.
  * - Commits label changes via data.onLabelChange callback or fallback to useReactFlow setNodes.
  * - Steps have dual output handles (Valid in green, Error in red).
+ * - ParDo steps additionally expose a top `side_input` target handle (violet) for PCollectionView
+ *   side inputs; the primary left handle keeps no id so existing saved edges remain main inputs.
  * - Sinks have a single target input handle and no output handles (terminal destination).
  * - Includes Lucide icons for all sources, steps, sinks including ListOrdered and Zap.
  * - Adheres strictly to the 8pt grid system.
@@ -23,6 +25,7 @@ import { Handle, Position, useReactFlow } from 'reactflow';
 import { Box, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
 import { getNodeIcon } from './common/nodeIcons';
 import { isFhirIoNode, isDicomIoNode } from '../graph/nodeKinds';
+import { SIDE_INPUT_HANDLE_ID, isParDoNodeData } from '../../../src/shared/sideInputs';
 
 /**
  * React Flow custom node properties representing an Apache Beam pipeline transform.
@@ -52,6 +55,7 @@ export interface PipelineNodeProps {
 export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }) => {
   const isSource = data.type === 'SOURCE';
   const isSink = data.type === 'SINK';
+  const isParDo = data.type === 'STEP' && isParDoNodeData(data);
   const isFhirSource = isSource && isFhirIoNode(data);
   const isDicomSource = isSource && isDicomIoNode(data);
   const isFhirReadResources =
@@ -197,8 +201,36 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
         <Handle 
           type="target" 
           position={Position.Left} 
-          className={`w-2 h-2 border-none ${isSink || data.hasValidationError ? 'bg-red-500' : isSource ? 'bg-emerald-500' : 'bg-blue-500'}`} 
+          style={{
+            width: 14,
+            height: 14,
+            left: -7,
+            backgroundColor: isSink || data.hasValidationError ? '#ef4444' : isSource ? '#10b981' : '#3b82f6',
+          }}
+          className={`w-3.5 h-3.5 border-none ${isSink || data.hasValidationError ? 'bg-red-500' : isSource ? 'bg-emerald-500' : 'bg-blue-500'}`} 
         />
+      )}
+
+      {/* Auxiliary side input handle (PCollectionView) — ParDo only. The main handle above intentionally has no id. */}
+      {isParDo && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            id={SIDE_INPUT_HANDLE_ID}
+            style={{ width: 14, height: 14, top: -7, backgroundColor: '#facc15' }}
+            className="w-3.5 h-3.5 border-none ring-2 ring-yellow-500/40"
+            title="Side Input (PCollectionView)"
+            data-testid="side-input-handle"
+          />
+          <span
+            style={{ left: 'calc(50% + 12px)' }}
+            className="pointer-events-none select-none absolute -top-2.5 px-1.5 py-0.5 rounded bg-[var(--vscode-node-bg,#1E202A)] border border-yellow-500/40 text-[9px] leading-none font-semibold uppercase tracking-wider text-yellow-300 whitespace-nowrap"
+            data-testid="side-input-handle-label"
+          >
+            Side Input
+          </span>
+        </>
       )}
       
       <div className="flex items-center gap-3 w-full">
@@ -284,7 +316,8 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
         <Handle 
           type="source" 
           position={Position.Right} 
-          className="w-2 h-2 bg-emerald-500 border-none" 
+          style={{ width: 14, height: 14, right: -7, backgroundColor: '#10b981' }}
+          className="w-3.5 h-3.5 bg-emerald-500 border-none" 
         />
       )}
 
@@ -295,16 +328,16 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
             type="source" 
             position={Position.Right} 
             id="valid" 
-            style={{ top: '30%', backgroundColor: '#10b981' }} 
-            className="w-2 h-2 border-none" 
+            style={{ top: '30%', right: -7, width: 14, height: 14, backgroundColor: '#10b981' }} 
+            className="w-3.5 h-3.5 border-none" 
             title="Valid Path"
           />
           <Handle 
             type="source" 
             position={Position.Right} 
             id="error" 
-            style={{ top: '70%', backgroundColor: '#ef4444' }} 
-            className="w-2 h-2 border-none" 
+            style={{ top: '70%', right: -7, width: 14, height: 14, backgroundColor: '#ef4444' }} 
+            className="w-3.5 h-3.5 border-none" 
             title="Error Path"
           />
         </>

@@ -19,18 +19,23 @@
  *   HBaseIO, KuduIO, MongoDbIO, RedisIO, BigTableIO, ClickHouseIO, DatabaseIO, DatastoreIO, DynamoDBIO,
  *   ElasticsearchIO, FirestoreIO, HadoopFormatIO, InfluxDbIO, MongoDbGridFSIO, Neo4jIO, SingleStoreDBIO,
  *   SnowflakeIO, SolrIO, SpannerIO, CdapIO, CosmosIO, DebeziumIO, HCatalogIO, ArrowFlightIO, SparkReceiverIO.
+ * - Registry entries are code-split `React.lazy` components (see catalog/propertyFormRegistry.ts), so the
+ *   resolved component is rendered inside a `<Suspense>` boundary with a lightweight placeholder while its
+ *   chunk loads. Chunk load failures propagate to the enclosing ErrorBoundary in PropertyPane.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any, react-refresh/only-export-components */
-import React from 'react';
+import React, { Suspense } from 'react';
 import { NodeDocsCard } from './common/NodeDocsCard';
 import { hasInlineNodeDocsCard } from '../utils/nodeDocumentation';
 import {
   PROPERTY_FORM_REGISTRY,
+  loadPropertyForm,
+  type PropertyFormComponent,
   type PropertyFormProps,
 } from '../catalog/propertyFormRegistry';
 
-export { PROPERTY_FORM_REGISTRY };
-export type { PropertyFormProps };
+export { PROPERTY_FORM_REGISTRY, loadPropertyForm };
+export type { PropertyFormComponent, PropertyFormProps };
 
 /**
  * Resolves a property form component from the registry using the node's immutable metadata.
@@ -42,10 +47,13 @@ export type { PropertyFormProps };
  * NOTE: Does NOT fall back to label matching under any circumstances, nor does it allow
  * a SOURCE node to fall back to a SINK-only transform (or vice versa).
  * 
+ * The returned value is the registry entry itself (a lazy wrapper); use `loadPropertyForm`
+ * to obtain the concrete component when needed.
+ * 
  * @param node - React Flow node object
  * @returns Registered React component or undefined if unregistered
  */
-export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps> | undefined {
+export function getPropertyFormComponent(node: any): PropertyFormComponent | undefined {
   const transform = node?.data?.beam_transform || node?.data?.componentType || '';
   const nodeType = (node?.data?.type || '').toUpperCase();
 
@@ -75,6 +83,21 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
 }
 
 /**
+ * Placeholder shown while a property panel's code chunk is being fetched.
+ * Kept visually minimal: on local disk the load typically completes within a frame.
+ */
+const PropertyFormLoading: React.FC = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    data-testid="property-form-loading"
+    className="p-4 text-sm text-[var(--vscode-descriptionForeground,#94a3b8)]"
+  >
+    Loading properties…
+  </div>
+);
+
+/**
  * Container component that dispatches specific node property sheets based on immutable node metadata.
  * Renders an explicit unregistered message when no matching registry entry is found.
  */
@@ -99,13 +122,15 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
   return (
     <div className="flex-1 flex flex-col gap-4">
       {!hasInlineNodeDocsCard(node) && <NodeDocsCard node={node} />}
-      {/* eslint-disable-next-line react-hooks/static-components */}
-      <Component
-        node={node}
-        onChange={onChange}
-        onAddKVMapper={onAddKVMapper}
-        onAddPubSubSource={onAddPubSubSource}
-      />
+      <Suspense fallback={<PropertyFormLoading />}>
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Component
+          node={node}
+          onChange={onChange}
+          onAddKVMapper={onAddKVMapper}
+          onAddPubSubSource={onAddPubSubSource}
+        />
+      </Suspense>
     </div>
   );
 };

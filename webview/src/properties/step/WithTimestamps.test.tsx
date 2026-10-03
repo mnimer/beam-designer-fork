@@ -88,7 +88,7 @@ describe('WithTimestampsProperties', () => {
     expect(instructionsArea).toHaveValue("Extract timestamp from message header 'publish_time'.");
   });
 
-  it('renders WithTimestampsProperties via PropertyForm for Add Timestamp node', () => {
+  it('renders WithTimestampsProperties via PropertyForm for Add Timestamp node', async () => {
     const mockNode = {
       data: {
         label: 'Add Timestamp',
@@ -100,7 +100,7 @@ describe('WithTimestampsProperties', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Timestamp Source')).toBeInTheDocument();
+    expect(await screen.findByText('Timestamp Source')).toBeInTheDocument();
   });
 });
 

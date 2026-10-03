@@ -66,6 +66,8 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ✅ Done (`139fa18`) |
 | [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ✅ Done (`f748242`) |
 | [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ✅ Done (`a77c51d`) |
+| [P8](#p8) | 🟡 Perf | Monolithic 1.96 MB webview bundle | All ~150 property panels statically imported into one `index.js`; `chunkSizeWarningLimit` raised to 1000 kB to hide the warning. Code-split panels + vendors. | ✅ Done |
+| [P9](#p9) | 🟡 Perf | Nodes gated on `gcloud` spawn at startup | `handleReady` awaited `gcloud config get-value project` (1–5 s) and a redundant sample-catalogue read before posting `loadPipeline`. Post the document first; deliver the project via `projectIdResolved`; cache the lookup. | ✅ Done |
 | [E1](#e1) | 🟣 Feature | Multi-Agent E2E Evaluation & Prompt Feedback | Multi-agent evaluation harness (Beam, Security, Packaging, Arbiter) with deterministic syntax gate and prompt remediation generation for Python/Java. | ✅ Done (`525c262`) |
 | [I1](#i1) | 🧪 Integration | `jdbcio-to-jdbcio` | Relational database ETL: PostgreSQL source ➔ ParDo ➔ MySQL sink. | ✅ Done (`7474752`) |
 | [I2](#i2) | 🧪 Integration | `kafkaio-to-kafkaio` | Streaming message broker: KafkaIO source ➔ ParDo (try/catch DLQ) ➔ KafkaIO EOS sink + LogMessage sink. | ✅ Done (`7474752`) |
@@ -166,7 +168,7 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ⬜ Not Started |
+| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ✅ Done |
 | [P8](#p8) | 🟡 Perf | Webview Vite bundle >1000 kB chunk warning | Eliminate `[plugin builtin:vite-reporter] Some chunks are larger than 1000 kB after minification` via Vite 8 `rolldownOptions.output.codeSplitting` / lazy property panel chunks while preserving VS Code webview CSP & asset resolution. | ⬜ Not Started |
 | [F2](#f2) | ✨ Feature | Plugin Settings Page & Multi-Model Selection | Add a Settings page supporting ADC (Vertex AI Model Garden cascading Publisher + Model Version dropdowns with per-model on/off switches) and API Keys (Gemini, Claude, Grok, OpenAI with key inputs + on/off switches), defaulting to Gemini Flash + ADC, plus a conditional model selector dropdown on the Generate Code tab when >1 model is enabled. | ⬜ Not Started |
 
@@ -643,7 +645,46 @@ Consolidated; details in the linked items above.
   against the last serialised value before posting.
 - <a id="p7"></a>**P7** — Unmemoised `.filter()` in render
   ([BottomPanel.tsx:74-76](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/BottomPanel.tsx#L74-L76)); wrap in `useMemo`. *(Minor.)*
-- **P8** — Monolithic >1000 kB minified webview bundle from synchronously importing all 165+ connector property sheets and documentation tables into `assets/index.js` → see **[P8](#p8)** in Section 8.
+- <a id="p8"></a>**P8** — Monolithic webview bundle / `>1000 kB` chunk-size warning.
+  `webview/dist/assets/index.js` was a single **1,963 kB** (401 kB gzip) chunk and
+  `vite.config.ts` had `chunkSizeWarningLimit: 1000` solely to hide the warning. Root cause:
+  `catalog/propertyFormRegistry.ts` statically imported all ~150 dedicated property panels
+  (`webview/src/properties/**`, ~4.5 MB of source), so every panel shipped in the entry even
+  though a session opens only a handful. Remediation:
+  - Registry values are now `React.lazy` wrappers over per-module dynamic `import()`s
+    (`lazyForm`), rendered inside a `<Suspense>` boundary in `PropertyForm`; the key→panel map
+    is unchanged. `loadPropertyForm()` resolves the concrete component for preloading/tests.
+  - Vendor code is split via rolldown `codeSplitting.groups` (`vendor-react`, `vendor-reactflow`,
+    `vendor`), chunks are content-hashed under `assets/chunks/`, and the warning limit is back
+    at Vite's 500 kB default.
+  - **Host contract:** `BeamEditorProvider`/`webviewHtml.ts` rewrite only `./assets/index.js`
+    and `./assets/index.css`, so those names stay stable, `modulePreload` is disabled (no
+    unrewritten `<link rel=modulepreload>` in `index.html`; no nonce-less runtime `<link>`s
+    under the CSP), vendor CSS is kept with the entry so it lands in `index.css`, and a
+    `hostContractGuard` Vite plugin fails the build if `index.html` references anything else.
+    Dynamic `import()`s resolve relative to `index.js` and inherit its CSP nonce, so no
+    extension-host changes were required.
+  - Result: entry `index.js` **244 kB** (55 kB gzip); largest chunk `vendor-react` 190 kB;
+    ~170 panel chunks of 1–26 kB loaded on demand. No chunk-size warning.
+- <a id="p9"></a>**P9** — Nodes gated on a `gcloud` spawn at startup.
+  `handleReady` (`src/ipc/handlers/workspaceHandlers.ts`) `await`ed
+  `gcloud config get-value project` (1–5 s; boots the Python CLI, 5 s timeout) **and** a full
+  sample-catalogue read (`getSamplePipelines`, N synchronous file reads + YAML parses) *before*
+  posting `loadPipeline`, so the canvas stayed empty for the whole duration even though the
+  document text was already in memory. The samples read was also redundant: the webview sends a
+  separate `getSamples` request on mount, so every open parsed the catalogue twice. Remediation:
+  - `loadPipeline` is posted synchronously, first, with no `projectId`.
+  - The project arrives afterwards as a new `projectIdResolved` host→webview message
+    (`src/shared/protocol.ts`). The webview applies it only while its project is still the
+    `YOUR_PROJECT_ID` placeholder/empty (`isPlaceholderProjectId` in `useVsCodeBridge.ts`), so a
+    late answer never clobbers a value the user typed or the `.beam` supplied.
+    `LoadPipelineMessage.projectId` is kept (`@deprecated`) and still honoured.
+  - `getGcloudProjectCached()` (`src/cli/gcloudClient.ts`) memoises the lookup for 60 s and dedupes
+    concurrent calls (negative results included), so opening several editors or re-opening one
+    does not re-spawn gcloud each time.
+  - `handleReady` no longer posts `samplesLoaded`; `handleGetSamples` remains the single source.
+  - Tests: `src/test/unit/ready-handshake.test.ts` (ordering, no `samplesLoaded`, cache TTL /
+    dedupe / reset) and `useVsCodeBridge.test.ts` (`projectIdResolved` placeholder semantics).
 
 ---
 
@@ -710,7 +751,7 @@ Ordered by risk-reduction per unit of effort.
 - **34.** Multi-PCollection Operations & Sampling: `multi-source-flatten-bigquery` (I16), `cogroupbykey-relational-join` (I17), and `distinct-statistical-sampling` (I18).
 
 **Phase 8 — Core Transform Enhancements & Build Optimization**
-- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)**
+- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)** **(✅ Done)**
 - **36.** Webview Vite Bundle Code-Splitting: split vendor (`react`, `reactflow`, `lucide-react`, `yaml`) and connector property sheets / docs data into smaller chunks via Vite 8 `rolldownOptions.output.codeSplitting` and/or `React.lazy`, and update `buildWebviewHtml` CSP & asset resolution so all chunks load cleanly inside the VS Code webview with zero >1000 kB chunk warnings. **(P8)**
 - **37.** Plugin Settings Page & Multi-Model Provider Support: build a Settings page for selecting Application Default Credentials (ADC) or API Keys (Gemini, Claude, Grok, OpenAI stored in VS Code `SecretStorage` with on/off switches), a two-dropdown Vertex AI Model Garden selector (Publisher $\rightarrow$ Model Version) to add models to an ADC list with on/off switches, zero-config default to Gemini Flash (`DEFAULT_GEMINI_MODEL`) with ADC, and a conditional model picker dropdown in `GeneratorSettings.tsx` / `SourceCodeTab.tsx` when more than one model is enabled. **(F2)**
 

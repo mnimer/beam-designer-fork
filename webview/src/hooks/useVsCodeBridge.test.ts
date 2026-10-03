@@ -6,6 +6,7 @@
  * Tests:
  * - IPC handshake (ready, getSubnetworks, getSamples)
  * - Handling loadPipeline message and updating pipeline state
+ * - Handling the deferred projectIdResolved message (P9) without clobbering user input
  * - Handling codeRegenerated message and clearing selected file state
  * - Stale closure avoidance via render-time ref assignments
  * - findMainPipelineFile resolution logic
@@ -13,7 +14,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useVsCodeBridge, findMainPipelineFile, type PipelineConfig } from './useVsCodeBridge';
+import {
+  useVsCodeBridge,
+  findMainPipelineFile,
+  isPlaceholderProjectId,
+  PLACEHOLDER_PROJECT_ID,
+  type PipelineConfig,
+} from './useVsCodeBridge';
 
 describe('findMainPipelineFile', () => {
   it('returns null for empty array', () => {
@@ -33,6 +40,95 @@ describe('findMainPipelineFile', () => {
   it('falls back to generic pipeline file when exact name match is missing', () => {
     const files = ['pipeline.py', 'helper.py'];
     expect(findMainPipelineFile(files, 'Python', 'unknown.beam')).toBe('pipeline.py');
+  });
+});
+
+describe('isPlaceholderProjectId', () => {
+  it('treats the placeholder, empty, whitespace and undefined as unset', () => {
+    expect(isPlaceholderProjectId(PLACEHOLDER_PROJECT_ID)).toBe(true);
+    expect(isPlaceholderProjectId('')).toBe(true);
+    expect(isPlaceholderProjectId('   ')).toBe(true);
+    expect(isPlaceholderProjectId(undefined)).toBe(true);
+  });
+
+  it('treats any other value as a real project', () => {
+    expect(isPlaceholderProjectId('my-project')).toBe(false);
+  });
+});
+
+describe('useVsCodeBridge - projectIdResolved (P9 deferred gcloud lookup)', () => {
+  beforeEach(() => {
+    (window as any).vscode = { postMessage: vi.fn() };
+  });
+
+  afterEach(() => {
+    delete (window as any).vscode;
+  });
+
+  /** Renders the hook with the given current projectId and returns the setter spy. */
+  const renderWithProject = (projectId: string) => {
+    const setProjectId = vi.fn();
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes: vi.fn(),
+        setEdges: vi.fn(),
+        setRuntimeVariables: vi.fn(),
+        setJobConfig: vi.fn(),
+        pipelineConfig: { language: 'Python', outputFolder: '', needsRebuild: false },
+        setPipelineConfig: vi.fn(),
+        filename: 'test',
+        setFilename: vi.fn(),
+        projectId,
+        setProjectId,
+      })
+    );
+    return setProjectId;
+  };
+
+  const dispatchResolved = (projectId: string | undefined) => {
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', { data: { command: 'projectIdResolved', projectId } })
+      );
+    });
+  };
+
+  it('fills in the project when the webview still shows the placeholder', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).toHaveBeenCalledWith('gcloud-default');
+  });
+
+  it('fills in the project when the current value is empty', () => {
+    const setProjectId = renderWithProject('');
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).toHaveBeenCalledWith('gcloud-default');
+  });
+
+  it('does not clobber a project the user (or the pipeline) already set', () => {
+    // The lookup can take seconds; by then the user may have typed a value or the
+    // loaded .beam may have supplied one. The late gcloud answer must lose.
+    const setProjectId = renderWithProject('user-typed-project');
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).not.toHaveBeenCalled();
+  });
+
+  it('ignores an empty resolution (gcloud unavailable)', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    dispatchResolved(undefined);
+    expect(setProjectId).not.toHaveBeenCalled();
+  });
+
+  it('still honours the legacy projectId field on loadPipeline', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { command: 'loadPipeline', filename: 'a.beam', data: null, projectId: 'legacy-proj' },
+        })
+      );
+    });
+    expect(setProjectId).toHaveBeenCalledWith('legacy-proj');
   });
 });
 

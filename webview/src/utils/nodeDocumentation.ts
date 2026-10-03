@@ -49,6 +49,8 @@ export const SELF_DOCUMENTED_TRANSFORMS = new Set<string>([
   'Pyodbc',
   'Tinybird',
   'TrepWsIO',
+  // ParDo (renders its own header + Side Inputs section inline — F1)
+  'ParDo',
   // Aggregations (rendered inline by AggregationProperties)
   'ApproximateQuantiles',
   'Approximate Quantiles',

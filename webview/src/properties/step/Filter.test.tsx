@@ -196,7 +196,7 @@ describe('FilterProperties', () => {
     expect(screen.queryByText('Target Value')).not.toBeInTheDocument();
   });
 
-  it('renders FilterProperties via PropertyForm for Filter node', () => {
+  it('renders FilterProperties via PropertyForm for Filter node', async () => {
     const mockNode = {
       data: {
         label: 'Filter',
@@ -208,7 +208,7 @@ describe('FilterProperties', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Compare Target')).toBeInTheDocument();
+    expect(await screen.findByText('Compare Target')).toBeInTheDocument();
   });
 });
 

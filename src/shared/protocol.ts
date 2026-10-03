@@ -104,12 +104,28 @@ export interface LoadPipelineMessage {
     data: string | null;
     /** File name of the pipeline (for example `orders.beam`). */
     filename?: string;
-    /** Default GCP project from gcloud, when known. */
+    /**
+     * Default GCP project from gcloud, when known.
+     *
+     * @deprecated No longer populated by the `ready` handshake: resolving it spawns the
+     * gcloud CLI, which must not delay the first render (P9). The project is delivered
+     * separately via {@link ProjectIdResolvedMessage}. Still honoured by the webview if set.
+     */
     projectId?: string;
     /** Folder of the `.beam` file relative to the workspace root, or ''. */
     relativeFolder: string;
     /** Default generated-code folder for this pipeline. */
     defaultOutputFolder: string;
+}
+
+/**
+ * Default GCP project resolved from the gcloud CLI. Posted after `loadPipeline` once the
+ * (slow) lookup completes, so the canvas never waits on it (P9).
+ */
+export interface ProjectIdResolvedMessage {
+    command: 'projectIdResolved';
+    /** Project ID from `gcloud config get-value project`; undefined when gcloud is unavailable or unset. */
+    projectId?: string;
 }
 
 /** Bundled sample pipelines for the palette's Samples tab. */
@@ -222,6 +238,7 @@ export interface FileContentErrorMessage {
 export type HostToWebviewMessage =
     | AssetListResponse
     | LoadPipelineMessage
+    | ProjectIdResolvedMessage
     | SamplesLoadedMessage
     | CodeRegeneratedMessage
     | CodeGenerationStoppedMessage

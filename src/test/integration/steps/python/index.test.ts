@@ -20,6 +20,7 @@ export async function runAllStepsPythonTests(): Promise<void> {
     await (await import('./relational-cogroupbykey-join.test')).runRelationalCogroupbykeyJoinTest();
     await (await import('./combine-and-context.test')).runCombineAndContextTest();
     await (await import('./multi-branch-flatten.test')).runMultiBranchFlattenTest();
+    await (await import('./pardo-side-inputs.test')).runParDoSideInputsTest();
 }
 
 describe('Steps Suite (python)', () => {
