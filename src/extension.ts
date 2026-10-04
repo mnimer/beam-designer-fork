@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as https from 'https';
 import * as path from 'path';
 import { getGcloudProject } from './cli/gcloudClient';
 import { DataFlowTreeProvider } from './tree/dataflowTree';
@@ -58,6 +59,11 @@ export {
  * @param context The extension context used to register providers and subscriptions.
  */
 export function activate(context: vscode.ExtensionContext) {
+    // Ensure the Node HTTPS agent uses the system CA bundle if present
+    if (!process.env.NODE_EXTRA_CA_CERTS && fs.existsSync('/etc/ssl/cert.pem')) {
+        https.globalAgent.options.ca = fs.readFileSync('/etc/ssl/cert.pem');
+    }
+
     console.log('Apache Beam Pipeline Builder is now active!');
     const outputChannel = getDesignerOutputChannel();
     context.subscriptions.push(outputChannel);

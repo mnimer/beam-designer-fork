@@ -115,3 +115,47 @@ export function getGcloudProject(): Promise<string | undefined> {
         });
     });
 }
+
+/** How long a resolved default project is reused before gcloud is consulted again. */
+export const GCLOUD_PROJECT_CACHE_TTL_MS = 60_000;
+
+let cachedProject: { value: string | undefined; expiresAt: number } | undefined;
+let inflightProject: Promise<string | undefined> | undefined;
+
+/**
+ * Cached variant of {@link getGcloudProject} (P9).
+ *
+ * `gcloud config get-value project` boots the Python CLI and routinely takes 1–3 s (up to the
+ * 5 s timeout), so every editor open used to pay that cost. Results -- including a negative
+ * result when gcloud is unavailable -- are reused for {@link GCLOUD_PROJECT_CACHE_TTL_MS}, and
+ * concurrent callers share one in-flight lookup. The short TTL keeps `gcloud config set project`
+ * changes visible within a minute without a reload.
+ *
+ * @param now Clock override for tests.
+ * @returns The default project ID, or undefined when unknown.
+ */
+export function getGcloudProjectCached(now: () => number = Date.now): Promise<string | undefined> {
+    if (cachedProject && cachedProject.expiresAt > now()) {
+        return Promise.resolve(cachedProject.value);
+    }
+    if (!inflightProject) {
+        inflightProject = getGcloudProject()
+            .then((value) => {
+                cachedProject = { value, expiresAt: now() + GCLOUD_PROJECT_CACHE_TTL_MS };
+                return value;
+            })
+            .finally(() => {
+                inflightProject = undefined;
+            });
+    }
+    return inflightProject;
+}
+
+/**
+ * Clears the cached default project. Intended for tests and for callers that know the
+ * gcloud configuration has just changed.
+ */
+export function resetGcloudProjectCache(): void {
+    cachedProject = undefined;
+    inflightProject = undefined;
+}

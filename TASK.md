@@ -66,6 +66,8 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [P5](#p5) | 🟡 Perf | Eager activation + broad scan | Cross-reference — fixed by **M17**. | ✅ Done (`139fa18`) |
 | [P6](#p6) | 🟡 Perf | 1 s full-document YAML autosave | Whole graph re-serialised and rewritten to disk every second while editing. | ✅ Done (`f748242`) |
 | [P7](#p7) | 🟡 Perf | Unmemoised `.filter()` in render | `BottomPanel` re-filters on every render; wrap in `useMemo`. *(Minor.)* | ✅ Done (`a77c51d`) |
+| [P8](#p8) | 🟡 Perf | Monolithic 1.96 MB webview bundle | All ~150 property panels statically imported into one `index.js`; `chunkSizeWarningLimit` raised to 1000 kB to hide the warning. Code-split panels + vendors. | ✅ Done |
+| [P9](#p9) | 🟡 Perf | Nodes gated on `gcloud` spawn at startup | `handleReady` awaited `gcloud config get-value project` (1–5 s) and a redundant sample-catalogue read before posting `loadPipeline`. Post the document first; deliver the project via `projectIdResolved`; cache the lookup. | ✅ Done |
 | [E1](#e1) | 🟣 Feature | Multi-Agent E2E Evaluation & Prompt Feedback | Multi-agent evaluation harness (Beam, Security, Packaging, Arbiter) with deterministic syntax gate and prompt remediation generation for Python/Java. | ✅ Done (`525c262`) |
 | [I1](#i1) | 🧪 Integration | `jdbcio-to-jdbcio` | Relational database ETL: PostgreSQL source ➔ ParDo ➔ MySQL sink. | ✅ Done (`7474752`) |
 | [I2](#i2) | 🧪 Integration | `kafkaio-to-kafkaio` | Streaming message broker: KafkaIO source ➔ ParDo (try/catch DLQ) ➔ KafkaIO EOS sink + LogMessage sink. | ✅ Done (`7474752`) |
@@ -166,7 +168,9 @@ are recorded in [Appendix: Investigated & Cleared](#appendix-investigated--clear
 | [IO77](#io77) | 🔌 Connector | Tinybird | `Tinybird` (Python): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
 | [IO78](#io78) | 🔌 Connector | Go Connect | `Go Connect` (Go): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ⏭️ SKIPPED |
 | [IO79](#io79) | 🔌 Connector | MySQL, PostgreSQL, Oracle, SQL Server | `MySQL, PostgreSQL, Oracle, SQL Server` (Yaml): 1 Source (reader) node + 1 Sink (writer) node + property panels + integration test. || ✅ Done |
-| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ⬜ Not Started |
+| [F1](#f1) | ✨ Feature | `ParDo` Side Inputs Support | Add Side Input (`PCollectionView` / `AsSingleton` / `AsIter` / `AsList` / `AsDict` / `AsMultimap`) support to `ParDo`: dedicated canvas handle, property panel, DAG validator, codegen prompts (static + slowly updating patterns), and E2E integration tests. | ✅ Done |
+| [P8](#p8) | 🟡 Perf | Webview Vite bundle >1000 kB chunk warning | Eliminate `[plugin builtin:vite-reporter] Some chunks are larger than 1000 kB after minification` via Vite 8 `rolldownOptions.output.codeSplitting` / lazy property panel chunks while preserving VS Code webview CSP & asset resolution. | ⬜ Not Started |
+| [F2](#f2) | ✨ Feature | Plugin Settings Page & Multi-Model Selection | Add a Settings page supporting ADC (Vertex AI Model Garden cascading Publisher + Model Version dropdowns with per-model on/off switches) and API Keys (Gemini, Claude, Grok, OpenAI with key inputs + on/off switches), defaulting to Gemini Flash + ADC, plus a conditional model selector dropdown on the Generate Code tab when >1 model is enabled. | ⬜ Not Started |
 
 ---
 
@@ -641,6 +645,46 @@ Consolidated; details in the linked items above.
   against the last serialised value before posting.
 - <a id="p7"></a>**P7** — Unmemoised `.filter()` in render
   ([BottomPanel.tsx:74-76](file:///Users/mikenimer/Development/projects/apache-beam-designer/webview/src/components/BottomPanel/BottomPanel.tsx#L74-L76)); wrap in `useMemo`. *(Minor.)*
+- <a id="p8"></a>**P8** — Monolithic webview bundle / `>1000 kB` chunk-size warning.
+  `webview/dist/assets/index.js` was a single **1,963 kB** (401 kB gzip) chunk and
+  `vite.config.ts` had `chunkSizeWarningLimit: 1000` solely to hide the warning. Root cause:
+  `catalog/propertyFormRegistry.ts` statically imported all ~150 dedicated property panels
+  (`webview/src/properties/**`, ~4.5 MB of source), so every panel shipped in the entry even
+  though a session opens only a handful. Remediation:
+  - Registry values are now `React.lazy` wrappers over per-module dynamic `import()`s
+    (`lazyForm`), rendered inside a `<Suspense>` boundary in `PropertyForm`; the key→panel map
+    is unchanged. `loadPropertyForm()` resolves the concrete component for preloading/tests.
+  - Vendor code is split via rolldown `codeSplitting.groups` (`vendor-react`, `vendor-reactflow`,
+    `vendor`), chunks are content-hashed under `assets/chunks/`, and the warning limit is back
+    at Vite's 500 kB default.
+  - **Host contract:** `BeamEditorProvider`/`webviewHtml.ts` rewrite only `./assets/index.js`
+    and `./assets/index.css`, so those names stay stable, `modulePreload` is disabled (no
+    unrewritten `<link rel=modulepreload>` in `index.html`; no nonce-less runtime `<link>`s
+    under the CSP), vendor CSS is kept with the entry so it lands in `index.css`, and a
+    `hostContractGuard` Vite plugin fails the build if `index.html` references anything else.
+    Dynamic `import()`s resolve relative to `index.js` and inherit its CSP nonce, so no
+    extension-host changes were required.
+  - Result: entry `index.js` **244 kB** (55 kB gzip); largest chunk `vendor-react` 190 kB;
+    ~170 panel chunks of 1–26 kB loaded on demand. No chunk-size warning.
+- <a id="p9"></a>**P9** — Nodes gated on a `gcloud` spawn at startup.
+  `handleReady` (`src/ipc/handlers/workspaceHandlers.ts`) `await`ed
+  `gcloud config get-value project` (1–5 s; boots the Python CLI, 5 s timeout) **and** a full
+  sample-catalogue read (`getSamplePipelines`, N synchronous file reads + YAML parses) *before*
+  posting `loadPipeline`, so the canvas stayed empty for the whole duration even though the
+  document text was already in memory. The samples read was also redundant: the webview sends a
+  separate `getSamples` request on mount, so every open parsed the catalogue twice. Remediation:
+  - `loadPipeline` is posted synchronously, first, with no `projectId`.
+  - The project arrives afterwards as a new `projectIdResolved` host→webview message
+    (`src/shared/protocol.ts`). The webview applies it only while its project is still the
+    `YOUR_PROJECT_ID` placeholder/empty (`isPlaceholderProjectId` in `useVsCodeBridge.ts`), so a
+    late answer never clobbers a value the user typed or the `.beam` supplied.
+    `LoadPipelineMessage.projectId` is kept (`@deprecated`) and still honoured.
+  - `getGcloudProjectCached()` (`src/cli/gcloudClient.ts`) memoises the lookup for 60 s and dedupes
+    concurrent calls (negative results included), so opening several editors or re-opening one
+    does not re-spawn gcloud each time.
+  - `handleReady` no longer posts `samplesLoaded`; `handleGetSamples` remains the single source.
+  - Tests: `src/test/unit/ready-handshake.test.ts` (ordering, no `samplesLoaded`, cache TTL /
+    dedupe / reset) and `useVsCodeBridge.test.ts` (`projectIdResolved` placeholder semantics).
 
 ---
 
@@ -706,8 +750,10 @@ Ordered by risk-reduction per unit of effort.
 - **33.** Advanced Beam Semantics: `periodic-impulse-to-jdbc` (I13), `create-aggregations-kv` (I14), and `pubsub-session-windows` (I15).
 - **34.** Multi-PCollection Operations & Sampling: `multi-source-flatten-bigquery` (I16), `cogroupbykey-relational-join` (I17), and `distinct-statistical-sampling` (I18).
 
-**Phase 8 — Core Transform Enhancements**
-- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)**
+**Phase 8 — Core Transform Enhancements & Build Optimization**
+- **35.** `ParDo` Side Inputs Support: dedicated `side_input` canvas handle & edge styling, documented side input view types (`SINGLETON`, `ITERABLE`, `LIST`, `MAP`, `MULTIMAP`) and refresh patterns (`STATIC`, `SLOWLY_UPDATING_GLOBAL_WINDOW`, `SLOWLY_UPDATING_WINDOWED`) in `ParDo.tsx`, DAG topology validation, Java/Python codegen prompt updates, and E2E integration tests. **(F1)** **(✅ Done)**
+- **36.** Webview Vite Bundle Code-Splitting: split vendor (`react`, `reactflow`, `lucide-react`, `yaml`) and connector property sheets / docs data into smaller chunks via Vite 8 `rolldownOptions.output.codeSplitting` and/or `React.lazy`, and update `buildWebviewHtml` CSP & asset resolution so all chunks load cleanly inside the VS Code webview with zero >1000 kB chunk warnings. **(P8)**
+- **37.** Plugin Settings Page & Multi-Model Provider Support: build a Settings page for selecting Application Default Credentials (ADC) or API Keys (Gemini, Claude, Grok, OpenAI stored in VS Code `SecretStorage` with on/off switches), a two-dropdown Vertex AI Model Garden selector (Publisher $\rightarrow$ Model Version) to add models to an ADC list with on/off switches, zero-config default to Gemini Flash (`DEFAULT_GEMINI_MODEL`) with ADC, and a conditional model picker dropdown in `GeneratorSettings.tsx` / `SourceCodeTab.tsx` when more than one model is enabled. **(F2)**
 
 
 ---
@@ -2635,6 +2681,85 @@ This section defines individual engineering tasks for every supported Apache Bea
       - Create at least one new end-to-end integration test per target language exercising `ParDo` with Side Inputs (enrichment of a main stream with a side input `MAP`/`SINGLETON` view) validated against the Multi-Agent Evaluation Harness:
         - `src/test/integration/steps/java/pardo-side-inputs.beam` and `src/test/integration/steps/java/pardo-side-inputs.test.ts`
         - `src/test/integration/steps/python/pardo-side-inputs.beam` and `src/test/integration/steps/python/pardo-side-inputs.test.ts`
+
+- <a id="p8"></a>**P8 — Webview Vite Bundle Code-Splitting & >1000 kB Chunk Size Warning Remediation.**
+  - **Symptom:**
+    ```text
+    [plugin builtin:vite-reporter]
+    (!) Some chunks are larger than 1000 kB after minification. Consider:
+    - Using dynamic import() to code-split the application
+    - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+    - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+    ```
+  - **Root Cause:**
+    - `webview/src/catalog/propertyFormRegistry.ts` synchronously imports all ~165 Source, Sink, and Transform property form components at the top level alongside `react`, `react-dom`, `reactflow`, `lucide-react`, `yaml`, and `webview/src/data/nodeDocsData.ts`.
+    - Everything compiles into a single monolithic `webview/dist/assets/index.js` bundle that now exceeds the `chunkSizeWarningLimit: 1000` kB threshold configured in `webview/vite.config.ts`.
+  - **Implementation Plan (Do NOT merely raise `chunkSizeWarningLimit`):**
+    1. **Vite 8 / Rolldown Chunk Splitting (`webview/vite.config.ts`):**
+       - Configure `build.rolldownOptions.output.codeSplitting` (or `manualChunks`) in `webview/vite.config.ts` to split heavy third-party vendor libraries (`react` / `react-dom`, `reactflow`, `lucide-react`, `yaml`) and/or property sheet families (sources, sinks, steps, documentation data) into dedicated chunks well under the chunk size limit.
+       - Ensure `chunkFileNames: 'assets/[name].js'` (or deterministic naming) so output chunk paths are predictable inside `webview/dist/assets/`.
+    2. **Lazy Property Sheet Loading (Optional / Complementary in `webview/src/catalog/propertyFormRegistry.ts` & `webview/src/components/PropertyForm.tsx`):**
+       - If needed in addition to `codeSplitting`, use `React.lazy(() => import(...))` with `<React.Suspense>` in `PropertyForm.tsx` while keeping existing unit tests in `webview/src/components/PropertyForm.test.tsx` passing.
+    3. **VS Code Webview HTML & CSP Compatibility (`src/webviewHtml.ts` & `src/editor/BeamEditorProvider.ts`):**
+       - When Vite emits multiple JS chunks, `webview/dist/index.html` may include `<link rel="modulepreload" crossorigin href="./assets/<chunk>.js">` tags and `assets/index.js` will dynamically/statically import `./<chunk>.js` via ES modules.
+       - Update `buildWebviewHtml` in `src/webviewHtml.ts` (and `src/webviewHtml.test.ts`) so that:
+         - Relative `./assets/...` references in `index.html` (including `<link rel="modulepreload">`) are rewritten to their resolved VS Code webview `assets/` URI base (or `build.modulePreload: false` is configured in `webview/vite.config.ts` so sub-chunks resolve directly relative to `jsUri`).
+         - The Content-Security-Policy `script-src` directive permits module sub-chunks loaded from `${opts.cspSource}` (e.g., `script-src 'nonce-${opts.nonce}' ${opts.cspSource}`) without reintroducing `'unsafe-inline'` or `'unsafe-eval'`.
+    4. **Verification:**
+       - `npm --prefix webview run build` completes with **zero** `[plugin builtin:vite-reporter] (!) Some chunks are larger than ...` warnings.
+       - All root (`npm test`) and webview (`npm run test:webview`) unit tests pass.
+
+- <a id="f2"></a>**F2 — Plugin Settings Page & Multi-Model Provider Support (ADC Model Garden + API Keys).**
+  - **Overview:**
+    Build a dedicated **Plugin Settings** page that lets users configure authentication (**Application Default Credentials (ADC)** vs. **API Keys**), enable or disable models from **Vertex AI Model Garden** (for ADC) or the **4 major LLM providers** (**Gemini**, **Claude**, **Grok**, **OpenAI** for API Keys), and choose which enabled model generates Apache Beam code on the **Generate Code** tab (`SourceCodeTab.tsx` / `GeneratorSettings.tsx`).
+  - **Architectural Note — Why Vertex AI Model Garden Requires a Curated Two-Dropdown Adder:**
+    - Vertex AI's Model Garden API (`v1beta1/publishers/*/models` / `gcloud ai model-garden models list`) returns the **entire global catalog** of foundation models and every historical/regional version across all publishers (hundreds of entries), rather than a filtered list of only models a user has enabled or accepted EULAs for in their GCP project.
+    - Dumping every possible publisher model and version into a flat checklist creates an overwhelming UX. Instead, the ADC section must use **two cascading dropdowns** (**Publisher / Provider** $\rightarrow$ **Model & Version**) with an **Add Model** button that adds the chosen model to the user's configured ADC model list, where each added model has its own **On/Off toggle switch**.
+  - **Zero-Config Default Behavior:**
+    - If the user never opens Settings or changes anything, the plugin defaults to **Application Default Credentials (ADC)** with **Gemini Flash** (`DEFAULT_GEMINI_MODEL` = `'gemini-3.7-flash'` from `src/constants.ts`) enabled (`on`).
+  - **Implementation Plan:**
+    1. **Settings Page Entry Point & Persistence (`package.json`, `src/extension.ts`, `src/ipc/messageRouter.ts`, `src/shared/protocol.ts`):**
+       - Register a command `dataflow-pipeline-builder.openSettings` (`Beam: Settings`, gear icon `$(gear)`) accessible from the Command Palette, the DataFlow Explorer view title bar, and a Settings button/tab in the designer UI (`BottomPanel.tsx` / canvas header).
+       - Persist non-secret model configuration (active auth mode, added ADC Model Garden models + `enabled` booleans, API key provider `enabled` booleans and selected model IDs, default selected codegen model) in VS Code global configuration / `context.globalState`.
+       - Persist all API keys (`gemini`, `claude`, `grok`, `openai`) **exclusively** in VS Code `context.secrets` (`vscode.SecretStorage`) via dedicated IPC handlers (`getModelSettings`, `saveModelSettings`, `setProviderApiKey`, `deleteProviderApiKey`). **Never** write API keys to `.beam` YAML files, `settings.json`, or logs.
+    2. **Settings Page UI (`webview/src/components/Settings/SettingsModal.tsx` or `SettingsTab.tsx`):**
+       - **Authentication Mode Selector:** Allow users to select **Application Default Credentials (ADC)** or **API Key** mode (or configure both with clear active indicators).
+       - **API Key Section (4 Major Providers — Gemini, Claude, Grok, OpenAI):**
+         - Render a structured card/row for each of the 4 providers:
+           1. **Gemini** (Google AI Studio API Key — e.g. `gemini-3.7-flash`, `gemini-3.7-pro`)
+           2. **Claude** (Anthropic API Key — e.g. `claude-sonnet-4-20250514`, `claude-3-7-sonnet-latest`)
+           3. **Grok** (xAI API Key — e.g. `grok-3`, `grok-3-mini`)
+           4. **OpenAI** (OpenAI API Key — e.g. `gpt-4.1`, `o4-mini`)
+         - Each row includes:
+           - Masked password input field (`type="password"` with show/hide toggle and saved-key status indicator) for the API key.
+           - Model version selector dropdown for that provider.
+           - **On/Off toggle switch** (`role="switch"`) to enable or disable the provider/model in the plugin (disabled automatically if no API key is stored for that provider).
+       - **ADC / Vertex AI Model Garden Section:**
+         - **Add Model Controls (Two Cascading Dropdowns + Add Button):**
+           - **Dropdown 1 — Publisher / Provider:** e.g., `Google`, `Anthropic`, `Meta`, `Mistral AI`, `DeepSeek`.
+           - **Dropdown 2 — Model & Version:** Filtered by the selected Publisher (e.g., `Google` $\rightarrow$ `Gemini 3.7 Flash (gemini-3.7-flash)`, `Gemini 3.7 Pro (gemini-3.7-pro)`; `Anthropic` $\rightarrow$ `Claude Sonnet 4 (claude-sonnet-4@20250514)`, `Claude 3.7 Sonnet (claude-3-7-sonnet@20250219)`, `Claude 3.5 Haiku (claude-3-5-haiku@20241022)`; `Meta` $\rightarrow$ `Llama 4 Maverick`, `Llama 3.3 70B`; `Mistral AI` $\rightarrow$ `Codestral 2`, `Mistral Large`, plus a `Custom Model ID...` option for entering any newly published Vertex AI Model Garden ID).
+           - **Add Model Button:** Appends the selected `{ publisher, modelId, displayName, enabled: true }` entry to the user's ADC Model Garden list (preventing duplicate entries).
+         - **Configured ADC Models List:**
+           - Displays all models in the user's ADC list (pre-populated by default with **Google — Gemini Flash (`gemini-3.7-flash`)** switched **ON**).
+           - Each listed model has an **On/Off toggle switch** to turn it on/off for use in the plugin, plus a remove button for user-added models.
+    3. **Generate Code Tab Conditional Model Dropdown (`webview/src/components/BottomPanel/sourceCode/GeneratorSettings.tsx` & `SourceCodeTab.tsx`):**
+       - Compute the list of currently enabled models (`enabledModels`) from the user's settings (falling back to `[{ id: 'adc:google:gemini-3.7-flash', provider: 'google', modelId: 'gemini-3.7-flash', authMode: 'adc', label: 'Gemini 3.7 Flash (ADC)' }]` when unconfigured).
+       - When `enabledModels.length <= 1`, do **not** render the model picker dropdown on the Generate Code tab; automatically use the single enabled model (defaulting to Gemini Flash with ADC).
+       - When `enabledModels.length > 1`, render a **MODEL** dropdown in `GeneratorSettings.tsx` (above the **Generate Code** button) listing all enabled models (with provider & auth badge, e.g., `Claude 3.7 Sonnet (ADC)`, `OpenAI GPT-4.1 (API Key)`), allowing the user to pick which model generates the code.
+    4. **Multi-Provider Backend Code Generation Dispatch (`src/codeGeneration.ts`):**
+       - Extend `regenerateCode` IPC message handling (`src/ipc/handlers/executionHandlers.ts` & `src/codeGeneration.ts`) to accept the selected `{ authMode, provider, modelId }`.
+       - Implement a provider adapter in `src/codeGeneration.ts` (or `src/codegen/modelProviders.ts`) supporting:
+         - **ADC + Google Gemini**: `@google/genai` with `{ vertexai: true, project, location: 'global' }` and `model: modelId || DEFAULT_GEMINI_MODEL`.
+         - **ADC + Vertex AI Model Garden Partner Models (Anthropic, Meta, Mistral, etc.)**: Vertex AI publisher endpoint invocation authenticated via Google ADC (`google-auth-library` / `gcloud auth print-access-token` or Vertex AI SDK endpoint).
+         - **API Key — Gemini**: `@google/genai` initialized with `{ apiKey }` from `context.secrets`.
+         - **API Key — Claude**: Anthropic Messages API (`https://api.anthropic.com/v1/messages`) with `x-api-key` from `context.secrets`.
+         - **API Key — Grok**: xAI Chat Completions API (`https://api.x.ai/v1/chat/completions`) with Bearer token from `context.secrets`.
+         - **API Key — OpenAI**: OpenAI Chat Completions / Responses API (`https://api.openai.com/v1/chat/completions`) with Bearer token from `context.secrets`.
+       - Preserve all existing security and reliability guarantees across every provider: `redactPipelineYaml` (`C2`) before prompt dispatch, `parseOrRepairJson` for structured `{ files: [...] }` extraction, `stageFiles`/`commitStagedFiles` (`C1`, `C3`), and `AbortSignal` cancellation support.
+    5. **Unit & Integration Test Requirements:**
+       - `webview/src/components/Settings/SettingsModal.test.tsx` (or `SettingsTab.test.tsx`): Verify ADC vs. API Key mode switching, all 4 API key inputs + on/off switches, cascading Publisher $\rightarrow$ Model Version dropdowns + Add Model button + per-model on/off switches, and zero-config Gemini Flash + ADC default.
+       - `webview/src/components/BottomPanel/sourceCode/GeneratorSettings.test.tsx` & `SourceCodeTab.test.tsx`: Verify the model dropdown is hidden when `<= 1` model is enabled and rendered/functional when `> 1` models are enabled, passing the selected model to `regenerateCode`.
+       - `src/codeGeneration.test.ts`: Verify `SecretStorage` key retrieval, default fallback to `DEFAULT_GEMINI_MODEL` with ADC when no model is specified, and request routing for ADC and API Key providers.
 
 ---
 

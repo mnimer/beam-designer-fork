@@ -322,7 +322,7 @@ edges:
    * Edge redirection must rewire ALL inbound edges when inserting a KV Mapper,
    * not just the first one returned by findIndex.
    */
-  it('M16: redirects ALL incoming edges when inserting KV Mapper before a Window node', () => {
+  it('M16: redirects ALL incoming edges when inserting KV Mapper before a Window node', async () => {
     render(<AppWithProvider />);
 
     // Load a pipeline with 3 source nodes, all connected to 1 Window node
@@ -367,7 +367,8 @@ edges:
     fireEvent.click(windowNode);
 
     // Find and click the 'Add KV Mapper' button inside Session Window property panel
-    const addKVMapperBtn = screen.getByRole('button', { name: /Add KV Mapper/i });
+    // (the Windowing panel is code-split, so wait for its chunk to load)
+    const addKVMapperBtn = await screen.findByRole('button', { name: /Add KV Mapper/i });
     expect(addKVMapperBtn).toBeInTheDocument();
     fireEvent.click(addKVMapperBtn);
 

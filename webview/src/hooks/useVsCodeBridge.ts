@@ -5,7 +5,7 @@
  * 
  * Handles IPC messaging with the VS Code extension host:
  * - 'ready' handshake and initial state requests
- * - Handling loadPipeline, codeRegenerated, folderFilesRead, etc.
+ * - Handling loadPipeline, projectIdResolved, codeRegenerated, folderFilesRead, etc.
  * - Outbound IPC requests (refreshFolderFiles, runPipeline, regenerateCode, pickFolder, readFileContent)
  * - Ref-based stale closure protection for pipelineConfig, filename, and projectId
  */
@@ -22,6 +22,20 @@ import { pipelineConfigReducer, type PipelineConfig } from '../state/pipelineCon
 import { resolveLanguageOrDefault } from '../utils/language';
 
 export type { PipelineConfig };
+
+/** Initial project ID shown until the host resolves the gcloud default or the user picks one. */
+export const PLACEHOLDER_PROJECT_ID = 'YOUR_PROJECT_ID';
+
+/**
+ * Whether a project ID is still the unset placeholder (or empty), i.e. safe to replace with
+ * the host-resolved gcloud default without discarding a user choice.
+ *
+ * @param projectId Current project ID state.
+ * @returns True when no real project has been chosen yet.
+ */
+export function isPlaceholderProjectId(projectId: string | undefined): boolean {
+  return !projectId || projectId.trim() === '' || projectId === PLACEHOLDER_PROJECT_ID;
+}
 
 /**
  * Resolves the primary generated pipeline source file from a list of output directory files.
@@ -227,6 +241,13 @@ export function useVsCodeBridge({
         if (message.command === 'samplesLoaded') {
           if (message.samples && Array.isArray(message.samples) && message.samples.length > 0) {
             setSamples(message.samples);
+          }
+        } else if (message.command === 'projectIdResolved') {
+          // P9: the host resolves the gcloud default project AFTER posting loadPipeline so the
+          // canvas never waits on the gcloud CLI. By the time it arrives the user may already
+          // have chosen a project, so only fill in the placeholder -- never overwrite.
+          if (message.projectId && isPlaceholderProjectId(projectIdRef.current)) {
+            setProjectId(message.projectId);
           }
         } else if (message.command === 'loadPipeline') {
           console.log('[useVsCodeBridge] Received loadPipeline for', message.filename);

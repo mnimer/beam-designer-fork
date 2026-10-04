@@ -1,162 +1,21 @@
 /** @fileoverview Registry mapping node keys to dedicated property form components.
  *
  * Author: Mike Nimer <mikenimer@google.com>
+ *
+ * Bundle-size design (P8):
+ * The ~150 dedicated property panels are the bulk of the webview's JavaScript, yet a
+ * user only ever opens a handful of them per session. Every panel is therefore
+ * registered as a `React.lazy` component backed by a dynamic `import()`, so Vite emits
+ * one chunk per panel module under `assets/chunks/` and the entry bundle stays small.
+ * The chunk is fetched the first time a node of that kind is selected and cached by the
+ * module system afterwards.
+ *
+ * Consumers must render registry entries inside a `<Suspense>` boundary (see
+ * components/PropertyForm.tsx). Code that needs the concrete component (tests,
+ * preloading) can resolve it with {@link loadPropertyForm}.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { PubSubProperties } from '../properties/source/PubSubIO';
-import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
-import { CreateProperties } from '../properties/source/CreateIO';
-import { GenerateSequenceProperties } from '../properties/source/GenerateSequence';
-import { PeriodicImpulseProperties } from '../properties/source/PeriodicImpulse';
-import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
-import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
-import { WindowingProperties } from '../properties/step/Windowing';
-import { ParseMessageProperties } from '../properties/step/ParseMessage';
-import { LogMessageProperties } from '../properties/sink/LogMessage';
-import { KVMapperProperties } from '../properties/step/KVMapper';
-import { FilterProperties } from '../properties/step/Filter';
-import { FlatMapProperties } from '../properties/step/FlatMap';
-import { MapProperties } from '../properties/step/Map';
-import { AggregationProperties } from '../properties/step/Aggregations';
-import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
-import { ParDoProperties } from '../properties/step/ParDo';
-import { OtherProperties } from '../properties/step/Other';
-import { TextIOSourceProperties } from '../properties/source/TextIO';
-import { TextIOSinkProperties } from '../properties/sink/TextIO';
-import { FileIOSourceProperties, FileIOReadMatchesProperties } from '../properties/source/FileIO';
-import { FileIOSinkProperties } from '../properties/sink/FileIO';
-import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
-import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
-import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
-import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
-import { KinesisIOSourceProperties } from '../properties/source/KinesisIO';
-import { KinesisIOSinkProperties } from '../properties/sink/KinesisIO';
-import { ParquetIOSourceProperties } from '../properties/source/ParquetIO';
-import { ParquetIOSinkProperties } from '../properties/sink/ParquetIO';
-import { AvroIOSourceProperties } from '../properties/source/AvroIO';
-import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
-import { SnsIOSourceProperties } from '../properties/source/SnsIO';
-import { SnsIOSinkProperties } from '../properties/sink/SnsIO';
-import { JmsIOSourceProperties } from '../properties/source/JmsIO';
-import { JmsIOSinkProperties } from '../properties/sink/JmsIO';
-import { SqsIOSourceProperties } from '../properties/source/SqsIO';
-import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
-import { MqttIOSourceProperties } from '../properties/source/MqttIO';
-import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
-import { CassandraIOSourceProperties } from '../properties/source/CassandraIO';
-import { CassandraIOSinkProperties } from '../properties/sink/CassandraIO';
-import { HBaseIOSourceProperties } from '../properties/source/HBaseIO';
-import { HBaseIOSinkProperties } from '../properties/sink/HBaseIO';
-import { KuduIOSourceProperties } from '../properties/source/KuduIO';
-import { KuduIOSinkProperties } from '../properties/sink/KuduIO';
-import { MongoDbIOSourceProperties } from '../properties/source/MongoDbIO';
-import { MongoDbIOSinkProperties } from '../properties/sink/MongoDbIO';
-import { RedisIOSourceProperties } from '../properties/source/RedisIO';
-import { RedisIOSinkProperties } from '../properties/sink/RedisIO';
-import { BigTableIOSourceProperties } from '../properties/source/BigTableIO';
-import { BigTableIOSinkProperties } from '../properties/sink/BigTableIO';
-import { ClickHouseIOSourceProperties } from '../properties/source/ClickHouseIO';
-import { ClickHouseIOSinkProperties } from '../properties/sink/ClickHouseIO';
-import { DatabaseIOSourceProperties } from '../properties/source/DatabaseIO';
-import { DatabaseIOSinkProperties } from '../properties/sink/DatabaseIO';
-import { DatastoreIOSourceProperties } from '../properties/source/DatastoreIO';
-import { DatastoreIOSinkProperties } from '../properties/sink/DatastoreIO';
-import { DynamoDBIOSourceProperties } from '../properties/source/DynamoDBIO';
-import { DynamoDBIOSinkProperties } from '../properties/sink/DynamoDBIO';
-import { ElasticsearchIOSourceProperties } from '../properties/source/ElasticsearchIO';
-import { ElasticsearchIOSinkProperties } from '../properties/sink/ElasticsearchIO';
-import { FirestoreIOSourceProperties } from '../properties/source/FirestoreIO';
-import { FirestoreIOSinkProperties } from '../properties/sink/FirestoreIO';
-import { HadoopFormatIOSourceProperties } from '../properties/source/HadoopFormatIO';
-import { HadoopFormatIOSinkProperties } from '../properties/sink/HadoopFormatIO';
-import { InfluxDbIOSourceProperties } from '../properties/source/InfluxDbIO';
-import { InfluxDbIOSinkProperties } from '../properties/sink/InfluxDbIO';
-import { MongoDbGridFSIOSourceProperties } from '../properties/source/MongoDbGridFSIO';
-import { MongoDbGridFSIOSinkProperties } from '../properties/sink/MongoDbGridFSIO';
-import { Neo4jIOSourceProperties } from '../properties/source/Neo4jIO';
-import { Neo4jIOSinkProperties } from '../properties/sink/Neo4jIO';
-import { SingleStoreDBIOSourceProperties } from '../properties/source/SingleStoreDBIO';
-import { SingleStoreDBIOSinkProperties } from '../properties/sink/SingleStoreDBIO';
-import { SnowflakeIOSourceProperties } from '../properties/source/SnowflakeIO';
-import { SnowflakeIOSinkProperties } from '../properties/sink/SnowflakeIO';
-import { SolrIOSourceProperties } from '../properties/source/SolrIO';
-import { SolrIOSinkProperties } from '../properties/sink/SolrIO';
-import { SpannerIOSourceProperties } from '../properties/source/SpannerIO';
-import { SpannerIOSinkProperties } from '../properties/sink/SpannerIO';
-import { CdapIOSourceProperties } from '../properties/source/CdapIO';
-import { CdapIOSinkProperties } from '../properties/sink/CdapIO';
-import { CosmosIOSourceProperties } from '../properties/source/CosmosIO';
-import { DebeziumIOSourceProperties } from '../properties/source/DebeziumIO';
-import { HCatalogIOSourceProperties } from '../properties/source/HCatalogIO';
-import { HCatalogIOSinkProperties } from '../properties/sink/HCatalogIO';
-import { ArrowFlightIOSourceProperties } from '../properties/source/ArrowFlightIO';
-import { ArrowFlightIOSinkProperties } from '../properties/sink/ArrowFlightIO';
-import { SparkReceiverIOSourceProperties } from '../properties/source/SparkReceiverIO';
-import { FhirIOSourceProperties } from '../properties/source/FhirIO';
-import { FhirIOSinkProperties } from '../properties/sink/FhirIO';
-import { HL7v2IOSourceProperties } from '../properties/source/HL7v2IO';
-import { HL7v2IOSinkProperties } from '../properties/sink/HL7v2IO';
-import { DicomIOSourceProperties } from '../properties/source/DicomIO';
-import { DicomIOSinkProperties } from '../properties/sink/DicomIO';
-import { SplunkIOSinkProperties } from '../properties/sink/SplunkIO';
-import { GoogleAdsIOSourceProperties } from '../properties/source/GoogleAdsIO';
-import { RequestResponseIOSourceProperties } from '../properties/source/RequestResponseIO';
-import { RequestResponseIOSinkProperties } from '../properties/sink/RequestResponseIO';
-import { DatadogIOSinkProperties } from '../properties/sink/DatadogIO';
-import { AmqpIOSourceProperties } from '../properties/source/AmqpIO';
-import { AmqpIOSinkProperties } from '../properties/sink/AmqpIO';
-import { RabbitMqIOSourceProperties } from '../properties/source/RabbitMqIO';
-import { RabbitMqIOSinkProperties } from '../properties/sink/RabbitMqIO';
-import { PulsarIOSourceProperties } from '../properties/source/PulsarIO';
-import { PulsarIOSinkProperties } from '../properties/sink/PulsarIO';
-import { SolaceIOSourceProperties } from '../properties/source/SolaceIO';
-import { SolaceIOSinkProperties } from '../properties/sink/SolaceIO';
-import { FlinkStreamingImpulseSourceProperties } from '../properties/source/FlinkStreamingImpulseSource';
-import { TFRecordIOSourceProperties } from '../properties/source/TFRecordIO';
-import { TFRecordIOSinkProperties } from '../properties/sink/TFRecordIO';
-import { CsvIOSourceProperties } from '../properties/source/CsvIO';
-import { CsvIOSinkProperties } from '../properties/sink/CsvIO';
-import { XmlIOSourceProperties } from '../properties/source/XmlIO';
-import { XmlIOSinkProperties } from '../properties/sink/XmlIO';
-import { JsonIOSourceProperties } from '../properties/source/JsonIO';
-import { JsonIOSinkProperties } from '../properties/sink/JsonIO';
-import { ContextualTextIOSourceProperties } from '../properties/source/ContextualTextIO';
-import { ContextualTextIOSinkProperties } from '../properties/sink/ContextualTextIO';
-import { ThriftIOSourceProperties } from '../properties/source/ThriftIO';
-import { ThriftIOSinkProperties } from '../properties/sink/ThriftIO';
-import { HadoopFileSystemSourceProperties } from '../properties/source/HadoopFileSystem';
-import { HadoopFileSystemSinkProperties } from '../properties/sink/HadoopFileSystem';
-import { GcsFileSystemSourceProperties } from '../properties/source/GcsFileSystem';
-import { GcsFileSystemSinkProperties } from '../properties/sink/GcsFileSystem';
-import { LocalFileSystemSourceProperties } from '../properties/source/LocalFileSystem';
-import { LocalFileSystemSinkProperties } from '../properties/sink/LocalFileSystem';
-import { S3FileSystemSourceProperties } from '../properties/source/S3FileSystem';
-import { S3FileSystemSinkProperties } from '../properties/sink/S3FileSystem';
-import { AzureBlobStoreFileSystemSourceProperties } from '../properties/source/AzureBlobStoreFileSystem';
-import { AzureBlobStoreFileSystemSinkProperties } from '../properties/sink/AzureBlobStoreFileSystem';
-import { IcebergIOSourceProperties } from '../properties/source/IcebergIO';
-import { IcebergIOSinkProperties } from '../properties/sink/IcebergIO';
-import { TikaIOSourceProperties } from '../properties/source/TikaIO';
-import { TikaIOSinkProperties } from '../properties/sink/TikaIO';
-import { CloudBigtableSourceProperties } from '../properties/source/CloudBigtable';
-import { CloudBigtableSinkProperties } from '../properties/sink/CloudBigtable';
-import { CogniteDataFusionSourceProperties } from '../properties/source/CogniteDataFusion';
-import { CogniteDataFusionSinkProperties } from '../properties/sink/CogniteDataFusion';
-import { KineticaDBSourceProperties } from '../properties/source/KineticaDB';
-import { KineticaDBSinkProperties } from '../properties/sink/KineticaDB';
-import { TrepWsIOSourceProperties } from '../properties/source/TrepWsIO';
-import { TrepWsIOSinkProperties } from '../properties/sink/TrepWsIO';
-import { CloudSQLSourceProperties } from '../properties/source/CloudSQL';
-import { CloudSQLSinkProperties } from '../properties/sink/CloudSQL';
-import { MySQLSourceProperties } from '../properties/source/MySQL';
-import { MySQLSinkProperties } from '../properties/sink/MySQL';
-import { PyodbcSourceProperties } from '../properties/source/Pyodbc';
-import { PyodbcSinkProperties } from '../properties/sink/Pyodbc';
-import { TinybirdSourceProperties } from '../properties/source/Tinybird';
-import { TinybirdSinkProperties } from '../properties/sink/Tinybird';
-import { MySQLPostgreSQLOracleSQLServerSourceProperties } from '../properties/source/MySQLPostgreSQLOracleSQLServer';
-import { MySQLPostgreSQLOracleSQLServerSinkProperties } from '../properties/sink/MySQLPostgreSQLOracleSQLServer';
 
 /**
  * Shared props accepted by dynamic property form components registered in the registry.
@@ -168,6 +27,220 @@ export interface PropertyFormProps {
   onAddPubSubSource?: (targetNodeId: string) => void;
 }
 
+/** Any React component usable as a property form (eager or lazy). */
+export type PropertyFormComponent = React.ComponentType<PropertyFormProps>;
+
+/** Async factory resolving a property form module to its concrete component. */
+type PropertyFormLoader = () => Promise<PropertyFormComponent>;
+
+/**
+ * Lazy registry entry -> memoised loader of the concrete component behind it.
+ * Backs {@link loadPropertyForm}; a WeakMap so entries can never leak.
+ */
+const FORM_LOADERS = new WeakMap<object, PropertyFormLoader>();
+
+/**
+ * Wraps a property form module import as a code-split `React.lazy` component.
+ *
+ * The loader promise is memoised so that an explicit {@link loadPropertyForm} preload and
+ * the subsequent Suspense render share a single in-flight import. A rejected import is
+ * dropped from the memo so `loadPropertyForm` callers can retry; note that `React.lazy`
+ * itself caches the first outcome for the lifetime of the wrapper.
+ *
+ * @param load Dynamic import resolving to the concrete form component.
+ * @returns Lazy component suitable as a registry value.
+ */
+function lazyForm(load: PropertyFormLoader): React.LazyExoticComponent<PropertyFormComponent> {
+  let pending: Promise<PropertyFormComponent> | undefined;
+  const loadOnce: PropertyFormLoader = () => {
+    if (!pending) {
+      pending = load().catch((error: unknown) => {
+        pending = undefined;
+        throw error;
+      });
+    }
+    return pending;
+  };
+  const Lazy = React.lazy(() => loadOnce().then((Component) => ({ default: Component })));
+  FORM_LOADERS.set(Lazy, loadOnce);
+  return Lazy;
+}
+
+/**
+ * Resolves the concrete component behind a registry entry, triggering its chunk download
+ * if necessary. Eager (non-lazy) components resolve to themselves.
+ *
+ * Use this to warm a panel's chunk ahead of time, or in tests that need to assert on the
+ * real component rather than its lazy wrapper.
+ *
+ * @param entry A value from {@link PROPERTY_FORM_REGISTRY}.
+ * @returns Promise of the concrete property form component.
+ */
+export function loadPropertyForm(entry: PropertyFormComponent): Promise<PropertyFormComponent> {
+  const loader = FORM_LOADERS.get(entry);
+  return loader ? loader() : Promise.resolve(entry);
+}
+
+// ---------------------------------------------------------------------------
+// Lazily-loaded panel components (one dynamic import per source module).
+// Keep each declaration on a single line so the module path stays greppable.
+// ---------------------------------------------------------------------------
+const PubSubProperties = lazyForm(() => import('../properties/source/PubSubIO').then((m) => m.PubSubProperties));
+const BigQuerySourceProperties = lazyForm(() => import('../properties/source/BigQueryIO').then((m) => m.BigQuerySourceProperties));
+const CreateProperties = lazyForm(() => import('../properties/source/CreateIO').then((m) => m.CreateProperties));
+const GenerateSequenceProperties = lazyForm(() => import('../properties/source/GenerateSequence').then((m) => m.GenerateSequenceProperties));
+const PeriodicImpulseProperties = lazyForm(() => import('../properties/source/PeriodicImpulse').then((m) => m.PeriodicImpulseProperties));
+const BigQuerySinkProperties = lazyForm(() => import('../properties/sink/BigQueryIO').then((m) => m.BigQuerySinkProperties));
+const PubSubSinkProperties = lazyForm(() => import('../properties/sink/PubSubIO').then((m) => m.PubSubSinkProperties));
+const WindowingProperties = lazyForm(() => import('../properties/step/Windowing').then((m) => m.WindowingProperties));
+const ParseMessageProperties = lazyForm(() => import('../properties/step/ParseMessage').then((m) => m.ParseMessageProperties));
+const LogMessageProperties = lazyForm(() => import('../properties/sink/LogMessage').then((m) => m.LogMessageProperties));
+const KVMapperProperties = lazyForm(() => import('../properties/step/KVMapper').then((m) => m.KVMapperProperties));
+const FilterProperties = lazyForm(() => import('../properties/step/Filter').then((m) => m.FilterProperties));
+const FlatMapProperties = lazyForm(() => import('../properties/step/FlatMap').then((m) => m.FlatMapProperties));
+const MapProperties = lazyForm(() => import('../properties/step/Map').then((m) => m.MapProperties));
+const AggregationProperties = lazyForm(() => import('../properties/step/Aggregations').then((m) => m.AggregationProperties));
+const WithTimestampsProperties = lazyForm(() => import('../properties/step/WithTimestamps').then((m) => m.WithTimestampsProperties));
+const ParDoProperties = lazyForm(() => import('../properties/step/ParDo').then((m) => m.ParDoProperties));
+const OtherProperties = lazyForm(() => import('../properties/step/Other').then((m) => m.OtherProperties));
+const TextIOSourceProperties = lazyForm(() => import('../properties/source/TextIO').then((m) => m.TextIOSourceProperties));
+const TextIOSinkProperties = lazyForm(() => import('../properties/sink/TextIO').then((m) => m.TextIOSinkProperties));
+const FileIOSourceProperties = lazyForm(() => import('../properties/source/FileIO').then((m) => m.FileIOSourceProperties));
+const FileIOReadMatchesProperties = lazyForm(() => import('../properties/source/FileIO').then((m) => m.FileIOReadMatchesProperties));
+const FileIOSinkProperties = lazyForm(() => import('../properties/sink/FileIO').then((m) => m.FileIOSinkProperties));
+const JdbcIOSourceProperties = lazyForm(() => import('../properties/source/JdbcIO').then((m) => m.JdbcIOSourceProperties));
+const JdbcIOSinkProperties = lazyForm(() => import('../properties/sink/JdbcIO').then((m) => m.JdbcIOSinkProperties));
+const KafkaIOSourceProperties = lazyForm(() => import('../properties/source/KafkaIO').then((m) => m.KafkaIOSourceProperties));
+const KafkaIOSinkProperties = lazyForm(() => import('../properties/sink/KafkaIO').then((m) => m.KafkaIOSinkProperties));
+const KinesisIOSourceProperties = lazyForm(() => import('../properties/source/KinesisIO').then((m) => m.KinesisIOSourceProperties));
+const KinesisIOSinkProperties = lazyForm(() => import('../properties/sink/KinesisIO').then((m) => m.KinesisIOSinkProperties));
+const ParquetIOSourceProperties = lazyForm(() => import('../properties/source/ParquetIO').then((m) => m.ParquetIOSourceProperties));
+const ParquetIOSinkProperties = lazyForm(() => import('../properties/sink/ParquetIO').then((m) => m.ParquetIOSinkProperties));
+const AvroIOSourceProperties = lazyForm(() => import('../properties/source/AvroIO').then((m) => m.AvroIOSourceProperties));
+const AvroIOSinkProperties = lazyForm(() => import('../properties/sink/AvroIO').then((m) => m.AvroIOSinkProperties));
+const SnsIOSourceProperties = lazyForm(() => import('../properties/source/SnsIO').then((m) => m.SnsIOSourceProperties));
+const SnsIOSinkProperties = lazyForm(() => import('../properties/sink/SnsIO').then((m) => m.SnsIOSinkProperties));
+const JmsIOSourceProperties = lazyForm(() => import('../properties/source/JmsIO').then((m) => m.JmsIOSourceProperties));
+const JmsIOSinkProperties = lazyForm(() => import('../properties/sink/JmsIO').then((m) => m.JmsIOSinkProperties));
+const SqsIOSourceProperties = lazyForm(() => import('../properties/source/SqsIO').then((m) => m.SqsIOSourceProperties));
+const SqsIOSinkProperties = lazyForm(() => import('../properties/sink/SqsIO').then((m) => m.SqsIOSinkProperties));
+const MqttIOSourceProperties = lazyForm(() => import('../properties/source/MqttIO').then((m) => m.MqttIOSourceProperties));
+const MqttIOSinkProperties = lazyForm(() => import('../properties/sink/MqttIO').then((m) => m.MqttIOSinkProperties));
+const CassandraIOSourceProperties = lazyForm(() => import('../properties/source/CassandraIO').then((m) => m.CassandraIOSourceProperties));
+const CassandraIOSinkProperties = lazyForm(() => import('../properties/sink/CassandraIO').then((m) => m.CassandraIOSinkProperties));
+const HBaseIOSourceProperties = lazyForm(() => import('../properties/source/HBaseIO').then((m) => m.HBaseIOSourceProperties));
+const HBaseIOSinkProperties = lazyForm(() => import('../properties/sink/HBaseIO').then((m) => m.HBaseIOSinkProperties));
+const KuduIOSourceProperties = lazyForm(() => import('../properties/source/KuduIO').then((m) => m.KuduIOSourceProperties));
+const KuduIOSinkProperties = lazyForm(() => import('../properties/sink/KuduIO').then((m) => m.KuduIOSinkProperties));
+const MongoDbIOSourceProperties = lazyForm(() => import('../properties/source/MongoDbIO').then((m) => m.MongoDbIOSourceProperties));
+const MongoDbIOSinkProperties = lazyForm(() => import('../properties/sink/MongoDbIO').then((m) => m.MongoDbIOSinkProperties));
+const RedisIOSourceProperties = lazyForm(() => import('../properties/source/RedisIO').then((m) => m.RedisIOSourceProperties));
+const RedisIOSinkProperties = lazyForm(() => import('../properties/sink/RedisIO').then((m) => m.RedisIOSinkProperties));
+const BigTableIOSourceProperties = lazyForm(() => import('../properties/source/BigTableIO').then((m) => m.BigTableIOSourceProperties));
+const BigTableIOSinkProperties = lazyForm(() => import('../properties/sink/BigTableIO').then((m) => m.BigTableIOSinkProperties));
+const ClickHouseIOSourceProperties = lazyForm(() => import('../properties/source/ClickHouseIO').then((m) => m.ClickHouseIOSourceProperties));
+const ClickHouseIOSinkProperties = lazyForm(() => import('../properties/sink/ClickHouseIO').then((m) => m.ClickHouseIOSinkProperties));
+const DatabaseIOSourceProperties = lazyForm(() => import('../properties/source/DatabaseIO').then((m) => m.DatabaseIOSourceProperties));
+const DatabaseIOSinkProperties = lazyForm(() => import('../properties/sink/DatabaseIO').then((m) => m.DatabaseIOSinkProperties));
+const DatastoreIOSourceProperties = lazyForm(() => import('../properties/source/DatastoreIO').then((m) => m.DatastoreIOSourceProperties));
+const DatastoreIOSinkProperties = lazyForm(() => import('../properties/sink/DatastoreIO').then((m) => m.DatastoreIOSinkProperties));
+const DynamoDBIOSourceProperties = lazyForm(() => import('../properties/source/DynamoDBIO').then((m) => m.DynamoDBIOSourceProperties));
+const DynamoDBIOSinkProperties = lazyForm(() => import('../properties/sink/DynamoDBIO').then((m) => m.DynamoDBIOSinkProperties));
+const ElasticsearchIOSourceProperties = lazyForm(() => import('../properties/source/ElasticsearchIO').then((m) => m.ElasticsearchIOSourceProperties));
+const ElasticsearchIOSinkProperties = lazyForm(() => import('../properties/sink/ElasticsearchIO').then((m) => m.ElasticsearchIOSinkProperties));
+const FirestoreIOSourceProperties = lazyForm(() => import('../properties/source/FirestoreIO').then((m) => m.FirestoreIOSourceProperties));
+const FirestoreIOSinkProperties = lazyForm(() => import('../properties/sink/FirestoreIO').then((m) => m.FirestoreIOSinkProperties));
+const HadoopFormatIOSourceProperties = lazyForm(() => import('../properties/source/HadoopFormatIO').then((m) => m.HadoopFormatIOSourceProperties));
+const HadoopFormatIOSinkProperties = lazyForm(() => import('../properties/sink/HadoopFormatIO').then((m) => m.HadoopFormatIOSinkProperties));
+const InfluxDbIOSourceProperties = lazyForm(() => import('../properties/source/InfluxDbIO').then((m) => m.InfluxDbIOSourceProperties));
+const InfluxDbIOSinkProperties = lazyForm(() => import('../properties/sink/InfluxDbIO').then((m) => m.InfluxDbIOSinkProperties));
+const MongoDbGridFSIOSourceProperties = lazyForm(() => import('../properties/source/MongoDbGridFSIO').then((m) => m.MongoDbGridFSIOSourceProperties));
+const MongoDbGridFSIOSinkProperties = lazyForm(() => import('../properties/sink/MongoDbGridFSIO').then((m) => m.MongoDbGridFSIOSinkProperties));
+const Neo4jIOSourceProperties = lazyForm(() => import('../properties/source/Neo4jIO').then((m) => m.Neo4jIOSourceProperties));
+const Neo4jIOSinkProperties = lazyForm(() => import('../properties/sink/Neo4jIO').then((m) => m.Neo4jIOSinkProperties));
+const SingleStoreDBIOSourceProperties = lazyForm(() => import('../properties/source/SingleStoreDBIO').then((m) => m.SingleStoreDBIOSourceProperties));
+const SingleStoreDBIOSinkProperties = lazyForm(() => import('../properties/sink/SingleStoreDBIO').then((m) => m.SingleStoreDBIOSinkProperties));
+const SnowflakeIOSourceProperties = lazyForm(() => import('../properties/source/SnowflakeIO').then((m) => m.SnowflakeIOSourceProperties));
+const SnowflakeIOSinkProperties = lazyForm(() => import('../properties/sink/SnowflakeIO').then((m) => m.SnowflakeIOSinkProperties));
+const SolrIOSourceProperties = lazyForm(() => import('../properties/source/SolrIO').then((m) => m.SolrIOSourceProperties));
+const SolrIOSinkProperties = lazyForm(() => import('../properties/sink/SolrIO').then((m) => m.SolrIOSinkProperties));
+const SpannerIOSourceProperties = lazyForm(() => import('../properties/source/SpannerIO').then((m) => m.SpannerIOSourceProperties));
+const SpannerIOSinkProperties = lazyForm(() => import('../properties/sink/SpannerIO').then((m) => m.SpannerIOSinkProperties));
+const CdapIOSourceProperties = lazyForm(() => import('../properties/source/CdapIO').then((m) => m.CdapIOSourceProperties));
+const CdapIOSinkProperties = lazyForm(() => import('../properties/sink/CdapIO').then((m) => m.CdapIOSinkProperties));
+const CosmosIOSourceProperties = lazyForm(() => import('../properties/source/CosmosIO').then((m) => m.CosmosIOSourceProperties));
+const DebeziumIOSourceProperties = lazyForm(() => import('../properties/source/DebeziumIO').then((m) => m.DebeziumIOSourceProperties));
+const HCatalogIOSourceProperties = lazyForm(() => import('../properties/source/HCatalogIO').then((m) => m.HCatalogIOSourceProperties));
+const HCatalogIOSinkProperties = lazyForm(() => import('../properties/sink/HCatalogIO').then((m) => m.HCatalogIOSinkProperties));
+const ArrowFlightIOSourceProperties = lazyForm(() => import('../properties/source/ArrowFlightIO').then((m) => m.ArrowFlightIOSourceProperties));
+const ArrowFlightIOSinkProperties = lazyForm(() => import('../properties/sink/ArrowFlightIO').then((m) => m.ArrowFlightIOSinkProperties));
+const SparkReceiverIOSourceProperties = lazyForm(() => import('../properties/source/SparkReceiverIO').then((m) => m.SparkReceiverIOSourceProperties));
+const FhirIOSourceProperties = lazyForm(() => import('../properties/source/FhirIO').then((m) => m.FhirIOSourceProperties));
+const FhirIOSinkProperties = lazyForm(() => import('../properties/sink/FhirIO').then((m) => m.FhirIOSinkProperties));
+const HL7v2IOSourceProperties = lazyForm(() => import('../properties/source/HL7v2IO').then((m) => m.HL7v2IOSourceProperties));
+const HL7v2IOSinkProperties = lazyForm(() => import('../properties/sink/HL7v2IO').then((m) => m.HL7v2IOSinkProperties));
+const DicomIOSourceProperties = lazyForm(() => import('../properties/source/DicomIO').then((m) => m.DicomIOSourceProperties));
+const DicomIOSinkProperties = lazyForm(() => import('../properties/sink/DicomIO').then((m) => m.DicomIOSinkProperties));
+const SplunkIOSinkProperties = lazyForm(() => import('../properties/sink/SplunkIO').then((m) => m.SplunkIOSinkProperties));
+const GoogleAdsIOSourceProperties = lazyForm(() => import('../properties/source/GoogleAdsIO').then((m) => m.GoogleAdsIOSourceProperties));
+const RequestResponseIOSourceProperties = lazyForm(() => import('../properties/source/RequestResponseIO').then((m) => m.RequestResponseIOSourceProperties));
+const RequestResponseIOSinkProperties = lazyForm(() => import('../properties/sink/RequestResponseIO').then((m) => m.RequestResponseIOSinkProperties));
+const DatadogIOSinkProperties = lazyForm(() => import('../properties/sink/DatadogIO').then((m) => m.DatadogIOSinkProperties));
+const AmqpIOSourceProperties = lazyForm(() => import('../properties/source/AmqpIO').then((m) => m.AmqpIOSourceProperties));
+const AmqpIOSinkProperties = lazyForm(() => import('../properties/sink/AmqpIO').then((m) => m.AmqpIOSinkProperties));
+const RabbitMqIOSourceProperties = lazyForm(() => import('../properties/source/RabbitMqIO').then((m) => m.RabbitMqIOSourceProperties));
+const RabbitMqIOSinkProperties = lazyForm(() => import('../properties/sink/RabbitMqIO').then((m) => m.RabbitMqIOSinkProperties));
+const PulsarIOSourceProperties = lazyForm(() => import('../properties/source/PulsarIO').then((m) => m.PulsarIOSourceProperties));
+const PulsarIOSinkProperties = lazyForm(() => import('../properties/sink/PulsarIO').then((m) => m.PulsarIOSinkProperties));
+const SolaceIOSourceProperties = lazyForm(() => import('../properties/source/SolaceIO').then((m) => m.SolaceIOSourceProperties));
+const SolaceIOSinkProperties = lazyForm(() => import('../properties/sink/SolaceIO').then((m) => m.SolaceIOSinkProperties));
+const FlinkStreamingImpulseSourceProperties = lazyForm(() => import('../properties/source/FlinkStreamingImpulseSource').then((m) => m.FlinkStreamingImpulseSourceProperties));
+const TFRecordIOSourceProperties = lazyForm(() => import('../properties/source/TFRecordIO').then((m) => m.TFRecordIOSourceProperties));
+const TFRecordIOSinkProperties = lazyForm(() => import('../properties/sink/TFRecordIO').then((m) => m.TFRecordIOSinkProperties));
+const CsvIOSourceProperties = lazyForm(() => import('../properties/source/CsvIO').then((m) => m.CsvIOSourceProperties));
+const CsvIOSinkProperties = lazyForm(() => import('../properties/sink/CsvIO').then((m) => m.CsvIOSinkProperties));
+const XmlIOSourceProperties = lazyForm(() => import('../properties/source/XmlIO').then((m) => m.XmlIOSourceProperties));
+const XmlIOSinkProperties = lazyForm(() => import('../properties/sink/XmlIO').then((m) => m.XmlIOSinkProperties));
+const JsonIOSourceProperties = lazyForm(() => import('../properties/source/JsonIO').then((m) => m.JsonIOSourceProperties));
+const JsonIOSinkProperties = lazyForm(() => import('../properties/sink/JsonIO').then((m) => m.JsonIOSinkProperties));
+const ContextualTextIOSourceProperties = lazyForm(() => import('../properties/source/ContextualTextIO').then((m) => m.ContextualTextIOSourceProperties));
+const ContextualTextIOSinkProperties = lazyForm(() => import('../properties/sink/ContextualTextIO').then((m) => m.ContextualTextIOSinkProperties));
+const ThriftIOSourceProperties = lazyForm(() => import('../properties/source/ThriftIO').then((m) => m.ThriftIOSourceProperties));
+const ThriftIOSinkProperties = lazyForm(() => import('../properties/sink/ThriftIO').then((m) => m.ThriftIOSinkProperties));
+const HadoopFileSystemSourceProperties = lazyForm(() => import('../properties/source/HadoopFileSystem').then((m) => m.HadoopFileSystemSourceProperties));
+const HadoopFileSystemSinkProperties = lazyForm(() => import('../properties/sink/HadoopFileSystem').then((m) => m.HadoopFileSystemSinkProperties));
+const GcsFileSystemSourceProperties = lazyForm(() => import('../properties/source/GcsFileSystem').then((m) => m.GcsFileSystemSourceProperties));
+const GcsFileSystemSinkProperties = lazyForm(() => import('../properties/sink/GcsFileSystem').then((m) => m.GcsFileSystemSinkProperties));
+const LocalFileSystemSourceProperties = lazyForm(() => import('../properties/source/LocalFileSystem').then((m) => m.LocalFileSystemSourceProperties));
+const LocalFileSystemSinkProperties = lazyForm(() => import('../properties/sink/LocalFileSystem').then((m) => m.LocalFileSystemSinkProperties));
+const S3FileSystemSourceProperties = lazyForm(() => import('../properties/source/S3FileSystem').then((m) => m.S3FileSystemSourceProperties));
+const S3FileSystemSinkProperties = lazyForm(() => import('../properties/sink/S3FileSystem').then((m) => m.S3FileSystemSinkProperties));
+const AzureBlobStoreFileSystemSourceProperties = lazyForm(() => import('../properties/source/AzureBlobStoreFileSystem').then((m) => m.AzureBlobStoreFileSystemSourceProperties));
+const AzureBlobStoreFileSystemSinkProperties = lazyForm(() => import('../properties/sink/AzureBlobStoreFileSystem').then((m) => m.AzureBlobStoreFileSystemSinkProperties));
+const IcebergIOSourceProperties = lazyForm(() => import('../properties/source/IcebergIO').then((m) => m.IcebergIOSourceProperties));
+const IcebergIOSinkProperties = lazyForm(() => import('../properties/sink/IcebergIO').then((m) => m.IcebergIOSinkProperties));
+const TikaIOSourceProperties = lazyForm(() => import('../properties/source/TikaIO').then((m) => m.TikaIOSourceProperties));
+const TikaIOSinkProperties = lazyForm(() => import('../properties/sink/TikaIO').then((m) => m.TikaIOSinkProperties));
+const CloudBigtableSourceProperties = lazyForm(() => import('../properties/source/CloudBigtable').then((m) => m.CloudBigtableSourceProperties));
+const CloudBigtableSinkProperties = lazyForm(() => import('../properties/sink/CloudBigtable').then((m) => m.CloudBigtableSinkProperties));
+const CogniteDataFusionSourceProperties = lazyForm(() => import('../properties/source/CogniteDataFusion').then((m) => m.CogniteDataFusionSourceProperties));
+const CogniteDataFusionSinkProperties = lazyForm(() => import('../properties/sink/CogniteDataFusion').then((m) => m.CogniteDataFusionSinkProperties));
+const KineticaDBSourceProperties = lazyForm(() => import('../properties/source/KineticaDB').then((m) => m.KineticaDBSourceProperties));
+const KineticaDBSinkProperties = lazyForm(() => import('../properties/sink/KineticaDB').then((m) => m.KineticaDBSinkProperties));
+const TrepWsIOSourceProperties = lazyForm(() => import('../properties/source/TrepWsIO').then((m) => m.TrepWsIOSourceProperties));
+const TrepWsIOSinkProperties = lazyForm(() => import('../properties/sink/TrepWsIO').then((m) => m.TrepWsIOSinkProperties));
+const CloudSQLSourceProperties = lazyForm(() => import('../properties/source/CloudSQL').then((m) => m.CloudSQLSourceProperties));
+const CloudSQLSinkProperties = lazyForm(() => import('../properties/sink/CloudSQL').then((m) => m.CloudSQLSinkProperties));
+const MySQLSourceProperties = lazyForm(() => import('../properties/source/MySQL').then((m) => m.MySQLSourceProperties));
+const MySQLSinkProperties = lazyForm(() => import('../properties/sink/MySQL').then((m) => m.MySQLSinkProperties));
+const PyodbcSourceProperties = lazyForm(() => import('../properties/source/Pyodbc').then((m) => m.PyodbcSourceProperties));
+const PyodbcSinkProperties = lazyForm(() => import('../properties/sink/Pyodbc').then((m) => m.PyodbcSinkProperties));
+const TinybirdSourceProperties = lazyForm(() => import('../properties/source/Tinybird').then((m) => m.TinybirdSourceProperties));
+const TinybirdSinkProperties = lazyForm(() => import('../properties/sink/Tinybird').then((m) => m.TinybirdSinkProperties));
+const MySQLPostgreSQLOracleSQLServerSourceProperties = lazyForm(() => import('../properties/source/MySQLPostgreSQLOracleSQLServer').then((m) => m.MySQLPostgreSQLOracleSQLServerSourceProperties));
+const MySQLPostgreSQLOracleSQLServerSinkProperties = lazyForm(() => import('../properties/sink/MySQLPostgreSQLOracleSQLServer').then((m) => m.MySQLPostgreSQLOracleSQLServerSinkProperties));
+
+
 /**
  * Map of immutable metadata keys (`${type}:${beamTransform}` or direct transform name)
  * to their respective property form components.
@@ -177,7 +250,7 @@ export interface PropertyFormProps {
  * NOTE: Keys are matched against immutable metadata (beam_transform / componentType),
  * NEVER against user-editable node labels.
  */
-export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>> = {
+export const PROPERTY_FORM_REGISTRY: Record<string, PropertyFormComponent> = {
   // Source IOs (qualified by SOURCE:)
   'SOURCE:PubSubIO': PubSubProperties,
   'SOURCE:PubSub': PubSubProperties,

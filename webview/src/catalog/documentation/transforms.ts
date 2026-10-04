@@ -25,13 +25,13 @@ export const TRANSFORM_DOCS: Record<string, NodeDocMetadata> = {
   },
   'STEP:ParDo': {
     title: 'ParDo Transform (ParDo.of)',
-    description: 'Applies a general-purpose parallel DoFn to each element for custom filtering, enrichment, or multi-output routing.',
-    docsUrl: 'https://beam.apache.org/documentation/transforms/java/elementwise/pardo/',
+    description: 'Applies a general-purpose parallel DoFn to each element for custom filtering, enrichment, or multi-output routing, with optional PCollectionView side inputs.',
+    docsUrl: 'https://beam.apache.org/documentation/patterns/side-inputs/',
   },
   'ParDo': {
     title: 'ParDo Transform (ParDo.of)',
-    description: 'Applies a general-purpose parallel DoFn to each element for custom filtering, enrichment, or multi-output routing.',
-    docsUrl: 'https://beam.apache.org/documentation/transforms/java/elementwise/pardo/',
+    description: 'Applies a general-purpose parallel DoFn to each element for custom filtering, enrichment, or multi-output routing, with optional PCollectionView side inputs.',
+    docsUrl: 'https://beam.apache.org/documentation/patterns/side-inputs/',
   },
   'STEP:ParseMessage': {
     title: 'Parse Message Transform',

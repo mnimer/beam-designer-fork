@@ -15,6 +15,7 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as https from 'https';
 import * as path from 'path';
 import YAML from 'yaml';
 import { GoogleGenAI } from '@google/genai';
@@ -455,6 +456,22 @@ async function ensureGitignoreExcludesLog(targetFolderPath: string): Promise<voi
 }
 
 /**
+ * Ensures the Node.js global HTTPS agent uses the system CA bundle (`/etc/ssl/cert.pem`)
+ * when `NODE_EXTRA_CA_CERTS` is not set.
+ *
+ * Prevents `unable to get issuer certificate` errors when `google-auth-library` and
+ * Vertex AI exchange OAuth2 tokens (`https://oauth2.googleapis.com/token`) inside a
+ * VS Code Extension Host launched from the GUI without `--use-system-ca`.
+ *
+ * @param certPath Optional path to the system CA bundle (defaults to `/etc/ssl/cert.pem`).
+ */
+export function ensureSystemCaBundle(certPath = '/etc/ssl/cert.pem'): void {
+    if (!process.env.NODE_EXTRA_CA_CERTS && fs.existsSync(certPath)) {
+        https.globalAgent.options.ca = fs.readFileSync(certPath);
+    }
+}
+
+/**
  * Executes the full code generation pipeline:
  * 1. Redacts sensitive credentials from the pipeline (C2)
  * 2. Assembles prompt with templates and sentinel instructions
@@ -485,6 +502,8 @@ export async function executeCodeGeneration(options: ExecuteCodeGenerationOption
 
     let promptText = '';
     try {
+        ensureSystemCaBundle();
+
         const resolveProject = getGcloudProjectFn || getGcloudProject;
         const gcloudProjectId = await resolveProject();
         const beamVersion = await getLatestBeamVersion();

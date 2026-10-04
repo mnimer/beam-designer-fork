@@ -53,8 +53,8 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         ...getBeamFiles(path.join(integrationDir, 'steps')),
     ];
 
-    it('contains all expected 225 integration .beam files across sources, sinks, and steps', () => {
-        expect(splitBeamFiles.length).toBe(225);
+    it('contains all expected 227 integration .beam files across sources, sinks, and steps', () => {
+        expect(splitBeamFiles.length).toBe(227);
     });
 
     it('validates every .beam file passes Kahn algorithm with 0 cycles and 0 orphans', () => {
@@ -161,7 +161,7 @@ describe('Integration Suites DAG Topology and Pattern Verification', () => {
         for (const lang of ['java', 'python']) {
             const stepDir = path.join(integrationDir, 'steps', lang);
             const files = getBeamFiles(stepDir);
-            expect(files.length).toBe(9);
+            expect(files.length).toBe(10);
 
             const found = new Set<string>();
             for (const file of files) {

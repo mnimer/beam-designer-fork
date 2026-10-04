@@ -143,7 +143,8 @@ import {
     shouldPushDocumentUpdate,
     savePipelineFiles,
     BeamEditorProvider,
-    DocumentSyncState
+    DocumentSyncState,
+    handleRegenerateCodeCommand
 } from '../../extension';
 
 describe('M5 — Webview Lifecycle and Safe Message Dispatching', () => {
@@ -619,5 +620,55 @@ describe('M4 — Two-Way Synchronization in BeamEditorProvider', () => {
                 filename: 'pipeline.beam'
             })
         );
+    });
+
+    it('automatically saves the .beam document and calls document.save() when regenerateCode is dispatched', async () => {
+        mockState.mockTextDocuments.length = 0;
+        mockState.mockApplyEdit.mockClear();
+
+        const docUri = {
+            scheme: 'file',
+            fsPath: '/test/workspace/auto-save-on-codegen.beam',
+            toString: () => 'file:///test/workspace/auto-save-on-codegen.beam'
+        };
+
+        const mockSave = vi.fn().mockResolvedValue(true);
+        const openDoc = {
+            uri: docUri,
+            getText: () => 'nodes: []\nedges: []\n',
+            positionAt: (offset: number) => ({ line: 0, character: offset }),
+            lineCount: 2,
+            save: mockSave
+        };
+        mockState.mockTextDocuments.push(openDoc);
+
+        const syncState: DocumentSyncState = {
+            isApplyingEdit: false,
+            lastSavedContent: 'nodes: []\nedges: []\n'
+        };
+
+        const updatedYaml = 'nodes:\n  - id: n1\nedges:\n  - id: e1\n    source: n1\n    target: n1\n';
+        const mockPost = vi.fn();
+
+        await handleRegenerateCodeCommand(
+            {
+                context: { extensionPath: '/test/ext' } as any,
+                webview: {} as any,
+                document: openDoc as any,
+                uri: docUri as any,
+                postToWebview: mockPost,
+                syncState
+            },
+            {
+                command: 'regenerateCode',
+                data: updatedYaml,
+                filename: 'auto-save-on-codegen.beam',
+                language: 'Python'
+            }
+        );
+
+        expect(mockState.mockApplyEdit).toHaveBeenCalledTimes(1);
+        expect(mockSave).toHaveBeenCalledTimes(1);
+        expect(syncState.lastSavedContent).toBe(updatedYaml);
     });
 });

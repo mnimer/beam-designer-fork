@@ -25,8 +25,13 @@
  *   and affected edge IDs for visual highlighting in the React Flow canvas and error messages.
  * - Categorizes findings into fatal errors (e.g. cycles, orphan/disconnected steps) which block
  *   code generation, and non-fatal warnings (e.g. missing sink) which advise the user.
+ * - ParDo side inputs (F1): incoming edges are partitioned by `targetHandle` (`main`/none vs
+ *   `side_input`). A ParDo with only side inputs is flagged in `missingUpstreamNodeIds`, and
+ *   stale `properties.sideInputs` bindings are flagged in `sideInputMismatchNodeIds`.
  * - Adheres strictly to project coding standards and documentation rules.
  */
+
+import { isParDoNodeData, normalizeSideInputBindings, partitionIncomingEdges } from './sideInputs';
 
 export interface DagNode {
     id: string;
@@ -70,6 +75,8 @@ export interface DagValidationResult {
     missingUpstreamNodeIds: string[];
     /** Source nodes that do not accept upstream input (e.g. FhirIO in searchResources mode) but have an incoming edge */
     invalidUpstreamNodeIds: string[];
+    /** ParDo nodes whose `properties.sideInputs` reference an upstream node without a matching `side_input` edge */
+    sideInputMismatchNodeIds: string[];
     /** Fatal error messages that block pipeline code generation */
     errors: string[];
     /** Non-fatal warning messages for user feedback */
@@ -106,6 +113,7 @@ export function validateDagTopology(
             orphanNodeIds: [],
             missingUpstreamNodeIds: [],
             invalidUpstreamNodeIds: [],
+            sideInputMismatchNodeIds: [],
             errors: [],
             warnings: [],
         };
@@ -228,6 +236,43 @@ export function validateDagTopology(
         }
     });
 
+    // 4c. Check ParDo nodes for side input topology rules.
+    //     - Incoming edges are partitioned by targetHandle: primary (`main` / no handle) vs `side_input`.
+    //     - A ParDo with only side input edges cannot execute (a PCollectionView needs a main PCollection).
+    //     - Persisted `properties.sideInputs` must each map to a live `side_input` edge.
+    const sideInputMismatchNodeIds: string[] = [];
+    const registeredEdges = (edges || []).filter(
+        (e) => e && e.source !== undefined && e.target !== undefined && nodeMap.has(String(e.source)) && nodeMap.has(String(e.target))
+    );
+    validNodes.forEach((node) => {
+        if (!isParDoNodeData(node.data)) {
+            return;
+        }
+        const id = String(node.id);
+        const label = node.data?.label ? `"${node.data.label}" (${id})` : id;
+        const { main, side } = partitionIncomingEdges(id, registeredEdges);
+
+        if (side.length > 0 && main.length === 0) {
+            missingUpstreamNodeIds.push(id);
+            errors.push(
+                `ParDo node ${label} only has side input connections. Connect a main input PCollection to its primary (left) handle — a ParDo cannot run on a PCollectionView alone.`
+            );
+        }
+
+        const connectedSideSources = new Set(side.map((e) => String(e.source)));
+        const bindings = normalizeSideInputBindings(node.data?.properties?.sideInputs);
+        const stale = bindings.filter((b) => !connectedSideSources.has(String(b.sourceNodeId)));
+        if (stale.length > 0) {
+            sideInputMismatchNodeIds.push(id);
+            const staleList = stale
+                .map((b) => `${b.variableName} (${b.sourceLabel ? `"${b.sourceLabel}" ` : ''}${b.sourceNodeId})`)
+                .join(', ');
+            errors.push(
+                `ParDo node ${label} configures side input(s) ${staleList} without a matching side_input edge. Reconnect the upstream node to the side input handle or remove the stale binding.`
+            );
+        }
+    });
+
     // 5. Check for missing Apache Beam core components (Source / Sink)
     const hasSource = validNodes.some((n) => n.data?.type === 'SOURCE');
     const hasSink = validNodes.some((n) => n.data?.type === 'SINK');
@@ -342,6 +387,7 @@ export function validateDagTopology(
         orphanNodeIds,
         missingUpstreamNodeIds,
         invalidUpstreamNodeIds,
+        sideInputMismatchNodeIds,
         errors,
         warnings,
     };

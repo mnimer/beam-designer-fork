@@ -14,7 +14,7 @@ import { getDesignerOutputChannel } from '../../core/outputChannel';
 import { isAllowedExternalUri } from '../../security/uriGuard';
 import { isSubPath } from '../../security/pathGuard';
 import { computePipelineLocation } from '../../editor/pipelineLocation';
-import { getGcloudProject } from '../../cli/gcloudClient';
+import { getGcloudProjectCached } from '../../cli/gcloudClient';
 import { getSamplePipelines } from '../../samples/samplePipelineService';
 import { savePipelineFiles } from '../../editor/pipelineFileWriter';
 import { promptForBeamSaveLocation } from '../../editor/beamSaveDialog';
@@ -23,21 +23,22 @@ import type { TokenUsage } from '../../shared/types';
 
 /**
  * Handler for 'ready' command.
- * Initializes the designer webview with samples, project ID, and pipeline data.
+ * Pushes the pipeline document to the webview, then resolves the default GCP project.
+ *
+ * P9 ordering contract -- `loadPipeline` is posted FIRST and synchronously:
+ * - The document text is already in memory; nothing about rendering the canvas depends on
+ *   gcloud or on the sample catalogue. Previously both were awaited ahead of `loadPipeline`,
+ *   so the nodes were held behind a 1–5 s `gcloud config get-value project` spawn.
+ * - Samples are NOT loaded here. The webview requests them separately with `getSamples`
+ *   on mount, so doing it in `ready` as well was a duplicate read+parse of every sample.
+ * - The default project is delivered afterwards as `projectIdResolved` (cached, see
+ *   `getGcloudProjectCached`), and the webview applies it only if the user has not already
+ *   chosen a project in the meantime.
  *
  * @param ctx Message context
  * @param _message Incoming IPC message (unused)
  */
 export async function handleReady(ctx: MessageContext, _message: any): Promise<void> {
-    const gcloudProjectId = (await getGcloudProject()) || 'YOUR_PROJECT_ID';
-
-    // Send loaded samples to webview
-    const samplePipelines = await getSamplePipelines(ctx.context);
-    ctx.postToWebview({
-        command: 'samplesLoaded',
-        samples: samplePipelines
-    });
-
     const activeUri = ctx.document ? ctx.document.uri : ctx.uri;
     let relativeFolder = '';
     let defaultOutputFolder = '';
@@ -56,7 +57,6 @@ export async function handleReady(ctx: MessageContext, _message: any): Promise<v
             command: 'loadPipeline',
             data: ctx.document.getText(),
             filename: path.basename(ctx.document.uri.fsPath),
-            projectId: gcloudProjectId,
             relativeFolder: relativeFolder,
             defaultOutputFolder: defaultOutputFolder
         });
@@ -66,7 +66,6 @@ export async function handleReady(ctx: MessageContext, _message: any): Promise<v
             command: 'loadPipeline',
             data: content,
             filename: ctx.pipelineName,
-            projectId: gcloudProjectId,
             relativeFolder: relativeFolder,
             defaultOutputFolder: defaultOutputFolder
         });
@@ -75,11 +74,14 @@ export async function handleReady(ctx: MessageContext, _message: any): Promise<v
             command: 'loadPipeline',
             data: null,
             filename: ctx.pipelineName,
-            projectId: gcloudProjectId,
             relativeFolder: relativeFolder,
             defaultOutputFolder: defaultOutputFolder
         });
     }
+
+    // Off the critical path: the canvas is already rendering by the time this resolves.
+    const projectId = await getGcloudProjectCached();
+    ctx.postToWebview({ command: 'projectIdResolved', projectId });
 }
 
 /**

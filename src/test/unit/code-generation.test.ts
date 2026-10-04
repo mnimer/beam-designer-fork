@@ -21,10 +21,12 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscod
     }
 }));
 
+import * as https from 'https';
 import {
     resolveLanguageStrategy,
     assemblePrompt,
     deduplicateGeneratedFiles,
+    ensureSystemCaBundle,
     handleRegenerateCode,
     PYTHON_STRATEGY,
     JAVA_STRATEGY,
@@ -1002,9 +1004,52 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
             expect(deduped[0].filename).toBe('src/main/java/com/example/Pipe.java');
             expect(deduped[0].content).toContain('System.out.println("complete");');
         });
+
+        it('ensureSystemCaBundle loads the system CA bundle into https.globalAgent.options.ca when NODE_EXTRA_CA_CERTS is unset', () => {
+            const origEnv = process.env.NODE_EXTRA_CA_CERTS;
+            const origCa = https.globalAgent.options.ca;
+            delete process.env.NODE_EXTRA_CA_CERTS;
+
+            const tempDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'beam-ca-'));
+            const fakeCertPath = path.join(tempDir, 'cert.pem');
+            const fakePem = Buffer.from('-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----\n');
+            fs.writeFileSync(fakeCertPath, fakePem);
+
+            try {
+                https.globalAgent.options.ca = undefined;
+                ensureSystemCaBundle(fakeCertPath);
+                expect(https.globalAgent.options.ca).toEqual(fakePem);
+            } finally {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                https.globalAgent.options.ca = origCa;
+                if (origEnv !== undefined) {
+                    process.env.NODE_EXTRA_CA_CERTS = origEnv;
+                }
+            }
+        });
+
+        it('ensureSystemCaBundle does not override https.globalAgent.options.ca when NODE_EXTRA_CA_CERTS is already set', () => {
+            const origEnv = process.env.NODE_EXTRA_CA_CERTS;
+            const origCa = https.globalAgent.options.ca;
+            process.env.NODE_EXTRA_CA_CERTS = '/custom/ca.pem';
+
+            const tempDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'beam-ca-'));
+            const fakeCertPath = path.join(tempDir, 'cert.pem');
+            fs.writeFileSync(fakeCertPath, '-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----\n');
+
+            try {
+                https.globalAgent.options.ca = undefined;
+                ensureSystemCaBundle(fakeCertPath);
+                expect(https.globalAgent.options.ca).toBeUndefined();
+            } finally {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                https.globalAgent.options.ca = origCa;
+                if (origEnv === undefined) {
+                    delete process.env.NODE_EXTRA_CA_CERTS;
+                } else {
+                    process.env.NODE_EXTRA_CA_CERTS = origEnv;
+                }
+            }
+        });
     });
 });
-
-
-
-
