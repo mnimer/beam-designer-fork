@@ -459,33 +459,55 @@ async function ensureGitignoreExcludesLog(targetFolderPath: string): Promise<voi
 const origCreateSecureContext = tls.createSecureContext;
 
 /**
- * Ensures Node.js trusts the local/corporate CA bundle (`/etc/ssl/cert.pem`)
- * for both `https.request` (`google-auth-library` / `gaxios`) and native `fetch`
- * (`undici` / `@google/genai`) when `NODE_EXTRA_CA_CERTS` is not set.
+ * Ensures Node.js trusts the local/corporate CA bundle (`/etc/ssl/cert.pem`,
+ * `NODE_EXTRA_CA_CERTS`, and `SSL_CERT_FILE`) for both `https.request`
+ * (`google-auth-library` / `gaxios`) and native `fetch` (`undici` / `@google/genai`).
+ *
+ * Why we do not skip when `process.env.NODE_EXTRA_CA_CERTS` is set:
+ * On macOS, when VS Code is launched from the Dock/Spotlight, Electron's C++ OpenSSL
+ * layer initializes before VS Code's JS `resolveShellEnv()` merges `~/.zshrc` variables
+ * (such as `NODE_EXTRA_CA_CERTS`) into `process.env`. Setting `process.env.NODE_EXTRA_CA_CERTS`
+ * in JS after startup has no effect on OpenSSL, so we must still load the certificate
+ * files and inject them into `https.globalAgent` and `tls.createSecureContext`.
+ *
+ * Why we do not guard `addCACert` with `if (!options.ca)`:
+ * Inside the VS Code Extension Host, `@vscode/proxy-agent` wraps `tls.createSecureContext`
+ * and populates `options.ca`, which would cause `if (!options.ca)` to skip `addCACert`.
  *
  * @param certPath Optional path to the system CA bundle (defaults to `/etc/ssl/cert.pem`).
  */
 export function ensureSystemCaBundle(certPath: string = '/etc/ssl/cert.pem'): void {
-    if (!process.env.NODE_EXTRA_CA_CERTS && fs.existsSync(certPath)) {
-        try {
-            const certs = fs.readFileSync(certPath);
+    try {
+        const candidatePaths = Array.from(new Set([
+            process.env.NODE_EXTRA_CA_CERTS,
+            process.env.SSL_CERT_FILE,
+            certPath,
+        ].filter((p): p is string => Boolean(p && fs.existsSync(p)))));
 
-            // 1. Fix Node https.request (google-auth-library / gaxios)
-            if (https.globalAgent && https.globalAgent.options) {
-                https.globalAgent.options.ca = certs;
-            }
-
-            // 2. Fix native fetch / Undici / @google/genai TLS connections
-            tls.createSecureContext = function (options: tls.SecureContextOptions = {}) {
-                const context = origCreateSecureContext.call(tls, options);
-                if (!options.ca && (context as any).context?.addCACert) {
-                    (context as any).context.addCACert(certs);
-                }
-                return context;
-            };
-        } catch (err) {
-            console.error('Failed to load system CA bundle:', err);
+        if (candidatePaths.length === 0) {
+            return;
         }
+
+        const certBuffers = candidatePaths.map((p) => fs.readFileSync(p));
+        const combinedCerts = certBuffers.length === 1 ? certBuffers[0] : Buffer.concat(certBuffers);
+
+        // 1. Fix Node https.request (google-auth-library / gaxios)
+        if (https.globalAgent && https.globalAgent.options) {
+            https.globalAgent.options.ca = combinedCerts;
+        }
+
+        // 2. Fix native fetch / Undici / @google/genai TLS connections
+        tls.createSecureContext = function (options: tls.SecureContextOptions = {}) {
+            const context = origCreateSecureContext.call(tls, options);
+            if ((context as any)?.context?.addCACert) {
+                for (const buf of certBuffers) {
+                    (context as any).context.addCACert(buf);
+                }
+            }
+            return context;
+        };
+    } catch (err) {
+        console.error('Failed to load system CA bundle:', err);
     }
 }
 
