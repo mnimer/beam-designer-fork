@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "pipelineId": "bp_path_c6c47ed7419c3d1c6ddf5bf5",
+  "language": "Java",
+  "generatedAt": "2026-10-04T04:02:48.291Z",
+  "files": [
+    {
+      "path": "pom.xml",
+      "sha256": "ce4f7b3427ea3e620e8a92de8df0eccb42da8b8393b59866a7798d75f063c76b"
+    },
+    {
+      "path": "src/main/java/com/example/GenerateMockDataPipeline.java",
+      "sha256": "1076f9e8d1b776ad793f1b97d5e004516a86e3dabc0dc6832f4123b5e356e41e"
+    },
+    {
+      "path": "src/test/java/com/example/GenerateMockDataPipelineTest.java",
+      "sha256": "0f3aec87713e1c6012ee954631de9488acdc26fe4ef3313598b8d2b76e225821"
+    },
+    {
+      "path": "metadata.json",
+      "sha256": "ee9b0410a2da749d0790429e01546143e5f998fa7670620d7564387832b34509"
+    },
+    {
+      "path": "Dockerfile",
+      "sha256": "35eb310d45d234a0a75a063d8b03cd2bb3aad1173b1d15832f217cd5edc01828"
+    },
+    {
+      "path": ".dockerignore",
+      "sha256": "01412768d851dac4b61f11e90a225fb6a4365b29cd2c6695a12d6021af3687e5"
+    },
+    {
+      "path": "run_directrunner.sh",
+      "sha256": "8b57953dd8957e618f1e4709279a491cf5ccce6d171b20541e55afdd3d2d9506"
+    },
+    {
+      "path": "run_dataflowrunner.sh",
+      "sha256": "8aa9f38d4700632c7056fcec5ba87b5958c565e6ff8edf5cdde1ac300e973127"
+    },
+    {
+      "path": "run_sparkrunner.sh",
+      "sha256": "9cbc3d341de69016acbda815054d68c26b96dff0e8bce4273e39dce90e344a91"
+    },
+    {
+      "path": "cloudbuild.yaml",
+      "sha256": "61cc67c27651354bb0af0d2ff5f6f6da48f4680b3abc6fdf46bb47c3a80844a9"
+    },
+    {
+      "path": "README.md",
+      "sha256": "19e5523ea65b17b8e8d7adc9a1d6bb4b721e2e1261cc948dd63272a8b6164d89"
+    }
+  ]
+}

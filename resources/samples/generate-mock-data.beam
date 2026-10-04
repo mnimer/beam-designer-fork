@@ -13,13 +13,6 @@ nodes:
         withRateLimit: true
         periodSeconds: "1"
         start: "0"
-    width: 180
-    height: 64
-    selected: false
-    dragging: false
-    positionAbsolute:
-      x: 109.5
-      y: 81.5
   - id: "1787600436005"
     type: pipeline
     position:
@@ -62,13 +55,6 @@ nodes:
           ```
       system_instructions: Wrap the generated code in a try/catch, returning all
         errors to a separate pcollection
-    width: 229
-    height: 64
-    selected: false
-    dragging: false
-    positionAbsolute:
-      x: 347.5
-      y: 193.1507064290317
   - id: "1787600440963"
     type: pipeline
     position:
@@ -79,13 +65,6 @@ nodes:
       type: STEP
       iconName: Terminal
       beam_transform: LogMessage
-    width: 186
-    height: 64
-    selected: false
-    positionAbsolute:
-      x: 1048.4
-      y: 176.5
-    dragging: false
 edges:
   - id: e-1787600432005-1787600436005
     source: "1787600432005"
@@ -105,10 +84,10 @@ jobConfig:
   machineType: n1-standard-1
   minInstances: 1
   maxInstances: 10
-  gcsStagingPath: 
+  gcsStagingPath: null
   network: ""
   subnetwork: regions/us-central1/subnetworks/default
 pipelineConfig:
   language: Java
-  outputFolder: ./generate-mock-data
+  outputFolder: resources/samples/generate-mock-data
   needsRebuild: false

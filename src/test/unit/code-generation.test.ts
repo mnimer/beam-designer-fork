@@ -21,7 +21,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscod
     }
 }));
 
-import * as https from 'https';
+import https from 'https';
+import tls from 'tls';
 import {
     resolveLanguageStrategy,
     assemblePrompt,
@@ -1005,10 +1006,13 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
             expect(deduped[0].content).toContain('System.out.println("complete");');
         });
 
-        it('ensureSystemCaBundle loads the system CA bundle into https.globalAgent.options.ca when NODE_EXTRA_CA_CERTS is unset', () => {
+        it('ensureSystemCaBundle loads the system CA bundle into https.globalAgent.options.ca and patches tls.createSecureContext', () => {
             const origEnv = process.env.NODE_EXTRA_CA_CERTS;
+            const origSslFile = process.env.SSL_CERT_FILE;
             const origCa = https.globalAgent.options.ca;
+            const prevCreateSecureContext = tls.createSecureContext;
             delete process.env.NODE_EXTRA_CA_CERTS;
+            delete process.env.SSL_CERT_FILE;
 
             const tempDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'beam-ca-'));
             const fakeCertPath = path.join(tempDir, 'cert.pem');
@@ -1019,35 +1023,49 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
                 https.globalAgent.options.ca = undefined;
                 ensureSystemCaBundle(fakeCertPath);
                 expect(https.globalAgent.options.ca).toEqual(fakePem);
+                expect(tls.createSecureContext).not.toBe(prevCreateSecureContext);
             } finally {
                 fs.rmSync(tempDir, { recursive: true, force: true });
                 https.globalAgent.options.ca = origCa;
+                tls.createSecureContext = prevCreateSecureContext;
                 if (origEnv !== undefined) {
                     process.env.NODE_EXTRA_CA_CERTS = origEnv;
+                }
+                if (origSslFile !== undefined) {
+                    process.env.SSL_CERT_FILE = origSslFile;
                 }
             }
         });
 
-        it('ensureSystemCaBundle does not override https.globalAgent.options.ca when NODE_EXTRA_CA_CERTS is already set', () => {
+        it('ensureSystemCaBundle still loads certificates when NODE_EXTRA_CA_CERTS is set in process.env after Electron startup', () => {
             const origEnv = process.env.NODE_EXTRA_CA_CERTS;
+            const origSslFile = process.env.SSL_CERT_FILE;
             const origCa = https.globalAgent.options.ca;
-            process.env.NODE_EXTRA_CA_CERTS = '/custom/ca.pem';
+            const prevCreateSecureContext = tls.createSecureContext;
+            delete process.env.SSL_CERT_FILE;
 
             const tempDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'beam-ca-'));
-            const fakeCertPath = path.join(tempDir, 'cert.pem');
-            fs.writeFileSync(fakeCertPath, '-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----\n');
+            const extraCertPath = path.join(tempDir, 'extra-ca.pem');
+            const extraPem = Buffer.from('-----BEGIN CERTIFICATE-----\nEXTRA\n-----END CERTIFICATE-----\n');
+            fs.writeFileSync(extraCertPath, extraPem);
+            process.env.NODE_EXTRA_CA_CERTS = extraCertPath;
 
             try {
                 https.globalAgent.options.ca = undefined;
-                ensureSystemCaBundle(fakeCertPath);
-                expect(https.globalAgent.options.ca).toBeUndefined();
+                ensureSystemCaBundle(path.join(tempDir, 'nonexistent.pem'));
+                expect(https.globalAgent.options.ca).toEqual(extraPem);
+                expect(tls.createSecureContext).not.toBe(prevCreateSecureContext);
             } finally {
                 fs.rmSync(tempDir, { recursive: true, force: true });
                 https.globalAgent.options.ca = origCa;
+                tls.createSecureContext = prevCreateSecureContext;
                 if (origEnv === undefined) {
                     delete process.env.NODE_EXTRA_CA_CERTS;
                 } else {
                     process.env.NODE_EXTRA_CA_CERTS = origEnv;
+                }
+                if (origSslFile !== undefined) {
+                    process.env.SSL_CERT_FILE = origSslFile;
                 }
             }
         });
