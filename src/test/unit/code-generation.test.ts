@@ -21,7 +21,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscod
     }
 }));
 
-import * as https from 'https';
+import https from 'https';
+import tls from 'tls';
 import {
     resolveLanguageStrategy,
     assemblePrompt,
@@ -1005,9 +1006,10 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
             expect(deduped[0].content).toContain('System.out.println("complete");');
         });
 
-        it('ensureSystemCaBundle loads the system CA bundle into https.globalAgent.options.ca when NODE_EXTRA_CA_CERTS is unset', () => {
+        it('ensureSystemCaBundle loads the system CA bundle into https.globalAgent.options.ca and patches tls.createSecureContext when NODE_EXTRA_CA_CERTS is unset', () => {
             const origEnv = process.env.NODE_EXTRA_CA_CERTS;
             const origCa = https.globalAgent.options.ca;
+            const prevCreateSecureContext = tls.createSecureContext;
             delete process.env.NODE_EXTRA_CA_CERTS;
 
             const tempDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'beam-ca-'));
@@ -1019,9 +1021,11 @@ describe('Codegen prompts — connector API coherence (regression)', () => {
                 https.globalAgent.options.ca = undefined;
                 ensureSystemCaBundle(fakeCertPath);
                 expect(https.globalAgent.options.ca).toEqual(fakePem);
+                expect(tls.createSecureContext).not.toBe(prevCreateSecureContext);
             } finally {
                 fs.rmSync(tempDir, { recursive: true, force: true });
                 https.globalAgent.options.ca = origCa;
+                tls.createSecureContext = prevCreateSecureContext;
                 if (origEnv !== undefined) {
                     process.env.NODE_EXTRA_CA_CERTS = origEnv;
                 }

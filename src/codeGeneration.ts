@@ -15,7 +15,8 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as https from 'https';
+import https from 'https';
+import tls from 'tls';
 import * as path from 'path';
 import YAML from 'yaml';
 import { GoogleGenAI } from '@google/genai';
@@ -455,19 +456,36 @@ async function ensureGitignoreExcludesLog(targetFolderPath: string): Promise<voi
     }
 }
 
+const origCreateSecureContext = tls.createSecureContext;
+
 /**
- * Ensures the Node.js global HTTPS agent uses the system CA bundle (`/etc/ssl/cert.pem`)
- * when `NODE_EXTRA_CA_CERTS` is not set.
- *
- * Prevents `unable to get issuer certificate` errors when `google-auth-library` and
- * Vertex AI exchange OAuth2 tokens (`https://oauth2.googleapis.com/token`) inside a
- * VS Code Extension Host launched from the GUI without `--use-system-ca`.
+ * Ensures Node.js trusts the local/corporate CA bundle (`/etc/ssl/cert.pem`)
+ * for both `https.request` (`google-auth-library` / `gaxios`) and native `fetch`
+ * (`undici` / `@google/genai`) when `NODE_EXTRA_CA_CERTS` is not set.
  *
  * @param certPath Optional path to the system CA bundle (defaults to `/etc/ssl/cert.pem`).
  */
-export function ensureSystemCaBundle(certPath = '/etc/ssl/cert.pem'): void {
+export function ensureSystemCaBundle(certPath: string = '/etc/ssl/cert.pem'): void {
     if (!process.env.NODE_EXTRA_CA_CERTS && fs.existsSync(certPath)) {
-        https.globalAgent.options.ca = fs.readFileSync(certPath);
+        try {
+            const certs = fs.readFileSync(certPath);
+
+            // 1. Fix Node https.request (google-auth-library / gaxios)
+            if (https.globalAgent && https.globalAgent.options) {
+                https.globalAgent.options.ca = certs;
+            }
+
+            // 2. Fix native fetch / Undici / @google/genai TLS connections
+            tls.createSecureContext = function (options: tls.SecureContextOptions = {}) {
+                const context = origCreateSecureContext.call(tls, options);
+                if (!options.ca && (context as any).context?.addCACert) {
+                    (context as any).context.addCACert(certs);
+                }
+                return context;
+            };
+        } catch (err) {
+            console.error('Failed to load system CA bundle:', err);
+        }
     }
 }
 
