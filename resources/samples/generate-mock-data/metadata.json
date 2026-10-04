@@ -1,0 +1,24 @@
+{
+  "name": "generate-mock-data-pipeline",
+  "description": "Generates periodic mock user data matching JSON schema and logs records.",
+  "parameters": [
+    {
+      "name": "pipelineJobId",
+      "label": "Pipeline Job ID",
+      "helpText": "Unique job identifier for execution tracking.",
+      "isOptional": true,
+      "regexes": [
+        "^[a-zA-Z0-9_-]+$"
+      ]
+    },
+    {
+      "name": "numObjectsPerIteration",
+      "label": "Number of Objects Per Iteration",
+      "helpText": "Number of mock data JSON objects generated per sequence tick.",
+      "isOptional": true,
+      "regexes": [
+        "^[0-9]+$"
+      ]
+    }
+  ]
+}
