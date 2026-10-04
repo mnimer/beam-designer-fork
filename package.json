@@ -2,7 +2,7 @@
   "name": "dataflow-pipeline-builder",
   "displayName": "DataFlow Pipeline Builder",
   "description": "Visual pipeline builder for DataFlow using React-Flow",
-  "version": "0.0.1",
+  "version": "1.0.11",
   "publisher": "antigravity",
   "repository": {
     "type": "git",
