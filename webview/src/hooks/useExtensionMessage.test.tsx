@@ -8,6 +8,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import React, { useState } from 'react';
 import { useExtensionMessage } from './useExtensionMessage';
+import type { HostToWebviewCommand } from '../utils/protocol';
+
+// These tests exercise the listener plumbing with synthetic command names that
+// are not part of the host protocol, so they are cast to the protocol type.
+const cmd = (name: string) => name as HostToWebviewCommand;
 
 describe('useExtensionMessage', () => {
   afterEach(() => {
@@ -18,7 +23,7 @@ describe('useExtensionMessage', () => {
     const handler = vi.fn();
 
     const TestComponent = () => {
-      useExtensionMessage('testLoaded', handler);
+      useExtensionMessage(cmd('testLoaded'), handler);
       return <div>Test</div>;
     };
 
@@ -40,7 +45,7 @@ describe('useExtensionMessage', () => {
     const handler = vi.fn();
 
     const TestComponent = () => {
-      useExtensionMessage('expectedCommand', handler);
+      useExtensionMessage(cmd('expectedCommand'), handler);
       return <div>Test</div>;
     };
 
@@ -115,7 +120,7 @@ describe('useExtensionMessage', () => {
       // Consumer passes an inline arrow function capturing local counter state.
       // In older implementations, this effect only registered on first render and
       // captured counter = 0 forever.
-      useExtensionMessage('ping', () => {
+      useExtensionMessage(cmd('ping'), () => {
         capturedCounterValue = counter;
       });
 
@@ -156,7 +161,7 @@ describe('useExtensionMessage', () => {
     const handler = vi.fn();
 
     const TestComponent = () => {
-      useExtensionMessage('testCleanup', handler);
+      useExtensionMessage(cmd('testCleanup'), handler);
       return <div>Cleanup Test</div>;
     };
 

@@ -19,72 +19,7 @@ import {
 } from '../../extension';
 
 // Mock vscode module
-vi.mock('vscode', () => {
-    class MockTreeItem {
-        public description?: string;
-        public tooltip?: any;
-        public iconPath?: any;
-        public command?: any;
-        constructor(
-            public label: string,
-            public collapsibleState: number = 0
-        ) {}
-    }
-
-    class MockEventEmitter {
-        public fire = vi.fn();
-        public event = vi.fn();
-    }
-
-    class MockThemeIcon {
-        constructor(public id: string, public color?: any) {}
-    }
-
-    class MockThemeColor {
-        constructor(public id: string) {}
-    }
-
-    class MockMarkdownString {
-        constructor(public value: string) {}
-    }
-
-    return {
-        TreeItem: MockTreeItem,
-        TreeItemCollapsibleState: {
-            None: 0,
-            Collapsed: 1,
-            Expanded: 2
-        },
-        EventEmitter: MockEventEmitter,
-        ThemeIcon: MockThemeIcon,
-        ThemeColor: MockThemeColor,
-        MarkdownString: MockMarkdownString,
-        workspace: {
-            workspaceFolders: [
-                {
-                    uri: { fsPath: '/workspace' },
-                    name: 'workspace'
-                }
-            ],
-            findFiles: vi.fn().mockResolvedValue([])
-        },
-        Uri: {
-            file: (path: string) => ({ fsPath: path, toString: () => path }),
-            parse: (url: string) => ({ fsPath: url, toString: () => url })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn()
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock());
 
 describe('Dataflow Job Categorization and Sorting', () => {
     it('categorizes RUNNING, PENDING, and QUEUED states as Running', () => {

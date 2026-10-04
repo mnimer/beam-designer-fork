@@ -1,0 +1,458 @@
+/**
+ * RabbitMqIOSinkProperties Test Suite
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Unit tests validating RabbitMqIOSinkProperties component functionality,
+ * form change callbacks, protocol and port handling, gcloud Secret Manager integration,
+ * Compute Engine VM instance suggestions, mutually-exclusive publishing modes (Queue vs Exchange),
+ * message durability / persistent delivery guarantees, MIME content type configuration,
+ * Python x-lang expansion service configuration, and system instructions.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { RabbitMqIOSinkProperties } from './RabbitMqIO';
+
+describe('RabbitMqIOSinkProperties', () => {
+  const originalPostMessage = (window as any).vscode?.postMessage;
+
+  beforeEach(() => {
+    (window as any).vscode = {
+      postMessage: vi.fn()
+    };
+  });
+
+  afterEach(() => {
+    if (originalPostMessage) {
+      (window as any).vscode.postMessage = originalPostMessage;
+    } else {
+      delete (window as any).vscode;
+    }
+  });
+
+  it('renders default fields with documentation tooltips and placeholders in queue mode', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Host/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Port$/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Virtual Host/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Use TLS \/ SSL/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username \(Secret Manager\)/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByText(/RabbitMQ broker credentials are authenticated via Google Cloud Secret Manager/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/GCP Secret Manager Secret/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Queue Name/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Declare Queue if Not Exists/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Persistent Delivery/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Content Type/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Expansion Service Mode/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
+  });
+
+  it('populates fields with provided properties in queue mode', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          host: 'rabbitmq.prod.internal',
+          port: 5672,
+          virtualHost: '/orders',
+          useTls: false,
+          username: 'worker_app',
+          publishMode: 'queue' as const,
+          queue: 'orders.incoming',
+          queueDeclare: true,
+          persistentDelivery: true,
+          contentType: 'application/json',
+          expansionServiceMode: 'auto' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Broker Host/i, { selector: 'input' })).toHaveValue('rabbitmq.prod.internal');
+    expect(screen.getByLabelText(/^Port$/i, { selector: 'input' })).toHaveValue(5672);
+    expect(screen.getByLabelText(/Virtual Host/i, { selector: 'input' })).toHaveValue('/orders');
+    expect(screen.getByLabelText(/Use TLS \/ SSL/i, { selector: 'input' })).not.toBeChecked();
+    expect(screen.getByLabelText(/Username/i, { selector: 'input' })).toHaveValue('worker_app');
+    expect(screen.getByLabelText(/Queue Name/i, { selector: 'input' })).toHaveValue('orders.incoming');
+    expect(screen.getByLabelText(/Declare Queue if Not Exists/i, { selector: 'input' })).toBeChecked();
+    expect(screen.getByLabelText(/Persistent Delivery/i, { selector: 'input' })).toBeChecked();
+    expect(screen.getByLabelText(/Content Type/i, { selector: 'input' })).toHaveValue('application/json');
+    expect(screen.getByLabelText(/Expansion Service Mode/i)).toHaveValue('auto');
+  });
+
+  it('renders exchange mode fields and hides queue fields when publishMode is exchange', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          publishMode: 'exchange' as const,
+          exchange: 'orders.processed',
+          exchangeType: 'topic' as const,
+          routingKey: 'orders.eu.completed'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    expect(screen.getByLabelText(/Exchange Name/i, { selector: 'input' })).toHaveValue('orders.processed');
+    expect(screen.getByLabelText(/Auto-declare Exchange/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Exchange Type/i)).toHaveValue('topic');
+    expect(screen.getByLabelText(/Message Routing Key/i, { selector: 'input' })).toHaveValue('orders.eu.completed');
+    expect(screen.queryByLabelText(/Queue Name/i, { selector: 'input' })).not.toBeInTheDocument();
+  });
+
+  it('automatically detects exchange mode if properties.exchange is present and publishMode is unset', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          exchange: 'events.fanout'
+        }
+      }
+    };
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={vi.fn()} />);
+
+    expect(screen.getByLabelText(/Exchange Name/i, { selector: 'input' })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Queue Name/i, { selector: 'input' })).not.toBeInTheDocument();
+  });
+
+  it('emits onChange when host, port, and virtualHost change', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: { host: 'localhost' }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const hostInput = screen.getByLabelText(/Broker Host/i, { selector: 'input' });
+    fireEvent.change(hostInput, { target: { name: 'host', value: 'rmq.cluster.local' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ host: 'rmq.cluster.local' }));
+
+    const portInput = screen.getByLabelText(/^Port$/i, { selector: 'input' });
+    fireEvent.change(portInput, { target: { name: 'port', value: '5673' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ port: '5673' }));
+
+    const vhostInput = screen.getByLabelText(/Virtual Host/i, { selector: 'input' });
+    fireEvent.change(vhostInput, { target: { name: 'virtualHost', value: '/custom-vhost' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ virtualHost: '/custom-vhost' }));
+  });
+
+  it('toggles TLS checkbox and automatically switches port between 5672 and 5671', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: { port: '5672', useTls: false }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { unmount } = render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const tlsCheckbox = screen.getByLabelText(/Use TLS \/ SSL/i, { selector: 'input' });
+    fireEvent.click(tlsCheckbox);
+
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      useTls: true,
+      port: '5671'
+    }));
+
+    unmount();
+
+    // Test disabling TLS switches back from 5671 to 5672
+    const mockNodeTls = {
+      data: {
+        label: 'RabbitMQ',
+        properties: { port: '5671', useTls: true }
+      }
+    };
+    const mockOnChangeTls = vi.fn();
+    render(<RabbitMqIOSinkProperties node={mockNodeTls} onChange={mockOnChangeTls} />);
+
+    const tlsCheckboxActive = screen.getByLabelText(/Use TLS \/ SSL/i, { selector: 'input' });
+    fireEvent.click(tlsCheckboxActive);
+
+    expect(mockOnChangeTls).toHaveBeenCalledWith(expect.objectContaining({
+      useTls: false,
+      port: '5672'
+    }));
+  });
+
+  it('switches publishMode between queue and exchange, cleaning up opposing fields', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          publishMode: 'queue' as const,
+          queue: 'orders.incoming',
+          queueDeclare: true
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    const { unmount } = render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const exchangeRadio = screen.getByLabelText(/^Exchange$/i, { selector: 'input' });
+    fireEvent.click(exchangeRadio);
+
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      publishMode: 'exchange',
+      exchangeType: 'direct'
+    }));
+    const callArg = mockOnChange.mock.calls[0][0];
+    expect(callArg.queue).toBeUndefined();
+    expect(callArg.queueDeclare).toBeUndefined();
+
+    unmount();
+
+    // Test switching back to queue
+    const mockNodeExchange = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          publishMode: 'exchange' as const,
+          exchange: 'events.topic',
+          exchangeType: 'topic' as const
+        }
+      }
+    };
+    const mockOnChangeQueue = vi.fn();
+    render(<RabbitMqIOSinkProperties node={mockNodeExchange} onChange={mockOnChangeQueue} />);
+
+    const queueRadio = screen.getByLabelText(/^Queue$/i, { selector: 'input' });
+    fireEvent.click(queueRadio);
+
+    expect(mockOnChangeQueue).toHaveBeenCalledWith(expect.objectContaining({
+      publishMode: 'queue'
+    }));
+    const callArgQueue = mockOnChangeQueue.mock.calls[0][0];
+    expect(callArgQueue.exchange).toBeUndefined();
+    expect(callArgQueue.exchangeDeclare).toBeUndefined();
+    expect(callArgQueue.exchangeType).toBeUndefined();
+  });
+
+  it('emits onChange when queue and queueDeclare change', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: { publishMode: 'queue' as const, queue: 'q1' }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const queueInput = screen.getByLabelText(/Queue Name/i, { selector: 'input' });
+    fireEvent.change(queueInput, { target: { name: 'queue', value: 'q2.sink' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ queue: 'q2.sink' }));
+
+    const declareCheckbox = screen.getByLabelText(/Declare Queue if Not Exists/i, { selector: 'input' });
+    fireEvent.click(declareCheckbox);
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ queueDeclare: true }));
+  });
+
+  it('emits onChange when exchange, exchangeType, and routingKey change in exchange mode', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          publishMode: 'exchange' as const,
+          exchange: 'ex1',
+          exchangeType: 'direct' as const,
+          routingKey: 'rk1'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const exInput = screen.getByLabelText(/Exchange Name/i, { selector: 'input' });
+    fireEvent.change(exInput, { target: { name: 'exchange', value: 'orders.topic' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ exchange: 'orders.topic' }));
+
+    const exTypeSelect = screen.getByLabelText(/Exchange Type/i);
+    fireEvent.change(exTypeSelect, { target: { name: 'exchangeType', value: 'fanout' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ exchangeType: 'fanout' }));
+
+    const rkInput = screen.getByLabelText(/Message Routing Key/i, { selector: 'input' });
+    fireEvent.change(rkInput, { target: { name: 'routingKey', value: 'orders.us.*' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ routingKey: 'orders.us.*' }));
+  });
+
+  it('emits onChange when persistentDelivery and contentType change', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const persistentCheckbox = screen.getByLabelText(/Persistent Delivery/i, { selector: 'input' });
+    fireEvent.click(persistentCheckbox);
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ persistentDelivery: true }));
+
+    const contentTypeInput = screen.getByLabelText(/Content Type/i, { selector: 'input' });
+    fireEvent.change(contentTypeInput, { target: { name: 'contentType', value: 'text/plain' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'text/plain' }));
+  });
+
+
+  it('validates required fields with semantic red borders and aria-invalid', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          host: '',
+          publishMode: 'queue' as const,
+          queue: ''
+        }
+      }
+    };
+
+    const { unmount: unmount1 } = render(<RabbitMqIOSinkProperties node={mockNode} onChange={vi.fn()} />);
+
+    const hostInput = screen.getByLabelText(/Broker Host/i, { selector: 'input' });
+    expect(hostInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Broker host is required.')).toBeInTheDocument();
+
+    const queueInput = screen.getByLabelText(/Queue Name/i, { selector: 'input' });
+    expect(queueInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Queue name is required.')).toBeInTheDocument();
+
+    unmount1();
+
+    // Verify exchange validation in exchange mode
+    const mockNodeExchange = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          host: 'rmq.local',
+          publishMode: 'exchange' as const,
+          exchange: ''
+        }
+      }
+    };
+    const { unmount: unmount2 } = render(<RabbitMqIOSinkProperties node={mockNodeExchange} onChange={vi.fn()} />);
+
+    const exInput = screen.getByLabelText(/Exchange Name/i, { selector: 'input' });
+    expect(exInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Exchange name is required.')).toBeInTheDocument();
+
+    unmount2();
+
+    // Verify expansion service validation in endpoint mode
+    const mockNodeEndpoint = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          host: 'rmq.local',
+          queue: 'q1',
+          expansionServiceMode: 'endpoint' as const,
+          expansionServiceEndpoint: ''
+        }
+      }
+    };
+    render(<RabbitMqIOSinkProperties node={mockNodeEndpoint} onChange={vi.fn()} />);
+
+    const endpointInput = screen.getByLabelText(/Expansion Service Endpoint/i, { selector: 'input' });
+    expect(endpointInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Expansion service endpoint is required.')).toBeInTheDocument();
+  });
+
+  it('handles Secret Manager dynamic discovery and selection', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          passwordSource: 'secretManager' as const
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i, { selector: 'input' });
+    expect(secretDropdown).toBeInTheDocument();
+
+    const usernameDropdown = screen.getByLabelText(/Username \(Secret Manager\)/i, { selector: 'input' });
+    expect(usernameDropdown).toBeInTheDocument();
+
+    fireEvent.change(secretDropdown, { target: { name: 'secretName', value: 'rabbitmq-admin-pass' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      secretName: 'rabbitmq-admin-pass'
+    }));
+  });
+
+  it('handles computeInstancesLoaded and applies discovered VM IP to broker host', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {
+          host: 'localhost'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          command: 'computeInstancesLoaded',
+          instances: [
+            { name: 'rmq-broker-1', status: 'RUNNING', internalIp: '10.128.0.45', externalIp: '34.68.10.12' }
+          ]
+        }
+      }));
+    });
+
+    const vmButton = screen.getByTitle(/Use IP 10.128.0.45 for VM rmq-broker-1/i);
+    expect(vmButton).toBeInTheDocument();
+
+    fireEvent.click(vmButton);
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ host: '10.128.0.45' }));
+  });
+
+  it('updates system_instructions when textarea changes', () => {
+    const mockNode = {
+      data: {
+        label: 'RabbitMQ',
+        properties: {}
+      }
+    };
+    const mockOnChange = vi.fn();
+    render(<RabbitMqIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const textarea = screen.getByLabelText(/Code Generation Instructions/i);
+
+    fireEvent.change(textarea, { target: { value: 'Custom instructions for RabbitMQ sink' } });
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      system_instructions: 'Custom instructions for RabbitMQ sink'
+    }));
+  });
+});

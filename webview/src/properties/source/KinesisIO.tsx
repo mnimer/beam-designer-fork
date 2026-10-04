@@ -21,11 +21,15 @@
  * - Persists custom code generation instructions for LLM prompt tailoring.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { RefreshCw, Eye, EyeOff, ShieldCheck, KeyRound, Radio } from 'lucide-react';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { RefreshCw, ShieldCheck, KeyRound, Radio } from 'lucide-react';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
+/** Preset mapping AWS region label to its standard region code identifier. */
 export interface AwsRegionPreset {
   label: string;
   value: string;
@@ -45,6 +49,7 @@ export const AWS_REGION_PRESETS: AwsRegionPreset[] = [
   { label: 'Custom Region...', value: 'custom' },
 ];
 
+/** React Flow node shape for the KinesisIO source panel, including its persisted configuration data. */
 export interface KinesisIOSourceNode {
   data: {
     label: string;
@@ -55,7 +60,7 @@ export interface KinesisIOSourceNode {
       streamName?: string;
       region?: string;
       customRegion?: string;
-      authMode?: 'secretManager' | 'direct' | 'iam';
+      authMode?: 'secretManager' | 'iam' | string;
       awsAccessKey?: string;
       awsSecretKey?: string;
       accessKeySecretName?: string;
@@ -79,6 +84,7 @@ export interface KinesisIOSourceNode {
   };
 }
 
+/** Props for the {@link KinesisIOSourceProperties} component. */
 interface KinesisIOSourcePropertiesProps {
   node: KinesisIOSourceNode;
   onChange: (properties: any) => void;
@@ -97,9 +103,7 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
   const streamName = properties.streamName || '';
   const region = properties.region || 'us-east-1';
   const customRegion = properties.customRegion || '';
-  const authMode = properties.authMode || 'secretManager';
-  const awsAccessKey = properties.awsAccessKey || '';
-  const awsSecretKey = properties.awsSecretKey || '';
+  const authMode = properties.authMode === 'iam' ? 'iam' : 'secretManager';
   const accessKeySecretName = properties.accessKeySecretName || '';
   const secretKeySecretName = properties.secretKeySecretName || '';
   const roleArn = properties.roleArn || '';
@@ -116,58 +120,10 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
   const expansionService = properties.expansionService || '';
 
   // Local UI State
-  const [showSecretKey, setShowSecretKey] = useState(false);
-  const [secrets, setSecrets] = useState<string[]>([]);
-  const [secretsError, setSecretsError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
 
   // System instructions text with fallbacks
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // Listen for secrets loaded message from extension host IPC
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets payload to short secret IDs so source and sink are consistent
-        // and avoid emitting [object Object] or full resource paths to the pipeline.
-        const secretIds = rawSecrets.map((s: any) =>
-          typeof s === 'string' ? (s.split('/').filter(Boolean).pop() || s) : (s.id || s.name || '')
-        ).filter(Boolean);
-        setSecrets(secretIds);
-        setIsLoadingSecrets(false);
-        setSecretsError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Dispatches a request to the extension to load GCP Secret Manager secrets.
-   */
-  const requestSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      setSecretsError(null);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
-
-  // Automatically request secrets on mount or when switching to secretManager auth mode
-  useEffect(() => {
-    if (authMode === 'secretManager') {
-      requestSecrets();
-    }
-  }, [authMode]);
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -184,6 +140,9 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
       [name]: isCheckbox ? checked : value
     };
 
+    delete newProperties.awsAccessKey;
+    delete newProperties.awsSecretKey;
+
     onChange(newProperties);
   };
 
@@ -192,13 +151,6 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   // Region preset handling
   const isRegionPreset = AWS_REGION_PRESETS.some(r => r.value === region && r.value !== 'custom');
   const selectedRegionPreset = isRegionPreset ? region : 'custom';
@@ -291,10 +243,15 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
 
         {/* Auth Mode Radio Selector */}
-        <div className="grid grid-cols-3 gap-2 p-1 bg-[var(--vscode-subcard-bg)] rounded border border-[var(--vscode-border)]">
+        <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--vscode-subcard-bg)] rounded border border-[var(--vscode-border)]">
           <button
             type="button"
-            onClick={() => onChange({ ...properties, authMode: 'secretManager' })}
+            onClick={() => {
+              const next = { ...properties, authMode: 'secretManager' };
+              delete next.awsAccessKey;
+              delete next.awsSecretKey;
+              onChange(next);
+            }}
             className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
               authMode === 'secretManager'
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-sm'
@@ -305,18 +262,12 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
           </button>
           <button
             type="button"
-            onClick={() => onChange({ ...properties, authMode: 'direct' })}
-            className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
-              authMode === 'direct'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-sm'
-                : 'bg-[var(--vscode-button-secondary)] text-[var(--vscode-text-secondary)] border border-[var(--vscode-border)] hover:bg-[var(--vscode-hover)]'
-            }`}
-          >
-            Direct Keys
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ ...properties, authMode: 'iam' })}
+            onClick={() => {
+              const next = { ...properties, authMode: 'iam' };
+              delete next.awsAccessKey;
+              delete next.awsSecretKey;
+              onChange(next);
+            }}
             className={`text-xs py-1.5 px-2 rounded font-medium transition-colors ${
               authMode === 'iam'
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-sm'
@@ -337,11 +288,11 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               </span>
               <button
                 type="button"
-                onClick={requestSecrets}
+                onClick={secrets.refresh}
                 title="Refresh secrets from gcloud"
                 className="text-xs text-[var(--vscode-text-muted)] hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <RefreshCw className={`w-3 h-3 ${isLoadingSecrets ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${secrets.loading ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
             </div>
@@ -356,8 +307,9 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               onChange={handleChange}
               placeholder="e.g. aws-access-key-id"
               list="gcloud-secrets-list"
-              error={secretsError}
-              invalid={!!secretsError}
+              datalist={secrets.options}
+              error={secrets.error}
+              invalid={!!secrets.error}
               mono={true}
             />
 
@@ -371,59 +323,11 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
               onChange={handleChange}
               placeholder="e.g. aws-secret-access-key"
               list="gcloud-secrets-list"
-              error={secretsError}
-              invalid={!!secretsError}
+              datalist={secrets.options}
+              error={secrets.error}
+              invalid={!!secrets.error}
               mono={true}
             />
-
-            {/* Datalist of Secrets fetched via gcloud */}
-            <datalist id="gcloud-secrets-list">
-              {secrets.map((sec) => (
-                <option key={sec} value={sec} />
-              ))}
-            </datalist>
-          </div>
-        )}
-
-        {/* Auth Mode: Direct Keys */}
-        {authMode === 'direct' && (
-          <div className="flex flex-col gap-2.5 pt-1">
-            <PropertyField
-              id="awsAccessKey"
-              name="awsAccessKey"
-              label="AWS Access Key ID"
-              tooltip="20-character key identifier (e.g. AKIA...) used to authenticate pipeline requests with AWS."
-              value={awsAccessKey}
-              onChange={handleChange}
-              placeholder="AKIAIOSFODNN7EXAMPLE"
-              mono={true}
-            />
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="awsSecretKey" className="flex items-center text-xs font-bold uppercase text-[var(--vscode-text-muted)]">
-                <span>AWS Secret Access Key</span>
-                <InfoTooltip text="Private token used alongside the key ID to sign and authenticate AWS requests. Masked by default." />
-              </label>
-              <div className="relative">
-                <input
-                  id="awsSecretKey"
-                  type={showSecretKey ? 'text' : 'password'}
-                  name="awsSecretKey"
-                  value={awsSecretKey}
-                  onChange={handleChange}
-                  placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                  className="w-full bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 pr-8 rounded border border-[var(--vscode-border)] text-sm focus:outline-none focus:border-emerald-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSecretKey(!showSecretKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--vscode-text-muted)] hover:text-[var(--vscode-text-primary)]"
-                  title={showSecretKey ? 'Hide key' : 'Show key'}
-                >
-                  {showSecretKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -638,24 +542,19 @@ export const KinesisIOSourceProperties: React.FC<KinesisIOSourcePropertiesProps>
         </div>
       </div>
 
-      {/* Flexible Spacer adhering to 8pt grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* SECTION 6: CODE GENERATION INSTRUCTIONS */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="kinesisSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kinesis source code generation (e.g. AWS credential loading logic, error handling, dead-letter routing)..."
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="kinesisSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Kinesis source code generation (e.g. AWS credential loading logic, error handling, dead-letter routing)..."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

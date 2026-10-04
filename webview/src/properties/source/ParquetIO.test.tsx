@@ -9,16 +9,22 @@
  * for ParquetIOSourceProperties.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ParquetIOSourceProperties } from './ParquetIO';
 
 describe('ParquetIOSourceProperties', () => {
   const mockOnChange = vi.fn();
+  let originalVscode: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    originalVscode = (window as any).vscode;
+  });
+
+  afterEach(() => {
+    (window as any).vscode = originalVscode;
   });
 
   it('renders with empty properties and flags validation error for missing filePattern', () => {
@@ -47,7 +53,9 @@ describe('ParquetIOSourceProperties', () => {
         properties: {
           filePattern: 's3://my-lakehouse/data/*.parquet',
           columns: 'id, name, email',
-          schema: '{"type": "record"}',
+          schemaFields: [
+            { name: 'id', type: 'STRING', mode: 'REQUIRED' }
+          ],
           validate: false,
           batched: true,
           minBundleSize: 1024,
@@ -60,13 +68,13 @@ describe('ParquetIOSourceProperties', () => {
 
     const filePatternInput = container.querySelector('#parquetSourceFilePattern') as HTMLInputElement;
     const columnsInput = container.querySelector('#parquetSourceColumns') as HTMLInputElement;
-    const schemaTextarea = container.querySelector('#parquetSourceSchema') as HTMLTextAreaElement;
     const instructionsTextarea = container.querySelector('#parquetSourceInstructions') as HTMLTextAreaElement;
 
     expect(filePatternInput).toHaveValue('s3://my-lakehouse/data/*.parquet');
     expect(filePatternInput).toHaveAttribute('aria-invalid', 'false');
     expect(columnsInput).toHaveValue('id, name, email');
-    expect(schemaTextarea).toHaveValue('{"type": "record"}');
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Field #1 Name')).toHaveValue('id');
     expect(instructionsTextarea).toHaveValue('Custom LLM instructions');
     expect(screen.queryByText('File Pattern is required.')).not.toBeInTheDocument();
   });
@@ -124,7 +132,7 @@ describe('ParquetIOSourceProperties', () => {
     );
   });
 
-  it('inserts sample Avro schema when Insert Sample is clicked', () => {
+  it('renders 3-tab SchemaEditor and updates schemaFields, schema, and schemaString', () => {
     const mockNode: any = {
       data: {
         properties: {}
@@ -133,12 +141,20 @@ describe('ParquetIOSourceProperties', () => {
 
     render(<ParquetIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const insertSampleBtn = screen.getByText('Insert Sample');
-    fireEvent.click(insertSampleBtn);
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /JSON Schema Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Schema String Tab/i })).toBeInTheDocument();
+
+    const addFieldBtn = screen.getByRole('button', { name: /Add Schema Field/i });
+    fireEvent.click(addFieldBtn);
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: expect.stringContaining('UserRecord')
+        schemaFields: [
+          expect.objectContaining({ name: '', type: 'STRING', mode: 'NULLABLE' })
+        ],
+        schema: expect.any(String),
+        schemaString: expect.any(String)
       })
     );
   });

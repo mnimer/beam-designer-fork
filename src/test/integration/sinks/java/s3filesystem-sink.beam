@@ -1,0 +1,87 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"event_id": "s3-1", "status": "active", "value": 10.5}'
+          - '{"event_id": "s3-2", "status": "active", "value": 20.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Parse each JSON string into an Avro GenericRecord (Java)
+        or dict (Python) matching schema (event_id: STRING, status: STRING,
+        value: DOUBLE) for S3 ParquetIO output."
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: S3 Write Parquet
+      type: SINK
+      iconName: Cloud
+      beam_transform: S3FileSystem
+      properties:
+        to: s3://my-company-lake/processed/events
+        suffix: .parquet
+        awsRegion: us-west-2
+        credentialsProvider: DefaultCredentialsProvider
+        s3StorageClass: STANDARD
+        sseAlgorithm: AES256
+        uploadBufferSizeBytes: 67108864
+        format: ParquetIO
+        compression: UNCOMPRESSED
+        numShards: 5
+        shardTemplate: -SSSSS-of-NNNNN
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: s3filesystem-sink-java
+  - key: S3_INPUT_PATTERN
+    value: s3://my-company-lake/events/year=2024/*.parquet
+  - key: S3_OUTPUT_PREFIX
+    value: s3://my-company-lake/processed/events
+  - key: AWS_REGION
+    value: us-west-2
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/s3filesystem-sink-java
+  needsRebuild: false

@@ -6,7 +6,7 @@
  * Purpose:
  * Comprehensive unit test suite for AggregationProperties step component.
  * Validates simple conditions, extreme conditions, failure conditions,
- * conditional UI for batching steps, and fallback hierarchies.
+ * and conditional UI for batching steps.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -229,68 +229,4 @@ describe('AggregationProperties', () => {
     }));
   });
 
-  // Instruction hierarchy: verifies fallback precedence
-  describe('system_instructions fallback precedence', () => {
-    it('prioritizes node.data.system_instructions over all other instruction fields', () => {
-      const mockNode = {
-        data: {
-          label: 'Top',
-          system_instructions: 'node system instructions',
-          special_instructions: 'node special instructions',
-          properties: {
-            system_instructions: 'prop system instructions',
-            special_instructions: 'prop special instructions'
-          }
-        }
-      };
-      const { container } = render(<AggregationProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#aggSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node system instructions');
-    });
-
-    it('falls back to node.data.special_instructions if node system_instructions is undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Top',
-          special_instructions: 'node special instructions',
-          properties: {
-            system_instructions: 'prop system instructions',
-            special_instructions: 'prop special instructions'
-          }
-        }
-      };
-      const { container } = render(<AggregationProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#aggSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node special instructions');
-    });
-
-    it('falls back to properties.system_instructions if node-level instructions are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Top',
-          properties: {
-            system_instructions: 'prop system instructions',
-            special_instructions: 'prop special instructions'
-          }
-        }
-      };
-      const { container } = render(<AggregationProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#aggSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop system instructions');
-    });
-
-    it('falls back to properties.special_instructions if preceding fields are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Top',
-          properties: {
-            special_instructions: 'prop special instructions'
-          }
-        }
-      };
-      const { container } = render(<AggregationProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#aggSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop special instructions');
-    });
-  });
 });

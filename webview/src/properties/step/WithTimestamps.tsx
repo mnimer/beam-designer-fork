@@ -17,7 +17,11 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
 
+/**
+ * React Flow node shape for the WithTimestamps step transform.
+ */
 interface WithTimestampsNode {
   data: {
     label?: string;
@@ -36,11 +40,21 @@ interface WithTimestampsNode {
   };
 }
 
+/**
+ * Props for the {@link WithTimestampsProperties} component.
+ */
 interface WithTimestampsPropertiesProps {
   node: WithTimestampsNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Generates plain English system instructions for timestamp assignment in code generation.
+ *
+ * @param type Timestamp source type ('Current Time' | 'Message Property' | 'Header Property').
+ * @param propName Optional property or header name containing the timestamp.
+ * @returns Human-readable instruction string.
+ */
 export const generateTimestampSystemInstruction = (type: string, propName: string): string => {
   if (type === 'Message Property') {
     return propName ? `Extract timestamp from message field '${propName}'.` : 'Extract timestamp from message field.';
@@ -51,6 +65,12 @@ export const generateTimestampSystemInstruction = (type: string, propName: strin
   return 'Attach current system time to each element.';
 };
 
+/**
+ * Property configuration panel for the Apache Beam WithTimestamps transform.
+ *
+ * @param props The selected WithTimestamps node and change notification callback.
+ * @returns The rendered WithTimestamps properties panel.
+ */
 export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const timestampType = properties.timestampType || 'Current Time';
@@ -94,18 +114,6 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
     });
   };
 
-  /**
-   * Handles changes to the code generation instructions textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      timestampType,
-      propertyName,
-      system_instructions: e.target.value,
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -146,21 +154,19 @@ export const WithTimestampsProperties: React.FC<WithTimestampsPropertiesProps> =
         Assign timestamps to incoming elements for windowing and event-time processing.
       </div>
 
-      {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="withTimestampsSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter code generation instructions for timestamp assignment..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            timestampType,
+            propertyName,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

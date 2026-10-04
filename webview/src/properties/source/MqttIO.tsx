@@ -20,17 +20,17 @@
  * - Adheres strictly to the 8pt grid system for spacing and sizing.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Server, Key, Lock, RefreshCw } from 'lucide-react';
+import React from 'react';
+import { Server, Lock } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SecretPicker } from '../../components/common/SecretPicker';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
+import { useSecretOptions } from '../../hooks/useSecretOptions';
 
-export interface SecretItem {
-  name: string;
-  fullName?: string;
-  value: string;
-}
-
+/** Compute Engine VM instance descriptor for MQTT broker IP discovery. */
 export interface ComputeInstanceItem {
   name: string;
   status: string;
@@ -38,6 +38,7 @@ export interface ComputeInstanceItem {
   externalIp: string;
 }
 
+/** React Flow node shape for the MqttIO source panel, including its persisted configuration data. */
 export interface MqttIOSourceNode {
   data: {
     label: string;
@@ -50,7 +51,7 @@ export interface MqttIOSourceNode {
       clientId?: string;
       username?: string;
       password?: string;
-      passwordSource?: 'secretManager' | 'direct';
+      passwordSource?: 'secretManager';
       secretName?: string;
       qos?: '0' | '1' | '2' | number;
       connectionTimeout?: number | string;
@@ -67,6 +68,7 @@ export interface MqttIOSourceNode {
   };
 }
 
+/** Props for the {@link MqttIOSourceProperties} component. */
 export interface MqttIOSourcePropertiesProps {
   node: MqttIOSourceNode;
   onChange: (properties: any) => void;
@@ -86,8 +88,6 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
   const topic = properties.topic || '';
   const clientId = properties.clientId || '';
   const username = properties.username || '';
-  const password = properties.password || '';
-  const passwordSource = properties.passwordSource || 'secretManager';
   const secretName = properties.secretName || '';
   const qos = properties.qos !== undefined ? String(properties.qos) : '1';
   const connectionTimeout = properties.connectionTimeout ?? '30';
@@ -97,67 +97,11 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
   const maxReadTime = properties.maxReadTime ?? '';
 
   // Local UI states
-  const [showPassword, setShowPassword] = useState(false);
-  const [secrets, setSecrets] = useState<SecretItem[]>([]);
-  const [instances, setInstances] = useState<ComputeInstanceItem[]>([]);
-  const [secretError, setSecretError] = useState<string | null>(null);
-  const [instanceError, setInstanceError] = useState<string | null>(null);
-  const [isLoadingSecrets, setIsLoadingSecrets] = useState(false);
+  const secrets = useSecretOptions();
+  const { items: instances, error: instanceError } = useAssetLoader<ComputeInstanceItem>('computeInstances');
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for Secret Manager secrets and Compute Engine instances from the extension host
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message && message.command === 'secretsLoaded') {
-        const rawSecrets = Array.isArray(message.secrets) ? message.secrets : [];
-        // NOTE: Normalize secrets so both strings and SecretItem objects resolve correctly with short secret ID
-        const loaded: SecretItem[] = rawSecrets.map((s: any) => {
-          if (typeof s === 'string') {
-            const shortId = s.split('/').filter(Boolean).pop() || s;
-            return { name: shortId, value: shortId };
-          }
-          const shortId = s.id || s.name || s.value || '';
-          return { name: shortId, value: shortId, fullName: s.fullName };
-        });
-        setSecrets(loaded);
-        setIsLoadingSecrets(false);
-        setSecretError(message.error || null);
-      } else if (message.command === 'computeInstancesLoaded') {
-        setInstances(message.instances || []);
-        setInstanceError(message.error || null);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-      vscode.postMessage({ command: 'getComputeInstances' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  /**
-   * Refreshes secrets list from Secret Manager via extension message.
-   */
-  const handleRefreshSecrets = () => {
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      setIsLoadingSecrets(true);
-      vscode.postMessage({ command: 'getSecrets' });
-    }
-  };
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -173,6 +117,9 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
       ...properties,
       [name]: isCheckbox ? checked : value
     };
+
+    delete newProperties.password;
+    newProperties.passwordSource = 'secretManager';
 
     onChange(newProperties);
   };
@@ -212,14 +159,6 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
    * 
    * @param e Form change event from textarea.
    */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
-  };
-
   // Field validation flags
   const isServerUriMissing = !serverUri.trim();
   const isTopicMissing = !topic.trim();
@@ -341,129 +280,32 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
             <Lock size={12} className="text-blue-400" />
             <span>Authentication & Credentials</span>
           </span>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
-              <input
-                type="radio"
-                name="passwordSource"
-                value="secretManager"
-                checked={passwordSource === 'secretManager'}
-                onChange={handleChange}
-                className="accent-blue-500"
-              />
-              <span>Secret Manager</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
-              <input
-                type="radio"
-                name="passwordSource"
-                value="direct"
-                checked={passwordSource === 'direct'}
-                onChange={handleChange}
-                className="accent-blue-500"
-              />
-              <span>Direct Entry</span>
-            </label>
-          </div>
         </div>
 
-        {/* Username */}
+        {/* Username Secret */}
         <PropertyField
           id="mqtt-username"
           name="username"
-          label="Username"
+          label="Username Secret"
           value={username}
           onChange={handleChange}
-          placeholder="Broker username (optional)"
+          placeholder="e.g. mqtt-broker-username"
+          list="mqtt-source-username-secret-options"
+          datalist={secrets.options}
+          loading={secrets.loading}
           mono={true}
         />
 
-        {/* Password or Secret Manager Selector */}
-        {passwordSource === 'secretManager' ? (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="mqtt-secret-name" className="flex items-center text-xs font-bold uppercase text-slate-500 gap-1">
-                <Key size={12} />
-                <span>GCP Secret Manager Secret</span>
-                <InfoTooltip
-                  text="Select a secret from Google Cloud Secret Manager to provide broker credentials securely without hardcoding secrets."
-                  position="auto"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleRefreshSecrets}
-                disabled={isLoadingSecrets}
-                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-                title="Refresh secrets from Secret Manager"
-              >
-                <RefreshCw size={11} className={isLoadingSecrets ? 'animate-spin' : ''} />
-                <span>Refresh</span>
-              </button>
-            </div>
-
-            {secrets.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                <select
-                  id="mqtt-secret-name"
-                  name="secretName"
-                  value={secretName}
-                  onChange={handleChange}
-                  className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- Select a Secret --</option>
-                  {secrets.map((sec) => (
-                    <option key={sec.name} value={sec.name}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-                {secretError && (
-                  <span className="text-xs text-red-400 mt-1" role="alert">
-                    {secretError}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <PropertyField
-                id="mqtt-secret-name"
-                name="secretName"
-                value={secretName}
-                onChange={handleChange}
-                placeholder="e.g. mqtt-broker-password"
-                error={secretError}
-                invalid={!!secretError}
-                helperText="No secrets automatically loaded. Enter secret resource name directly."
-                mono={true}
-              />
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="mqtt-password" className="text-xs font-bold uppercase text-slate-500">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                id="mqtt-password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={password}
-                onChange={handleChange}
-                placeholder="Broker password (optional)"
-                className="w-full bg-[#252836] text-white p-2 pr-9 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Secret Manager Selector */}
+        <SecretPicker
+          id="mqtt-secret-name"
+          name="secretName"
+          value={secretName}
+          onChange={handleChange}
+          secrets={secrets}
+          placeholder="e.g. mqtt-broker-password"
+          tooltip="Select a secret from Google Cloud Secret Manager to provide broker credentials securely without hardcoding secrets."
+        />
       </div>
 
       {/* 5. Quality of Service (QoS) - On its own full-width line */}
@@ -578,25 +420,20 @@ export const MqttIOSourceProperties: React.FC<MqttIOSourcePropertiesProps> = ({ 
         </div>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* 9. Code Generation Instructions */}
-      <div className="pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="mqtt-instructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions passed to the AI code generation model for this specific MQTT node (e.g., custom deserialization, payload decoding, or dead-letter topic)."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Convert byte[] payload to UTF-8 JSON String and apply dead-letter queue on malformed packets"
-          mono={false}
-          className="resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="mqtt-instructions"
+        value={systemInstructions}
+        tooltip="Custom instructions passed to the AI code generation model for this specific MQTT node (e.g., custom deserialization, payload decoding, or dead-letter topic)."
+        placeholder="e.g. Convert byte[] payload to UTF-8 JSON String and apply dead-letter queue on malformed packets"
+        wrapperClassName="pt-2 border-t border-slate-700/60"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

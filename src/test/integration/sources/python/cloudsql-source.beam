@@ -1,0 +1,103 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Cloud SQL Orders
+      type: SOURCE
+      iconName: Database
+      beam_transform: CloudSQL
+      properties:
+        cloudSqlInstance: retail-prod-123:us-central1:orders-pg
+        dbDriver: postgresql+pg8000
+        database: orders
+        username: beam_reader
+        passwordSecret: orders-pg-reader-password
+        query: SELECT order_id, customer_id, status, total_amount, created_at FROM
+          orders WHERE status = :status
+        queryParams: '{"status": "PAID"}'
+      system_instructions: "Implement this Cloud SQL source following the
+        jccatrinck/dataflow-cloud-sql-python ReadFromDBFn pattern, connecting
+        with the Cloud SQL Python Connector (google.cloud.sql.connector) and
+        SQLAlchemy 2.x. A custom DoFn is REQUIRED here because Beam has no
+        built-in Cloud SQL SQLAlchemy source: seed it with p | 'Seed Cloud SQL
+        Read' >> beam.Create([{}]) followed by beam.ParDo(ReadFromDBFn(...)).
+        Resolve passwordSecret ONCE at pipeline construction with
+        _access_secret(project_id, 'orders-pg-reader-password') and pass only
+        the resolved string into the DoFn constructor. Parse queryParams
+        ('{\"status\": \"PAID\"}') with json.loads into query_params={'status':
+        'PAID'}. In ReadFromDBFn.setup() create Connector() and
+        sqlalchemy.create_engine('postgresql+pg8000://', creator=lambda:
+        connector.connect('retail-prod-123:us-central1:orders-pg', 'pg8000',
+        user='beam_reader', password=<resolved>, db='orders')); the
+        'postgresql+pg8000' dialect and the 'pg8000' driver name come from
+        dbDriver. NEVER build a connection URL that contains the password (no
+        user:password@ form) and never log it. In teardown() call
+        engine.dispose() and connector.close(). In process() use the SQLAlchemy
+        2.x API: with engine.connect() as conn: result =
+        conn.execute(sqlalchemy.text(query), params) where params is
+        query_params ({'status': 'PAID'}) overridden by
+        element['db_query_params'] when present; yield dict(row._mapping) for
+        each row. Never format values into the SQL string. requirements.txt must
+        include cloud-sql-python-connector[pg8000], SQLAlchemy>=2.0 and
+        google-cloud-secret-manager."
+    width: 190
+    height: 64
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Mark Fulfilled
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: For each order dict, emit a new dict with the same keys
+        (order_id, customer_id, status, total_amount, created_at) where status
+        is set to 'FULFILLED' and all other fields are unchanged. Unit-test the
+        DoFn with TestPipeline, beam.Create and assert_that/equal_to without
+        opening database or Secret Manager connections.
+    width: 190
+    height: 64
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[CloudSQL-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: cloudsql-source-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/cloudsql-source-python
+  needsRebuild: false

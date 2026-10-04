@@ -16,26 +16,82 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** Props for the {@link CreateProperties} component. */
 interface CreatePropertiesProps {
   node: any;
   onChange: (properties: any) => void;
 }
 
-export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChange }) => {
-  const properties = node.data.properties || {};
-  const elements: string[] = properties.elements || [''];
+/**
+ * Normalizes raw elements from node properties into a typed string array.
+ * Handles:
+ * - JSON-stringified arrays (e.g. `'["{\\"id\\": 1}", "{\\"id\\": 2}"]'` or `'["record-1", "record-2"]'`)
+ * - Stringified primitives or single strings
+ * - Arrays of objects, numbers, booleans, or strings
+ * - Undefined, null, or empty values
+ */
+export function normalizeElements(raw: any): string[] {
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) {
+      return [''];
+    }
+    return raw.map((el) => {
+      if (typeof el === 'string') {
+        return el;
+      }
+      if (typeof el === 'object' && el !== null) {
+        try {
+          return JSON.stringify(el);
+        } catch {
+          return String(el);
+        }
+      }
+      return String(el ?? '');
+    });
+  }
 
-  const isInvalid = elements.length === 0 || elements.every(el => !el.trim());
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return [''];
+    }
+    // Check if the string represents a JSON array
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return normalizeElements(parsed);
+        }
+      } catch {
+        // Not a valid JSON array, treat as raw single string
+      }
+    }
+    return [raw];
+  }
+
+  if (raw !== undefined && raw !== null) {
+    return [String(raw)];
+  }
+
+  return [''];
+}
+
+/**
+ * Dedicated property panel for the Create (in-memory collection) source node. Configures static elements to inject into the pipeline.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
+export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChange }) => {
+  const properties = node?.data?.properties || {};
+  const elements: string[] = normalizeElements(properties.elements);
+
+  const isInvalid = elements.length === 0 || elements.every(el => typeof el !== 'string' || !el.trim());
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const updateElements = (newElements: string[]) => {
     onChange({ ...properties, elements: newElements });
@@ -52,18 +108,11 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
   };
 
   const removeElement = (index: number) => {
-    if (elements.length === 1) {
+    if (elements.length <= 1) {
       updateElements(['']);
     } else {
       updateElements(elements.filter((_, i) => i !== index));
     }
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -130,23 +179,18 @@ export const CreateProperties: React.FC<CreatePropertiesProps> = ({ node, onChan
         These elements will be created directly in memory as a PCollection (e.g. via beam.Create).
       </span>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="createSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Create.of() code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="createSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for Create.of() code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

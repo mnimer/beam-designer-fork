@@ -1,6 +1,8 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
 /**
  * PeriodicImpulse Properties Component
@@ -21,6 +23,7 @@ import { PropertyField } from '../../components/common/PropertyField';
  * - Follows the 8pt grid system for spacing and consistent dark theme styling.
  */
 
+/** Persisted configuration properties for the PeriodicImpulse transform node. */
 export interface PeriodicImpulsePropertiesData {
   intervalSeconds?: number | string;
   startMode?: 'now' | 'custom_timestamp';
@@ -33,6 +36,7 @@ export interface PeriodicImpulsePropertiesData {
   special_instructions?: string;
 }
 
+/** React Flow node shape for the PeriodicImpulse source panel, including its persisted configuration data. */
 export interface PeriodicImpulseNode {
   data: {
     label: string;
@@ -43,6 +47,7 @@ export interface PeriodicImpulseNode {
   };
 }
 
+/** Props for the {@link PeriodicImpulseProperties} component. */
 interface PeriodicImpulsePropertiesProps {
   node: PeriodicImpulseNode;
   onChange: (properties: any) => void;
@@ -63,12 +68,7 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
   const durationSeconds = properties.durationSeconds ?? 3600;
   const stopTimestamp = properties.stopTimestamp ?? '';
   const catchUpToNow = properties.catchUpToNow ?? false;
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles updating property fields when inputs change.
@@ -92,7 +92,7 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex-1 flex flex-col gap-4">
       {/* Interval in Seconds */}
       <PropertyField
         id="intervalSeconds"
@@ -213,17 +213,17 @@ export const PeriodicImpulseProperties: React.FC<PeriodicImpulsePropertiesProps>
       </div>
 
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="system_instructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        type="textarea"
         value={systemInstructions}
-        onChange={handleChange}
-        placeholder="Enter custom instructions for code generation..."
-        rows={3}
         tooltip="Optional custom guidance injected into the LLM code generation prompt for this transform."
-        mono={false}
+        placeholder="Enter custom instructions for code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

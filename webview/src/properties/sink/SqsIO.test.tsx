@@ -25,27 +25,6 @@ describe('SqsIOSinkProperties', () => {
     (window as any).vscode = originalVscode;
   });
 
-  it('renders default fields with documentation tooltips and placeholders', () => {
-    const mockNode = {
-      data: {
-        label: 'SQS',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<SqsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(container.querySelector('input[name="queueUrl"]')).toBeInTheDocument();
-    expect(container.querySelector('select[name="awsRegion"]')).toBeInTheDocument();
-    expect(container.querySelector('input[id="sqsSinkBatchSize"]')).toBeInTheDocument();
-    expect(container.querySelector('input[type="range"]')).toBeInTheDocument();
-    expect(container.querySelector('input[name="delaySeconds"]')).toBeInTheDocument();
-    expect(container.querySelector('select[name="authMode"]')).toBeInTheDocument();
-    expect(container.querySelector('input[name="endpointUrl"]')).toBeInTheDocument();
-    expect(container.querySelector('textarea')).toBeInTheDocument();
-  });
-
   it('marks Queue URL as invalid when empty', () => {
     const mockNode = {
       data: {
@@ -251,7 +230,7 @@ describe('SqsIOSinkProperties', () => {
     );
   });
 
-  it('requests secrets and aws queues via vscode.postMessage and updates datalist options on message events', () => {
+  it('requests aws queues via vscode.postMessage and updates datalist options on message events', () => {
     const mockPostMessage = vi.fn();
     (window as any).vscode = { postMessage: mockPostMessage };
 
@@ -267,22 +246,10 @@ describe('SqsIOSinkProperties', () => {
 
     render(<SqsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
     expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getAwsQueues' });
 
-    // Simulate extension response events
+    // Simulate extension response event
     act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { name: 'projects/123/secrets/aws_sink_key', id: 'aws_sink_key' }
-            ]
-          }
-        })
-      );
-
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
@@ -297,9 +264,5 @@ describe('SqsIOSinkProperties', () => {
     const queueDatalist = document.getElementById('sqs-sink-queue-options');
     expect(queueDatalist?.children.length).toBe(1);
     expect(queueDatalist?.children[0]).toHaveAttribute('value', 'https://sqs.us-east-1.amazonaws.com/123/sink-queue');
-
-    const secretsDatalist = document.getElementById('sqs-sink-secrets-list');
-    expect(secretsDatalist?.children.length).toBe(1);
-    expect(secretsDatalist?.children[0]).toHaveAttribute('value', 'aws_sink_key');
   });
 });

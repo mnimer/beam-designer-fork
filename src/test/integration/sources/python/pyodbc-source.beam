@@ -1,0 +1,100 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Pyodbc
+      type: SOURCE
+      iconName: Database
+      beam_transform: Pyodbc
+      properties:
+        driver: ODBC Driver 18 for SQL Server
+        host: 10.20.0.5
+        port: 1433
+        database: orders_oltp
+        user: beam_reader
+        passwordSecret: orders-oltp-reader-password
+        extraAttributes: Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30
+        query: SELECT order_id, customer_id, order_total, order_status, updated_at FROM
+          dbo.orders WHERE updated_at >= DATEADD(day, -1, SYSUTCDATETIME())
+      system_instructions: 'There is no built-in Beam transform for Pyodbc, so
+        implement this source with the pyodbc library: beam.Impulse() followed
+        by a custom DoFn. Build the ODBC connection string with attributes
+        DRIVER={<driver>}, SERVER=<host>,<port>, DATABASE=<database>,
+        UID=<user>, PWD set to the resolved passwordSecret value, and
+        extraAttributes appended. The user is a non-secret identifier and is
+        hardcoded. The password is the Secret Manager secret named by
+        passwordSecret, resolved with the _access_secret helper. Open the
+        connection in DoFn.setup() with pyodbc.connect(...), close it in
+        teardown(), run the query with cursor.execute(query), read the results
+        in cursor.fetchmany(1000) batches, and yield each row as a dict keyed by
+        column name (from cursor.description). Add pyodbc and
+        google-cloud-secret-manager to requirements.txt. The ODBC driver is a
+        native library that pip cannot install, so extend the Dockerfile: before
+        installing requirements, apt-get install unixodbc and Microsoft
+        msodbcsql18 (ACCEPT_EULA=Y, from the packages.microsoft.com Debian 12
+        repository). Because Dataflow workers also need that driver, have
+        run_dataflowrunner.sh launch the job with --parameters
+        sdk_container_image="${TEMPLATE_IMAGE}".'
+    width: 190
+    height: 64
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: Normalize each order row dict with fields order_id (int),
+        customer_id (str), order_total (Decimal or float), order_status (str),
+        updated_at (datetime or str). Convert order_total to float rounded to 2
+        decimals, upper-case order_status, and convert updated_at to an ISO-8601
+        UTC string. Skip rows with a missing order_id or a negative order_total
+        (incrementing a Beam counter). Unit-test the DoFn with TestPipeline,
+        beam.Create and assert_that/equal_to.
+    width: 190
+    height: 64
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Pyodbc-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: pyodbc-source-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/pyodbc-source-python
+  needsRebuild: false

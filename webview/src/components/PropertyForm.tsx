@@ -12,204 +12,30 @@
  * - Resolves keys using type-qualified keys (`${type}:${transform}`) and direct transform names.
  * - Fails fast: Displays an explicit "No property form registered for type <type>" message if no registry entry matches.
  * - Never inspects or falls back to user-editable display labels, preventing property sheet corruption on node renaming.
- * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO),
- *   Database, File, Aggregations, and Transform steps.
+ * - Supports Streaming Sources (PubSub, GenerateSequence, PeriodicImpulse, SnsIO, MqttIO, AmqpIO, RabbitMqIO,
+ *   PulsarIO, SolaceIO), Streaming Sinks (PubSub, Kafka, SnsIO, MqttIO, AmqpIO, RabbitMqIO, PulsarIO, SolaceIO),
+ *   Data Services (FlinkStreamingImpulseSource), Database, File, Aggregations, and Transform steps.
+ * - Database and Data Services connector family registered under type-qualified keys (`SOURCE:`/`SINK:`): CassandraIO,
+ *   HBaseIO, KuduIO, MongoDbIO, RedisIO, BigTableIO, ClickHouseIO, DatabaseIO, DatastoreIO, DynamoDBIO,
+ *   ElasticsearchIO, FirestoreIO, HadoopFormatIO, InfluxDbIO, MongoDbGridFSIO, Neo4jIO, SingleStoreDBIO,
+ *   SnowflakeIO, SolrIO, SpannerIO, CdapIO, CosmosIO, DebeziumIO, HCatalogIO, ArrowFlightIO, SparkReceiverIO.
+ * - Registry entries are code-split `React.lazy` components (see catalog/propertyFormRegistry.ts), so the
+ *   resolved component is rendered inside a `<Suspense>` boundary with a lightweight placeholder while its
+ *   chunk loads. Chunk load failures propagate to the enclosing ErrorBoundary in PropertyPane.
  */
-import React from 'react';
-import { PubSubProperties } from '../properties/source/PubSubIO';
-import { BigQuerySourceProperties } from '../properties/source/BigQueryIO';
-import { CreateProperties } from '../properties/source/CreateIO';
-import { GenerateSequenceProperties } from '../properties/source/GenerateSequence';
-import { PeriodicImpulseProperties } from '../properties/source/PeriodicImpulse';
-import { BigQuerySinkProperties } from '../properties/sink/BigQueryIO';
-import { PubSubSinkProperties } from '../properties/sink/PubSubIO';
-import { WindowingProperties } from '../properties/step/Windowing';
-import { ParseMessageProperties } from '../properties/step/ParseMessage';
-import { LogMessageProperties } from '../properties/sink/LogMessage';
-import { KVMapperProperties } from '../properties/step/KVMapper';
-import { FilterProperties } from '../properties/step/Filter';
-import { FlatMapProperties } from '../properties/step/FlatMap';
-import { MapProperties } from '../properties/step/Map';
-import { AggregationProperties } from '../properties/step/Aggregations';
-import { WithTimestampsProperties } from '../properties/step/WithTimestamps';
-import { ParDoProperties } from '../properties/step/ParDo';
-import { OtherProperties } from '../properties/step/Other';
-import { TextIOSourceProperties } from '../properties/source/TextIO';
-import { TextIOSinkProperties } from '../properties/sink/TextIO';
-import { FileIOSourceProperties, FileIOReadMatchesProperties } from '../properties/source/FileIO';
-import { FileIOSinkProperties } from '../properties/sink/FileIO';
-import { JdbcIOSourceProperties } from '../properties/source/JdbcIO';
-import { JdbcIOSinkProperties } from '../properties/sink/JdbcIO';
-import { KafkaIOSourceProperties } from '../properties/source/KafkaIO';
-import { KafkaIOSinkProperties } from '../properties/sink/KafkaIO';
-import { KinesisIOSourceProperties } from '../properties/source/KinesisIO';
-import { KinesisIOSinkProperties } from '../properties/sink/KinesisIO';
-import { ParquetIOSourceProperties } from '../properties/source/ParquetIO';
-import { ParquetIOSinkProperties } from '../properties/sink/ParquetIO';
-import { AvroIOSourceProperties } from '../properties/source/AvroIO';
-import { AvroIOSinkProperties } from '../properties/sink/AvroIO';
-import { SnsIOSourceProperties } from '../properties/source/SnsIO';
-import { SnsIOSinkProperties } from '../properties/sink/SnsIO';
-import { JmsIOSourceProperties } from '../properties/source/JmsIO';
-import { JmsIOSinkProperties } from '../properties/sink/JmsIO';
-import { SqsIOSourceProperties } from '../properties/source/SqsIO';
-import { SqsIOSinkProperties } from '../properties/sink/SqsIO';
-import { MqttIOSourceProperties } from '../properties/source/MqttIO';
-import { MqttIOSinkProperties } from '../properties/sink/MqttIO';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-refresh/only-export-components */
+import React, { Suspense } from 'react';
+import { NodeDocsCard } from './common/NodeDocsCard';
+import { hasInlineNodeDocsCard } from '../utils/nodeDocumentation';
+import {
+  PROPERTY_FORM_REGISTRY,
+  loadPropertyForm,
+  type PropertyFormComponent,
+  type PropertyFormProps,
+} from '../catalog/propertyFormRegistry';
 
-export interface PropertyFormProps {
-  node: any;
-  onChange: (properties: any) => void;
-  onAddKVMapper?: (windowNodeId: string) => void;
-}
-
-/**
- * Map of immutable metadata keys (`${type}:${beamTransform}` or direct transform name)
- * to their respective property form components.
- * 
- * NOTE: Keys are matched against immutable metadata (beam_transform / componentType),
- * NEVER against user-editable node labels.
- */
-export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>> = {
-  // Source IOs (qualified by SOURCE:)
-  'SOURCE:PubSubIO': PubSubProperties,
-  'SOURCE:PubSub': PubSubProperties,
-  'SOURCE:BigQueryIO': BigQuerySourceProperties,
-  'SOURCE:BigQuery': BigQuerySourceProperties,
-  'SOURCE:TextIO': TextIOSourceProperties,
-  'SOURCE:FileIO': FileIOSourceProperties,
-  'SOURCE:FileIO.match': FileIOSourceProperties,
-  'SOURCE:JdbcIO': JdbcIOSourceProperties,
-  'SOURCE:KafkaIO': KafkaIOSourceProperties,
-  'SOURCE:KinesisIO': KinesisIOSourceProperties,
-  'SOURCE:ParquetIO': ParquetIOSourceProperties,
-  'SOURCE:AvroIO': AvroIOSourceProperties,
-  'SOURCE:SnsIO': SnsIOSourceProperties,
-  'SOURCE:JmsIO': JmsIOSourceProperties,
-  'SOURCE:SqsIO': SqsIOSourceProperties,
-  'SOURCE:MqttIO': MqttIOSourceProperties,
-  'SOURCE:GenerateSequence': GenerateSequenceProperties,
-  'SOURCE:PeriodicImpulse': PeriodicImpulseProperties,
-  'SOURCE:Create': CreateProperties,
-
-  // Direct Source transforms (Python Beam transforms / unique names)
-  'ReadFromAvro': AvroIOSourceProperties,
-  'ReadFromKafka': KafkaIOSourceProperties,
-  'ReadFromJms': JmsIOSourceProperties,
-  'ReadDataFromKinesis': KinesisIOSourceProperties,
-  'ReadFromParquet': ParquetIOSourceProperties,
-  'ReadFromSqs': SqsIOSourceProperties,
-  'ReadFromMqtt': MqttIOSourceProperties,
-  'FileIO.match': FileIOSourceProperties,
-  'GenerateSequence': GenerateSequenceProperties,
-  'PeriodicImpulse': PeriodicImpulseProperties,
-  'Create': CreateProperties,
-
-  // Sink IOs (qualified by SINK:)
-  'SINK:PubSubIO': PubSubSinkProperties,
-  'SINK:PubSub': PubSubSinkProperties,
-  'SINK:BigQueryIO': BigQuerySinkProperties,
-  'SINK:BigQuery': BigQuerySinkProperties,
-  'SINK:TextIO': TextIOSinkProperties,
-  'SINK:FileIO': FileIOSinkProperties,
-  'SINK:JdbcIO': JdbcIOSinkProperties,
-  'SINK:KafkaIO': KafkaIOSinkProperties,
-  'SINK:KinesisIO': KinesisIOSinkProperties,
-  'SINK:ParquetIO': ParquetIOSinkProperties,
-  'SINK:AvroIO': AvroIOSinkProperties,
-  'SINK:SnsIO': SnsIOSinkProperties,
-  'SINK:JmsIO': JmsIOSinkProperties,
-  'SINK:SqsIO': SqsIOSinkProperties,
-  'SINK:MqttIO': MqttIOSinkProperties,
-  'SINK:LogMessage': LogMessageProperties,
-
-  // Direct Sink transforms (Python Beam transforms / unique names)
-  'WriteToAvro': AvroIOSinkProperties,
-  'WriteToKafka': KafkaIOSinkProperties,
-  'WriteToJms': JmsIOSinkProperties,
-  'WriteToKinesis': KinesisIOSinkProperties,
-  'WriteToParquet': ParquetIOSinkProperties,
-  'WriteToSqs': SqsIOSinkProperties,
-  'WriteToMqtt': MqttIOSinkProperties,
-  'LogMessage': LogMessageProperties,
-
-  // Steps & Core Transforms (with and without STEP: prefix)
-  'STEP:FileIO.readMatches': FileIOReadMatchesProperties,
-  'FileIO.readMatches': FileIOReadMatchesProperties,
-  'STEP:Window': WindowingProperties,
-  'Window': WindowingProperties,
-  'STEP:Windowing': WindowingProperties,
-  'Windowing': WindowingProperties,
-  'STEP:WindowInto': WindowingProperties,
-  'WindowInto': WindowingProperties,
-  'STEP:ParseMessage': ParseMessageProperties,
-  'ParseMessage': ParseMessageProperties,
-  'STEP:WithTimestamps': WithTimestampsProperties,
-  'WithTimestamps': WithTimestampsProperties,
-  'STEP:LogMessage': LogMessageProperties,
-  'STEP:KVMapper': KVMapperProperties,
-  'KVMapper': KVMapperProperties,
-  'STEP:Filter': FilterProperties,
-  'Filter': FilterProperties,
-  'STEP:FlatMap': FlatMapProperties,
-  'FlatMap': FlatMapProperties,
-  'STEP:Map': MapProperties,
-  'Map': MapProperties,
-  'STEP:ParDo': ParDoProperties,
-  'ParDo': ParDoProperties,
-
-  // Aggregation transforms
-  'STEP:ApproximateQuantiles': AggregationProperties,
-  'ApproximateQuantiles': AggregationProperties,
-  'Approximate Quantiles': AggregationProperties,
-  'Approximate Quantile': AggregationProperties,
-  'STEP:ApproximateUnique': AggregationProperties,
-  'ApproximateUnique': AggregationProperties,
-  'Approximate Unique': AggregationProperties,
-  'STEP:CoGroupByKey': AggregationProperties,
-  'CoGroupByKey': AggregationProperties,
-  'Co Group By Key': AggregationProperties,
-  'STEP:Combine': AggregationProperties,
-  'Combine': AggregationProperties,
-  'STEP:CombineWithContext': AggregationProperties,
-  'CombineWithContext': AggregationProperties,
-  'Combine With Context': AggregationProperties,
-  'STEP:Count': AggregationProperties,
-  'Count': AggregationProperties,
-  'STEP:Distinct': AggregationProperties,
-  'Distinct': AggregationProperties,
-  'STEP:GroupByKey': AggregationProperties,
-  'GroupByKey': AggregationProperties,
-  'Group By Key': AggregationProperties,
-  'STEP:GroupIntoBatches': AggregationProperties,
-  'GroupIntoBatches': AggregationProperties,
-  'Group Into Batches': AggregationProperties,
-  'STEP:BatchElements': AggregationProperties,
-  'BatchElements': AggregationProperties,
-  'Batch Elements': AggregationProperties,
-  'STEP:Latest': AggregationProperties,
-  'Latest': AggregationProperties,
-  'STEP:Max': AggregationProperties,
-  'Max': AggregationProperties,
-  'STEP:Mean': AggregationProperties,
-  'Mean': AggregationProperties,
-  'STEP:Min': AggregationProperties,
-  'Min': AggregationProperties,
-  'STEP:Sample': AggregationProperties,
-  'Sample': AggregationProperties,
-  'STEP:Sum': AggregationProperties,
-  'Sum': AggregationProperties,
-  'STEP:Top': AggregationProperties,
-  'Top': AggregationProperties,
-
-  // Other Transforms
-  'STEP:Flatten': OtherProperties,
-  'Flatten': OtherProperties,
-  'STEP:Reshuffle': OtherProperties,
-  'Reshuffle': OtherProperties,
-  'STEP:ReShuffle': OtherProperties,
-  'ReShuffle': OtherProperties,
-};
+export { PROPERTY_FORM_REGISTRY, loadPropertyForm };
+export type { PropertyFormComponent, PropertyFormProps };
 
 /**
  * Resolves a property form component from the registry using the node's immutable metadata.
@@ -218,12 +44,16 @@ export const PROPERTY_FORM_REGISTRY: Record<string, React.FC<PropertyFormProps>>
  * 1. Type-qualified key: `${nodeType}:${transform}` (e.g. "SOURCE:PubSubIO", "SINK:BigQueryIO")
  * 2. Direct transform key: `${transform}` (e.g. "ParDo", "WindowInto", "ReadFromKafka")
  * 
- * NOTE: Does NOT fall back to label matching under any circumstances.
+ * NOTE: Does NOT fall back to label matching under any circumstances, nor does it allow
+ * a SOURCE node to fall back to a SINK-only transform (or vice versa).
+ * 
+ * The returned value is the registry entry itself (a lazy wrapper); use `loadPropertyForm`
+ * to obtain the concrete component when needed.
  * 
  * @param node - React Flow node object
  * @returns Registered React component or undefined if unregistered
  */
-export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps> | undefined {
+export function getPropertyFormComponent(node: any): PropertyFormComponent | undefined {
   const transform = node?.data?.beam_transform || node?.data?.componentType || '';
   const nodeType = (node?.data?.type || '').toUpperCase();
 
@@ -237,6 +67,11 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
     if (PROPERTY_FORM_REGISTRY[qualifiedKey]) {
       return PROPERTY_FORM_REGISTRY[qualifiedKey];
     }
+    // Prevent cross-direction fallback when an opposite direction is explicitly registered
+    const oppositeType = nodeType === 'SOURCE' ? 'SINK' : nodeType === 'SINK' ? 'SOURCE' : '';
+    if (oppositeType && PROPERTY_FORM_REGISTRY[`${oppositeType}:${transform}`]) {
+      return undefined;
+    }
   }
 
   // 2. Try direct transform key (e.g. "ParDo", "WindowInto", "ReadFromKafka")
@@ -248,10 +83,30 @@ export function getPropertyFormComponent(node: any): React.FC<PropertyFormProps>
 }
 
 /**
+ * Placeholder shown while a property panel's code chunk is being fetched.
+ * Kept visually minimal: on local disk the load typically completes within a frame.
+ */
+const PropertyFormLoading: React.FC = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    data-testid="property-form-loading"
+    className="p-4 text-sm text-[var(--vscode-descriptionForeground,#94a3b8)]"
+  >
+    Loading properties…
+  </div>
+);
+
+/**
  * Container component that dispatches specific node property sheets based on immutable node metadata.
  * Renders an explicit unregistered message when no matching registry entry is found.
  */
-export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAddKVMapper }) => {
+export const PropertyForm: React.FC<PropertyFormProps> = ({
+  node,
+  onChange,
+  onAddKVMapper,
+  onAddPubSubSource
+}) => {
   const Component = getPropertyFormComponent(node);
 
   if (!Component) {
@@ -264,5 +119,18 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({ node, onChange, onAd
     );
   }
 
-  return <Component node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />;
+  return (
+    <div className="flex-1 flex flex-col gap-4">
+      {!hasInlineNodeDocsCard(node) && <NodeDocsCard node={node} />}
+      <Suspense fallback={<PropertyFormLoading />}>
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Component
+          node={node}
+          onChange={onChange}
+          onAddKVMapper={onAddKVMapper}
+          onAddPubSubSource={onAddPubSubSource}
+        />
+      </Suspense>
+    </div>
+  );
 };

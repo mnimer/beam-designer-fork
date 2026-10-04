@@ -15,13 +15,23 @@
 
 import React from 'react';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Props for the PubSubSinkProperties component.
+ */
 interface PubSubSinkPropertiesProps {
   node: any;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the Pub/Sub sink node. Configures target Pub/Sub topic destination.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const PubSubSinkProperties: React.FC<PubSubSinkPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const topic = properties.topic || '';
@@ -32,25 +42,13 @@ export const PubSubSinkProperties: React.FC<PubSubSinkPropertiesProps> = ({ node
   const isInvalid = !topic.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   // Handle input changes and propagate up
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const newProperties = { ...properties, [name]: value };
     onChange(newProperties);
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -73,23 +71,18 @@ export const PubSubSinkProperties: React.FC<PubSubSinkPropertiesProps> = ({ node
         helperText={isInvalid ? undefined : 'Sample: projects/my-project/topics/my-topic'}
       />
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="pubsubSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for PubSub sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="pubsubSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for PubSub sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

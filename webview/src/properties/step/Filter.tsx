@@ -8,7 +8,9 @@
  * 
  * Architectural Decisions:
  * - In Apache Beam, Filter evaluates a predicate on each element.
- * - Enforces required field indicators and validation on property.
+ * - Supports comparison targets: Message Property, Header Property, or Whole Element.
+ * - Supports binary operators (==, !=, >, <, contains) and unary operators (is not null, is not empty).
+ * - Enforces required field indicators and validation on property when targeting message/header properties.
  * - Integrates InfoTooltip components explaining predicate comparison against message and header properties.
  * - Provides Code Generation Instructions textarea for custom LLM prompts.
  */
@@ -16,15 +18,20 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the Filter step transform.
+ */
 interface FilterNode {
   data: {
     system_instructions?: string;
     special_instructions?: string;
     properties?: {
-      compareTarget?: 'Message Property' | 'Header Property';
+      compareTarget?: 'Message Property' | 'Header Property' | 'Element';
       property?: string;
-      operator?: '==' | '!=' | '>' | '<';
+      operator?: '==' | '!=' | '>' | '<' | 'contains' | 'is not null' | 'is not empty';
       value?: string;
       system_instructions?: string;
       special_instructions?: string;
@@ -35,19 +42,50 @@ interface FilterNode {
   };
 }
 
+/**
+ * Props for the {@link FilterProperties} component.
+ */
 interface FilterPropertiesProps {
   node: FilterNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Constructs a plain English system instruction describing the configured filter predicate for code generation.
+ *
+ * @param compareTarget Comparison target ('Message Property' | 'Header Property' | 'Element').
+ * @param prop Property or header key to compare against.
+ * @param op Comparison operator (e.g. '==', 'contains', 'is not null').
+ * @param val Comparison threshold value string.
+ * @returns Human-readable system instruction sentence.
+ */
 export const generateFilterSystemInstruction = (
   compareTarget: string,
   prop: string,
   op: string,
   val: string
 ): string => {
+  if (compareTarget === 'Element') {
+    if (op === 'is not null') {
+      return 'Filter out elements that are null.';
+    }
+    if (op === 'is not empty') {
+      return 'Filter out elements that are null or empty.';
+    }
+    if (val.trim()) {
+      return `Filter elements where the element ${op} '${val.trim()}'.`;
+    }
+    return `Filter elements where the element ${op} value.`;
+  }
+
   if (prop.trim()) {
     const target = compareTarget === 'Header Property' ? 'message header' : 'message property';
+    if (op === 'is not null') {
+      return `Filter elements where ${target} '${prop.trim()}' is not null.`;
+    }
+    if (op === 'is not empty') {
+      return `Filter elements where ${target} '${prop.trim()}' is not null or empty.`;
+    }
     if (val.trim()) {
       return `Filter elements where ${target} '${prop.trim()}' ${op} '${val.trim()}'.`;
     }
@@ -56,6 +94,12 @@ export const generateFilterSystemInstruction = (
   return 'Create a custom function with a todo comment and return true.';
 };
 
+/**
+ * Property configuration panel for the Apache Beam Filter transform.
+ *
+ * @param props The selected filter node and change notification callback.
+ * @returns The rendered filter properties panel.
+ */
 export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const compareTarget = properties.compareTarget || 'Message Property';
@@ -63,21 +107,20 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
   const operator = properties.operator || '==';
   const value = properties.value || '';
 
-  const isPropertyInvalid = !property.trim();
+  const isWholeElement = compareTarget === 'Element';
+  const isUnaryOperator = operator === 'is not null' || operator === 'is not empty';
+
+  // NOTE: When comparing against the whole element, no property/field name is needed or valid.
+  const isPropertyInvalid = !isWholeElement && !property.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles changes to the compare target select dropdown
    */
   const handleCompareTargetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newTarget = e.target.value as 'Message Property' | 'Header Property';
+    const newTarget = e.target.value as 'Message Property' | 'Header Property' | 'Element';
     const newInstructions = generateFilterSystemInstruction(newTarget, property, operator, value);
     onChange({
       ...properties,
@@ -109,7 +152,7 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
    * Handles changes to the comparison operator select dropdown
    */
   const handleOperatorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newOp = e.target.value as '==' | '!=' | '>' | '<';
+    const newOp = e.target.value as '==' | '!=' | '>' | '<' | 'contains' | 'is not null' | 'is not empty';
     const newInstructions = generateFilterSystemInstruction(compareTarget, property, newOp, value);
     onChange({
       ...properties,
@@ -137,16 +180,6 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
     });
   };
 
-  /**
-   * Handles changes to the code generation instructions textarea
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* Compare Dropdown */}
@@ -164,24 +197,28 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
         >
           <option value="Message Property">Message Property</option>
           <option value="Header Property">Header Property</option>
+          <option value="Element">Whole Element</option>
         </select>
       </div>
 
       {/* Property */}
-      <PropertyField
-        id="filterPropertyInput"
-        name="property"
-        label="Property / Field Name"
-        required="Required"
-        tooltip="Name of the payload or header attribute to inspect in the filter predicate. Required."
-        invalid={isPropertyInvalid}
-        error={isPropertyInvalid ? 'Property name is required.' : null}
-        value={property}
-        onChange={handlePropertyChange}
-        placeholder="e.g. status"
-        mono={false}
-        className="w-full"
-      />
+      {/* NOTE: Whole-element filtering inspects the element itself, so property field is omitted */}
+      {!isWholeElement && (
+        <PropertyField
+          id="filterPropertyInput"
+          name="property"
+          label="Property / Field Name"
+          required="Required"
+          tooltip="Name of the payload or header attribute to inspect in the filter predicate. Required."
+          invalid={isPropertyInvalid}
+          error={isPropertyInvalid ? 'Property name is required.' : null}
+          value={property}
+          onChange={handlePropertyChange}
+          placeholder="e.g. status"
+          mono={false}
+          className="w-full"
+        />
+      )}
 
       {/* Operator */}
       <div className="flex flex-col items-center">
@@ -194,47 +231,49 @@ export const FilterProperties: React.FC<FilterPropertiesProps> = ({ node, onChan
           name="operator"
           value={operator}
           onChange={handleOperatorChange}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 text-center w-28 cursor-pointer"
+          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 text-center w-44 cursor-pointer"
         >
           <option value="==">==</option>
           <option value="!=">!=</option>
           <option value=">">&gt;</option>
           <option value="<">&lt;</option>
+          <option value="contains">contains</option>
+          <option value="is not null">is not null</option>
+          <option value="is not empty">is not empty</option>
         </select>
       </div>
 
       {/* Value */}
-      <PropertyField
-        id="filterValueInput"
-        name="value"
-        label="Target Value"
-        tooltip="Literal value to compare against."
-        value={value}
-        onChange={handleValueChange}
-        placeholder="e.g. active"
-        mono={false}
-        className="w-full"
-      />
+      {/* NOTE: Unary operators (e.g. is not null, is not empty) do not compare against a target value */}
+      {!isUnaryOperator && (
+        <PropertyField
+          id="filterValueInput"
+          name="value"
+          label="Target Value"
+          tooltip="Literal value to compare against."
+          value={value}
+          onChange={handleValueChange}
+          placeholder="e.g. active"
+          mono={false}
+          className="w-full"
+        />
+      )}
 
       <div className="text-xs text-slate-400 mt-1 leading-relaxed bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
         Filter elements based on boolean conditions or properties.
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="filterSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter custom instructions for Filter code generation..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

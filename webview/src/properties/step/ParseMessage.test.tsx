@@ -6,7 +6,7 @@
  * Purpose:
  * Comprehensive unit test suite for ParseMessageProperties step component.
  * Validates simple conditions, conditional helper text across decoder types,
- * extreme conditions, failure conditions, and fallback hierarchy.
+ * extreme conditions, and failure conditions.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -201,80 +201,4 @@ describe('ParseMessageProperties', () => {
     }));
   });
 
-  // Instruction hierarchy: verifies fallback precedence
-  describe('system_instructions fallback precedence', () => {
-    it('prioritizes node.data.system_instructions over other instruction fields', () => {
-      const mockNode = {
-        data: {
-          label: 'Parse Message',
-          system_instructions: 'node sys inst',
-          special_instructions: 'node spec inst',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<ParseMessageProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#parseMessageSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node sys inst');
-    });
-
-    it('falls back to node.data.special_instructions if node system_instructions is undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Parse Message',
-          special_instructions: 'node spec inst',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<ParseMessageProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#parseMessageSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('node spec inst');
-    });
-
-    it('falls back to properties.system_instructions if node-level fields are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Parse Message',
-          properties: {
-            system_instructions: 'prop sys inst',
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<ParseMessageProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#parseMessageSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop sys inst');
-    });
-
-    it('falls back to properties.special_instructions when other fields are undefined', () => {
-      const mockNode = {
-        data: {
-          label: 'Parse Message',
-          properties: {
-            special_instructions: 'prop spec inst'
-          }
-        }
-      };
-      const { container } = render(<ParseMessageProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#parseMessageSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('prop spec inst');
-    });
-
-    it('defaults to empty string when no instructions are defined', () => {
-      const mockNode = {
-        data: {
-          label: 'Parse Message',
-          properties: {}
-        }
-      };
-      const { container } = render(<ParseMessageProperties node={mockNode} onChange={vi.fn()} />);
-      const textarea = container.querySelector('#parseMessageSystemInstructions') as HTMLTextAreaElement;
-      expect(textarea).toHaveValue('');
-    });
-  });
 });

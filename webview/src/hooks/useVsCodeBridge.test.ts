@@ -6,14 +6,21 @@
  * Tests:
  * - IPC handshake (ready, getSubnetworks, getSamples)
  * - Handling loadPipeline message and updating pipeline state
+ * - Handling the deferred projectIdResolved message (P9) without clobbering user input
  * - Handling codeRegenerated message and clearing selected file state
  * - Stale closure avoidance via render-time ref assignments
  * - findMainPipelineFile resolution logic
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useVsCodeBridge, findMainPipelineFile, type PipelineConfig } from './useVsCodeBridge';
+import {
+  useVsCodeBridge,
+  findMainPipelineFile,
+  isPlaceholderProjectId,
+  PLACEHOLDER_PROJECT_ID,
+  type PipelineConfig,
+} from './useVsCodeBridge';
 
 describe('findMainPipelineFile', () => {
   it('returns null for empty array', () => {
@@ -36,6 +43,95 @@ describe('findMainPipelineFile', () => {
   });
 });
 
+describe('isPlaceholderProjectId', () => {
+  it('treats the placeholder, empty, whitespace and undefined as unset', () => {
+    expect(isPlaceholderProjectId(PLACEHOLDER_PROJECT_ID)).toBe(true);
+    expect(isPlaceholderProjectId('')).toBe(true);
+    expect(isPlaceholderProjectId('   ')).toBe(true);
+    expect(isPlaceholderProjectId(undefined)).toBe(true);
+  });
+
+  it('treats any other value as a real project', () => {
+    expect(isPlaceholderProjectId('my-project')).toBe(false);
+  });
+});
+
+describe('useVsCodeBridge - projectIdResolved (P9 deferred gcloud lookup)', () => {
+  beforeEach(() => {
+    (window as any).vscode = { postMessage: vi.fn() };
+  });
+
+  afterEach(() => {
+    delete (window as any).vscode;
+  });
+
+  /** Renders the hook with the given current projectId and returns the setter spy. */
+  const renderWithProject = (projectId: string) => {
+    const setProjectId = vi.fn();
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes: vi.fn(),
+        setEdges: vi.fn(),
+        setRuntimeVariables: vi.fn(),
+        setJobConfig: vi.fn(),
+        pipelineConfig: { language: 'Python', outputFolder: '', needsRebuild: false },
+        setPipelineConfig: vi.fn(),
+        filename: 'test',
+        setFilename: vi.fn(),
+        projectId,
+        setProjectId,
+      })
+    );
+    return setProjectId;
+  };
+
+  const dispatchResolved = (projectId: string | undefined) => {
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', { data: { command: 'projectIdResolved', projectId } })
+      );
+    });
+  };
+
+  it('fills in the project when the webview still shows the placeholder', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).toHaveBeenCalledWith('gcloud-default');
+  });
+
+  it('fills in the project when the current value is empty', () => {
+    const setProjectId = renderWithProject('');
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).toHaveBeenCalledWith('gcloud-default');
+  });
+
+  it('does not clobber a project the user (or the pipeline) already set', () => {
+    // The lookup can take seconds; by then the user may have typed a value or the
+    // loaded .beam may have supplied one. The late gcloud answer must lose.
+    const setProjectId = renderWithProject('user-typed-project');
+    dispatchResolved('gcloud-default');
+    expect(setProjectId).not.toHaveBeenCalled();
+  });
+
+  it('ignores an empty resolution (gcloud unavailable)', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    dispatchResolved(undefined);
+    expect(setProjectId).not.toHaveBeenCalled();
+  });
+
+  it('still honours the legacy projectId field on loadPipeline', () => {
+    const setProjectId = renderWithProject(PLACEHOLDER_PROJECT_ID);
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { command: 'loadPipeline', filename: 'a.beam', data: null, projectId: 'legacy-proj' },
+        })
+      );
+    });
+    expect(setProjectId).toHaveBeenCalledWith('legacy-proj');
+  });
+});
+
 describe('useVsCodeBridge - injected vscode handle', () => {
   // Regression: UseVsCodeBridgeOptions has always declared a `vscode` option, but every
   // IPC sender re-derived the handle from `window.vscode` directly, so the option was
@@ -43,6 +139,10 @@ describe('useVsCodeBridge - injected vscode handle', () => {
   // injected handle is the one actually used.
   beforeEach(() => {
     (window as any).vscode = { postMessage: vi.fn() };
+  });
+
+  afterEach(() => {
+    delete (window as any).vscode;
   });
 
   /**
@@ -105,6 +205,10 @@ describe('useVsCodeBridge', () => {
     (window as any).vscode = {
       postMessage: mockPostMessage,
     };
+  });
+
+  afterEach(() => {
+    delete (window as any).vscode;
   });
 
   it('sends ready, getSubnetworks, and getSamples on mount', () => {
@@ -410,5 +514,405 @@ pipelineConfig:
       totalTokens: 4500,
     });
   });
+
+  it('resets isGenerating when receiving codeGenerationStopped message', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    expect(result.current.isGenerating).toBe(false);
+
+    act(() => {
+      result.current.handleRegenerate({
+        nodes: [],
+        edges: [],
+        runtimeVariables: [],
+        jobConfig: {},
+      });
+    });
+
+    expect(result.current.isGenerating).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'codeGenerationStopped',
+          },
+        })
+      );
+    });
+
+    expect(result.current.isGenerating).toBe(false);
+  });
+
+  it('logs a warning when codeRegenerated reports failure with an error message', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    act(() => {
+      result.current.handleRegenerate({
+        nodes: [],
+        edges: [],
+        runtimeVariables: [],
+        jobConfig: {},
+      });
+    });
+
+    expect(result.current.isGenerating).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'codeRegenerated',
+            success: false,
+            error: 'Generation timed out',
+          },
+        })
+      );
+    });
+
+    expect(result.current.isGenerating).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[useVsCodeBridge] Code generation failed:',
+      'Generation timed out'
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('does not console.log YAML data or raw message on loadPipeline', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: '', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'default_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    const secretValue = 'SUPER_SECRET_RUNTIME_KEY_98765';
+    const yamlData = `
+nodes: []
+edges: []
+runtimeVariables:
+  - key: 'SECRET_KEY'
+    value: '${secretValue}'
+`;
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'loadPipeline',
+            filename: 'test_pipeline.beam',
+            data: yamlData,
+          },
+        })
+      );
+    });
+
+    // Verify secret value is never logged to devtools console
+    for (const callArgs of logSpy.mock.calls) {
+      const callString = JSON.stringify(callArgs);
+      expect(callString).not.toContain(secretValue);
+      expect(callString).not.toContain('Parsed YAML data:');
+    }
+
+    // Verify sanitized log message format
+    expect(logSpy).toHaveBeenCalledWith('[useVsCodeBridge] Received loadPipeline for', 'test_pipeline.beam');
+
+    logSpy.mockRestore();
+  });
+
+  it('updates selectedFileContent when receiving fileContentLoaded message', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    expect(result.current.selectedFileContent).toBeNull();
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'fileContentLoaded',
+            filePath: 'pipeline.py',
+            content: 'import apache_beam as beam',
+          },
+        })
+      );
+    });
+
+    expect(result.current.selectedFileContent).toBe('import apache_beam as beam');
+  });
+
+  it('updates selectedFileContent with error text when receiving fileContentError message', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'fileContentError',
+            filePath: 'missing.py',
+            error: 'File does not exist',
+          },
+        })
+      );
+    });
+
+    expect(result.current.selectedFileContent).toBe('// Unable to display missing.py: File does not exist');
+  });
+
+  it('folderSelected: re-selecting the same output folder does not dirty the pipeline or reallocate reference', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'folderSelected',
+            path: 'custom/out',
+          },
+        })
+      );
+    });
+
+    expect(setPipelineConfig).toHaveBeenCalledTimes(1);
+    const updater = setPipelineConfig.mock.calls[0][0];
+    const prev = { language: 'Python' as const, outputFolder: 'custom/out', needsRebuild: false };
+    const next = updater(prev);
+    expect(next).toBe(prev);
+    expect(next.needsRebuild).toBe(false);
+  });
+
+  it('folderSelected: selecting a different output folder sets needsRebuild to true', () => {
+    const setNodes = vi.fn();
+    const setEdges = vi.fn();
+    const setRuntimeVariables = vi.fn();
+    const setJobConfig = vi.fn();
+    const setPipelineConfig = vi.fn();
+    const setFilename = vi.fn();
+    const setProjectId = vi.fn();
+
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes,
+        setEdges,
+        setRuntimeVariables,
+        setJobConfig,
+        pipelineConfig: { language: 'Python', outputFolder: 'custom/out', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'my_job',
+        setFilename,
+        projectId: 'proj',
+        setProjectId,
+      })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'folderSelected',
+            path: 'new/different/out',
+          },
+        })
+      );
+    });
+
+    expect(setPipelineConfig).toHaveBeenCalledTimes(1);
+    const updater = setPipelineConfig.mock.calls[0][0];
+    const prev = { language: 'Python' as const, outputFolder: 'custom/out', needsRebuild: false };
+    const next = updater(prev);
+    expect(next.outputFolder).toBe('new/different/out');
+    expect(next.needsRebuild).toBe(true);
+  });
+
+  it('normalizes lowercase java to Java and unsupported go to Python on loadPipeline', () => {
+    const setPipelineConfig = vi.fn();
+    renderHook(() =>
+      useVsCodeBridge({
+        setNodes: vi.fn(),
+        setEdges: vi.fn(),
+        setRuntimeVariables: vi.fn(),
+        setJobConfig: vi.fn(),
+        pipelineConfig: { language: 'Python', outputFolder: '', needsRebuild: false },
+        setPipelineConfig,
+        filename: 'test',
+        setFilename: vi.fn(),
+        projectId: 'proj',
+        setProjectId: vi.fn(),
+      })
+    );
+
+    // 1. Loading with language: java (lowercase)
+    const yamlJava = `
+nodes: []
+edges: []
+pipelineConfig:
+  language: java
+  outputFolder: 'out'
+`;
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'loadPipeline',
+            filename: 'test.beam',
+            data: yamlJava,
+          },
+        })
+      );
+    });
+
+    const javaUpdater = setPipelineConfig.mock.calls[setPipelineConfig.mock.calls.length - 1][0];
+    const initialConfig: PipelineConfig = { language: 'Python', outputFolder: '', needsRebuild: false };
+    const resultingConfigJava = javaUpdater(initialConfig);
+    expect(resultingConfigJava.language).toBe('Java');
+
+    // 2. Loading with language: go (unsupported)
+    const yamlGo = `
+nodes: []
+edges: []
+pipelineConfig:
+  language: go
+  outputFolder: 'out'
+`;
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            command: 'loadPipeline',
+            filename: 'test.beam',
+            data: yamlGo,
+          },
+        })
+      );
+    });
+
+    const goUpdater = setPipelineConfig.mock.calls[setPipelineConfig.mock.calls.length - 1][0];
+    const resultingConfigGo = goUpdater(initialConfig);
+    expect(resultingConfigGo.language).toBe('Python');
+  });
 });
+
 

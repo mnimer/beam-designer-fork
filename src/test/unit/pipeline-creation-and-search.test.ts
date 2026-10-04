@@ -15,41 +15,11 @@ const { mockFindFiles } = vi.hoisted(() => ({
     mockFindFiles: vi.fn().mockResolvedValue([])
 }));
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [
-                {
-                    uri: { fsPath: '/workspace' },
-                    name: 'workspace'
-                }
-            ],
-            findFiles: mockFindFiles,
-            getConfiguration: vi.fn(() => ({ get: vi.fn() }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        findFiles: mockFindFiles
+    }
+}));
 
 import {
     getInitialPipelineContent,
@@ -173,8 +143,21 @@ describe('command wiring integrity', () => {
     // anywhere. showEditor is advertised in the Command Palette, so invoking it always
     // failed with "command not found". These tests assert that every command the source
     // dispatches to, and every command package.json declares, actually exists.
-    const rawSource = fs.readFileSync(
-        path.join(__dirname, '../..', 'extension.ts'), 'utf-8');
+    // Scans all of src/ except test/ because command handlers moved into modular ipc packages.
+    const collectSources = (dir: string): string => {
+        let text = '';
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.isDirectory()) {
+                if (entry.name !== 'test') {
+                    text += '\n' + collectSources(path.join(dir, entry.name));
+                }
+            } else if (entry.name.endsWith('.ts')) {
+                text += '\n' + fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+            }
+        }
+        return text;
+    };
+    const rawSource = collectSources(path.resolve(__dirname, '../..'));
     const pkg = JSON.parse(fs.readFileSync(
         path.join(__dirname, '..', '..', '..', 'package.json'), 'utf-8'));
 

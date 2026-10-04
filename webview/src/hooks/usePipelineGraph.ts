@@ -6,9 +6,13 @@
  * Handles React Flow node and edge state management, drag-and-drop ingestion,
  * connection validation, topological auto-layout, edge redirection (M16),
  * property application, and node deletion.
+ *
+ * Side inputs (F1): edges targeting the `side_input` handle on ParDo nodes are rendered with a
+ * dashed violet stroke and a "side" label, and `properties.sideInputs` on every ParDo node is
+ * auto-synchronised with those edges so the property panel and canvas never drift apart.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useNodesState,
   useEdgesState,
@@ -18,7 +22,19 @@ import {
   type Connection,
 } from 'reactflow';
 import { validateDagTopology, type DagValidationResult } from '../utils/dagValidator';
+import { computeLayoutedNodes } from '../graph/layout';
+import { createNodeId, createNodesForPaletteItem } from '../graph/nodeFactory';
+import { isPubSubSourceNode, isPubSubNode, isDicomIoNode } from '../graph/nodeKinds';
+import { pipelineConfigReducer } from '../state/pipelineConfigReducer';
+import {
+  isParDoNodeData,
+  isSideInputEdge,
+  syncSideInputBindings,
+} from '../../../src/shared/sideInputs';
 
+/**
+ * Data payload stored within React Flow nodes for Apache Beam transforms.
+ */
 export interface PipelineNodeData {
   label: string;
   type: string;
@@ -27,6 +43,7 @@ export interface PipelineNodeData {
   system_instructions?: string;
   properties?: Record<string, any>;
   hasCycle?: boolean;
+  hasValidationError?: boolean;
   isOrphan?: boolean;
   validationError?: string;
   validationWarning?: string;
@@ -39,6 +56,9 @@ export type PipelineNode = Node<PipelineNodeData>;
 export const initialNodes: PipelineNode[] = [];
 export const initialEdges: Edge[] = [];
 
+/**
+ * Options for configuring the {@link usePipelineGraph} hook.
+ */
 export interface UsePipelineGraphOptions {
   takeSnapshot: () => void;
   setPipelineConfig: React.Dispatch<React.SetStateAction<any>>;
@@ -46,6 +66,12 @@ export interface UsePipelineGraphOptions {
   fitView?: (options?: any) => void;
 }
 
+/**
+ * Custom React hook managing pipeline graph nodes, edges, selection, validation, layout, and transform mutations.
+ *
+ * @param options Graph initialization and synchronization options.
+ * @returns State and event handlers for the React Flow canvas.
+ */
 export function usePipelineGraph({
   takeSnapshot,
   setPipelineConfig,
@@ -57,9 +83,7 @@ export function usePipelineGraph({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  const hasPubSubSource = nodes.some(
-    (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-  );
+  const hasPubSubSource = nodes.some(isPubSubSourceNode);
 
   // Wrap state changes to set needsRebuild: true when structural nodes change
   const handleNodesChange = useCallback(
@@ -67,7 +91,7 @@ export function usePipelineGraph({
       onNodesChange(changes);
       const requiresRebuild = changes.some((c: any) => c.type === 'add' || c.type === 'remove');
       if (requiresRebuild) {
-        setPipelineConfig((prev: any) => (prev.needsRebuild ? prev : { ...prev, needsRebuild: true }));
+        setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
       }
     },
     [onNodesChange, setPipelineConfig]
@@ -79,19 +103,63 @@ export function usePipelineGraph({
       onEdgesChange(changes);
       const requiresRebuild = changes.some((c: any) => c.type === 'remove');
       if (requiresRebuild) {
-        setPipelineConfig((prev: any) => (prev.needsRebuild ? prev : { ...prev, needsRebuild: true }));
+        setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
       }
     },
     [onEdgesChange, setPipelineConfig]
   );
 
-  // Disallow direct connection from SOURCE to SINK without intervening transform steps
+  /**
+   * Keeps `properties.sideInputs` on every ParDo node in lockstep with the edges connected to
+   * its `side_input` handle (connect → binding added with defaults, disconnect → binding removed,
+   * upstream rename → `sourceLabel` refreshed). The updater returns the SAME array reference when
+   * nothing changed, so React bails out of the state update and no render loop is possible.
+   */
+  useEffect(() => {
+    setNodes((nds) => {
+      const labelFor = (id: string) => nds.find((n) => n.id === id)?.data?.label;
+      let changed = false;
+      const next = nds.map((node) => {
+        if (!isParDoNodeData(node.data)) {
+          return node;
+        }
+        const connected = edges
+          .filter((e) => e.target === node.id && isSideInputEdge(e))
+          .map((e) => e.source);
+        const existing = node.data.properties?.sideInputs;
+        const hasExisting = Array.isArray(existing) && existing.length > 0;
+        if (connected.length === 0 && !hasExisting) {
+          return node; // Nothing to sync; avoid writing empty arrays into legacy pipelines
+        }
+        const { bindings, changed: bindingsChanged } = syncSideInputBindings(existing, connected, labelFor);
+        if (!bindingsChanged) {
+          return node;
+        }
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            properties: { ...(node.data.properties || {}), sideInputs: bindings },
+          },
+        };
+      });
+      return changed ? next : nds;
+    });
+  }, [edges, nodes, setNodes]);
+
+  // Disallow direct connection from SOURCE to SINK without intervening transform steps,
+  // and only accept `side_input` connections on ParDo targets.
   const isValidConnection = useCallback(
     (connection: Connection) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const targetNode = nodes.find((n) => n.id === connection.target);
 
       if (sourceNode?.data?.type === 'SOURCE' && targetNode?.data?.type === 'SINK') {
+        return false;
+      }
+
+      if (isSideInputEdge(connection as any) && !isParDoNodeData(targetNode?.data)) {
         return false;
       }
 
@@ -105,7 +173,7 @@ export function usePipelineGraph({
     (params: Connection | Edge) => {
       takeSnapshot();
       setEdges((eds) => addEdge(params, eds));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setEdges, takeSnapshot, setPipelineConfig]
   );
@@ -136,7 +204,7 @@ export function usePipelineGraph({
           return node;
         })
       );
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setNodes, takeSnapshot, setPipelineConfig]
   );
@@ -159,7 +227,7 @@ export function usePipelineGraph({
           return node;
         })
       );
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [setNodes, takeSnapshot, setPipelineConfig]
   );
@@ -174,7 +242,7 @@ export function usePipelineGraph({
       const windowNode = nodes.find((n) => n.id === windowNodeId);
       if (!windowNode) return;
 
-      const kvMapperId = `kv_mapper_${Date.now()}`;
+      const kvMapperId = createNodeId('kv_mapper_');
       const newKVMapperNode: PipelineNode = {
         id: kvMapperId,
         type: 'pipeline',
@@ -222,104 +290,74 @@ export function usePipelineGraph({
       // Update both nodes and edges states
       setNodes((nds) => nds.concat(newKVMapperNode));
       setEdges(updatedEdges);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
     [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
   );
 
-  // Computes topological columns using Kahn's algorithm and positions nodes left-to-right
-  const onLayout = useCallback(() => {
-    // 1. Build adjacency lists
-    const adj: Record<string, string[]> = {};
-    const inDegree: Record<string, number> = {};
+  /**
+   * Inserts a PubSubIO Source node in front of a target node (e.g. FhirIO with readResources()).
+   */
+  const handleAddPubSubSource = useCallback(
+    (targetNodeId: string) => {
+      const targetNode = nodes.find((n) => n.id === targetNodeId);
+      if (!targetNode) return;
 
-    nodes.forEach((n) => {
-      adj[n.id] = [];
-      inDegree[n.id] = 0;
-    });
-
-    edges.forEach((e) => {
-      if (adj[e.source] && adj[e.target] !== undefined) {
-        adj[e.source].push(e.target);
-        inDegree[e.target]++;
-      }
-    });
-
-    // 2. Queue for Kahn's topological sort to compute columns (ranks)
-    const ranks: Record<string, number> = {};
-    const queue: string[] = [];
-
-    // Find all root nodes (in-degree = 0)
-    nodes.forEach((n) => {
-      if (inDegree[n.id] === 0) {
-        queue.push(n.id);
-        ranks[n.id] = 0;
-      }
-    });
-
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      const currRank = ranks[curr];
-
-      adj[curr].forEach((neighbor) => {
-        ranks[neighbor] = Math.max(ranks[neighbor] || 0, currRank + 1);
-        inDegree[neighbor]--;
-        if (inDegree[neighbor] === 0) {
-          queue.push(neighbor);
-        }
+      // Avoid adding a duplicate upstream PubSubIO if one is already connected
+      const alreadyConnected = edges.some((e) => {
+        if (e.target !== targetNodeId) return false;
+        const src = nodes.find((n) => n.id === e.source);
+        return isPubSubNode(src);
       });
-    }
+      if (alreadyConnected) return;
 
-    // If there are leftover nodes due to cycles, assign fallback ranks
-    nodes.forEach((n) => {
-      if (ranks[n.id] === undefined) {
-        if (n.data?.type === 'SOURCE') ranks[n.id] = 0;
-        else if (n.data?.type === 'SINK') ranks[n.id] = 2;
-        else ranks[n.id] = 1;
-      }
-    });
-
-    // 3. Group nodes by their calculated column rank
-    const columns: Record<number, string[]> = {};
-    nodes.forEach((n) => {
-      const r = ranks[n.id];
-      if (!columns[r]) columns[r] = [];
-      columns[r].push(n.id);
-    });
-
-    // 4. Calculate new positions
-    const newNodes = nodes.map((node) => {
-      const rank = ranks[node.id];
-      const colNodes = columns[rank];
-      const index = colNodes.indexOf(node.id);
-
-      // Spacing constants adhering to 8pt design
-      const colWidth = 300;
-      const rowHeight = 120;
-      const startX = 80;
-      const startY = 150;
-
-      const x = startX + rank * colWidth;
-      // Center the column vertically
-      const totalHeight = (colNodes.length - 1) * rowHeight;
-      const y = startY + index * rowHeight - totalHeight / 2;
-
-      return {
-        ...node,
-        position: { x, y },
+      const pubSubId = createNodeId('pubsub_');
+      const newPubSubNode: PipelineNode = {
+        id: pubSubId,
+        type: 'pipeline',
+        position: {
+          x: targetNode.position.x - 250,
+          y: targetNode.position.y,
+        },
+        data: {
+          label: 'PubSub',
+          type: 'SOURCE',
+          iconName: 'Radio',
+          beam_transform: 'PubSubIO',
+          properties: {
+            readMode: 'subscription',
+          },
+        },
       };
-    });
 
-    takeSnapshot();
-    setNodes(newNodes);
+      const connectorEdge: Edge = {
+        id: `e-${pubSubId}-${targetNodeId}`,
+        source: pubSubId,
+        target: targetNodeId,
+      };
 
-    // Auto fit view after positioning
+      takeSnapshot();
+      setNodes((nds) => nds.concat(newPubSubNode));
+      setEdges((eds) => eds.concat(connectorEdge));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
+    },
+    [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig]
+  );
+
+  const triggerFitView = useCallback(() => {
     if (fitView) {
       setTimeout(() => {
         fitView({ duration: 300, padding: 1 });
       }, 100);
     }
-  }, [nodes, edges, setNodes, fitView, takeSnapshot]);
+  }, [fitView]);
+
+  const onLayout = useCallback(() => {
+    const newNodes = computeLayoutedNodes(nodes, edges);
+    takeSnapshot();
+    setNodes(newNodes);
+    triggerFitView();
+  }, [nodes, edges, setNodes, takeSnapshot, triggerFitView]);
 
   const onDragStart = useCallback(
     (event: React.DragEvent, nodeType: string, label: string, type: string, iconName: string, beamTransform?: string) => {
@@ -361,99 +399,26 @@ export function usePipelineGraph({
       };
       const position = project ? project(rawPos) : rawPos;
 
-      // Special handling for FileIO Source: Spawns both FileIO.match() and FileIO.readMatches() connected by an edge
-      if (data.type === 'SOURCE' && (data.label === 'FileIO' || data.beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode: PipelineNode = {
-          id: `${now}`,
-          type: data.nodeType,
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match',
-          },
-        };
-
-        const readMatchesNode: PipelineNode = {
-          id: `${now + 1}`,
-          type: data.nodeType,
-          position: {
-            x: position.x + 240,
-            y: position.y,
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches',
-          },
-        };
-
-        const edge: Edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
-        setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-        return;
-      }
-
-      const newNode: PipelineNode = {
-        id: `${Date.now()}`,
-        type: data.nodeType,
+      const { nodes: newNodes, edges: newEdges } = createNodesForPaletteItem(
+        data,
         position,
-        data: {
-          label: data.label,
-          type: data.type,
-          iconName: data.iconName,
-          ...(data.beamTransform ? { beam_transform: data.beamTransform } : {}),
-        },
-      };
+        nodes,
+        edges
+      );
 
       takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-
-      if (data.type === 'STEP') {
-        if (data.label === 'Parse Message') {
-          const pubSubSource = nodes.find(
-            (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-          );
-          if (pubSubSource) {
-            const newEdge: Edge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-            setEdges((eds) => eds.concat(newEdge));
-          }
-        } else {
-          const hasStep = nodes.some((n) => n.data?.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find((n) => n.data?.type === 'SOURCE');
-            if (sourceNode) {
-              const newEdge: Edge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-              setEdges((eds) => eds.concat(newEdge));
-            }
-          }
-        }
+      setNodes((prev) => [...prev, ...newNodes]);
+      if (newEdges.length > 0) {
+        setEdges((prev) => [...prev, ...newEdges]);
       }
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     },
-    [project, setNodes, setEdges, nodes, takeSnapshot, setPipelineConfig]
+    [project, setNodes, setEdges, nodes, edges, takeSnapshot, setPipelineConfig]
   );
 
   /**
-   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem.
+   * Directly adds a node to the React Flow canvas when '+' is clicked on a SidebarItem,
+   * and triggers auto-layout + fitView so the newly added node is immediately visible on screen.
    */
   const handleAddNode = useCallback(
     (label: string, type: string, iconName: string, beamTransform?: string) => {
@@ -463,94 +428,24 @@ export function usePipelineGraph({
         y: 100 + (nodeCount % 6) * 60,
       };
 
-      if (type === 'SOURCE' && (label === 'FileIO' || beamTransform === 'FileIO')) {
-        const now = Date.now();
-        const matchNode: PipelineNode = {
-          id: `${now}`,
-          type: 'pipeline',
-          position,
-          data: {
-            label: 'FileIO Match',
-            type: 'SOURCE',
-            iconName: 'Folder',
-            beam_transform: 'FileIO.match',
-          },
-        };
-
-        const readMatchesNode: PipelineNode = {
-          id: `${now + 1}`,
-          type: 'pipeline',
-          position: {
-            x: position.x + 240,
-            y: position.y,
-          },
-          data: {
-            label: 'FileIO Read Matches',
-            type: 'STEP',
-            iconName: 'FileCode',
-            beam_transform: 'FileIO.readMatches',
-          },
-        };
-
-        const edge: Edge = {
-          id: `e-${matchNode.id}-${readMatchesNode.id}`,
-          source: matchNode.id,
-          target: readMatchesNode.id,
-        };
-
-        takeSnapshot();
-        setNodes((nds) => nds.concat([matchNode, readMatchesNode]));
-        setEdges((eds) => eds.concat(edge));
-        setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-        return;
-      }
-
-      const newNode: PipelineNode = {
-        id: `${Date.now()}`,
-        type: 'pipeline',
+      const { nodes: newNodes, edges: newEdges } = createNodesForPaletteItem(
+        { label, type, iconName, beamTransform, nodeType: 'pipeline' },
         position,
-        data: {
-          label,
-          type,
-          iconName,
-          ...(beamTransform ? { beam_transform: beamTransform } : {}),
-        },
-      };
+        nodes,
+        edges
+      );
+
+      const nextEdges = newEdges.length > 0 ? [...edges, ...newEdges] : edges;
 
       takeSnapshot();
-      setNodes((nds) => nds.concat(newNode));
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
-
-      if (type === 'STEP') {
-        if (label === 'Parse Message') {
-          const pubSubSource = nodes.find(
-            (n) => n.data?.type === 'SOURCE' && n.data?.label?.includes('PubSub')
-          );
-          if (pubSubSource) {
-            const newEdge: Edge = {
-              id: `e-${pubSubSource.id}-${newNode.id}`,
-              source: pubSubSource.id,
-              target: newNode.id,
-            };
-            setEdges((eds) => eds.concat(newEdge));
-          }
-        } else {
-          const hasStep = nodes.some((n) => n.data?.type === 'STEP');
-          if (!hasStep) {
-            const sourceNode = nodes.find((n) => n.data?.type === 'SOURCE');
-            if (sourceNode) {
-              const newEdge: Edge = {
-                id: `e-${sourceNode.id}-${newNode.id}`,
-                source: sourceNode.id,
-                target: newNode.id,
-              };
-              setEdges((eds) => eds.concat(newEdge));
-            }
-          }
-        }
+      setNodes((prev) => computeLayoutedNodes([...prev, ...newNodes], nextEdges));
+      if (newEdges.length > 0) {
+        setEdges((prev) => [...prev, ...newEdges]);
       }
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
+      triggerFitView();
     },
-    [nodes, setNodes, setEdges, takeSnapshot, setPipelineConfig]
+    [nodes, edges, setNodes, setEdges, takeSnapshot, setPipelineConfig, triggerFitView]
   );
 
   // Deletes currently selected node or edge and records undo snapshot
@@ -560,12 +455,12 @@ export function usePipelineGraph({
       setNodes((nds) => nds.filter((node) => node.id !== selectedNodeId));
       setEdges((eds) => eds.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
       setSelectedNodeId(null);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     } else if (selectedEdgeId) {
       takeSnapshot();
       setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdgeId));
       setSelectedEdgeId(null);
-      setPipelineConfig((prev: any) => ({ ...prev, needsRebuild: true }));
+      setPipelineConfig((prev: any) => pipelineConfigReducer(prev, { type: 'markDirty' }));
     }
   }, [selectedNodeId, selectedEdgeId, setNodes, setEdges, takeSnapshot, setPipelineConfig]);
 
@@ -579,12 +474,42 @@ export function usePipelineGraph({
   const displayNodes = useMemo(() => {
     const cycleSet = new Set(dagValidation.cycleNodeIds);
     const orphanSet = new Set(dagValidation.orphanNodeIds);
+    const missingUpstreamSet = new Set(dagValidation.missingUpstreamNodeIds || []);
+    const invalidUpstreamSet = new Set(dagValidation.invalidUpstreamNodeIds || []);
+    const sideInputMismatchSet = new Set(dagValidation.sideInputMismatchNodeIds || []);
 
     return nodes.map((node) => {
+      const isMissingUpstream = missingUpstreamSet.has(node.id);
+      const isInvalidUpstream = invalidUpstreamSet.has(node.id);
+      const isSideInputMismatch = sideInputMismatchSet.has(node.id);
       const hasCycle = cycleSet.has(node.id);
+      const hasValidationError = isMissingUpstream || isInvalidUpstream || isSideInputMismatch;
       const isOrphan = orphanSet.has(node.id);
+      const isParDo = isParDoNodeData(node.data);
+      const isDicom = isDicomIoNode(node);
+      const transformName = isDicom ? 'DicomIO' : 'FhirIO';
+      const requiredMode = isDicom ? 'readStudyMetadata' : 'readResources';
+      const readMode = node.data?.properties?.readMode || requiredMode;
+      // ParDo side input errors carry their own validator message (keyed by "(nodeId)")
+      const parDoError = isParDo && (isMissingUpstream || isSideInputMismatch)
+        ? dagValidation.errors.find((e) => e.startsWith('ParDo node') && e.includes(`(${node.id})`))
+        : undefined;
+      const validationError = parDoError
+        ? parDoError
+        : isMissingUpstream
+        ? `${transformName}.${requiredMode}() requires an upstream PubSubIO node connected in front of it.`
+        : isInvalidUpstream
+        ? `${transformName}.${readMode}() does not accept an upstream connection. Remove the connected upstream node or switch back to ${transformName}.${requiredMode}().`
+        : hasCycle
+        ? dagValidation.errors[0]
+        : undefined;
 
-      if (node.data.hasCycle === hasCycle && node.data.isOrphan === isOrphan) {
+      if (
+        node.data.hasCycle === hasCycle &&
+        node.data.hasValidationError === hasValidationError &&
+        node.data.isOrphan === isOrphan &&
+        node.data.validationError === validationError
+      ) {
         return node;
       }
 
@@ -593,23 +518,26 @@ export function usePipelineGraph({
         data: {
           ...node.data,
           hasCycle,
+          hasValidationError,
           isOrphan,
-          validationError: hasCycle ? dagValidation.errors[0] : undefined,
+          validationError,
           validationWarning: isOrphan ? 'Orphan node: disconnected from pipeline' : undefined,
         },
       };
     });
   }, [nodes, dagValidation]);
 
-  // Decorate edges participating in cycles with animated red styling
+  // Decorate edges participating in cycles or invalid upstream connections with red styling
   const displayEdges = useMemo(() => {
     const cycleEdgeSet = new Set(dagValidation.cycleEdgeIds);
     const cycleNodeSet = new Set(dagValidation.cycleNodeIds);
+    const invalidUpstreamSet = new Set(dagValidation.invalidUpstreamNodeIds || []);
 
     return edges.map((edge) => {
       const isCycleEdge =
         cycleEdgeSet.has(edge.id) ||
         (cycleNodeSet.has(edge.source) && cycleNodeSet.has(edge.target));
+      const isInvalidUpstreamEdge = invalidUpstreamSet.has(edge.target);
 
       if (isCycleEdge) {
         return {
@@ -619,6 +547,33 @@ export function usePipelineGraph({
             ...edge.style,
             stroke: '#f43f5e',
             strokeWidth: 2.5,
+          },
+        };
+      }
+      if (isInvalidUpstreamEdge) {
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: '#ef4444',
+            strokeDasharray: '5,5',
+            strokeWidth: 2,
+          },
+        };
+      }
+      if (isSideInputEdge(edge)) {
+        return {
+          ...edge,
+          label: edge.label ?? 'side',
+          labelStyle: { fill: '#fde047', fontSize: 10, fontWeight: 600, ...(edge.labelStyle || {}) },
+          labelBgStyle: { fill: '#1E202A', fillOpacity: 0.9, ...(edge.labelBgStyle || {}) },
+          labelBgPadding: edge.labelBgPadding ?? [4, 2],
+          labelBgBorderRadius: edge.labelBgBorderRadius ?? 4,
+          style: {
+            ...edge.style,
+            stroke: '#facc15',
+            strokeDasharray: '5 4',
+            strokeWidth: 1.5,
           },
         };
       }
@@ -648,6 +603,7 @@ export function usePipelineGraph({
     handleApplyProperties,
     handleNodeLabelChange,
     handleAddKVMapper,
+    handleAddPubSubSource,
     onLayout,
     onDrop,
     handleAddNode,

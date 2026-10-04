@@ -16,7 +16,14 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { BigQuerySchemaEditor, type BigQueryField, jsonToFields, stringToFields } from './BigQuerySchemaEditor';
+import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * Props for the BigQuery sink property panel component.
+ */
 interface BigQuerySinkPropertiesProps {
   node: any;
   onChange: (properties: any) => void;
@@ -34,54 +41,52 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
 
   const dataset = properties.dataset || '';
   const table = properties.table || '';
+  const createDisposition = properties.createDisposition || 'beam.io.BigQueryDisposition.CREATE_NEVER';
+  const isCreateIfNeeded = createDisposition === 'beam.io.BigQueryDisposition.CREATE_IF_NEEDED';
 
-  const [datasets, setDatasets] = React.useState<string[]>([]);
-  const [tables, setTables] = React.useState<string[]>([]);
-  const [datasetError, setDatasetError] = React.useState<string | null>(null);
-  const [tableError, setTableError] = React.useState<string | null>(null);
+  // Resolve schema fields from properties (support schemaFields array, schema JSON string, or schemaString)
+  const schemaFields: BigQueryField[] = React.useMemo(() => {
+    if (Array.isArray(properties.schemaFields)) {
+      return properties.schemaFields;
+    }
+    if (typeof properties.schema === 'string' && properties.schema.trim()) {
+      const parsed = jsonToFields(properties.schema);
+      if (parsed) return parsed;
+    }
+    if (typeof properties.schemaString === 'string' && properties.schemaString.trim()) {
+      return stringToFields(properties.schemaString);
+    }
+    return [];
+  }, [properties.schemaFields, properties.schema, properties.schemaString]);
+
+  const handleSchemaEditorChange = (data: {
+    schemaFields: BigQueryField[];
+    schema: string;
+    schemaString: string;
+  }) => {
+    onChange({
+      ...properties,
+      schemaFields: data.schemaFields,
+      schema: data.schema,
+      schemaString: data.schemaString
+    });
+  };
+
+  const { items: datasets, error: datasetError } = useAssetLoader<string>('datasets', {
+    onLoaded: (_items, message) => {
+      if (message?.projectId) {
+        onChange({ ...propertiesRef.current, projectId: message.projectId });
+      }
+    }
+  });
+  const { items: tables, error: tableError } = useAssetLoader<string>('tables', {
+    params: { dataset: properties.dataset }
+  });
 
   const isTableInvalid = !table.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
-
-  // NOTE: Listen for datasets and tables loaded messages from extension host.
-  // Uses propertiesRef to guarantee async datasetsLoaded does not overwrite newer user input.
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === 'datasetsLoaded') {
-        setDatasets(message.datasets || []);
-        setDatasetError(message.error || null);
-        if (message.projectId) {
-          onChange({ ...propertiesRef.current, projectId: message.projectId });
-        }
-      } else if (message.command === 'tablesLoaded') {
-        setTables(message.tables || []);
-        setTableError(message.error || null);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const vscode = (window as any).vscode;
-    if (vscode) {
-      vscode.postMessage({ command: 'getDatasets' });
-    }
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  React.useEffect(() => {
-    const vscode = (window as any).vscode;
-    if (vscode && properties.dataset) {
-      vscode.postMessage({ command: 'getTables', dataset: properties.dataset });
-    }
-  }, [properties.dataset]);
+  const systemInstructions = resolveSystemInstructions(node);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -90,13 +95,6 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
     } else {
       onChange({ ...properties, [name]: value });
     }
-  };
-
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -142,7 +140,7 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
         <select 
           id="bigQuerySinkCreateDisposition"
           name="createDisposition" 
-          value={properties.createDisposition || 'beam.io.BigQueryDisposition.CREATE_NEVER'} 
+          value={createDisposition} 
           onChange={handleChange} 
           className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
         >
@@ -150,6 +148,25 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
           <option value="beam.io.BigQueryDisposition.CREATE_IF_NEEDED">Create If Needed</option>
         </select>
       </div>
+
+      {/* Schema Editor (shown only when CREATE_IF_NEEDED is selected) */}
+      {isCreateIfNeeded && (
+        <div className="p-3 bg-slate-800/40 rounded border border-purple-500/30 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase text-slate-300">Table Schema</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-semibold">
+                {schemaFields.length} {schemaFields.length === 1 ? 'FIELD' : 'FIELDS'}
+              </span>
+            </div>
+            <InfoTooltip text="Define table schema columns and types required by Apache Beam when CREATE_IF_NEEDED creates a new table." />
+          </div>
+          <BigQuerySchemaEditor
+            fields={schemaFields}
+            onChange={handleSchemaEditorChange}
+          />
+        </div>
+      )}
 
       {/* Write Disposition */}
       <div className="flex flex-col gap-2">
@@ -282,23 +299,18 @@ export const BigQuerySinkProperties: React.FC<BigQuerySinkPropertiesProps> = ({ 
         </>
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="bigQuerySinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for BigQuery sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="bigQuerySinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for BigQuery sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

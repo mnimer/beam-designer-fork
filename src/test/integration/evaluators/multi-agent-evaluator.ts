@@ -48,17 +48,9 @@ export async function runMultiAgentEvaluation(
     codeGenPrompt: string,
     files: GeneratedFileCandidate[]
 ): Promise<MultiAgentEvaluationResult> {
-    console.log(`   [MultiAgentEvaluator] 1. Running Deterministic Pre-flight Gate...`);
-    const deterministic = await runDeterministicGate(files, language);
-    if (!deterministic.syntaxValid) {
-        console.warn(`   [DeterministicGate] ⚠️ Syntax errors detected:`, deterministic.syntaxErrors);
-    }
-    if (!deterministic.secretScanPassed) {
-        console.warn(`   [DeterministicGate] ⚠️ Secret scan failed with ${deterministic.secretFindings.length} issues`);
-    }
-
-    console.log(`   [MultiAgentEvaluator] 2. Spawning Specialist Sub-Agents concurrently...`);
-    const [beamArch, pipelineSpec, security, packaging] = await Promise.all([
+    console.log(`   [MultiAgentEvaluator] 1. Running Deterministic Gate + 4 Specialist Sub-Agents in parallel...`);
+    const [deterministic, beamArch, pipelineSpec, security, packaging] = await Promise.all([
+        runDeterministicGate(files, language),
         evaluateBeamArchitecture(ai, language, yamlContent, files).catch((err): SpecialistAgentResult => {
             console.error(`   [MultiAgentEvaluator] ⚠️ BeamArchitectureAgent error: ${err.message}`);
             return {
@@ -96,6 +88,13 @@ export async function runMultiAgentEvaluation(
             };
         })
     ]);
+
+    if (!deterministic.syntaxValid) {
+        console.warn(`   [DeterministicGate] ⚠️ Syntax errors detected:`, deterministic.syntaxErrors);
+    }
+    if (!deterministic.secretScanPassed) {
+        console.warn(`   [DeterministicGate] ⚠️ Secret scan failed with ${deterministic.secretFindings.length} issues`);
+    }
 
     const specialistResults: Record<string, SpecialistAgentResult> = {
         BeamArchitectureAgent: beamArch,

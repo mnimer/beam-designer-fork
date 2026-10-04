@@ -165,4 +165,171 @@ describe('useAssetLoader', () => {
       );
     }).toThrow(/Unknown assetType 'unknownNonExistentAssetType'/);
   });
+
+  const dispatch = (data: Record<string, unknown>) => {
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', { data }));
+    });
+  };
+
+  it('requests Bigtable instances and populates short instance IDs', () => {
+    const TestComponent = () => {
+      const { items } = useAssetLoader<string>('bigtableInstances');
+      return <ul>{items.map((i) => <li key={i}>{i}</li>)}</ul>;
+    };
+
+    render(<TestComponent />);
+    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getBigtableInstances' });
+
+    dispatch({ command: 'bigtableInstancesLoaded', bigtableInstances: ['inst-a'] });
+    expect(screen.getByText('inst-a')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['bigtableTables', 'getBigtableTables', 'bigtableTablesLoaded', 'inst-a', ['orders', 'events']],
+    ['sqlDatabases', 'getSqlDatabases', 'sqlDatabasesLoaded', 'p:us-central1:db1', ['postgres', 'app']],
+  ] as const)(
+    '%s is auto-disabled until the instance param is supplied, then requests with it',
+    (assetType, requestCommand, responseCommand, instanceValue, results) => {
+      const responseKey = assetType;
+      const TestComponent = () => {
+        const [instance, setInstance] = useState('');
+        const { items, loading } = useAssetLoader<string>(assetType, { params: { instance } });
+        return (
+          <div>
+            <button type="button" onClick={() => setInstance(instanceValue)}>Set Instance</button>
+            <button type="button" onClick={() => setInstance('  ')}>Clear Instance</button>
+            <span data-testid="loading">{String(loading)}</span>
+            <span data-testid="count">{items.length}</span>
+          </div>
+        );
+      };
+
+      render(<TestComponent />);
+
+      expect(mockPostMessage).not.toHaveBeenCalledWith(expect.objectContaining({ command: requestCommand }));
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Set Instance' }));
+      expect(mockPostMessage).toHaveBeenCalledWith({ command: requestCommand, instance: instanceValue });
+      expect(screen.getByTestId('loading')).toHaveTextContent('true');
+
+      dispatch({ command: responseCommand, [responseKey]: [...results] });
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      expect(screen.getByTestId('count')).toHaveTextContent(String(results.length));
+
+      // Clearing the parent identifier (whitespace only) resets the list without a new request.
+      mockPostMessage.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: 'Clear Instance' }));
+      expect(mockPostMessage).not.toHaveBeenCalled();
+      expect(screen.getByTestId('count')).toHaveTextContent('0');
+    }
+  );
+
+  it('requests Cloud SQL instances as connection names', () => {
+    const TestComponent = () => {
+      const { items } = useAssetLoader<string>('sqlInstances');
+      return <ul>{items.map((i) => <li key={i}>{i}</li>)}</ul>;
+    };
+
+    render(<TestComponent />);
+    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSqlInstances' });
+
+    dispatch({ command: 'sqlInstancesLoaded', sqlInstances: ['p:us-central1:db1'] });
+    expect(screen.getByText('p:us-central1:db1')).toBeInTheDocument();
+  });
+
+  it('requests projects and surfaces a discovery error', () => {
+    const TestComponent = () => {
+      const { items, error } = useAssetLoader<string>('projects');
+      return (
+        <div>
+          <span data-testid="error">{error || 'none'}</span>
+          <span data-testid="count">{items.length}</span>
+        </div>
+      );
+    };
+
+    render(<TestComponent />);
+    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getProjects' });
+
+    dispatch({ command: 'projectsLoaded', projects: [], error: 'Failed to list projects via gcloud: PERMISSION_DENIED' });
+    expect(screen.getByTestId('error')).toHaveTextContent('Failed to list projects via gcloud: PERMISSION_DENIED');
+    expect(screen.getByTestId('count')).toHaveTextContent('0');
+  });
+
+  it('does not reset preloaded items when a type without requiredParam is explicitly disabled', () => {
+    const TestComponent = () => {
+      const { items } = useAssetLoader<string>('secrets', { enabled: false, initialItems: ['kept'] });
+      return <span data-testid="count">{items.length}</span>;
+    };
+
+    render(<TestComponent />);
+    expect(mockPostMessage).not.toHaveBeenCalled();
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
+  });
+
+  describe('F11 request correlation via echoed requestParams', () => {
+    const TablesFor = ({ dataset, testId }: { dataset: string; testId: string }) => {
+      const { items, loading } = useAssetLoader<string>('tables', { dataset });
+      return (
+        <div>
+          <span data-testid={`${testId}-loading`}>{String(loading)}</span>
+          <span data-testid={`${testId}-items`}>{items.join(',')}</span>
+        </div>
+      );
+    };
+
+    it('only updates the listener whose params match the echoed request', () => {
+      render(
+        <>
+          <TablesFor dataset="ds_a" testId="a" />
+          <TablesFor dataset="ds_b" testId="b" />
+        </>
+      );
+
+      dispatch({ command: 'tablesLoaded', tables: ['a1'], requestParams: { dataset: 'ds_a' } });
+      expect(screen.getByTestId('a-items')).toHaveTextContent('a1');
+      expect(screen.getByTestId('a-loading')).toHaveTextContent('false');
+      expect(screen.getByTestId('b-items')).toHaveTextContent('');
+      expect(screen.getByTestId('b-loading')).toHaveTextContent('true');
+
+      dispatch({ command: 'tablesLoaded', tables: ['b1'], requestParams: { dataset: 'ds_b' } });
+      expect(screen.getByTestId('a-items')).toHaveTextContent('a1');
+      expect(screen.getByTestId('b-items')).toHaveTextContent('b1');
+    });
+
+    it('drops a late response for a previous parent selection', () => {
+      const Switcher = () => {
+        const [dataset, setDataset] = useState('ds_old');
+        return (
+          <div>
+            <button type="button" onClick={() => setDataset('ds_new')}>Switch</button>
+            <TablesFor dataset={dataset} testId="s" />
+          </div>
+        );
+      };
+      render(<Switcher />);
+      fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+
+      dispatch({ command: 'tablesLoaded', tables: ['new1'], requestParams: { dataset: 'ds_new' } });
+      // The slower response for the old dataset arrives last and must be ignored.
+      dispatch({ command: 'tablesLoaded', tables: ['old1'], requestParams: { dataset: 'ds_old' } });
+
+      expect(screen.getByTestId('s-items')).toHaveTextContent('new1');
+      expect(screen.getByTestId('s-loading')).toHaveTextContent('false');
+    });
+
+    it('still accepts responses without requestParams (legacy senders)', () => {
+      render(<TablesFor dataset="ds_a" testId="l" />);
+      dispatch({ command: 'tablesLoaded', tables: ['x'] });
+      expect(screen.getByTestId('l-items')).toHaveTextContent('x');
+    });
+
+    it('does not add fields to the request message', () => {
+      render(<TablesFor dataset="ds_a" testId="r" />);
+      expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getTables', dataset: 'ds_a' });
+    });
+  });
 });
+

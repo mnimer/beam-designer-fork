@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ThemeProvider, useTheme, THEME_OPTIONS, STORAGE_THEME_KEY } from './ThemeContext';
+import { ThemeProvider, useTheme, STORAGE_THEME_KEY } from './ThemeContext';
 
 // Simple in-memory localStorage mock for node/jsdom environments
 class LocalStorageMock {
@@ -66,6 +66,8 @@ describe('ThemeContext & ThemeProvider', () => {
 
   afterEach(() => {
     window.localStorage.clear();
+    document.documentElement.className = '';
+    document.body.className = '';
   });
 
   it('provides dark theme as default when no storage exists', () => {
@@ -141,12 +143,6 @@ describe('ThemeContext & ThemeProvider', () => {
     expect(window.localStorage.getItem(STORAGE_THEME_KEY)).toBe('dark');
     expect(document.body.classList.contains('vscode-dark')).toBe(true);
     expect(document.body.classList.contains('theme-dark')).toBe(true);
-  });
-
-  it('exports all 4 standard theme options in THEME_OPTIONS', () => {
-    expect(THEME_OPTIONS).toHaveLength(4);
-    const ids = THEME_OPTIONS.map((t) => t.id);
-    expect(ids).toEqual(['dark', 'light', 'hc-dark', 'hc-light']);
   });
 
   it('throws error when useTheme is called outside ThemeProvider', () => {

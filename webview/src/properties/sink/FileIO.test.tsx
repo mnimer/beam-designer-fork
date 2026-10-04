@@ -15,8 +15,7 @@ describe('FileIOSinkProperties', () => {
           to: 'gs://output-bucket/data/',
           prefix: 'part-',
           suffix: '.parquet',
-          numShards: 5,
-          ignoreEmptyFiles: true
+          numShards: 5
         }
       }
     };

@@ -113,4 +113,64 @@ describe('CreateProperties', () => {
       system_instructions: 'Updated prompt instructions'
     }));
   });
+
+  it('handles JSON string in properties.elements without crashing (e.g. avro-sink.beam)', () => {
+    const mockNode = {
+      id: 'source-1',
+      data: {
+        label: 'Create',
+        type: 'SOURCE',
+        iconName: 'Box',
+        beam_transform: 'Create',
+        properties: {
+          elements: '["{\\"id\\": 1, \\\"name\\\": \\\"alpha\\\", \\\"score\\\": 99.5}", "{\\"id\\": 2, \\\"name\\\": \\\"beta\\\", \\\"score\\\": 88.0}"]'
+        },
+        system_instructions: 'In-memory test batch records.'
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<CreateProperties node={mockNode} onChange={mockOnChange} />);
+
+    const textareas = screen.getAllByPlaceholderText(/Element \d/);
+    expect(textareas).toHaveLength(2);
+    expect(textareas[0]).toHaveValue('{"id": 1, "name": "alpha", "score": 99.5}');
+    expect(textareas[1]).toHaveValue('{"id": 2, "name": "beta", "score": 88.0}');
+    expect(screen.queryByText('At least one non-empty element is required.')).not.toBeInTheDocument();
+  });
+
+  it('handles array of objects or numbers without crashing', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          elements: [{ id: 1, name: 'Alice' }, 42]
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<CreateProperties node={mockNode} onChange={mockOnChange} />);
+
+    const textareas = screen.getAllByPlaceholderText(/Element \d/);
+    expect(textareas).toHaveLength(2);
+    expect(textareas[0]).toHaveValue('{"id":1,"name":"Alice"}');
+    expect(textareas[1]).toHaveValue('42');
+  });
+
+  it('handles single string element or undefined elements gracefully', () => {
+    const mockNode = {
+      data: {
+        properties: {
+          elements: 'single record string'
+        }
+      }
+    };
+    const mockOnChange = vi.fn();
+
+    render(<CreateProperties node={mockNode} onChange={mockOnChange} />);
+
+    const textareas = screen.getAllByPlaceholderText(/Element \d/);
+    expect(textareas).toHaveLength(1);
+    expect(textareas[0]).toHaveValue('single record string');
+  });
 });

@@ -1,0 +1,107 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"order_id": 9001, "customer_id": "cust-100", "order_total": 100.0,
+            "currency": "EUR", "order_ts": "2026-09-01T08:00:00Z"}'
+          - '{"order_id": 9002, "customer_id": "cust-200", "order_total": 200.0,
+            "currency": "GBP", "order_ts": "2026-09-01T09:00:00Z"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: "Parse each input JSON order record and convert it into an
+        order-total record with the fields order_id (INT64), customer_id
+        (STRING), order_total_usd (DOUBLE) and order_date (STRING formatted
+        yyyy-MM-dd, taken from order_ts). Compute order_total_usd = order_total
+        * rate using the static rate table {USD: 1.0, EUR: 1.08, GBP: 1.27}; for
+        any other currency use rate 1.0 and increment a Beam Metrics counter
+        named 'unknown_currency'. In Java emit Row objects with an explicit
+        Schema and call setRowSchema on the output PCollection. In Python emit a
+        typing.NamedTuple OrderTotalUsd(order_id: int, customer_id: str,
+        order_total_usd: float, order_date: str), register it with
+        beam.coders.registry.register_coder(OrderTotalUsd, beam.coders.RowCoder)
+        and declare .with_output_types(OrderTotalUsd), so its field order
+        matches the sink statement placeholders 1-to-1."
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: MySQL, PostgreSQL, Oracle, SQL Server
+      type: SINK
+      iconName: Database
+      beam_transform: MySQLPostgreSQLOracleSQLServer
+      properties:
+        databaseType: sqlserver
+        url: jdbc:sqlserver://10.20.0.9:1433;databaseName=analytics;encrypt=true
+        username: beam_writer
+        passwordSecret: analytics-mssql-writer-password
+        writeMode: query
+        query: INSERT INTO dbo.order_totals_usd (order_id, customer_id, order_total_usd,
+          order_date) VALUES (?, ?, ?, ?)
+        batchSize: 1000
+      system_instructions: "This node is the Beam YAML WriteToSqlServer transform
+        (databaseType: sqlserver, writeMode: query); query is the write
+        statement. Generate its native equivalent: in Java use
+        JdbcIO.<Row>write() with
+        JdbcIO.DataSourceConfiguration.create(\"com.microsoft.sqlserver.jdbc.SQ\
+        LServerDriver\", url), withStatement(query), withBatchSize(1000) and a
+        PreparedStatementSetter that sets order_id, customer_id,
+        order_total_usd, order_date at indexes 1-4, plus the Maven dependency
+        com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11. In Python use
+        apache_beam.io.jdbc.WriteToJdbc with table_name='dbo.order_totals_usd',
+        driver_class_name='com.microsoft.sqlserver.jdbc.SQLServerDriver',
+        statement=query, write_batch_size=1000 (the keyword is write_batch_size;
+        WriteToJdbc has no batch_size argument) and
+        classpath=['com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11']. The
+        password is the payload of Secret Manager secret
+        'analytics-mssql-writer-password', resolved once at pipeline
+        construction per the Credential Handling Rules. Do NOT emit a Beam YAML
+        file, YamlTransform, or the JDBC secret_manager option."
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: multidb-yaml-sink-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/multidb-yaml-sink-python
+  needsRebuild: false

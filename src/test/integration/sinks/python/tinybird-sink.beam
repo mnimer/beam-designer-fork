@@ -1,0 +1,92 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"timestamp": "2026-09-01T12:00:00Z", "session_id": "sess-01",
+            "action": "page_view", "version": "1.0"}'
+          - '{"timestamp": "2026-09-01T12:01:00Z", "session_id": "sess-02",
+            "action": "purchase", "version": "1.0"}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 380
+      y: 150
+    data:
+      label: Project To Columns And Batch
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      system_instructions: Parse each input JSON string into a dict projected onto the
+        Tinybird Data Source columns timestamp, session_id, action, version,
+        payload (payload = json.dumps of the original event), and group the
+        projected dicts into lists using beam.BatchElements(min_batch_size=1,
+        max_batch_size=1000) because tinybird-beam's WriteToTinybird requires
+        every input element to be an iterable of dicts (a batch), never a single
+        dict. Unit-test the projection logic with TestPipeline, beam.Create and
+        assert_that/equal_to.
+    width: 190
+    height: 64
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 660
+      y: 150
+    data:
+      label: Tinybird
+      type: SINK
+      iconName: Database
+      beam_transform: Tinybird
+      properties:
+        host: https://api.tinybird.co
+        tokenSecret: tinybird-append-token
+        datasource: web_events
+        columns: timestamp,session_id,action,version,payload
+        batchingMode: none
+      system_instructions: "Ingest the batches with the official Tinybird connector:
+        `from tinybird.beam import WriteToTinybird` (PyPI package
+        `tinybird-beam`; add `tinybird-beam` and `google-cloud-secret-manager`
+        to requirements.txt; do NOT write a custom requests/HTTP DoFn). Resolve
+        tokenSecret ONCE at pipeline construction with token =
+        _access_secret(project_id, 'tinybird-append-token') where project_id
+        comes from the GoogleCloudOptions project option, then apply
+        WriteToTinybird('https://api.tinybird.co', token, 'web_events',
+        'timestamp,session_id,action,version,payload'.split(',')) positionally
+        as (host, token, data_source, columns). Never log the token, never give
+        it an argparse default or environment-variable fallback."
+    width: 190
+    height: 64
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: python
+  - key: JOB_ID
+    value: tinybird-sink-python
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-2
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/python
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Python
+  outputFolder: pipelines/python/tinybird-sink-python
+  needsRebuild: false

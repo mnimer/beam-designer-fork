@@ -8,16 +8,22 @@
  * validation, state transitions, interactive controls, and callback invocations.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { AvroIOSourceProperties, SAMPLE_AVRO_SCHEMA } from './AvroIO';
+import { AvroIOSourceProperties } from './AvroIO';
 
 describe('AvroIOSourceProperties', () => {
   const mockOnChange = vi.fn();
+  let originalVscode: any;
 
   beforeEach(() => {
     mockOnChange.mockClear();
+    originalVscode = (window as any).vscode;
+  });
+
+  afterEach(() => {
+    (window as any).vscode = originalVscode;
   });
 
   it('renders required validation error when filePattern is empty', () => {
@@ -67,7 +73,7 @@ describe('AvroIOSourceProperties', () => {
     );
   });
 
-  it('handles switching record types (GenericRecord, SpecificRecord, ParseGeneric)', () => {
+  it('handles switching record types (GenericRecord, SpecificRecord, ParseGeneric) without rendering Java recordClass input', () => {
     const mockNode: any = {
       data: {
         label: 'AvroIO',
@@ -90,27 +96,21 @@ describe('AvroIOSourceProperties', () => {
     });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ recordType: 'SPECIFIC_RECORD' }));
 
-    // Rerender with SpecificRecord
+    // Rerender with SpecificRecord — should NOT render #avroRecordClass input, and should render SchemaEditor
     const specificNode: any = {
       data: {
         label: 'AvroIO',
         properties: {
           filePattern: 'gs://bucket/*.avro',
-          recordType: 'SPECIFIC_RECORD',
-          recordClass: 'com.example.UserRecord'
+          recordType: 'SPECIFIC_RECORD'
         }
       }
     };
     rerender(<AvroIOSourceProperties node={specificNode} onChange={mockOnChange} />);
 
-    const classInput = container.querySelector('#avroRecordClass') as HTMLInputElement;
-    expect(classInput).toBeInTheDocument();
-    expect(classInput).toHaveValue('com.example.UserRecord');
-
-    fireEvent.change(classInput, {
-      target: { name: 'recordClass', value: 'com.example.OrderRecord' }
-    });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ recordClass: 'com.example.OrderRecord' }));
+    expect(container.querySelector('#avroRecordClass')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Generated Java Record Class/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
 
     // Rerender with PARSE_GENERIC
     const parseNode: any = {
@@ -126,7 +126,7 @@ describe('AvroIOSourceProperties', () => {
     expect(screen.getByText(/AvroIO\.parseGenericRecords\(\)/i)).toBeInTheDocument();
   });
 
-  it('supports inline JSON schema, sample schema insertion, and JSON error reporting', () => {
+  it('renders 3-tab SchemaEditor when schemaMode is INLINE and updates schemaFields, schema, and schemaString', () => {
     const mockNode: any = {
       data: {
         label: 'AvroIO',
@@ -134,41 +134,33 @@ describe('AvroIOSourceProperties', () => {
           filePattern: 'gs://bucket/*.avro',
           recordType: 'GENERIC_RECORD',
           schemaMode: 'INLINE',
-          schema: '{"type": "record", "name": "User", "fields": []}'
+          schemaFields: [
+            { name: 'id', type: 'STRING', mode: 'REQUIRED' }
+          ]
         }
       }
     };
 
-    const { container, rerender } = render(<AvroIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    render(<AvroIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const schemaTextarea = container.querySelector('#avroInlineSchema') as HTMLTextAreaElement;
-    expect(schemaTextarea).toBeInTheDocument();
-    expect(schemaTextarea.value).toContain('User');
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /JSON Schema Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Schema String Tab/i })).toBeInTheDocument();
 
-    // Click "Insert Sample Schema" button
-    const insertBtn = screen.getByText('Insert Sample Schema');
-    fireEvent.click(insertBtn);
+    // Add a new field via SchemaEditor
+    const addFieldBtn = screen.getByRole('button', { name: /Add Schema Field/i });
+    fireEvent.click(addFieldBtn);
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: SAMPLE_AVRO_SCHEMA
+        schemaFields: expect.arrayContaining([
+          expect.objectContaining({ name: 'id', type: 'STRING', mode: 'REQUIRED' }),
+          expect.objectContaining({ name: '', type: 'STRING', mode: 'NULLABLE' })
+        ]),
+        schema: expect.any(String),
+        schemaString: expect.any(String)
       })
     );
-
-    // Test malformed JSON displays syntax error
-    const invalidSchemaNode: any = {
-      data: {
-        label: 'AvroIO',
-        properties: {
-          filePattern: 'gs://bucket/*.avro',
-          recordType: 'GENERIC_RECORD',
-          schemaMode: 'INLINE',
-          schema: '{ invalid: json '
-        }
-      }
-    };
-    rerender(<AvroIOSourceProperties node={invalidSchemaNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/JSON Error:/i)).toBeInTheDocument();
   });
 
   it('supports external schema file mode (.avsc)', () => {

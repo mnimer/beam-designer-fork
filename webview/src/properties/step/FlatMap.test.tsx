@@ -114,7 +114,7 @@ describe('FlatMapProperties', () => {
     }));
   });
 
-  it('renders FlatMapProperties via PropertyForm for FlatMap node', () => {
+  it('renders FlatMapProperties via PropertyForm for FlatMap node', async () => {
     const mockNode = {
       data: {
         label: 'FlatMap',
@@ -126,6 +126,6 @@ describe('FlatMapProperties', () => {
 
     render(<PropertyForm node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Split via')).toBeInTheDocument();
+    expect(await screen.findByText('Split via')).toBeInTheDocument();
   });
 });

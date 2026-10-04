@@ -14,10 +14,15 @@
  */
 
 import React from 'react';
-import { BEAM_COMPRESSION_TYPES } from '../source/FileIO';
+import { BEAM_WRITE_COMPRESSION_TYPES } from '../source/FileIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * Node definition for TextIO sink configuration.
+ */
 interface TextIOSinkNode {
   data: {
     label: string;
@@ -42,6 +47,9 @@ interface TextIOSinkNode {
   };
 }
 
+/**
+ * Props for the TextIOSinkProperties component.
+ */
 interface TextIOSinkPropertiesProps {
   node: TextIOSinkNode;
   onChange: (properties: any) => void;
@@ -57,19 +65,15 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
   const numShards = properties.numShards ?? '';
   const withoutSharding = properties.withoutSharding ?? false;
   const withCompression = properties.withCompression ?? false;
-  const compression = properties.compression || 'AUTO';
+  const rawCompression = properties.compression || 'UNCOMPRESSED';
+  const compression = (rawCompression === 'AUTO' || rawCompression === 'ZIP') ? 'UNCOMPRESSED' : rawCompression;
   const header = properties.header || '';
   const footer = properties.footer || '';
 
   const isToInvalid = !to.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles text, number, and select input updates.
@@ -82,16 +86,6 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
     onChange({
       ...properties,
       [name]: isCheckbox ? checked : value
-    });
-  };
-
-  /**
-   * Handles AI code generation instruction modifications.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
     });
   };
 
@@ -186,7 +180,7 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
               onChange={handleChange}
               className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500"
             >
-              {BEAM_COMPRESSION_TYPES.map(type => (
+              {BEAM_WRITE_COMPRESSION_TYPES.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
@@ -216,23 +210,18 @@ export const TextIOSinkProperties: React.FC<TextIOSinkPropertiesProps> = ({ node
         />
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="textSinkSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for TextIO sink code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="textSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for TextIO sink code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

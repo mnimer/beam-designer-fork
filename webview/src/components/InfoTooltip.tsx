@@ -20,6 +20,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
+/**
+ * Props for the {@link InfoTooltip} component.
+ */
 interface InfoTooltipProps {
   /** Text content to display in the tooltip */
   text: string;

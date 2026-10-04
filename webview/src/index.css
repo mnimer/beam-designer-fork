@@ -9,6 +9,16 @@
     background-color: var(--vscode-canvas-bg, #0d1117);
     color: var(--vscode-text-primary, #f0f6fc);
   }
+
+  /* Suppress native browser datalist drop-down indicator to prevent duplicate dropdowns */
+  input::-webkit-calendar-picker-indicator {
+    display: none !important;
+    -webkit-appearance: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }
 
 /* ==========================================================================
@@ -208,14 +218,33 @@ body.vscode-high-contrast-light {
 
 /* Connection Handles / Sockets */
 .react-flow__handle {
-  width: 10px;
-  height: 10px;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--vscode-handle-border) !important;
+  transition: box-shadow 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+}
+.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
   border-radius: 50%;
-  border: 2px solid var(--vscode-handle-border);
-  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.react-flow__handle-left {
+  left: -7px !important;
+}
+.react-flow__handle-right {
+  right: -7px !important;
+}
+.react-flow__handle-top {
+  top: -7px !important;
+}
+.react-flow__handle-bottom {
+  bottom: -7px !important;
 }
 .react-flow__handle:hover {
-  transform: scale(1.35);
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.35);
+  filter: brightness(1.15);
 }
 
 /* Controls Box */

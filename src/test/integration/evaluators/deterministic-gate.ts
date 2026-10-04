@@ -116,8 +116,6 @@ export function checkJsonSyntax(filename: string, content: string): string | nul
 /**
  * Checks Java file for structural syntax: balanced braces, matching class name.
  *
- * Author: Mike Nimer <mikenimer@google.com>
- *
  * Logic flow:
  * - Scans source code character-by-character while tracking parsing state.
  * - Filters out line comments (`//...`) and block comments (`/* ... * /`).
@@ -289,7 +287,9 @@ export function checkXmlStructure(filename: string, content: string): string | n
  */
 export function scanForUnreplacedPlaceholders(files: GeneratedFileCandidate[]): EvaluatorFinding[] {
     const findings: EvaluatorFinding[] = [];
-    const placeholderRegex = /\{\{[a-zA-Z0-9_]+\}\}|__REDACTED_BY_BEAM_DESIGNER__/g;
+    // NOTE: Use (?<!\{) and (?!\}) so valid Python f-string escaped braces like f"DRIVER={{{driver}}};"
+    // are not falsely flagged as unreplaced {{...}} Mustache template placeholders.
+    const placeholderRegex = /(?<!\{)\{\{[a-zA-Z0-9_]+\}\}(?!\})|__REDACTED_BY_BEAM_DESIGNER__/g;
 
     for (const file of files) {
         const matches = file.content.match(placeholderRegex);
@@ -483,26 +483,28 @@ export async function runDeterministicGate(
     const shellErrors: string[] = [];
     const jsonErrors: string[] = [];
 
-    // 1. Syntax check code files
-    if (language === 'Python') {
-        const pyFiles = files.filter(f => f.filename.endsWith('.py'));
-        for (const pyFile of pyFiles) {
-            const err = await checkPythonSyntax(pyFile.filename, pyFile.content);
-            if (err) syntaxErrors.push(err);
-        }
-    } else if (language === 'Java') {
+    // 1. & 2. Syntax check code files and shell scripts concurrently
+    const pyFiles = language === 'Python' ? files.filter(f => f.filename.endsWith('.py')) : [];
+    const shFiles = files.filter(f => f.filename.endsWith('.sh'));
+
+    const [pyResults, shResults] = await Promise.all([
+        Promise.all(pyFiles.map(pyFile => checkPythonSyntax(pyFile.filename, pyFile.content))),
+        Promise.all(shFiles.map(sh => checkBashSyntax(sh.filename, sh.content)))
+    ]);
+
+    for (const err of pyResults) {
+        if (err) syntaxErrors.push(err);
+    }
+    for (const err of shResults) {
+        if (err) shellErrors.push(err);
+    }
+
+    if (language === 'Java') {
         const javaFiles = files.filter(f => f.filename.endsWith('.java'));
         for (const javaFile of javaFiles) {
             const err = checkJavaStructure(javaFile.filename, javaFile.content);
             if (err) syntaxErrors.push(err);
         }
-    }
-
-    // 2. Syntax check shell scripts
-    const shFiles = files.filter(f => f.filename.endsWith('.sh'));
-    for (const sh of shFiles) {
-        const err = await checkBashSyntax(sh.filename, sh.content);
-        if (err) shellErrors.push(err);
     }
 
     // 3. Syntax check JSON files

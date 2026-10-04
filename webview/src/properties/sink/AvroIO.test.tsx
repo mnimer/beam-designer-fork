@@ -9,17 +9,22 @@
  * compression codec options, sharding modes, metadata, and instructions.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AvroIOSinkProperties } from './AvroIO';
-import { SAMPLE_AVRO_SCHEMA } from '../source/AvroIO';
 
 describe('AvroIOSinkProperties', () => {
   const mockOnChange = vi.fn();
+  let originalVscode: any;
 
   beforeEach(() => {
     mockOnChange.mockClear();
+    originalVscode = (window as any).vscode;
+  });
+
+  afterEach(() => {
+    (window as any).vscode = originalVscode;
   });
 
   it('renders required validation error when destination prefix is empty', () => {
@@ -79,7 +84,7 @@ describe('AvroIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ shardNameTemplate: '-W-P-SS-of-NN' }));
   });
 
-  it('validates schema requirements for GenericRecord (missing schema, sample insertion, JSON error)', () => {
+  it('renders 3-tab SchemaEditor for GenericRecord inline mode and updates schemaFields, schema, and schemaString', () => {
     const mockNode: any = {
       data: {
         label: 'AvroIO',
@@ -87,40 +92,29 @@ describe('AvroIOSinkProperties', () => {
           to: 'gs://bucket/output',
           schemaType: 'GENERIC_RECORD',
           schemaMode: 'INLINE',
-          schema: ''
+          schemaFields: []
         }
       }
     };
 
-    const { rerender } = render(<AvroIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    render(<AvroIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Shows missing schema warning
-    expect(screen.getByText('Avro schema definition is required to write Avro files.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /JSON Schema Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Schema String Tab/i })).toBeInTheDocument();
 
-    // Click "Insert Sample Schema"
-    const insertBtn = screen.getByText('Insert Sample Schema');
-    fireEvent.click(insertBtn);
+    const addFieldBtn = screen.getByRole('button', { name: /Add Schema Field/i });
+    fireEvent.click(addFieldBtn);
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: SAMPLE_AVRO_SCHEMA
+        schemaFields: [
+          expect.objectContaining({ name: '', type: 'STRING', mode: 'NULLABLE' })
+        ],
+        schema: expect.any(String),
+        schemaString: expect.any(String)
       })
     );
-
-    // Rerender with invalid JSON schema
-    const invalidNode: any = {
-      data: {
-        label: 'AvroIO',
-        properties: {
-          to: 'gs://bucket/output',
-          schemaType: 'GENERIC_RECORD',
-          schemaMode: 'INLINE',
-          schema: '{ bad json '
-        }
-      }
-    };
-    rerender(<AvroIOSinkProperties node={invalidNode} onChange={mockOnChange} />);
-    expect(screen.getByText(/JSON Error:/i)).toBeInTheDocument();
   });
 
   it('supports external schema file (.avsc) mode for GenericRecord', () => {
@@ -148,28 +142,22 @@ describe('AvroIOSinkProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ schemaPath: 'gs://bucket/schemas/record.avsc' }));
   });
 
-  it('supports SpecificRecord mode and validates class name', () => {
+  it('supports SpecificRecord mode using SchemaEditor without rendering Java recordClass input', () => {
     const mockNode: any = {
       data: {
         label: 'AvroIO',
         properties: {
           to: 'gs://bucket/output',
-          schemaType: 'SPECIFIC_RECORD',
-          recordClass: ''
+          schemaType: 'SPECIFIC_RECORD'
         }
       }
     };
 
     const { container } = render(<AvroIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(screen.getByText('Generated record class is required.')).toBeInTheDocument();
-
-    const classInput = container.querySelector('#avroSinkRecordClass') as HTMLInputElement;
-    fireEvent.change(classInput, {
-      target: { name: 'recordClass', value: 'com.example.OrderRecord' }
-    });
-
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ recordClass: 'com.example.OrderRecord' }));
+    expect(container.querySelector('#avroSinkRecordClass')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Generated Java Record Class/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
   });
 
   it('handles compression codec selection and deflate level configuration', () => {

@@ -5,12 +5,12 @@
  * 
  * Purpose:
  * Unit tests validating KinesisIOSourceProperties component functionality,
- * form input change handlers, gcloud Secret Manager IPC callbacks, auth mode switching,
+ * form input change handlers, Secret Manager integration, auth mode switching,
  * stream positioning, watermark policies, and bounded read limits.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { KinesisIOSourceProperties } from './KinesisIO';
 
@@ -40,7 +40,7 @@ describe('KinesisIOSourceProperties', () => {
     expect(screen.getByLabelText(/Stream Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/AWS Region/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Secret Manager$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Direct Keys$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Direct Keys$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^IAM \/ Default$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Initial Position/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Watermark Policy/i)).toBeInTheDocument();
@@ -54,9 +54,7 @@ describe('KinesisIOSourceProperties', () => {
         properties: {
           streamName: 'existing-stream',
           region: 'us-west-2',
-          authMode: 'direct' as const,
-          awsAccessKey: 'AKIA12345',
-          awsSecretKey: 'SECRETKEY123'
+          authMode: 'secretManager' as const,
         }
       }
     };
@@ -120,10 +118,7 @@ describe('KinesisIOSourceProperties', () => {
     }));
   });
 
-  it('supports Secret Manager auth mode with IPC callback and datalist population', () => {
-    const postMessageMock = vi.fn();
-    (window as any).vscode = { postMessage: postMessageMock };
-
+  it('supports Secret Manager auth mode', () => {
     const mockNode = {
       data: {
         label: 'Kinesis',
@@ -138,20 +133,6 @@ describe('KinesisIOSourceProperties', () => {
 
     render(<KinesisIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    expect(postMessageMock).toHaveBeenCalledWith({ command: 'getSecrets' });
-
-    // Simulate extension response with loaded secrets
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: ['aws-access-key', 'aws-secret-key', 'another-secret']
-          }
-        })
-      );
-    });
-
     const accessKeyInput = screen.getByLabelText(/AWS Access Key Secret Name/i);
     expect(accessKeyInput).toHaveValue('projects/123/secrets/aws-key');
 
@@ -159,14 +140,9 @@ describe('KinesisIOSourceProperties', () => {
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
       accessKeySecretName: 'aws-access-key'
     }));
-
-    // Test clicking Refresh button
-    const refreshBtn = screen.getByTitle(/Refresh secrets from gcloud/i);
-    fireEvent.click(refreshBtn);
-    expect(postMessageMock).toHaveBeenCalledTimes(2);
   });
 
-  it('supports direct credentials auth mode and toggles secret key visibility', () => {
+  it('does not render direct cleartext AWS credential inputs and strips legacy keys on update', () => {
     const mockNode = {
       data: {
         label: 'Kinesis',
@@ -179,15 +155,16 @@ describe('KinesisIOSourceProperties', () => {
     };
     const mockOnChange = vi.fn();
 
-    render(<KinesisIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<KinesisIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const secretInput = screen.getByLabelText(/AWS Secret Access Key/i);
-    expect(secretInput).toHaveAttribute('type', 'password');
+    expect(container.querySelector('input[name="awsAccessKey"]')).not.toBeInTheDocument();
+    expect(container.querySelector('input[name="awsSecretKey"]')).not.toBeInTheDocument();
 
-    const toggleButton = screen.getByTitle(/Show key/i);
-    fireEvent.click(toggleButton);
+    const streamInput = screen.getByLabelText(/Stream Name/i);
+    fireEvent.change(streamInput, { target: { name: 'streamName', value: 'clean-stream' } });
 
-    expect(secretInput).toHaveAttribute('type', 'text');
+    expect(mockOnChange.mock.calls[0][0].awsAccessKey).toBeUndefined();
+    expect(mockOnChange.mock.calls[0][0].awsSecretKey).toBeUndefined();
   });
 
   it('supports IAM / Default Provider mode with role ARN input', () => {
@@ -315,81 +292,6 @@ describe('KinesisIOSourceProperties', () => {
     expect(() => render(<KinesisIOSourceProperties node={mockNode as any} onChange={mockOnChange} />)).not.toThrow();
   });
 
-  it('normalizes object-shaped secrets payload to short secret IDs and never renders [object Object]', () => {
-    const mockNode = {
-      data: {
-        label: 'Kinesis',
-        properties: {
-          streamName: 'order-stream',
-          authMode: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
 
-    const { container } = render(<KinesisIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response with object-shaped secrets payload (M1 shape)
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              {
-                name: 'kinesis-source-key',
-                id: 'kinesis-source-key',
-                fullName: 'projects/123456/secrets/kinesis-source-key',
-                value: 'kinesis-source-key'
-              },
-              {
-                name: 'kinesis-source-secret',
-                id: 'kinesis-source-secret',
-                fullName: 'projects/123456/secrets/kinesis-source-secret',
-                value: 'kinesis-source-secret'
-              }
-            ]
-          }
-        })
-      );
-    });
-
-    const datalist = container.querySelector('#gcloud-secrets-list');
-    expect(datalist).toBeInTheDocument();
-    const options = datalist?.querySelectorAll('option');
-    expect(options).toBeDefined();
-    expect(options?.length).toBe(2);
-
-    const values = Array.from(options || []).map(opt => opt.getAttribute('value'));
-    expect(values).toEqual(['kinesis-source-key', 'kinesis-source-secret']);
-    expect(values).not.toContain('[object Object]');
-    expect(values.some(v => v?.includes('[object'))).toBe(false);
-  });
-
-  it('displays error message when secretsLoaded contains error', () => {
-    const mockNode = {
-      data: {
-        label: 'Kinesis',
-        properties: {
-          authMode: 'secretManager' as const
-        }
-      }
-    };
-    render(<KinesisIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            error: 'Failed to authenticate with AWS credentials in GCP Secret Manager'
-          }
-        })
-      );
-    });
-
-    const errorElements = screen.getAllByText('Failed to authenticate with AWS credentials in GCP Secret Manager');
-    expect(errorElements.length).toBeGreaterThanOrEqual(1);
-  });
 });
 

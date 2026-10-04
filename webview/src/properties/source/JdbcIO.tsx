@@ -22,39 +22,27 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
-import type { AuthModeOption, SecretItem } from '../../components/common/SecretManagerAuthFields';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
+import type { SecretItem, AuthModeOption } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
-export type JdbcAuthMode = 'secretManager' | 'plaintext';
+export type JdbcAuthMode = 'secretManager';
 
 export const JDBC_AUTH_OPTIONS: AuthModeOption[] = [
   { value: 'secretManager', label: 'Google Cloud Secret Manager' },
-  { value: 'plaintext', label: 'Plaintext password' },
 ];
 
 /**
  * Resolves the authentication mode for the JDBC Source node.
- * 
- * Backward compatibility:
- * - If authMode is explicitly set, use it.
- * - Else if a non-empty password already exists, start in 'plaintext'.
- * - Else start in 'secretManager'.
- * 
- * @param authMode Current authMode property if set
- * @param password Current password property if present
- * @returns Resolved authentication mode ('secretManager' | 'plaintext')
+ * Defaults to 'secretManager'.
  */
-export function resolveAuthMode(authMode?: string, password?: string): JdbcAuthMode {
-  if (authMode) {
-    return authMode as JdbcAuthMode;
-  }
-  if (password && password.trim().length > 0) {
-    return 'plaintext';
-  }
+export function resolveAuthMode(_authMode?: string, _password?: string): JdbcAuthMode {
   return 'secretManager';
 }
 
+/** Preset mapping driver label to class name and sample JDBC connection URL. */
 export interface JdbcDriverPreset {
   label: string;
   driverClass: string;
@@ -102,6 +90,7 @@ export function getJdbcUrlExample(driverClass?: string): string {
   return 'jdbc:<driver>://<host>:<port>/<database>';
 }
 
+/** React Flow node shape for the JdbcIO source panel, including its persisted configuration data. */
 interface JdbcIOSourceNode {
   data: {
     label: string;
@@ -136,23 +125,27 @@ interface JdbcIOSourceNode {
   };
 }
 
+/** Props for the {@link JdbcIOSourceProperties} component. */
 interface JdbcIOSourcePropertiesProps {
   node: JdbcIOSourceNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the JdbcIO source node. Configures JDBC driver, connection URL, credentials, and SQL queries.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ node, onChange }) => {
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
 
   // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
+  const { items: secrets, error: secretError, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
 
   const driverClassName = properties.driverClassName || 'org.postgresql.Driver';
   const url = properties.url || '';
-  const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
-  const password = properties.password || '';
   const passwordSecret = properties.passwordSecret || '';
   const connectionProperties = properties.connectionProperties || '';
   const query = properties.query || '';
@@ -166,6 +159,8 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   const upperBound = properties.upperBound ?? '';
   const numPartitions = properties.numPartitions ?? '';
 
+  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
+
   // Validation states
   const isDriverInvalid = !driverClassName.trim();
   const isUrlInvalid = !url.trim();
@@ -173,17 +168,12 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
   const isTableNameInvalid = selectType === 'table' && !tableName.trim();
 
   // System instructions text with default fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const exampleUrl = getJdbcUrlExample(driverClassName);
 
   /**
-   * Handles generic text/checkbox input changes and switches authentication mode safely.
+   * Handles generic text/checkbox input changes.
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -195,22 +185,12 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       [name]: isCheckbox ? checked : value
     };
 
-    // Mode switching and credential property synchronization
-    if (name === 'authMode') {
-      if (value === 'secretManager') {
-        delete newProperties.password;
-      } else if (value === 'plaintext') {
+    // Ensure plaintext password is removed if present
+    delete newProperties.password;
+
+    if (name === 'passwordSecret') {
+      if (!newProperties.passwordSecret) {
         delete newProperties.passwordSecret;
-      }
-    } else if (name === 'passwordSecret') {
-      delete newProperties.password;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'secretManager';
-      }
-    } else if (name === 'password') {
-      delete newProperties.passwordSecret;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'plaintext';
       }
     }
 
@@ -223,17 +203,6 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
     }
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   return (
@@ -305,45 +274,38 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
         <PropertyField
           id="jdbcUsername"
           name="username"
-          label="Username"
-          tooltip="Database user for JDBC authentication."
+          label="Username Secret"
+          tooltip="Select or enter the Google Cloud Secret Manager secret containing the database username."
           value={username}
           onChange={handleChange}
-          placeholder="dbuser"
-          mono={false}
+          placeholder="e.g. my-database-username"
+          list="jdbc-source-username-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
+          mono={true}
         />
 
-        <SecretManagerAuthFields
-          idPrefix="jdbcSource"
-          datalistId="jdbc-source-secrets-list"
-          authMode={authMode}
-          authOptions={JDBC_AUTH_OPTIONS}
-          secretName={passwordSecret}
-          secretNameName="passwordSecret"
-          secretPlaceholder="e.g. my-database-password"
-          secrets={secrets}
-          serviceName="JDBC"
+        <PropertyField
+          id="jdbcPasswordSecret"
+          name="passwordSecret"
+          label="Password Secret"
+          tooltip="Select or enter the Google Cloud Secret Manager secret containing the database password."
+          value={passwordSecret}
           onChange={handleChange}
+          placeholder="e.g. my-database-password"
+          list="jdbc-source-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          error={secretError}
+          loading={secretsLoading}
+          helperText={
+            <span>
+              Values auto-populated from{' '}
+              <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">
+                gcloud secrets list
+              </code>
+            </span>
+          }
         />
-
-        {authMode === 'plaintext' && (
-          <div className="flex flex-col gap-1">
-            <PropertyField
-              id="jdbcPassword"
-              type="password"
-              name="password"
-              label="Password"
-              tooltip="Database password for JDBC authentication."
-              value={password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              mono={false}
-            />
-            <p className="text-xs text-amber-400 mt-1" role="alert">
-              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Connection Properties */}
@@ -437,7 +399,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
       )}
 
       {/* Fetch Size & Parallel Reads */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 items-end gap-2">
         <div className="flex flex-col gap-2">
           <label htmlFor="jdbcFetchSize" className="flex items-center text-xs font-bold uppercase text-slate-500">
             <span>Fetch Size</span>
@@ -507,7 +469,7 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 items-end gap-2">
               <div className="flex flex-col gap-1">
                 <label htmlFor="jdbcLowerBound" className="text-xs font-semibold text-slate-400">
                   Lower Bound
@@ -556,24 +518,18 @@ export const JdbcIOSourceProperties: React.FC<JdbcIOSourcePropertiesProps> = ({ 
         )}
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="jdbcSourceSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="jdbcSourceSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for JDBC read code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="jdbcSourceSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for JDBC read code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

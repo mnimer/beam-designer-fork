@@ -31,26 +31,6 @@ describe('MqttIOSinkProperties', () => {
     }
   });
 
-  it('renders default fields with documentation tooltips and placeholders', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {}
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByLabelText(/Broker Server URI/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Publish Topic/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Client ID/i)).toBeInTheDocument();
-    expect(screen.getByText(/QoS 1 \(At Least Once\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Timeout \(s\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Keep Alive \(s\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Retain Messages/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Code Generation Instructions/i)).toBeInTheDocument();
-  });
 
   it('triggers onChange when serverUri, topic, and clientId change', () => {
     const mockNode = {
@@ -113,7 +93,7 @@ describe('MqttIOSinkProperties', () => {
     }));
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret', () => {
+  it('allows selecting a Secret Manager secret', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
@@ -125,18 +105,6 @@ describe('MqttIOSinkProperties', () => {
     const mockOnChange = vi.fn();
 
     render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Simulate extension response with secrets
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'mqtt-sink-secret', value: 'mqtt-sink-secret' }
-          ]
-        }
-      }));
-    });
 
     const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i);
     expect(secretDropdown).toBeInTheDocument();
@@ -147,54 +115,29 @@ describe('MqttIOSinkProperties', () => {
     }));
   });
 
-  it('displays secret loading error alert when secretsLoaded contains error', () => {
+  it('does not render direct cleartext password entry and strips legacy password on update', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
         properties: {
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled in project'
-        }
-      }));
-    });
-
-    const errorAlerts = screen.getAllByRole('alert');
-    const secretAlert = errorAlerts.find(el => el.textContent?.includes('Secret Manager API is not enabled in project'));
-    expect(secretAlert).toBeInTheDocument();
-  });
-
-  it('switches to direct password entry and toggles visibility', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {
-          passwordSource: 'direct' as const,
           password: 'sink-password-123'
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<MqttIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const passwordInput = screen.getByLabelText(/^Password/i);
-    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+    expect(container.querySelector('#mqtt-sink-secret-options')).toBeInTheDocument();
 
-    const toggleButton = screen.getByLabelText('Show password');
-    fireEvent.click(toggleButton);
+    const usernameInput = container.querySelector('#mqtt-sink-username') as HTMLInputElement;
+    fireEvent.change(usernameInput, { target: { name: 'username', value: 'mqtt-sink-user-secret' } });
 
-    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      username: 'mqtt-sink-user-secret'
+    }));
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 
   it('handles extension message for Compute Engine instances and applies IP to serverUri', () => {

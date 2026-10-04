@@ -19,8 +19,14 @@
 import React, { useState } from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { StoragePathField } from '../../components/common/StoragePathField';
+import { SchemaEditor, resolveSchemaFields, type SchemaField } from '../../components/common/SchemaEditor';
+import { FileCode } from 'lucide-react';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
 
+/** React Flow node shape for the ParquetIO source panel, including its persisted configuration data. */
 export interface ParquetIOSourceNode {
   data: {
     label: string;
@@ -30,6 +36,8 @@ export interface ParquetIOSourceNode {
     properties?: {
       filePattern?: string;
       schema?: string;
+      schemaString?: string;
+      schemaFields?: SchemaField[];
       columns?: string;
       validate?: boolean;
       batched?: boolean;
@@ -41,31 +49,21 @@ export interface ParquetIOSourceNode {
   };
 }
 
+/** Props for the {@link ParquetIOSourceProperties} component. */
 export interface ParquetIOSourcePropertiesProps {
   node: ParquetIOSourceNode;
   onChange: (properties: any) => void;
 }
 
-const SAMPLE_AVRO_SCHEMA = JSON.stringify(
-  {
-    type: 'record',
-    name: 'UserRecord',
-    namespace: 'com.example.beam',
-    fields: [
-      { name: 'id', type: 'string' },
-      { name: 'name', type: 'string' },
-      { name: 'email', type: ['null', 'string'], default: null },
-      { name: 'timestamp', type: 'long' }
-    ]
-  },
-  null,
-  2
-);
-
+/**
+ * Dedicated property panel for the ParquetIO source node. Configures file pattern, schema projection, and batch read settings.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const filePattern = properties.filePattern || '';
-  const schema = properties.schema || '';
+  const schemaFields: SchemaField[] = resolveSchemaFields(properties);
   const columns = properties.columns || '';
   const validate = properties.validate ?? true;
   const batched = properties.batched ?? false;
@@ -78,12 +76,7 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
   const isInvalid = !filePattern.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic input changes for form fields
@@ -99,50 +92,19 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
     });
   };
 
-  /**
-   * Inserts a sample Avro schema snippet into the schema field
-   */
-  const handleInsertSampleSchema = () => {
-    onChange({
-      ...properties,
-      schema: SAMPLE_AVRO_SCHEMA
-    });
-  };
-
-  /**
-   * Updates AI prompt / system instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* File Pattern Input */}
-      <PropertyField
+      <StoragePathField
         id="parquetSourceFilePattern"
         name="filePattern"
         label="File Pattern / Path (.from)"
-        required="File Pattern is required."
         tooltip="Target Parquet file path or glob pattern (e.g. gs://bucket/*.parquet, s3://bucket/*.parquet, hdfs://path/*.parquet, or /local/path/*.parquet). Required."
-        aria-required="true"
-        aria-invalid={isInvalid}
         value={filePattern}
         onChange={handleChange}
         placeholder="gs://bucket/data/*.parquet, s3://bucket/data/*.parquet, or /local/*.parquet"
-        invalid={isInvalid}
-        error={isInvalid ? 'File Pattern is required.' : null}
-        mono={true}
-        helperText={
-          !isInvalid ? (
-            <span className="text-xs text-[var(--vscode-text-muted)]">
-              Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage.
-            </span>
-          ) : null
-        }
+        errorMessage={isInvalid ? 'File Pattern is required.' : undefined}
+        helperText="Target file or glob pattern across Cloud Storage, Amazon S3, HDFS, or local storage."
       />
 
       {/* Projected Columns (Python: columns=[...]) */}
@@ -163,128 +125,95 @@ export const ParquetIOSourceProperties: React.FC<ParquetIOSourcePropertiesProps>
       />
 
       {/* Schema Accordion Section (Java: ParquetIO.read(schema)) */}
-      <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIsSchemaOpen(!isSchemaOpen)}
-          className="w-full flex items-center justify-between p-3 text-xs font-bold uppercase text-[var(--vscode-text-primary)] hover:bg-[var(--vscode-hover)] transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <FileCode className="w-4 h-4 text-emerald-400" />
-            <span>Avro Schema (Java <code>ParquetIO.read(schema)</code>)</span>
-          </div>
-          {isSchemaOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-
-        {isSchemaOpen && (
-          <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--vscode-border-light)] mt-2">
-            <div className="flex justify-between items-center mt-2">
-              <label htmlFor="parquetSourceSchema" className="text-[11px] font-semibold text-[var(--vscode-text-muted)] flex items-center gap-1.5">
-                <span>Avro Schema (Required for Java, Leave blank for Python)</span>
-                <InfoTooltip text="For Java pipelines: ParquetIO.read(schema) requires an Avro schema at compile time to define the PCollection<GenericRecord> coder and filter columns. For Python pipelines, leave this empty." />
-              </label>
-              <button
-                type="button"
-                onClick={handleInsertSampleSchema}
-                className="text-[11px] text-[var(--vscode-highlight)] hover:underline flex items-center gap-1 font-medium"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Insert Sample</span>
-              </button>
-            </div>
-            <textarea
-              id="parquetSourceSchema"
-              name="schema"
-              value={schema}
-              onChange={handleChange}
-              rows={4}
-              placeholder='{"type": "record", "name": "User", "fields": [...]} or gs://bucket/schema.avsc'
-              className="bg-[var(--vscode-input-bg)] text-[var(--vscode-text-primary)] p-2 rounded border border-[var(--vscode-border)] text-xs focus:outline-none focus:border-[var(--vscode-highlight)] font-mono resize-y"
-            />
-            <span className="text-[11px] text-[var(--vscode-text-muted)]">
-              <strong>Java:</strong> Provide Avro JSON or path to <code>.avsc</code> to define GenericRecord coder and projected columns. (Leave blank for Python).
-            </span>
-          </div>
-        )}
-      </div>
+      <CollapsibleSection
+        title={<>Avro Schema (Java <code>ParquetIO.read(schema)</code>)</>}
+        icon={<FileCode className="w-4 h-4 text-emerald-400" />}
+        isOpen={isSchemaOpen}
+        onToggle={() => setIsSchemaOpen(!isSchemaOpen)}
+      >
+        <div className="mt-2">
+          <SchemaEditor
+            fields={schemaFields}
+            schemaTitle="Avro Schema (Required for Java, Leave blank for Python)"
+            jsonTextareaId="parquetSourceSchema"
+            stringTextareaId="parquetSourceSchemaString"
+            onChange={({ schemaFields: nextFields, schema: nextSchema, schemaString: nextStr }) => {
+              onChange({
+                ...properties,
+                schemaFields: nextFields,
+                schema: nextSchema,
+                schemaString: nextStr
+              });
+            }}
+          />
+        </div>
+      </CollapsibleSection>
 
       {/* Advanced Settings Accordion */}
-      <div className="border border-[var(--vscode-border)] rounded-md bg-[var(--vscode-subcard-bg)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-          className="w-full flex items-center justify-between p-3 text-xs font-bold uppercase text-[var(--vscode-text-primary)] hover:bg-[var(--vscode-hover)] transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span>Read Tuning & Options</span>
-          </div>
-          {isAdvancedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+      <CollapsibleSection
+        title="Read Tuning & Options"
+        isOpen={isAdvancedOpen}
+        onToggle={() => setIsAdvancedOpen(!isAdvancedOpen)}
+      >
+        {/* Batched Reading Toggle */}
+        <label htmlFor="parquetSourceBatched" className="flex items-center gap-2 cursor-pointer mt-2">
+          <input
+            id="parquetSourceBatched"
+            type="checkbox"
+            name="batched"
+            checked={batched}
+            onChange={handleChange}
+            className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+          />
+          <span className="text-xs text-[var(--vscode-text-secondary)]">Batched Vectorized Mode (ReadFromParquetBatched)</span>
+          <InfoTooltip text="Yields pyarrow.Table instances per row group instead of per-record dictionaries. Ideal for vectorized transformations." />
+        </label>
 
-        {isAdvancedOpen && (
-          <div className="p-3 pt-0 flex flex-col gap-3 border-t border-[var(--vscode-border-light)] mt-2">
-            {/* Batched Reading Toggle */}
-            <label htmlFor="parquetSourceBatched" className="flex items-center gap-2 cursor-pointer mt-2">
-              <input
-                id="parquetSourceBatched"
-                type="checkbox"
-                name="batched"
-                checked={batched}
-                onChange={handleChange}
-                className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-xs text-[var(--vscode-text-secondary)]">Batched Vectorized Mode (ReadFromParquetBatched)</span>
-              <InfoTooltip text="Yields pyarrow.Table instances per row group instead of per-record dictionaries. Ideal for vectorized transformations." />
-            </label>
+        {/* Validate File Existence */}
+        <label htmlFor="parquetSourceValidate" className="flex items-center gap-2 cursor-pointer">
+          <input
+            id="parquetSourceValidate"
+            type="checkbox"
+            name="validate"
+            checked={validate}
+            onChange={handleChange}
+            className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+          />
+          <span className="text-xs text-[var(--vscode-text-secondary)]">Validate file existence on pipeline startup</span>
+          <InfoTooltip text="Checks whether the input file pattern matches files at pipeline construction time." />
+        </label>
 
-            {/* Validate File Existence */}
-            <label htmlFor="parquetSourceValidate" className="flex items-center gap-2 cursor-pointer">
-              <input
-                id="parquetSourceValidate"
-                type="checkbox"
-                name="validate"
-                checked={validate}
-                onChange={handleChange}
-                className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-xs text-[var(--vscode-text-secondary)]">Validate file existence on pipeline startup</span>
-              <InfoTooltip text="Checks whether the input file pattern matches files at pipeline construction time." />
-            </label>
-
-            {/* Min Bundle Size */}
-            <PropertyField
-              id="parquetSourceMinBundleSize"
-              type="number"
-              name="minBundleSize"
-              label="Minimum Bundle Size (bytes)"
-              tooltip="Minimum byte size to consider when splitting input into bundles for parallel worker execution. Default 0."
-              value={minBundleSize}
-              onChange={handleChange}
-              placeholder="0"
-              min="0"
-              mono={true}
-            />
-          </div>
-        )}
-      </div>
+        {/* Min Bundle Size */}
+        <PropertyField
+          id="parquetSourceMinBundleSize"
+          type="number"
+          name="minBundleSize"
+          label="Minimum Bundle Size (bytes)"
+          tooltip="Minimum byte size to consider when splitting input into bundles for parallel worker execution. Default 0."
+          value={minBundleSize}
+          onChange={handleChange}
+          placeholder="0"
+          min="0"
+          mono={true}
+        />
+      </CollapsibleSection>
 
       {/* Code Generation Instructions */}
-      <div className="pt-2 border-t border-[var(--vscode-border-light)]">
-        <PropertyField
-          id="parquetSourceInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO reader step."
-          type="textarea"
-          rows={3}
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="e.g. Filter records where status is active, or use specific Avro SpecificRecord model class."
-          mono={false}
-          className="resize-y h-24"
-          helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
-        />
-      </div>
+      <SystemInstructionsField
+        id="parquetSourceInstructions"
+        value={systemInstructions}
+        placeholder="e.g. Filter records where status is active, or use specific Avro SpecificRecord model class."
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this ParquetIO reader step."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        textareaClassName="h-24"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

@@ -16,7 +16,12 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the LogMessage sink panel, including its persisted configuration data.
+ */
 interface LogMessageNode {
   data: {
     label?: string;
@@ -35,6 +40,9 @@ interface LogMessageNode {
   };
 }
 
+/**
+ * Props for the LogMessageProperties component.
+ */
 interface LogMessagePropertiesProps {
   node: LogMessageNode;
   onChange: (properties: any) => void;
@@ -48,12 +56,7 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
   const logLevel = properties.logLevel || 'Info';
   const logPrefix = properties.logPrefix || '';
 
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handle input and select changes and propagate up
@@ -62,15 +65,6 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
     onChange({ ...properties, [e.target.name]: e.target.value });
   };
 
-  /**
-   * Handle AI instructions changes
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
-  };
 
   /**
    * Helper text based on selected log level
@@ -128,23 +122,14 @@ export const LogMessageProperties: React.FC<LogMessagePropertiesProps> = ({ node
         </div>
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="logSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for logging code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="logSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for logging code generation..."
+        wrapperClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
+        onChange={(value) => onChange({ ...properties, system_instructions: value })}
+      />
     </div>
   );
 };

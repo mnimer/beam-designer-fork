@@ -12,36 +12,11 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn(() => ({ get: vi.fn() }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: []
+    }
+}));
 
 import { parseOrRepairJson, findLastCompleteFileEndOffset } from '../../extension';
 
@@ -167,16 +142,22 @@ describe('M10 - pathological truncation (performance regression barrier)', () =>
         });
         const truncated = doc.substring(0, doc.length - 60);
 
-        const started = Date.now();
-        const offset = findLastCompleteFileEndOffset(truncated);
-        const elapsed = Date.now() - started;
+        const parseSpy = vi.spyOn(JSON, 'parse');
+        let parseCalls: number;
+        let offset: number;
+        try {
+            offset = findLastCompleteFileEndOffset(truncated);
+            parseCalls = parseSpy.mock.calls.length;
+        } finally {
+            parseSpy.mockRestore();
+        }
 
         expect(offset).toBeGreaterThan(0);
         const parsed = JSON.parse(truncated.substring(0, offset + 1).trim() + ']}');
         expect(parsed.files).toHaveLength(5);
-        // Generous bound: the point is to catch a reintroduction of quadratic behaviour,
-        // not to assert a specific machine's speed.
-        expect(elapsed).toBeLessThan(250);
+        // Deterministic barrier against reintroducing the quadratic rescan (which
+        // needed ~12k parse attempts here) without depending on machine speed.
+        expect(parseCalls).toBeLessThan(50);
     });
 
     it('is not fooled by a decoy "files" key inside file content', () => {

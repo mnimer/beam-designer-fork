@@ -17,27 +17,45 @@
  */
 
 import React from 'react';
-import { Box, Copy } from 'lucide-react';
+import {
+  Box,
+  Copy,
+  X
+} from 'lucide-react';
 import { PropertyForm } from './PropertyForm';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, FileCode, Code, FileText, Folder, ListOrdered, Zap } from 'lucide-react';
+import { ErrorBoundary } from './common/ErrorBoundary';
+import { getNodeIcon } from './common/nodeIcons';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Code, FileText, Folder, ListOrdered, Zap
-};
-
+/**
+ * Props for the {@link PropertyPane} component.
+ */
 export interface PropertyPaneProps {
   node: any;
   onChange: (properties: any) => void;
   onLabelChange?: (label: string) => void;
   runtimeVariables: { key: string; value: string }[];
   onAddKVMapper?: (windowNodeId: string) => void;
+  onAddPubSubSource?: (targetNodeId: string) => void;
+  width?: number;
+  onResizeStart?: (e: React.MouseEvent) => void;
+  onClose?: () => void;
 }
 
 /**
  * PropertyPane functional component rendering the node properties sidebar.
  */
-export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLabelChange, runtimeVariables, onAddKVMapper }) => {
-  const IconComponent = iconComponentMap[node.data.iconName];
+export const PropertyPane: React.FC<PropertyPaneProps> = ({
+  node,
+  onChange,
+  onLabelChange,
+  runtimeVariables,
+  onAddKVMapper,
+  onAddPubSubSource,
+  width,
+  onResizeStart,
+  onClose
+}) => {
+  const IconComponent = getNodeIcon(node.data.iconName, Box);
   const [labelValue, setLabelValue] = React.useState(node.data.label || '');
 
   React.useEffect(() => {
@@ -53,16 +71,45 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
   };
 
   return (
-    <div className="w-80 h-full shrink-0 bg-[var(--vscode-workbench-bg)] p-4 border-l border-[var(--vscode-border)] flex flex-col gap-4 overflow-y-auto z-20">
+    <div
+      style={width ? { width: `${width}px` } : undefined}
+      className={`${width ? '' : 'w-80'} h-full shrink-0 bg-[var(--vscode-workbench-bg)] p-4 border-l border-[var(--vscode-border)] flex flex-col gap-4 overflow-y-auto relative shadow-2xl z-40`}
+    >
+      {/* Resizable handle along the left edge */}
+      <div
+        data-testid="property-pane-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize property panel"
+        title="Drag to resize property panel"
+        onMouseDown={onResizeStart}
+        className="absolute left-0 top-0 bottom-0 w-2.5 -ml-1 cursor-col-resize hover:bg-[var(--vscode-highlight,#3b82f6)]/40 transition-colors z-50 group flex items-center justify-center select-none"
+      >
+        <div className="w-1 h-8 rounded bg-slate-600/80 group-hover:bg-blue-400 group-hover:h-12 transition-all" />
+      </div>
+
       {/* Top Header */}
       <div className="flex justify-between items-center shrink-0">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--vscode-text-muted)]">Properties</h2>
-        <Box className="w-4 h-4 text-[var(--vscode-text-muted)]" />
+        <div className="flex items-center gap-1">
+          <Box className="w-4 h-4 text-[var(--vscode-text-muted)]" />
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded transition cursor-pointer ml-1"
+              title="Close properties"
+              aria-label="Close properties"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Node Info Header with Editable Name */}
       <div className="flex items-center gap-3 bg-[var(--vscode-card-bg)] border border-[var(--vscode-border-light)] p-3 rounded-lg shrink-0">
         <div className="bg-[var(--vscode-subcard-bg)] border border-[var(--vscode-border-light)] p-2 rounded shrink-0">
+          {/* eslint-disable-next-line react-hooks/static-components */}
           {IconComponent && <IconComponent className={`w-5 h-5 ${node.data.type === 'SOURCE' ? 'text-emerald-400' : node.data.type === 'SINK' ? 'text-rose-400' : 'text-blue-400'}`} />}
         </div>
         <div className="flex-1 min-w-0">
@@ -84,7 +131,9 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
 
       {/* Scrollable Form Area */}
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1">
-        <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} />
+        <ErrorBoundary fallbackTitle="Error loading node properties">
+          <PropertyForm node={node} onChange={onChange} onAddKVMapper={onAddKVMapper} onAddPubSubSource={onAddPubSubSource} />
+        </ErrorBoundary>
       </div>
 
       {/* Runtime Variables at the bottom */}
@@ -93,7 +142,7 @@ export const PropertyPane: React.FC<PropertyPaneProps> = ({ node, onChange, onLa
           <span className="text-xs font-bold uppercase text-[var(--vscode-text-muted)]">Runtime Variables</span>
         </div>
         <div className="flex flex-col gap-2 max-h-36 overflow-y-auto pr-1">
-          {runtimeVariables.map((variable, index) => (
+          {(runtimeVariables || []).map((variable, index) => (
             <div key={index} className="flex justify-between items-center text-sm text-[var(--vscode-text-secondary)] bg-[var(--vscode-subcard-bg)] border border-[var(--vscode-border-light)] p-2 rounded">
               <span>${variable.key}</span>
               <button 

@@ -10,6 +10,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_GEMINI_MODEL } from '../../../constants';
+import { getCachedBeamVersion, BEAM_DOWNLOADS_URL } from '../../../beamVersion';
 import { SpecialistAgentResult, generateContentWithRetry } from './types';
 import { GeneratedFileCandidate } from './deterministic-gate';
 import { formatFilesWithLineNumbers } from './format-utils';
@@ -27,12 +28,18 @@ export async function evaluatePackagingAndDeployability(
     language: 'Java' | 'Python',
     files: GeneratedFileCandidate[]
 ): Promise<SpecialistAgentResult> {
+    const beamVersion = getCachedBeamVersion();
     const prompt = `You are the Principal Packaging & Runtime Deployability Evaluator Agent.
 Your responsibility is auditing Apache Beam build descriptors, dependency specifications, Flex Template metadata, Dockerfiles, and runner scripts for deployment readiness.
 
 === TARGET LANGUAGE ===
 ${language}
 =======================
+
+=== AUTHORITATIVE APACHE BEAM RELEASE GROUNDING ===
+The current official Apache Beam release verified from ${BEAM_DOWNLOADS_URL} is ${beamVersion} (and releases up through ${beamVersion}, including 2.76.0, are published and available on PyPI, Maven Central, and Docker Hub).
+Because your training cutoff may predate Apache Beam ${beamVersion}, DO NOT flag Apache Beam version ${beamVersion} (such as \`apache-beam[gcp]>=${beamVersion},<3.0.0\`, \`apache/beam_python3.11_sdk:${beamVersion}\`, or \`<beam.version>${beamVersion}</beam.version>\`) as "non-existent", "unreleased", or "hallucinated".
+===================================================
 
 === GENERATED SOURCE FILES & ARTIFACTS (LINE NUMBERED) ===
 ${formatFilesWithLineNumbers(files)}
@@ -45,7 +52,7 @@ Audit the code against the following Packaging & Deployment Checklist:
      - If mock data / Faker is used, is \`net.datafaker:datafaker\` pinned to \`2.7.0\` or higher (older versions like 2.1.0 lack \`timeAndDate()\` and fail compilation)?
      - Is the Maven Shade plugin or compiler plugin configured with appropriate Java version (11 or 17)?
    - In Python (\`requirements.txt\`):
-     - Is \`apache-beam[gcp]\` declared?
+     - Is \`apache-beam[gcp]\` declared? (Note: \`>=${beamVersion},<3.0.0\` is the official current release constraint — never flag ${beamVersion} as non-existent).
      - Are all third-party imported libraries included with realistic version constraints?
 2. **Dataflow Flex Template Metadata (\`metadata.json\`):**
    - Are parameters declared in \`metadata.json\` matching CLI arguments expected by the pipeline?

@@ -33,14 +33,35 @@ const { mockState } = vi.hoisted(() => {
 });
 
 vi.mock('vscode', () => {
+    /**
+     * Mock representation of a vscode.Position.
+     */
     class MockPosition {
+        /**
+         * Creates a mock position with line and character coordinates.
+         *
+         * @param line Zero-based line value.
+         * @param character Zero-based character value.
+         */
         constructor(public line: number, public character: number) {}
     }
 
+    /**
+     * Mock representation of a vscode.Range.
+     */
     class MockRange {
+        /**
+         * Creates a mock range with start and end positions.
+         *
+         * @param start The start position.
+         * @param end The end position.
+         */
         constructor(public start: MockPosition, public end: MockPosition) {}
     }
 
+    /**
+     * Mock representation of a vscode.WorkspaceEdit.
+     */
     class MockWorkspaceEdit {
         public replace = vi.fn();
     }
@@ -122,7 +143,8 @@ import {
     shouldPushDocumentUpdate,
     savePipelineFiles,
     BeamEditorProvider,
-    DocumentSyncState
+    DocumentSyncState,
+    handleRegenerateCodeCommand
 } from '../../extension';
 
 describe('M5 — Webview Lifecycle and Safe Message Dispatching', () => {
@@ -313,6 +335,51 @@ describe('M4 — Document Model Persistence vs Filesystem Fallback (savePipeline
         // Verify syncState was updated with the saved content
         expect(syncState.lastSavedContent).toBe(newData);
         expect(syncState.isApplyingEdit).toBe(false); // Reset in finally
+    });
+
+    it('skips WorkspaceEdit when open document content is already identical to data (prevents marking clean document dirty on open)', async () => {
+        const filePath = path.join(tempDir, 'unmodified-pipeline.beam');
+        const initialContent = 'nodes: []\nedges: []\n';
+        fs.writeFileSync(filePath, initialContent, 'utf-8');
+
+        const targetUri = {
+            scheme: 'file',
+            fsPath: filePath,
+            toString: () => `file://${filePath}`
+        };
+
+        const openDoc = {
+            uri: targetUri,
+            getText: () => initialContent,
+            positionAt: (offset: number) => ({ line: 0, character: offset }),
+            lineCount: 2
+        };
+        mockState.mockTextDocuments.push(openDoc);
+
+        const syncState: DocumentSyncState = {
+            isApplyingEdit: false,
+            lastSavedContent: null
+        };
+
+        await savePipelineFiles(
+            targetUri as any,
+            initialContent,
+            undefined,
+            'py',
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            syncState
+        );
+
+        // Must NOT call applyEdit when content is byte-identical, avoiding dirtying the tab
+        expect(mockState.mockApplyEdit).not.toHaveBeenCalled();
+        expect(syncState.lastSavedContent).toBe(initialContent);
+        expect(syncState.isApplyingEdit).toBe(false);
     });
 
     it('falls back to fs.writeFileSync when the document is NOT open in VS Code (extreme / fallback case)', async () => {
@@ -553,5 +620,55 @@ describe('M4 — Two-Way Synchronization in BeamEditorProvider', () => {
                 filename: 'pipeline.beam'
             })
         );
+    });
+
+    it('automatically saves the .beam document and calls document.save() when regenerateCode is dispatched', async () => {
+        mockState.mockTextDocuments.length = 0;
+        mockState.mockApplyEdit.mockClear();
+
+        const docUri = {
+            scheme: 'file',
+            fsPath: '/test/workspace/auto-save-on-codegen.beam',
+            toString: () => 'file:///test/workspace/auto-save-on-codegen.beam'
+        };
+
+        const mockSave = vi.fn().mockResolvedValue(true);
+        const openDoc = {
+            uri: docUri,
+            getText: () => 'nodes: []\nedges: []\n',
+            positionAt: (offset: number) => ({ line: 0, character: offset }),
+            lineCount: 2,
+            save: mockSave
+        };
+        mockState.mockTextDocuments.push(openDoc);
+
+        const syncState: DocumentSyncState = {
+            isApplyingEdit: false,
+            lastSavedContent: 'nodes: []\nedges: []\n'
+        };
+
+        const updatedYaml = 'nodes:\n  - id: n1\nedges:\n  - id: e1\n    source: n1\n    target: n1\n';
+        const mockPost = vi.fn();
+
+        await handleRegenerateCodeCommand(
+            {
+                context: { extensionPath: '/test/ext' } as any,
+                webview: {} as any,
+                document: openDoc as any,
+                uri: docUri as any,
+                postToWebview: mockPost,
+                syncState
+            },
+            {
+                command: 'regenerateCode',
+                data: updatedYaml,
+                filename: 'auto-save-on-codegen.beam',
+                language: 'Python'
+            }
+        );
+
+        expect(mockState.mockApplyEdit).toHaveBeenCalledTimes(1);
+        expect(mockSave).toHaveBeenCalledTimes(1);
+        expect(syncState.lastSavedContent).toBe(updatedYaml);
     });
 });

@@ -19,14 +19,19 @@
  */
 
 import React from 'react';
-import { JDBC_DRIVER_PRESETS, getJdbcUrlExample, resolveAuthMode, JDBC_AUTH_OPTIONS } from '../source/JdbcIO';
+import { JDBC_DRIVER_PRESETS, getJdbcUrlExample } from '../source/JdbcIO';
 import type { JdbcAuthMode } from '../source/JdbcIO';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
-import { SecretManagerAuthFields } from '../../components/common/SecretManagerAuthFields';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { normalizeSecretItem } from '../../components/common/SecretManagerAuthFields';
 import type { SecretItem } from '../../components/common/SecretManagerAuthFields';
 import { useAssetLoader } from '../../hooks/useAssetLoader';
 
+/**
+ * React Flow node shape for the JDBC sink panel, including its persisted configuration data.
+ */
 interface JdbcIOSinkNode {
   data: {
     label: string;
@@ -56,23 +61,29 @@ interface JdbcIOSinkNode {
   };
 }
 
+/**
+ * Props for the JdbcIOSinkProperties component.
+ */
 interface JdbcIOSinkPropertiesProps {
   node: JdbcIOSinkNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Dedicated property panel for the JDBC sink node. Configures database URL, driver class, SQL statement or table, and credentials.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
 export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node, onChange }) => {
   // Extract existing properties or fallback to empty object
   const properties = node.data.properties || {};
 
   // NOTE: Request Secret Manager secrets via useAssetLoader
-  const { items: secrets } = useAssetLoader<SecretItem | string>('secrets');
+  const { items: secrets, error: secretError, loading: secretsLoading } = useAssetLoader<SecretItem | string>('secrets');
 
   const driverClassName = properties.driverClassName || 'org.postgresql.Driver';
   const url = properties.url || '';
-  const authMode = resolveAuthMode(properties.authMode, properties.password);
   const username = properties.username || '';
-  const password = properties.password || '';
   const passwordSecret = properties.passwordSecret || '';
   const connectionProperties = properties.connectionProperties || '';
   const statement = properties.statement || '';
@@ -81,6 +92,8 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
   const batchSize = properties.batchSize ?? '1000';
   const autosharding = properties.autosharding ?? false;
 
+  const normalizedSecrets = (secrets || []).map(normalizeSecretItem);
+
   // Validation states
   const isDriverInvalid = !driverClassName.trim();
   const isUrlInvalid = !url.trim();
@@ -88,17 +101,12 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
   const isTableNameInvalid = selectType === 'table' && !tableName.trim();
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   const exampleUrl = getJdbcUrlExample(driverClassName);
 
   /**
-   * Handles generic text/checkbox input changes and switches authentication mode safely.
+   * Handles generic text/checkbox input changes.
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -110,22 +118,12 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
       [name]: isCheckbox ? checked : value
     };
 
-    // Mode switching and credential property synchronization
-    if (name === 'authMode') {
-      if (value === 'secretManager') {
-        delete newProperties.password;
-      } else if (value === 'plaintext') {
+    // Ensure plaintext password is removed if present
+    delete newProperties.password;
+
+    if (name === 'passwordSecret') {
+      if (!newProperties.passwordSecret) {
         delete newProperties.passwordSecret;
-      }
-    } else if (name === 'passwordSecret') {
-      delete newProperties.password;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'secretManager';
-      }
-    } else if (name === 'password') {
-      delete newProperties.passwordSecret;
-      if (!newProperties.authMode) {
-        newProperties.authMode = 'plaintext';
       }
     }
 
@@ -138,17 +136,6 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
     }
 
     onChange(newProperties);
-  };
-
-  /**
-   * Handles instructions textarea change
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
   };
 
   return (
@@ -220,45 +207,38 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
         <PropertyField
           id="jdbcSinkUsername"
           name="username"
-          label="Username"
-          tooltip="Database user for JDBC authentication."
+          label="Username Secret"
+          tooltip="Select or enter the Google Cloud Secret Manager secret containing the database username."
           value={username}
           onChange={handleChange}
-          placeholder="dbuser"
-          mono={false}
+          placeholder="e.g. my-database-username"
+          list="jdbc-sink-username-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          loading={secretsLoading}
+          mono={true}
         />
 
-        <SecretManagerAuthFields
-          idPrefix="jdbcSink"
-          datalistId="jdbc-sink-secrets-list"
-          authMode={authMode}
-          authOptions={JDBC_AUTH_OPTIONS}
-          secretName={passwordSecret}
-          secretNameName="passwordSecret"
-          secretPlaceholder="e.g. my-database-password"
-          secrets={secrets}
-          serviceName="JDBC"
+        <PropertyField
+          id="jdbcSinkPasswordSecret"
+          name="passwordSecret"
+          label="Password Secret"
+          tooltip="Select or enter the Google Cloud Secret Manager secret containing the database password."
+          value={passwordSecret}
           onChange={handleChange}
+          placeholder="e.g. my-database-password"
+          list="jdbc-sink-secrets-list"
+          datalist={normalizedSecrets.map((s) => ({ value: s.id, label: s.name }))}
+          error={secretError}
+          loading={secretsLoading}
+          helperText={
+            <span>
+              Values auto-populated from{' '}
+              <code className="text-slate-300 bg-slate-800/60 px-1 py-0.5 rounded">
+                gcloud secrets list
+              </code>
+            </span>
+          }
         />
-
-        {authMode === 'plaintext' && (
-          <div className="flex flex-col gap-1">
-            <PropertyField
-              id="jdbcSinkPassword"
-              type="password"
-              name="password"
-              label="Password"
-              tooltip="Database password for JDBC authentication."
-              value={password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              mono={false}
-            />
-            <p className="text-xs text-amber-400 mt-1" role="alert">
-              Warning: Password will be saved in cleartext inside the .beam file and should not be committed to source control.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Connection Properties */}
@@ -385,24 +365,18 @@ export const JdbcIOSinkProperties: React.FC<JdbcIOSinkPropertiesProps> = ({ node
         </label>
       </div>
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <label htmlFor="jdbcSinkSystemInstructions" className="text-xs font-bold uppercase text-slate-500">
-          Code Generation Instructions
-        </label>
-        <textarea
-          id="jdbcSinkSystemInstructions"
-          name="system_instructions"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for JDBC write code generation..."
-          rows={3}
-          className="bg-[#252836] text-white p-2 rounded border border-slate-700 text-sm focus:outline-none focus:border-blue-500 resize-y"
-        />
-      </div>
+      <SystemInstructionsField
+        id="jdbcSinkSystemInstructions"
+        value={systemInstructions}
+        placeholder="Enter custom instructions for JDBC write code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

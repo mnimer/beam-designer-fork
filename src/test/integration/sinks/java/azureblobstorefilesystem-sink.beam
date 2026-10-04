@@ -1,0 +1,85 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"id": "evt-1", "user": "alice", "amount": 42.5}'
+          - '{"id": "evt-2", "user": "bob", "amount": 99.0}'
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties: {}
+      system_instructions: "Parse each JSON string into an Avro GenericRecord (Java)
+        or dict (Python) matching schema (id: STRING, user: STRING, amount:
+        DOUBLE) for ParquetIO output to azfs://."
+    width: 180
+    height: 62
+  - id: sink-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Azure Blob Write
+      type: SINK
+      iconName: Cloud
+      beam_transform: AzureBlobStoreFileSystem
+      properties:
+        to: azfs://account/container/output/results
+        suffix: .parquet
+        storageAccount: account
+        authMethod: ConnectionString
+        connectionString: DefaultEndpointsProtocol=https;AccountName=account;AccountKey=dGVzdGtleQ==;EndpointSuffix=core.windows.net
+        format: ParquetIO
+        compression: UNCOMPRESSED
+        numShards: 2
+        shardTemplate: -SSSSS-of-NNNNN
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-3
+    source: step-pardo-2
+    target: sink-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: azureblobstorefilesystem-sink-java
+  - key: INPUT_AZURE_PATTERN
+    value: azfs://account/container/input/*.parquet
+  - key: OUTPUT_AZURE_PREFIX
+    value: azfs://account/container/output/results
+  - key: AZURE_STORAGE_ACCOUNT
+    value: account
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/azureblobstorefilesystem-sink-java
+  needsRebuild: false

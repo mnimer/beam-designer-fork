@@ -1,0 +1,106 @@
+nodes:
+  - id: source-customers
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Create Customers
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"customerId": "c1", "name": "Alice"}'
+          - '{"customerId": "c2", "name": "Bob"}'
+    width: 180
+    height: 62
+  - id: source-orders
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: Create Orders
+      type: SOURCE
+      iconName: Box
+      beam_transform: Create
+      properties:
+        elements:
+          - '{"customerId": "c1", "orderId": "o101", "total": 45.0}'
+          - '{"customerId": "c1", "orderId": "o102", "total": 120.0}'
+    width: 180
+    height: 62
+  - id: step-cogroupbykey
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Co Group By Key
+      type: STEP
+      iconName: BarChart
+      beam_transform: CoGroupByKey
+      properties: {}
+    width: 180
+    height: 62
+  - id: step-join-pardo
+    type: pipeline
+    position:
+      x: 760
+      y: 150
+    data:
+      label: ParDo Join Merger
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        system_instructions: Merge customer info and order list from CoGbkResult into
+          enriched customer profile.
+      system_instructions: ""
+    width: 180
+    height: 62
+  - id: sink-log
+    type: pipeline
+    position:
+      x: 980
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[Joined-Profile]"
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-customers-to-step-cogroupbykey
+    source: source-customers
+    target: step-cogroupbykey
+  - id: edge-source-orders-to-step-cogroupbykey
+    source: source-orders
+    target: step-cogroupbykey
+  - id: edge-step-cogroupbykey-to-step-join-pardo
+    source: step-cogroupbykey
+    target: step-join-pardo
+  - id: edge-step-join-pardo-to-sink-log
+    source: step-join-pardo
+    target: sink-log
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: relational-cogroupbykey-join-java
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/relational-cogroupbykey-join-java
+  needsRebuild: false

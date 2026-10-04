@@ -16,6 +16,9 @@
  * - Logs observable summary when migration occurs at pipeline load time.
  */
 
+/**
+ * Shape of legacy node data read from older pipeline YAML representations.
+ */
 export interface LegacyNodeData {
   label?: string;
   type?: string;
@@ -77,22 +80,36 @@ export function inferBeamTransform(data: LegacyNodeData): string | null {
       case 'Box':
         return 'Create';
       case 'FileText':
+        if (labelLower.includes('tika')) return 'TikaIO';
+        if (labelLower.includes('contextual')) return 'ContextualTextIO';
+        if (labelLower.includes('csv')) return 'CsvIO';
         return 'TextIO';
+      case 'HardDrive':
+        return 'HadoopFileSystem';
       case 'Cloud':
+        if (labelLower.includes('gcs') || labelLower.includes('google')) return 'GcsFileSystem';
+        if (labelLower.includes('s3') || labelLower.includes('amazon') || labelLower.includes('aws')) return 'S3FileSystem';
+        if (labelLower.includes('azure') || labelLower.includes('blob')) return 'AzureBlobStoreFileSystem';
         return 'KinesisIO';
       case 'Share2':
         return 'SnsIO';
       case 'Folder':
+        if (labelLower.includes('local')) return 'LocalFileSystem';
         return 'FileIO.match';
       case 'Radio':
         return labelLower.includes('mqtt') ? 'MqttIO' : 'PubSubIO';
       case 'Database':
+        if (labelLower.includes('iceberg')) return 'IcebergIO';
         return labelLower.includes('jdbc') ? 'JdbcIO' : 'BigQueryIO';
       case 'Cable':
         if (labelLower.includes('jms')) return 'JmsIO';
         if (labelLower.includes('sqs')) return 'SqsIO';
         return 'KafkaIO';
       case 'FileCode':
+        if (labelLower.includes('xml')) return 'XmlIO';
+        if (labelLower.includes('thrift')) return 'ThriftIO';
+        if (labelLower.includes('tfrecord')) return 'TFRecordIO';
+        if (labelLower.includes('json')) return 'JsonIO';
         return labelLower.includes('parquet') ? 'ParquetIO' : 'AvroIO';
       default:
         break;
@@ -102,22 +119,36 @@ export function inferBeamTransform(data: LegacyNodeData): string | null {
       case 'Terminal':
         return 'LogMessage';
       case 'FileText':
+        if (labelLower.includes('tika')) return 'TikaIO';
+        if (labelLower.includes('contextual')) return 'ContextualTextIO';
+        if (labelLower.includes('csv')) return 'CsvIO';
         return 'TextIO';
+      case 'HardDrive':
+        return 'HadoopFileSystem';
       case 'Cloud':
+        if (labelLower.includes('gcs') || labelLower.includes('google')) return 'GcsFileSystem';
+        if (labelLower.includes('s3') || labelLower.includes('amazon') || labelLower.includes('aws')) return 'S3FileSystem';
+        if (labelLower.includes('azure') || labelLower.includes('blob')) return 'AzureBlobStoreFileSystem';
         return 'KinesisIO';
       case 'Share2':
         return 'SnsIO';
       case 'Folder':
+        if (labelLower.includes('local')) return 'LocalFileSystem';
         return 'FileIO';
       case 'Radio':
         return labelLower.includes('mqtt') ? 'MqttIO' : 'PubSubIO';
       case 'Database':
+        if (labelLower.includes('iceberg')) return 'IcebergIO';
         return labelLower.includes('jdbc') ? 'JdbcIO' : 'BigQueryIO';
       case 'Cable':
         if (labelLower.includes('jms')) return 'JmsIO';
         if (labelLower.includes('sqs')) return 'SqsIO';
         return 'KafkaIO';
       case 'FileCode':
+        if (labelLower.includes('xml')) return 'XmlIO';
+        if (labelLower.includes('thrift')) return 'ThriftIO';
+        if (labelLower.includes('tfrecord')) return 'TFRecordIO';
+        if (labelLower.includes('json')) return 'JsonIO';
         return labelLower.includes('parquet') ? 'ParquetIO' : 'AvroIO';
       default:
         break;
@@ -161,6 +192,19 @@ export function inferBeamTransform(data: LegacyNodeData): string | null {
   // Secondary Strategy: Disambiguate by known label substring from legacy inventory
   // =========================================================================
 
+  if (labelLower.includes('tika')) return 'TikaIO';
+  if (labelLower.includes('contextual')) return 'ContextualTextIO';
+  if (labelLower.includes('thrift')) return 'ThriftIO';
+  if (labelLower.includes('xml')) return 'XmlIO';
+  if (labelLower.includes('iceberg')) return 'IcebergIO';
+  if (labelLower.includes('tfrecord')) return 'TFRecordIO';
+  if (labelLower.includes('csv')) return 'CsvIO';
+  if (labelLower.includes('json') && !labelLower.includes('simplejson')) return 'JsonIO';
+  if (labelLower.includes('hadoop') || labelLower.includes('hdfs')) return 'HadoopFileSystem';
+  if (labelLower.includes('azure') || labelLower.includes('blob')) return 'AzureBlobStoreFileSystem';
+  if (labelLower.includes('s3')) return 'S3FileSystem';
+  if (labelLower.includes('gcs')) return 'GcsFileSystem';
+  if (labelLower.includes('localfile') || labelLower.includes('local filesystem')) return 'LocalFileSystem';
   if (label.includes('PubSub')) return 'PubSubIO';
   if (label.includes('BigQuery')) return 'BigQueryIO';
   if (label.includes('Kafka') || labelLower.includes('kafka')) return 'KafkaIO';

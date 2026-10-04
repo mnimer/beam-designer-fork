@@ -75,29 +75,24 @@ describe('JmsIOSinkProperties', () => {
     }));
   });
 
-  it('displays custom factory input when Custom preset is selected', () => {
+  it('does not offer Custom ConnectionFactory option or customConnectionFactory input', () => {
     const mockNode = {
       data: {
         label: 'JMS',
         properties: {
-          connectionFactory: 'custom',
-          customConnectionFactory: 'com.enterprise.jms.CustomSinkFactory'
+          connectionFactory: 'org.apache.activemq.ActiveMQConnectionFactory'
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const customInput = screen.getByLabelText(/ConnectionFactory Class/i);
-    expect(customInput).toBeInTheDocument();
-    expect(customInput).toHaveValue('com.enterprise.jms.CustomSinkFactory');
-
-    fireEvent.change(customInput, { target: { value: 'com.enterprise.jms.NewSinkFactory' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      connectionFactory: 'com.enterprise.jms.NewSinkFactory',
-      customConnectionFactory: 'com.enterprise.jms.NewSinkFactory'
-    }));
+    const presetSelect = screen.getByLabelText(/JMS Provider Preset/i) as HTMLSelectElement;
+    const optionValues = Array.from(presetSelect.querySelectorAll('option')).map(o => o.value);
+    expect(optionValues).not.toContain('custom');
+    expect(container.querySelector('#jmsSinkCustomFactory')).not.toBeInTheDocument();
+    expect(container.querySelector('input[name="customConnectionFactory"]')).not.toBeInTheDocument();
   });
 
   it('switches between Queue and Topic and enforces mutual exclusivity', () => {
@@ -142,39 +137,6 @@ describe('JmsIOSinkProperties', () => {
     expect(screen.getByText(/A topic name is required for JmsIO.write\(\)/i)).toBeInTheDocument();
   });
 
-  it('receives secretsLoaded and populates secret options when Secret Manager is enabled', () => {
-    const mockNode = {
-      data: {
-        label: 'JMS',
-        properties: {
-          authMode: 'secretManager' as const,
-          passwordSecret: 'jms-sink-pass'
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    // Post message from extension
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: ['jms-sink-pass', 'gcp-sa-key']
-        }
-      }));
-    });
-
-    const secretInput = screen.getByLabelText(/Secret Manager Secret/i);
-    expect(secretInput).toHaveValue('jms-sink-pass');
-
-    fireEvent.change(secretInput, { target: { name: 'passwordSecret', value: 'gcp-sa-key' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      passwordSecret: 'gcp-sa-key'
-    }));
-  });
-
   it('receives computeInstancesLoaded and allows inserting instance IP', () => {
     const mockNode = {
       data: {
@@ -209,7 +171,7 @@ describe('JmsIOSinkProperties', () => {
     }));
   });
 
-  it('updates retry settings, valueMapper, and system_instructions', () => {
+  it('updates retry settings and system_instructions', () => {
     const mockNode = {
       data: {
         label: 'JMS',
@@ -232,12 +194,6 @@ describe('JmsIOSinkProperties', () => {
       initialRetryDelay: '1000'
     }));
 
-    const mapperInput = screen.getByLabelText(/Value Mapper/i);
-    fireEvent.change(mapperInput, { target: { name: 'valueMapper', value: 'CustomOrderMapper' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      valueMapper: 'CustomOrderMapper'
-    }));
-
     const instructionsTextarea = screen.getByLabelText(/Code Generation Instructions/i);
     fireEvent.change(instructionsTextarea, { target: { value: 'Add custom header clientTimestamp' } });
     expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -245,7 +201,7 @@ describe('JmsIOSinkProperties', () => {
     }));
   });
 
-  it('defaults to Secret Manager mode and switches to plaintext mode', () => {
+  it('always uses Secret Manager mode and does not render plaintext password input', () => {
     const mockNode = {
       data: {
         label: 'JMS',
@@ -259,14 +215,11 @@ describe('JmsIOSinkProperties', () => {
     const authSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
     expect(authSelect).toHaveValue('secretManager');
     expect(container.querySelector('input[name="passwordSecret"]')).toBeInTheDocument();
-
-    fireEvent.change(authSelect, { target: { name: 'authMode', value: 'plaintext' } });
-    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
-      authMode: 'plaintext'
-    }));
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+    expect(screen.queryByText(/cleartext/i)).not.toBeInTheDocument();
   });
 
-  it('opens a legacy node with a password and no authMode in plaintext mode with value preserved', () => {
+  it('strips legacy plaintext password when updating properties', () => {
     const mockNode = {
       data: {
         label: 'JMS',
@@ -280,31 +233,18 @@ describe('JmsIOSinkProperties', () => {
     const { container } = render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
     const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
-    expect(authModeSelect).toBeInTheDocument();
-    expect(authModeSelect).toHaveValue('plaintext');
-
-    const passwordInput = container.querySelector('input[name="password"]') as HTMLInputElement;
-    expect(passwordInput).toBeInTheDocument();
-    expect(passwordInput).toHaveValue('legacy-sink-jms-password');
-  });
-
-  it('opens a fresh node with no credential in Secret Manager mode', () => {
-    const mockNode = {
-      data: {
-        label: 'JMS',
-        properties: {},
-      },
-    };
-    const mockOnChange = vi.fn();
-
-    const { container } = render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    const authModeSelect = container.querySelector('select[name="authMode"]') as HTMLSelectElement;
-    expect(authModeSelect).toBeInTheDocument();
     expect(authModeSelect).toHaveValue('secretManager');
-
-    expect(container.querySelector('input[name="passwordSecret"]')).toBeInTheDocument();
     expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+
+    const usernameInput = container.querySelector('input[name="username"]') as HTMLInputElement;
+    fireEvent.change(usernameInput, { target: { name: 'username', value: 'jms-sink-user-secret' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: 'jms-sink-user-secret',
+      })
+    );
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 
   it('choosing a secret writes passwordSecret and does NOT write password', () => {
@@ -331,22 +271,5 @@ describe('JmsIOSinkProperties', () => {
       })
     );
     expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
-  });
-
-  it('renders cleartext warning in plaintext mode', () => {
-    const mockNode = {
-      data: {
-        label: 'JMS',
-        properties: {
-          authMode: 'plaintext' as const,
-          password: 'my-sink-jms-password',
-        },
-      },
-    };
-    const mockOnChange = vi.fn();
-
-    render(<JmsIOSinkProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(screen.getByText(/cleartext/i)).toBeInTheDocument();
   });
 });

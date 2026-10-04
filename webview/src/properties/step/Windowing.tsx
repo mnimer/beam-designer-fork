@@ -19,8 +19,12 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the Windowing step transform.
+ */
 interface WindowingNode {
   id: string;
   data: {
@@ -49,12 +53,21 @@ interface WindowingNode {
   };
 }
 
+/**
+ * Props for the {@link WindowingProperties} component.
+ */
 interface WindowingPropertiesProps {
   node: WindowingNode;
   onChange: (properties: any) => void;
   onAddKVMapper?: (windowNodeId: string) => void;
 }
 
+/**
+ * Property configuration panel for Apache Beam windowing transforms (Fixed, Sliding, Session windows).
+ *
+ * @param props The selected windowing node, change callback, and optional KV mapper quick-action handler.
+ * @returns The rendered windowing properties panel.
+ */
 export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, onChange, onAddKVMapper }) => {
   const properties = node.data.properties || {};
   const windowType = properties.windowType || 'Fixed Window';
@@ -72,28 +85,13 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
   const isSessionGapInvalid = !sessionGapDuration.trim() || Number(sessionGapDuration) <= 0;
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles input and select changes for window parameters
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     onChange({ ...properties, [e.target.name]: e.target.value });
-  };
-
-  /**
-   * Handles changes to code generation instructions
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange({
-      ...properties,
-      system_instructions: e.target.value
-    });
   };
 
   return (
@@ -343,21 +341,17 @@ export const WindowingProperties: React.FC<WindowingPropertiesProps> = ({ node, 
         </div>
       )}
 
-      {/* Flexible Spacer */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="windowingSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleInstructionsChange}
         placeholder="Enter custom instructions for Windowing code generation..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

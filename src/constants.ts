@@ -1,8 +1,6 @@
 /**
  * Central configuration constants for Apache Beam Pipeline Builder.
  *
- * Author: Mike Nimer <mikenimer@google.com>
- *
  * Purpose:
  * Single source of truth for cross-cutting configuration values shared by the
  * extension host and the code-generation pipeline.

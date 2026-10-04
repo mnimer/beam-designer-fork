@@ -12,44 +12,11 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock vscode module before importing extension
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [],
-            findFiles: vi.fn().mockResolvedValue([]),
-            getConfiguration: vi.fn(() => ({
-                get: vi.fn()
-            }))
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            createOutputChannel: vi.fn().mockReturnValue({
-                appendLine: vi.fn()
-            })
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: []
+    }
+}));
 
 import { toShortSecretId, parseSecretManagerOutput } from '../../extension';
 

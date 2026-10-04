@@ -13,6 +13,8 @@
  * - Double-clicking the label or clicking the pencil button toggles an inline input field with 'nodrag' class.
  * - Commits label changes via data.onLabelChange callback or fallback to useReactFlow setNodes.
  * - Steps have dual output handles (Valid in green, Error in red).
+ * - ParDo steps additionally expose a top `side_input` target handle (violet) for PCollectionView
+ *   side inputs; the primary left handle keeps no id so existing saved edges remain main inputs.
  * - Sinks have a single target input handle and no output handles (terminal destination).
  * - Includes Lucide icons for all sources, steps, sinks including ListOrdered and Zap.
  * - Adheres strictly to the 8pt grid system.
@@ -20,13 +22,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
-import { Database, Cloud, HardDrive, Cable, Radio, Share2, Clock, Layers, BarChart, Box, FileCode, Terminal, Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Box, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
+import { getNodeIcon } from './common/nodeIcons';
+import { isFhirIoNode, isDicomIoNode } from '../graph/nodeKinds';
+import { SIDE_INPUT_HANDLE_ID, isParDoNodeData } from '../../../src/shared/sideInputs';
 
-const iconComponentMap: Record<string, any> = {
-  Radio, Database, Cable, Share2, HardDrive, Cloud, Clock, Layers, BarChart, Box, FileCode, Terminal,
-  Calendar, Filter, GitMerge, Key, Hash, Shuffle, Activity, Type, Grid, Code, FileText, Folder, ListOrdered, Zap
-};
-
+/**
+ * React Flow custom node properties representing an Apache Beam pipeline transform.
+ */
 export interface PipelineNodeProps {
   id?: string;
   data: {
@@ -37,6 +40,7 @@ export interface PipelineNodeProps {
     system_instructions?: string;
     properties?: Record<string, any>;
     hasCycle?: boolean;
+    hasValidationError?: boolean;
     isOrphan?: boolean;
     validationError?: string;
     validationWarning?: string;
@@ -51,8 +55,20 @@ export interface PipelineNodeProps {
 export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }) => {
   const isSource = data.type === 'SOURCE';
   const isSink = data.type === 'SINK';
+  const isParDo = data.type === 'STEP' && isParDoNodeData(data);
+  const isFhirSource = isSource && isFhirIoNode(data);
+  const isDicomSource = isSource && isDicomIoNode(data);
+  const isFhirReadResources =
+    isFhirSource && (data.properties?.readMode || 'readResources') === 'readResources';
+  const isDicomReadMetadata =
+    isDicomSource && (data.properties?.readMode || 'readStudyMetadata') === 'readStudyMetadata';
+  const showTargetHandle =
+    !isSource ||
+    isFhirReadResources ||
+    isDicomReadMetadata ||
+    ((isFhirSource || isDicomSource) && Boolean(data.hasValidationError));
 
-  const IconComponent = iconComponentMap[data.iconName];
+  const IconComponent = getNodeIcon(data.iconName, Box);
 
   // Inline editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -128,10 +144,15 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
   };
 
   // Determine dynamic node border and glow styles based on category: Green (Sources), Blue (Steps), Red (Sinks)
-  // With high-priority crimson pulsing for cyclic dependencies and dashed amber for orphan steps
+  // With high-priority crimson pulsing for cyclic dependencies, red dashed outline for validation errors, and dashed amber for orphan steps
   const getNodeBorderClasses = () => {
     if (data.hasCycle) {
       return 'border-rose-500 ring-2 ring-rose-500/70 shadow-lg shadow-rose-500/25 animate-pulse';
+    }
+    if (data.hasValidationError) {
+      return selected
+        ? 'border-red-500 ring-2 ring-red-500/50 shadow-lg shadow-red-500/20 border-dashed'
+        : 'border-red-500 border-dashed hover:border-red-400';
     }
     if (data.isOrphan) {
       return selected
@@ -175,18 +196,47 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
       }}
       data-testid={`pipeline-node-${id || 'node'}`}
     >
-      {/* Target handle for incoming connections (not for sources) */}
-      {!isSource && (
+      {/* Target handle for incoming connections (not for sources, except FhirIO.readResources or when an invalid upstream edge is connected) */}
+      {showTargetHandle && (
         <Handle 
           type="target" 
           position={Position.Left} 
-          className={`w-2 h-2 border-none ${isSink ? 'bg-red-500' : 'bg-blue-500'}`} 
+          style={{
+            width: 14,
+            height: 14,
+            left: -7,
+            backgroundColor: isSink || data.hasValidationError ? '#ef4444' : isSource ? '#10b981' : '#3b82f6',
+          }}
+          className={`w-3.5 h-3.5 border-none ${isSink || data.hasValidationError ? 'bg-red-500' : isSource ? 'bg-emerald-500' : 'bg-blue-500'}`} 
         />
+      )}
+
+      {/* Auxiliary side input handle (PCollectionView) — ParDo only. The main handle above intentionally has no id. */}
+      {isParDo && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            id={SIDE_INPUT_HANDLE_ID}
+            style={{ width: 14, height: 14, top: -7, backgroundColor: '#facc15' }}
+            className="w-3.5 h-3.5 border-none ring-2 ring-yellow-500/40"
+            title="Side Input (PCollectionView)"
+            data-testid="side-input-handle"
+          />
+          <span
+            style={{ left: 'calc(50% + 12px)' }}
+            className="pointer-events-none select-none absolute -top-2.5 px-1.5 py-0.5 rounded bg-[var(--vscode-node-bg,#1E202A)] border border-yellow-500/40 text-[9px] leading-none font-semibold uppercase tracking-wider text-yellow-300 whitespace-nowrap"
+            data-testid="side-input-handle-label"
+          >
+            Side Input
+          </span>
+        </>
       )}
       
       <div className="flex items-center gap-3 w-full">
         <div className={`p-2 rounded shrink-0 border ${getIconContainerClasses()}`}>
           {IconComponent && (
+            /* eslint-disable-next-line react-hooks/static-components */
             <IconComponent 
               className={`w-5 h-5 ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`} 
             />
@@ -197,7 +247,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
             <span className={`text-[10px] font-bold tracking-wider uppercase ${data.type === 'SOURCE' ? 'text-emerald-400' : data.type === 'SINK' ? 'text-red-400' : 'text-blue-400'}`}>
               {data.type}
             </span>
-            {data.hasCycle && (
+            {(data.hasCycle || data.hasValidationError) && (
               <span
                 className="flex items-center text-rose-400 cursor-help"
                 title={data.validationError || 'Cycle detected: this node participates in a cyclic dependency loop'}
@@ -206,7 +256,7 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
                 <AlertCircle className="w-3.5 h-3.5 text-rose-400 fill-rose-500/20" />
               </span>
             )}
-            {data.isOrphan && !data.hasCycle && (
+            {data.isOrphan && !data.hasCycle && !data.hasValidationError && (
               <span
                 className="flex items-center text-amber-400 cursor-help"
                 title={data.validationWarning || 'Orphan step: node is not connected to the pipeline'}
@@ -266,7 +316,8 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
         <Handle 
           type="source" 
           position={Position.Right} 
-          className="w-2 h-2 bg-emerald-500 border-none" 
+          style={{ width: 14, height: 14, right: -7, backgroundColor: '#10b981' }}
+          className="w-3.5 h-3.5 bg-emerald-500 border-none" 
         />
       )}
 
@@ -277,16 +328,16 @@ export const PipelineNode: React.FC<PipelineNodeProps> = ({ id, data, selected }
             type="source" 
             position={Position.Right} 
             id="valid" 
-            style={{ top: '30%', backgroundColor: '#10b981' }} 
-            className="w-2 h-2 border-none" 
+            style={{ top: '30%', right: -7, width: 14, height: 14, backgroundColor: '#10b981' }} 
+            className="w-3.5 h-3.5 border-none" 
             title="Valid Path"
           />
           <Handle 
             type="source" 
             position={Position.Right} 
             id="error" 
-            style={{ top: '70%', backgroundColor: '#ef4444' }} 
-            className="w-2 h-2 border-none" 
+            style={{ top: '70%', right: -7, width: 14, height: 14, backgroundColor: '#ef4444' }} 
+            className="w-3.5 h-3.5 border-none" 
             title="Error Path"
           />
         </>

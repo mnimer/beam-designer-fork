@@ -1,0 +1,91 @@
+nodes:
+  - id: source-1
+    type: pipeline
+    position:
+      x: 100
+      y: 150
+    data:
+      label: Kudu
+      type: SOURCE
+      iconName: Database
+      beam_transform: KuduIO
+      properties:
+        masterAddresses: kudu-master-1:7051,kudu-master-2:7051
+        table: sensor_telemetry_raw
+        projectedColumns: device_id, timestamp, temperature, humidity
+        predicates: timestamp >= 1690000000
+        faultTolerant: true
+        batchSizeBytes: 1048576
+        scanRequestTimeoutMs: 30000
+        socketReadTimeoutMs: 10000
+        authMode: none
+    width: 180
+    height: 62
+  - id: step-pardo-2
+    type: pipeline
+    position:
+      x: 320
+      y: 150
+    data:
+      label: ParDo
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        transformFn: EnrichAndAggregateFn
+      system_instructions: Transform raw sensor telemetry readings by grouping
+        readings into summary aggregations with average temperature, average
+        humidity, and sample count per device_id. In Java, implement as a
+        DoFn<SensorReading, SensorSummary> computing aggregated metrics; in
+        Python, implement as a beam.DoFn converting input dictionaries into
+        summary records ready for Kudu upsert mutations. Output normalized JSON
+        strings ready for structured downstream logging.
+    width: 180
+    height: 62
+  - id: sink-log-3
+    type: pipeline
+    position:
+      x: 540
+      y: 150
+    data:
+      label: Log Message
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        prefix: "[KuduIO-Log]"
+        logField: payload
+    width: 180
+    height: 62
+edges:
+  - id: edge-source-1-to-step-pardo-2
+    source: source-1
+    target: step-pardo-2
+  - id: edge-step-pardo-2-to-sink-log-3
+    source: step-pardo-2
+    target: sink-log-3
+runtimeVariables:
+  - key: ENVIRONMENT
+    value: java
+  - key: JOB_ID
+    value: kudu-source-java
+  - key: masterAddresses
+    value: kudu-master-1:7051,kudu-master-2:7051
+  - key: sourceTable
+    value: sensor_telemetry_raw
+  - key: targetTable
+    value: sensor_telemetry_summary
+  - key: batchSize
+    value: 1000
+jobConfig:
+  runner: DirectRunner
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 5
+  gcsStagingPath: gs://my-bucket/staging/java
+  network: ""
+  subnetwork: ""
+pipelineConfig:
+  language: Java
+  outputFolder: pipelines/java/kudu-source-java
+  needsRebuild: false

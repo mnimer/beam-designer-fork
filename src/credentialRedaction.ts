@@ -87,6 +87,17 @@ export const SECRET_REFERENCE_KEYS: ReadonlySet<string> = new Set([
   'tokensecret',
   'credentialssecret',
   'apikeysecret',
+  // OIDC client secret pointer (IO69 Cognite Data Fusion clientSecretSecret).
+  'clientsecretsecret',
+  // AWS secret access key / session token pointers (IO73 Beam PyIO; SnsIO also emits secretKeySecret).
+  'secretkeysecret',
+  'sessiontokensecret',
+  // Whole ODBC connection string stored in Secret Manager (IO76 Pyodbc contingency).
+  'connectionstringsecret',
+  // Whole connection URI stored in Secret Manager (IO78 Go Connect AMQP contingency).
+  'urisecret',
+  'developertokensecret',
+  'refreshtokensecret',
 ]);
 
 /**
@@ -114,17 +125,30 @@ export const SECRET_VALUE_PATTERNS: readonly string[] = [
   'credential',
   'token',
   'secret',
+  // Service-account JSON passed inline, e.g. Bigtable `google.bigtable.auth.json.value`.
+  'authjson',
 ];
 
 /**
- * Matches a credential embedded in a URI query string or userinfo component, e.g.
- * `jdbc:postgresql://host/db?user=admin&password=hunter2` or `amqp://user:pw@host`.
+ * Matches a credential embedded as a `key=value` parameter in a URI query string or
+ * a `;`-delimited connection string, e.g.
+ * `jdbc:postgresql://host/db?user=admin&password=hunter2` or `PWD=hunter2;Encrypt=yes`.
+ * The parameter may start the string (or a line) and may be preceded by whitespace
+ * after its delimiter (`Encrypt=yes; PWD=hunter2`).
  *
  * Only the value is replaced; the surrounding connection string is preserved so the
  * generated code still targets the right host and database.
  */
 export const URL_EMBEDDED_CREDENTIAL_PATTERN =
-  /([?&;](?:password|passwd|pwd|secret|token|apikey|api_key)=)([^&;\s]+)/gi;
+  /((?:^|[?&;])\s*(?:password|passwd|pwd|secret|token|apikey|api_key)=)([^&;\s]+)/gim;
+
+/**
+ * Matches the password in a URI userinfo component, e.g. `amqp://user:pw@host` or
+ * `postgresql+pg8000://user:pw@/db`. Group 1 is `scheme://user:`, group 2 the password
+ * and group 3 the `@`, so a replacement of `$1<placeholder>$3` keeps user and host.
+ */
+export const URL_USERINFO_CREDENTIAL_PATTERN =
+  /(\b[a-z][a-z0-9+.-]*:\/\/[^\s:/?#@]*:)([^\s@/?#]+)(@)/gi;
 
 /**
  * Classification of a single property key.
@@ -201,6 +225,27 @@ export function classifyKey(key: string): KeyClassification {
     return 'reference';
   }
 
+  // Suffix-based rule for Secret Manager reference keys (*Secret):
+  // A normalized key that ends with 'secret' AND has a non-empty prefix,
+  // where the prefix is NOT exactly one of ['client', 'secret', ''] AND
+  // the prefix does not itself end with 'secret', is treated as a reference.
+  //
+  // Rationale:
+  // `clientSecret` is the OIDC credential value itself; `fooSecret` for other foo
+  // is the Secret Manager pointer convention used across property panels
+  // (e.g. `usernameSecret`, `keytabSecret`, `serviceAccountSecret`).
+  //
+  // Residual risk:
+  // A property panel could theoretically name a raw credential value field `xyzSecret`.
+  // The guard test in src/test/unit/credential-redaction.test.ts extracts all *Secret keys
+  // from property panels to catch new ones for review.
+  if (normalized.endsWith('secret')) {
+    const prefix = normalized.slice(0, -6);
+    if (prefix.length > 0 && prefix !== 'client' && prefix !== 'secret' && !prefix.endsWith('secret')) {
+      return 'reference';
+    }
+  }
+
   // Anything else that smells like a credential is treated as one.
   for (const pattern of SECRET_VALUE_PATTERNS) {
     if (normalized.includes(pattern)) {
@@ -268,7 +313,9 @@ export function redactCredentialValues<T>(input: T): RedactionResult<T> {
 
     // Scalars: the only remaining risk is a credential embedded in a connection string.
     if (typeof node === 'string') {
-      const scrubbed = node.replace(URL_EMBEDDED_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}`);
+      const scrubbed = node
+        .replace(URL_EMBEDDED_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}`)
+        .replace(URL_USERINFO_CREDENTIAL_PATTERN, `$1${REDACTION_PLACEHOLDER}$3`);
       if (scrubbed !== node) {
         redactedPaths.push(path);
       }
@@ -308,8 +355,9 @@ export function redactCredentialValues<T>(input: T): RedactionResult<T> {
       const childPath = path ? `${path}.${key}` : key;
 
       // The pair's `value` inherits the classification of the pair's `name`.
+      // The recorded path names the variable (e.g. `runtimeVariables[0].value (DB_PASSWORD)`) so the redaction notice identifies which variable was hidden.
       if (isNameValuePair && key === 'value') {
-        result[key] = walk(value, childPath, 'secret');
+        result[key] = walk(value, `${childPath} (${pairName})`, 'secret');
         continue;
       }
 

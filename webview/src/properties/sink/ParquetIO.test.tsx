@@ -9,16 +9,22 @@
  * advanced row group buffer sizing, and custom instructions for ParquetIOSinkProperties.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ParquetIOSinkProperties } from './ParquetIO';
 
 describe('ParquetIOSinkProperties', () => {
   const mockOnChange = vi.fn();
+  let originalVscode: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    originalVscode = (window as any).vscode;
+  });
+
+  afterEach(() => {
+    (window as any).vscode = originalVscode;
   });
 
   it('renders with empty properties and flags validation error for missing destination (.to)', () => {
@@ -39,6 +45,7 @@ describe('ParquetIOSinkProperties', () => {
     expect(screen.getByText('Destination Directory is required.')).toBeInTheDocument();
   });
 
+
   it('renders with populated properties and no validation error', () => {
     const mockNode: any = {
       data: {
@@ -48,7 +55,9 @@ describe('ParquetIOSinkProperties', () => {
           to: 's3://my-lakehouse/output/records',
           suffix: '.snappy.parquet',
           codec: 'ZSTD',
-          schema: '{"type": "record", "name": "TestRecord"}',
+          schemaFields: [
+            { name: 'id', type: 'STRING', mode: 'REQUIRED' }
+          ],
           numShards: 5,
           shardTemplate: '-SSSSS-of-NNNNN',
           rowGroupBufferSize: 134217728,
@@ -65,7 +74,6 @@ describe('ParquetIOSinkProperties', () => {
     const toInput = container.querySelector('#parquetSinkTo') as HTMLInputElement;
     const suffixInput = container.querySelector('#parquetSinkSuffix') as HTMLInputElement;
     const codecSelect = container.querySelector('#parquetSinkCodec') as HTMLSelectElement;
-    const schemaTextarea = container.querySelector('#parquetSinkSchema') as HTMLTextAreaElement;
     const numShardsInput = container.querySelector('#parquetSinkNumShards') as HTMLInputElement;
     const shardTemplateInput = container.querySelector('#parquetSinkShardTemplate') as HTMLInputElement;
     const instructionsTextarea = container.querySelector('#parquetSinkInstructions') as HTMLTextAreaElement;
@@ -74,7 +82,8 @@ describe('ParquetIOSinkProperties', () => {
     expect(toInput).toHaveAttribute('aria-invalid', 'false');
     expect(suffixInput).toHaveValue('.snappy.parquet');
     expect(codecSelect).toHaveValue('ZSTD');
-    expect(schemaTextarea).toHaveValue('{"type": "record", "name": "TestRecord"}');
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Field #1 Name')).toHaveValue('id');
     expect(numShardsInput).toHaveValue(5);
     expect(shardTemplateInput).toHaveValue('-SSSSS-of-NNNNN');
     expect(instructionsTextarea).toHaveValue('Sink LLM instructions');
@@ -142,7 +151,7 @@ describe('ParquetIOSinkProperties', () => {
     );
   });
 
-  it('inserts sample schema when Insert Sample is clicked', () => {
+  it('renders 3-tab SchemaEditor and updates schemaFields, schema, and schemaString', () => {
     const mockNode: any = {
       data: {
         properties: {}
@@ -151,12 +160,20 @@ describe('ParquetIOSinkProperties', () => {
 
     render(<ParquetIOSinkProperties node={mockNode} onChange={mockOnChange} />);
 
-    const insertSampleBtn = screen.getByText('Insert Sample');
-    fireEvent.click(insertSampleBtn);
+    expect(screen.getByRole('button', { name: /Field Builder Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /JSON Schema Tab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Schema String Tab/i })).toBeInTheDocument();
+
+    const addFieldBtn = screen.getByRole('button', { name: /Add Schema Field/i });
+    fireEvent.click(addFieldBtn);
 
     expect(mockOnChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: expect.stringContaining('OutputRecord')
+        schemaFields: [
+          expect.objectContaining({ name: '', type: 'STRING', mode: 'NULLABLE' })
+        ],
+        schema: expect.any(String),
+        schemaString: expect.any(String)
       })
     );
   });

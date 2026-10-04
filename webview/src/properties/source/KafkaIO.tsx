@@ -20,7 +20,10 @@
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
 import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/** Preset configuration mapping a human-readable label to a Kafka deserializer class name. */
 export interface KafkaDeserializerPreset {
   label: string;
   className: string;
@@ -32,9 +35,9 @@ export const KAFKA_DESERIALIZER_PRESETS: KafkaDeserializerPreset[] = [
   { label: 'Long (LongDeserializer)', className: 'org.apache.kafka.common.serialization.LongDeserializer' },
   { label: 'Integer (IntegerDeserializer)', className: 'org.apache.kafka.common.serialization.IntegerDeserializer' },
   { label: 'Double (DoubleDeserializer)', className: 'org.apache.kafka.common.serialization.DoubleDeserializer' },
-  { label: 'Custom Class...', className: 'custom' },
 ];
 
+/** React Flow node shape for the KafkaIO source panel, including its persisted configuration data. */
 interface KafkaIOSourceNode {
   data: {
     label: string;
@@ -47,9 +50,7 @@ interface KafkaIOSourceNode {
       groupId?: string;
       autoOffsetReset?: 'latest' | 'earliest' | 'none';
       keyDeserializer?: string;
-      customKeyDeserializer?: string;
       valueDeserializer?: string;
-      customValueDeserializer?: string;
       commitOffsetsInFinalize?: boolean;
       timestampPolicy?: string;
       maxNumRecords?: string | number;
@@ -64,6 +65,7 @@ interface KafkaIOSourceNode {
   };
 }
 
+/** Props for the {@link KafkaIOSourceProperties} component. */
 interface KafkaIOSourcePropertiesProps {
   node: KafkaIOSourceNode;
   onChange: (properties: any) => void;
@@ -84,9 +86,7 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
   const groupId = properties.groupId || '';
   const autoOffsetReset = properties.autoOffsetReset || 'latest';
   const keyDeserializer = properties.keyDeserializer || 'org.apache.kafka.common.serialization.ByteArrayDeserializer';
-  const customKeyDeserializer = properties.customKeyDeserializer || '';
   const valueDeserializer = properties.valueDeserializer || 'org.apache.kafka.common.serialization.StringDeserializer';
-  const customValueDeserializer = properties.customValueDeserializer || '';
   const commitOffsetsInFinalize = properties.commitOffsetsInFinalize ?? true;
   const timestampPolicy = properties.timestampPolicy || 'ProcessingTime';
   const maxNumRecords = properties.maxNumRecords ?? '';
@@ -94,12 +94,7 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
   const consumerProperties = properties.consumerProperties || '';
 
   // System instructions text with fallback
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles generic text, select, and checkbox input changes.
@@ -119,85 +114,30 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
     onChange(newProperties);
   };
 
-  /**
-   * Handles custom system instructions textarea change for LLM prompt overrides.
-   * 
-   * @param e Form change event from textarea.
-   */
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newInstructions = e.target.value;
-    onChange({
-      ...properties,
-      system_instructions: newInstructions
-    });
-  };
+  const isKeyPreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === keyDeserializer);
+  const selectedKeyPreset = isKeyPreset ? keyDeserializer : 'org.apache.kafka.common.serialization.ByteArrayDeserializer';
 
-  const isKeyPreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === keyDeserializer && p.className !== 'custom');
-  const selectedKeyPreset = isKeyPreset ? keyDeserializer : 'custom';
-  const customKeyValue = isKeyPreset ? customKeyDeserializer : (customKeyDeserializer || (keyDeserializer !== 'custom' ? keyDeserializer : ''));
-
-  const isValuePreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === valueDeserializer && p.className !== 'custom');
-  const selectedValuePreset = isValuePreset ? valueDeserializer : 'custom';
-  const customValueValue = isValuePreset ? customValueDeserializer : (customValueDeserializer || (valueDeserializer !== 'custom' ? valueDeserializer : ''));
+  const isValuePreset = KAFKA_DESERIALIZER_PRESETS.some(p => p.className === valueDeserializer);
+  const selectedValuePreset = isValuePreset ? valueDeserializer : 'org.apache.kafka.common.serialization.StringDeserializer';
 
   // Validation states according to Apache Beam KafkaIO documentation
   const isBootstrapServersInvalid = !bootstrapServers.trim();
   const isTopicsInvalid = !topics.trim();
-  const isCustomKeyInvalid = selectedKeyPreset === 'custom' && !customKeyValue.trim();
-  const isCustomValueInvalid = selectedValuePreset === 'custom' && !customValueValue.trim();
 
   /**
    * Handles deserializer dropdown changes.
    */
   const handleKeySelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        keyDeserializer: customKeyValue || 'custom',
-        customKeyDeserializer: customKeyValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        keyDeserializer: val,
-        customKeyDeserializer: ''
-      });
-    }
-  };
-
-  const handleCustomKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      keyDeserializer: val,
-      customKeyDeserializer: val
+      keyDeserializer: e.target.value
     });
   };
 
   const handleValueSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'custom') {
-      onChange({
-        ...properties,
-        valueDeserializer: customValueValue || 'custom',
-        customValueDeserializer: customValueValue
-      });
-    } else {
-      onChange({
-        ...properties,
-        valueDeserializer: val,
-        customValueDeserializer: ''
-      });
-    }
-  };
-
-  const handleCustomValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
     onChange({
       ...properties,
-      valueDeserializer: val,
-      customValueDeserializer: val
+      valueDeserializer: e.target.value
     });
   };
 
@@ -286,28 +226,6 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
             </option>
           ))}
         </select>
-        {selectedKeyPreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customKeyDeserializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomKeyInvalid}
-              value={customKeyValue}
-              onChange={handleCustomKeyChange}
-              placeholder="com.example.MyCustomKeyDeserializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomKeyInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomKeyInvalid && (
-              <span className="text-xs text-red-400">Custom Key Deserializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Value Deserializer (Required) */}
@@ -330,28 +248,6 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
             </option>
           ))}
         </select>
-        {selectedValuePreset === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              name="customValueDeserializer"
-              required
-              aria-required="true"
-              aria-invalid={isCustomValueInvalid}
-              value={customValueValue}
-              onChange={handleCustomValueChange}
-              placeholder="com.example.MyCustomValueDeserializer"
-              className={`bg-[#252836] text-white p-2 rounded border text-sm focus:outline-none font-mono ${
-                isCustomValueInvalid
-                  ? 'border-red-500/80 focus:border-red-500'
-                  : 'border-slate-700 focus:border-blue-500'
-              }`}
-            />
-            {isCustomValueInvalid && (
-              <span className="text-xs text-red-400">Custom Value Deserializer class is required.</span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Commit Offsets in Finalize Checkbox */}
@@ -441,24 +337,19 @@ export const KafkaIOSourceProperties: React.FC<KafkaIOSourcePropertiesProps> = (
         mono={true}
       />
 
-      {/* Flexible Spacer adhering to grid */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions Section at Bottom */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-slate-700/60">
-        <PropertyField
-          id="kafkaSourceSystemInstructions"
-          name="system_instructions"
-          label="Code Generation Instructions"
-          tooltip="Custom instructions supplied to the LLM when generating code for this Kafka read node."
-          type="textarea"
-          value={systemInstructions}
-          onChange={handleInstructionsChange}
-          placeholder="Enter custom instructions for Kafka read code generation..."
-          rows={3}
-          mono={false}
-        />
-      </div>
+      <SystemInstructionsField
+        id="kafkaSourceSystemInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions supplied to the LLM when generating code for this Kafka read node."
+        placeholder="Enter custom instructions for Kafka read code generation..."
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
     </div>
   );
 };

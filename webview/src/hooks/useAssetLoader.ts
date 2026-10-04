@@ -16,6 +16,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useExtensionMessage } from './useExtensionMessage';
+import { postToHost } from '../bridge/vscodeApi';
+import { isResponseForParams } from '../utils/requestParams';
+import type { AssetResponseCommand, WebviewToHostCommand } from '../utils/protocol';
 
 export type AssetType =
   | 'datasets'
@@ -23,6 +26,7 @@ export type AssetType =
   | 'topics'
   | 'subscriptions'
   | 'secrets'
+  | 'healthcareDatasets'
   | 'awsQueues'
   | 'queues'
   | 'storageBuckets'
@@ -30,12 +34,22 @@ export type AssetType =
   | 'networks'
   | 'subnetworks'
   | 'computeInstances'
-  | 'instances';
+  | 'instances'
+  | 'bigtableInstances'
+  | 'bigtableTables'
+  | 'sqlInstances'
+  | 'sqlDatabases'
+  | 'projects';
 
+/**
+ * Configuration descriptor for an asset type IPC request/response contract.
+ */
 export interface AssetConfig {
-  requestCommand: string;
-  responseCommand: string;
+  requestCommand: WebviewToHostCommand;
+  responseCommand: AssetResponseCommand;
   responseKey: string;
+  /** Request is auto-disabled until this param is a non-empty string (e.g. 'dataset', 'instance'). */
+  requiredParam?: string;
 }
 
 /**
@@ -51,7 +65,8 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
   tables: {
     requestCommand: 'getTables',
     responseCommand: 'tablesLoaded',
-    responseKey: 'tables'
+    responseKey: 'tables',
+    requiredParam: 'dataset'
   },
   topics: {
     requestCommand: 'getTopics',
@@ -67,6 +82,11 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
     requestCommand: 'getSecrets',
     responseCommand: 'secretsLoaded',
     responseKey: 'secrets'
+  },
+  healthcareDatasets: {
+    requestCommand: 'getHealthcareDatasets',
+    responseCommand: 'healthcareDatasetsLoaded',
+    responseKey: 'datasets'
   },
   awsQueues: {
     requestCommand: 'getAwsQueues',
@@ -107,15 +127,45 @@ export const ASSET_CONFIGS: Record<string, AssetConfig> = {
     requestCommand: 'getComputeInstances',
     responseCommand: 'computeInstancesLoaded',
     responseKey: 'instances'
+  },
+  bigtableInstances: {
+    requestCommand: 'getBigtableInstances',
+    responseCommand: 'bigtableInstancesLoaded',
+    responseKey: 'bigtableInstances'
+  },
+  bigtableTables: {
+    requestCommand: 'getBigtableTables',
+    responseCommand: 'bigtableTablesLoaded',
+    responseKey: 'bigtableTables',
+    requiredParam: 'instance'
+  },
+  sqlInstances: {
+    requestCommand: 'getSqlInstances',
+    responseCommand: 'sqlInstancesLoaded',
+    responseKey: 'sqlInstances'
+  },
+  sqlDatabases: {
+    requestCommand: 'getSqlDatabases',
+    responseCommand: 'sqlDatabasesLoaded',
+    responseKey: 'sqlDatabases',
+    requiredParam: 'instance'
+  },
+  projects: {
+    requestCommand: 'getProjects',
+    responseCommand: 'projectsLoaded',
+    responseKey: 'projects'
   }
 };
 
+/**
+ * Options for configuring asset discovery requests in {@link useAssetLoader}.
+ */
 export interface UseAssetLoaderOptions<T = any> {
   /** Optional parameter payload to send with the request (e.g. { dataset: 'my_dataset' }) */
   params?: Record<string, any>;
   /** Optional shorthand for dataset param if loading tables */
   dataset?: string;
-  /** Whether loading is enabled. Defaults to true (unless assetType is 'tables' with empty dataset). */
+  /** Whether loading is enabled. Defaults to true (unless assetType has a requiredParam that is empty). */
   enabled?: boolean;
   /** Optional callback invoked when assets or error are loaded */
   onLoaded?: (items: T[], rawMessage: any) => void;
@@ -123,6 +173,9 @@ export interface UseAssetLoaderOptions<T = any> {
   initialItems?: T[];
 }
 
+/**
+ * Result state returned by the {@link useAssetLoader} hook.
+ */
 export interface UseAssetLoaderResult<T = any> {
   /** Loaded asset items */
   items: T[];
@@ -162,15 +215,17 @@ export function useAssetLoader<T = any>(
   }
 
   // Combine params with shorthand options
-  const params = {
+  const params: Record<string, unknown> = {
     ...(options?.dataset ? { dataset: options.dataset } : {}),
     ...(options?.params || {})
   };
 
-  // Tables require a dataset identifier; auto-disable if dataset is not provided
-  const isTables = assetType === 'tables';
-  const hasDataset = Boolean(params.dataset && String(params.dataset).trim().length > 0);
-  const autoEnabled = isTables ? hasDataset : true;
+  // Some assets (tables, bigtableTables, sqlDatabases) require a parent identifier;
+  // auto-disable until the config's requiredParam is provided.
+  const requiredParam = config.requiredParam;
+  const hasRequiredParam = !requiredParam ||
+    Boolean(params[requiredParam] && String(params[requiredParam]).trim().length > 0);
+  const autoEnabled = hasRequiredParam;
   const isEnabled = options?.enabled !== undefined ? options.enabled : autoEnabled;
 
   const [items, setItems] = useState<T[]>(options?.initialItems || []);
@@ -185,6 +240,10 @@ export function useAssetLoader<T = any>(
   // Memoize stable serialized params key to re-trigger fetch on param changes
   const paramsKey = JSON.stringify(params);
 
+  // F11: parameters of the most recent request. Responses echoing different
+  // parameters (another panel's request, or a slower earlier request) are ignored.
+  const lastRequestParamsRef = useRef<Record<string, unknown>>(params);
+
   /**
    * Dispatches request to the VS Code extension host IPC.
    */
@@ -195,17 +254,18 @@ export function useAssetLoader<T = any>(
     }
 
     setLoading(true);
-    const vscode = (window as any).vscode;
-    if (vscode && typeof vscode.postMessage === 'function') {
-      vscode.postMessage({
-        command: config.requestCommand,
-        ...params
-      });
-    }
+    lastRequestParamsRef.current = params;
+    postToHost({
+      command: config.requestCommand,
+      ...params
+    });
   }, [config.requestCommand, isEnabled, paramsKey]);
 
   // NOTE: Listen for response command from extension host using useExtensionMessage
   useExtensionMessage(config.responseCommand, (message: any) => {
+    if (!isResponseForParams(message, lastRequestParamsRef.current)) {
+      return;
+    }
     const rawItems = message[config.responseKey];
     const loadedItems: T[] = Array.isArray(rawItems) ? rawItems : [];
     const receivedError: string | null = message.error || null;
@@ -226,7 +286,7 @@ export function useAssetLoader<T = any>(
       requestAssets();
     } else {
       setLoading(false);
-      if (isTables && !hasDataset) {
+      if (!hasRequiredParam) {
         setItems([]);
         setError(null);
       }

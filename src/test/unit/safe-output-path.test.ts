@@ -18,46 +18,16 @@ import {
 } from '../../extension';
 
 // Mock vscode module because extension.ts imports vscode at the top level
-vi.mock('vscode', () => {
-    return {
-        TreeItem: class {},
-        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-        EventEmitter: class {
-            public fire = vi.fn();
-            public event = vi.fn();
-        },
-        ThemeIcon: class {},
-        ThemeColor: class {},
-        MarkdownString: class {},
-        workspace: {
-            workspaceFolders: [
-                {
-                    uri: { fsPath: '/Users/me/ws/mypipeline' },
-                    name: 'mypipeline'
-                }
-            ],
-            findFiles: vi.fn().mockResolvedValue([])
-        },
-        Uri: {
-            file: (p: string) => ({ fsPath: p, toString: () => p }),
-            parse: (u: string) => ({ fsPath: u, toString: () => u })
-        },
-        commands: {
-            registerCommand: vi.fn(),
-            executeCommand: vi.fn()
-        },
-        window: {
-            createWebviewPanel: vi.fn(),
-            showErrorMessage: vi.fn(),
-            createOutputChannel: vi.fn().mockReturnValue({
-                appendLine: vi.fn()
-            })
-        },
-        env: {
-            openExternal: vi.fn()
-        }
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).createVscodeMock({
+    workspace: {
+        workspaceFolders: [
+            {
+                uri: { fsPath: '/Users/me/ws/mypipeline' },
+                name: 'mypipeline'
+            }
+        ]
+    }
+}));
 
 describe('resolveSafeOutputPath - Path Traversal Containment', () => {
     const targetDir = '/Users/me/ws/mypipeline';

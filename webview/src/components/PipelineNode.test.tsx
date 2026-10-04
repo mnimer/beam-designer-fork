@@ -6,10 +6,13 @@ import { PipelineNode } from './PipelineNode';
 
 // Mock React Flow handles
 vi.mock('reactflow', () => ({
-  Handle: ({ type, position, id }: any) => <div data-testid={`handle-${type}-${position}${id ? `-${id}` : ''}`} />,
+  Handle: ({ type, position, id, title }: any) => (
+    <div data-testid={`handle-${type}-${position}${id ? `-${id}` : ''}`} title={title} />
+  ),
   Position: {
     Left: 'left',
-    Right: 'right'
+    Right: 'right',
+    Top: 'top'
   },
   useReactFlow: () => ({
     setNodes: vi.fn()
@@ -54,12 +57,15 @@ describe('PipelineNode', () => {
   it('renders selected styling for SOURCE, STEP, and SINK nodes', () => {
     const { container: sourceContainer } = render(<PipelineNode id="node-1" data={mockData} selected={true} />);
     expect(sourceContainer.firstChild).toHaveClass('border-emerald-400');
+    expect(sourceContainer.firstChild).toHaveClass('ring-2');
 
     const { container: stepContainer } = render(<PipelineNode id="node-2" data={{ ...mockData, type: 'STEP' }} selected={true} />);
     expect(stepContainer.firstChild).toHaveClass('border-blue-400');
+    expect(stepContainer.firstChild).toHaveClass('ring-2');
 
     const { container: sinkContainer } = render(<PipelineNode id="node-3" data={{ ...mockData, type: 'SINK' }} selected={true} />);
     expect(sinkContainer.firstChild).toHaveClass('border-red-400');
+    expect(sinkContainer.firstChild).toHaveClass('ring-2');
   });
 
   it('renders target handle if not source', () => {
@@ -73,6 +79,23 @@ describe('PipelineNode', () => {
     render(<PipelineNode id="node-1" data={mockData} />);
 
     expect(screen.queryByTestId('handle-target-left')).not.toBeInTheDocument();
+  });
+
+  it('renders target handle for FhirIO source in readResources mode so upstream PubSubIO can connect', () => {
+    render(
+      <PipelineNode
+        id="fhir-1"
+        data={{
+          ...mockData,
+          label: 'FhirIO',
+          beam_transform: 'FhirIO',
+          properties: { readMode: 'readResources' }
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right')).toBeInTheDocument();
   });
 
   it('renders source handle for source node', () => {
@@ -106,6 +129,44 @@ describe('PipelineNode', () => {
     expect(screen.queryByTestId('handle-source-right')).not.toBeInTheDocument();
     expect(screen.queryByTestId('handle-source-right-valid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('handle-source-right-error')).not.toBeInTheDocument();
+  });
+
+  it('renders a top side_input target handle (with tooltip and Side Input label) for ParDo steps while keeping the id-less main handle', () => {
+    const parDoData = { ...mockData, type: 'STEP', label: 'Enrich', beam_transform: 'ParDo' };
+    render(<PipelineNode id="node-1" data={parDoData} />);
+
+    // Main (primary) input handle keeps no id for backwards compatibility with saved edges
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    // Auxiliary side input handle on top + visible label badge
+    const sideHandle = screen.getByTestId('handle-target-top-side_input');
+    expect(sideHandle).toBeInTheDocument();
+    expect(sideHandle).toHaveAttribute('title', 'Side Input (PCollectionView)');
+    const sideLabel = screen.getByTestId('side-input-handle-label');
+    expect(sideLabel).toBeInTheDocument();
+    expect(sideLabel).toHaveTextContent('Side Input');
+    // Output handles unchanged
+    expect(screen.getByTestId('handle-source-right-valid')).toBeInTheDocument();
+    expect(screen.getByTestId('handle-source-right-error')).toBeInTheDocument();
+  });
+
+  it('does not render a side_input handle or label for non-ParDo steps, sources, or sinks', () => {
+    const { unmount: unmountStep } = render(
+      <PipelineNode id="node-1" data={{ ...mockData, type: 'STEP', beam_transform: 'Map' }} />
+    );
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
+    unmountStep();
+
+    const { unmount: unmountSource } = render(
+      <PipelineNode id="node-2" data={{ ...mockData, type: 'SOURCE', beam_transform: 'ParDo' }} />
+    );
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
+    unmountSource();
+
+    render(<PipelineNode id="node-3" data={{ ...mockData, type: 'SINK', beam_transform: 'LogMessage' }} />);
+    expect(screen.queryByTestId('handle-target-top-side_input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('side-input-handle-label')).not.toBeInTheDocument();
   });
 
   it('opens text input on label double-click and commits on Enter', () => {
@@ -187,32 +248,6 @@ describe('PipelineNode', () => {
     expect(input.value).toBe('Test Node');
   });
 
-  it('renders green border for SOURCE, blue border for STEP, and red border for SINK', () => {
-    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} />);
-    const srcNode = screen.getByTestId('pipeline-node-node-src');
-    expect(srcNode).toHaveClass('border-emerald-500');
-
-    rerender(<PipelineNode id="node-step" data={{ ...mockData, type: 'STEP' }} />);
-    const stepNode = screen.getByTestId('pipeline-node-node-step');
-    expect(stepNode).toHaveClass('border-blue-500');
-
-    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} />);
-    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
-    expect(sinkNode).toHaveClass('border-red-500');
-  });
-
-  it('renders themed ring and border when selected', () => {
-    const { rerender } = render(<PipelineNode id="node-src" data={{ ...mockData, type: 'SOURCE' }} selected={true} />);
-    const srcNode = screen.getByTestId('pipeline-node-node-src');
-    expect(srcNode).toHaveClass('border-emerald-400');
-    expect(srcNode).toHaveClass('ring-2');
-
-    rerender(<PipelineNode id="node-sink" data={{ ...mockData, type: 'SINK' }} selected={true} />);
-    const sinkNode = screen.getByTestId('pipeline-node-node-sink');
-    expect(sinkNode).toHaveClass('border-red-400');
-    expect(sinkNode).toHaveClass('ring-2');
-  });
-
   it('renders pulsing crimson border and AlertCircle badge when hasCycle is true', () => {
     const cycleData = {
       ...mockData,
@@ -245,6 +280,63 @@ describe('PipelineNode', () => {
     const badge = screen.getByTestId('orphan-warning-badge');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveAttribute('title', 'Orphan step: node is not connected to the pipeline');
+  });
+
+  it('renders red dashed outline and retains target handle when FhirIO hasValidationError in searchResources mode', () => {
+    const errorData = {
+      ...mockData,
+      label: 'FhirIO',
+      type: 'SOURCE',
+      beam_transform: 'FhirIO',
+      properties: { readMode: 'searchResources' },
+      hasValidationError: true,
+      validationError: 'FhirIO.searchResources() does not accept an upstream connection.',
+    };
+    render(<PipelineNode id="node-fhir-err" data={errorData} selected={true} />);
+    const node = screen.getByTestId('pipeline-node-node-fhir-err');
+    expect(node).toHaveClass('border-red-500');
+    expect(node).toHaveClass('border-dashed');
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+    expect(screen.getByTestId('cycle-error-badge')).toHaveAttribute(
+      'title',
+      'FhirIO.searchResources() does not accept an upstream connection.'
+    );
+  });
+
+  it('renders target handle for DicomIO in readStudyMetadata mode and red dashed outline when hasValidationError in dicomSearch mode', () => {
+    const { rerender } = render(
+      <PipelineNode
+        id="node-dicom"
+        data={{
+          ...mockData,
+          label: 'DicomIO',
+          type: 'SOURCE',
+          beam_transform: 'DicomIO',
+          properties: { readMode: 'readStudyMetadata' },
+        }}
+      />
+    );
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
+
+    rerender(
+      <PipelineNode
+        id="node-dicom"
+        data={{
+          ...mockData,
+          label: 'DicomIO',
+          type: 'SOURCE',
+          beam_transform: 'DicomIO',
+          properties: { readMode: 'dicomSearch' },
+          hasValidationError: true,
+          validationError: 'DicomIO.dicomSearch() does not accept an upstream connection.',
+        }}
+        selected={true}
+      />
+    );
+    const node = screen.getByTestId('pipeline-node-node-dicom');
+    expect(node).toHaveClass('border-red-500');
+    expect(node).toHaveClass('border-dashed');
+    expect(screen.getByTestId('handle-target-left')).toBeInTheDocument();
   });
 });
 

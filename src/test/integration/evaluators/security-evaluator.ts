@@ -89,7 +89,9 @@ export async function evaluateSecurityAndHardening(
     language: 'Java' | 'Python',
     files: GeneratedFileCandidate[]
 ): Promise<SpecialistAgentResult> {
-    const modelToUse = await resolveSecurityModel(ai);
+    const modelToUse = process.env.SECURITY_EVALUATOR_MODEL
+        ? await resolveSecurityModel(ai)
+        : (cachedSecurityModel ?? DEFAULT_GEMINI_MODEL);
 
     const prompt = `You are the Principal Security & Container Hardening Evaluator Agent.
 Your responsibility is auditing generated Apache Beam code, runner scripts, build descriptors, parameter manifests, and Dockerfiles for security compliance and hardening.

@@ -14,8 +14,12 @@
 
 import React from 'react';
 import { InfoTooltip } from '../../components/InfoTooltip';
-import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
 
+/**
+ * React Flow node shape for the Parse Message step transform.
+ */
 interface ParseMessageNode {
   data: {
     label?: string;
@@ -33,20 +37,24 @@ interface ParseMessageNode {
   };
 }
 
+/**
+ * Props for the {@link ParseMessageProperties} component.
+ */
 interface ParseMessagePropertiesProps {
   node: ParseMessageNode;
   onChange: (properties: any) => void;
 }
 
+/**
+ * Property configuration panel for the Apache Beam Parse Message payload decoding transform.
+ *
+ * @param props The selected parse message node and change notification callback.
+ * @returns The rendered parse message properties panel.
+ */
 export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ node, onChange }) => {
   const properties = node.data.properties || {};
   const messageType = properties.messageType || 'JSON';
-  const systemInstructions =
-    node.data.system_instructions ??
-    node.data.special_instructions ??
-    properties.system_instructions ??
-    properties.special_instructions ??
-    '';
+  const systemInstructions = resolveSystemInstructions(node);
 
   /**
    * Handles select or textarea changes and propagates up
@@ -96,21 +104,17 @@ export const ParseMessageProperties: React.FC<ParseMessagePropertiesProps> = ({ 
         {getHelperText()}
       </div>
 
-      {/* Flexible Spacer taking up all free space to bottom-align Code Generation Instructions */}
-      <div className="flex-1 min-h-4" />
-
       {/* Code Generation Instructions */}
-      <PropertyField
+      <SystemInstructionsField
         id="parseMessageSystemInstructions"
-        name="system_instructions"
-        label="Code Generation Instructions"
-        containerClassName="flex flex-col gap-2 pt-2 border-t border-slate-700/60"
-        type="textarea"
-        rows={3}
         value={systemInstructions}
-        onChange={handleChange}
         placeholder="Enter code generation instructions for message parsing..."
-        mono={false}
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
       />
     </div>
   );

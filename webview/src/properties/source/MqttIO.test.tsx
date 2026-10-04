@@ -106,7 +106,7 @@ describe('MqttIOSourceProperties', () => {
     }));
   });
 
-  it('handles extension message for Secret Manager secrets and allows selecting a secret', () => {
+  it('allows selecting a secret when passwordSource is secretManager', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
@@ -119,19 +119,6 @@ describe('MqttIOSourceProperties', () => {
 
     render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    // Simulate extension response with secrets
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          secrets: [
-            { name: 'mqtt-pass-prod', value: 'mqtt-pass-prod' },
-            { name: 'device-auth-key', value: 'device-auth-key' }
-          ]
-        }
-      }));
-    });
-
     const secretDropdown = screen.getByLabelText(/GCP Secret Manager Secret/i);
     expect(secretDropdown).toBeInTheDocument();
 
@@ -141,27 +128,29 @@ describe('MqttIOSourceProperties', () => {
     }));
   });
 
-  it('switches between Secret Manager and direct password entry with show/hide toggle', () => {
+  it('does not render direct cleartext password entry and strips legacy password on update', () => {
     const mockNode = {
       data: {
         label: 'MQTT',
         properties: {
-          passwordSource: 'direct' as const,
           password: 'super-secret-token'
         }
       }
     };
     const mockOnChange = vi.fn();
 
-    render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
+    const { container } = render(<MqttIOSourceProperties node={mockNode} onChange={mockOnChange} />);
 
-    const passwordInput = screen.getByLabelText(/^Password/i);
-    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(container.querySelector('input[name="password"]')).not.toBeInTheDocument();
+    expect(container.querySelector('#mqtt-secret-name')).toBeInTheDocument();
 
-    const toggleButton = screen.getByLabelText('Show password');
-    fireEvent.click(toggleButton);
+    const usernameInput = container.querySelector('#mqtt-username') as HTMLInputElement;
+    fireEvent.change(usernameInput, { target: { name: 'username', value: 'mqtt-user-secret' } });
 
-    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({
+      username: 'mqtt-user-secret'
+    }));
+    expect(mockOnChange.mock.calls[0][0].password).toBeUndefined();
   });
 
   it('handles extension message for Compute Engine instances and applies IP to serverUri', () => {
@@ -265,28 +254,6 @@ describe('MqttIOSourceProperties', () => {
     expect(timeoutInput.closest('.grid')).not.toContainElement(qosSelect);
   });
 
-  it('displays error when loading secret manager secrets fails', () => {
-    const mockNode = {
-      data: {
-        label: 'MQTT',
-        properties: {
-          passwordSource: 'secretManager' as const
-        }
-      }
-    };
-    render(<MqttIOSourceProperties node={mockNode} onChange={vi.fn()} />);
-
-    act(() => {
-      window.dispatchEvent(new MessageEvent('message', {
-        data: {
-          command: 'secretsLoaded',
-          error: 'Secret Manager API is not enabled'
-        }
-      }));
-    });
-
-    expect(screen.getByText('Secret Manager API is not enabled')).toBeInTheDocument();
-  });
 
   it('displays error when loading compute instances fails', () => {
     const mockNode = {

@@ -1,0 +1,305 @@
+/**
+ * GcsFileSystem Source Properties Component
+ * 
+ * Author: Mike Nimer <mikenimer@google.com>
+ * 
+ * Purpose:
+ * Renders the property configuration panel for Apache Beam GcsFileSystem Source nodes
+ * (e.g. org.apache.beam.sdk.extensions.gcp.storage.GcsFileSystemRegistrar registering the gs:// scheme in Java,
+ * or apache_beam.io.gcp.gcsfilesystem.GCSFileSystem in Python).
+ * 
+ * Architectural Decisions:
+ * - GCS is a FileSystem registrar and client configuration/metrics surface, not a standalone I/O transform.
+ *   File reading is wrapped by formats like TextIO, AvroIO, ParquetIO, or FileIO.
+ * - The metrics/tuning surface is the core focus of this panel: exposing GcsOptions (--gcsPerformanceMetrics,
+ *   gcsHttpRequestReadTimeout) as first-class controls. Note: uploadBufferSizeBytes (GcsOptions.setGcsUploadBufferSizeBytes)
+ *   is deliberately omitted from the source panel because it only configures the write buffer in GcsUtil.create()
+ *   and is completely inert on reads.
+ * - Highlights real Beam GCS execution metrics counters (GCS_read_bytes_counter_<bucket> and
+ *   GCS_write_bytes_counter_<bucket>, gated by --gcsPerformanceMetrics in Java and
+ *   --enable_bucket_read_metric_counter in Python) via dedicated informational tooltips and telemetry sections.
+ * - File Pattern Discovery: Delegates the required Cloud Storage file pattern field to the shared StoragePathField primitive.
+ *   Provides Cloud Storage bucket datalist suggestions alongside always-visible discovery error alerting.
+ * - Advanced tuning accordion provides bundle size optimization (minBundleSize) and startup validation (validate).
+ * - Shared Primitives Composition: Reuses shared primitives (StoragePathField, CollapsibleSection, SelectField,
+ *   PropertyField) to eliminate code duplication and prevent UI drift.
+ * - Adheres strictly to the 8pt grid system, VS Code theme variables, and Tailwind CSS.
+ */
+
+import React, { useState } from 'react';
+import { Sliders, Activity } from 'lucide-react';
+import { InfoTooltip } from '../../components/InfoTooltip';
+import { PropertyField } from '../../components/common/PropertyField';
+import { SystemInstructionsField } from '../../components/common/SystemInstructionsField';
+import { resolveSystemInstructions } from '../../utils/systemInstructions';
+import { CollapsibleSection } from '../../components/common/CollapsibleSection';
+import { SelectField } from '../../components/common/SelectField';
+import type { SelectFieldOption } from '../../components/common/SelectField';
+import { StoragePathField } from '../../components/common/StoragePathField';
+
+/** React Flow node shape for the GcsFileSystem source panel, including its persisted configuration data. */
+export interface GcsFileSystemSourceNode {
+  data: {
+    label: string;
+    beam_transform?: string;
+    system_instructions?: string;
+    special_instructions?: string;
+    properties?: {
+      filePattern?: string;
+      projectId?: string;
+      enablePerformanceMetrics?: boolean;
+      readTimeoutMs?: string | number;
+      format?: string;
+      minBundleSize?: string | number;
+      validate?: boolean;
+      system_instructions?: string;
+      special_instructions?: string;
+      [key: string]: any;
+    };
+  };
+}
+
+/** Props for the {@link GcsFileSystemSourceProperties} component. */
+export interface GcsFileSystemSourcePropertiesProps {
+  node: GcsFileSystemSourceNode;
+  onChange: (properties: any) => void;
+}
+
+export const GCS_SOURCE_FORMATS: SelectFieldOption[] = [
+  { value: 'TextIO', label: 'TextIO (Text / JSON Lines / CSV)' },
+  { value: 'AvroIO', label: 'AvroIO (Apache Avro records)' },
+  { value: 'ParquetIO', label: 'ParquetIO (Apache Parquet columnar)' },
+  { value: 'FileIO', label: 'FileIO (Generic Match / ReadMatches)' }
+];
+
+/**
+ * Dedicated property panel for the Google Cloud Storage (GCS) source node. Configures bucket URIs, file formats, and read performance tuning.
+ *
+ * @param props The selected node and the onChange callback used to persist edits.
+ */
+export const GcsFileSystemSourceProperties: React.FC<GcsFileSystemSourcePropertiesProps> = ({ node, onChange }) => {
+  const properties = node.data.properties || {};
+  const filePattern = properties.filePattern || '';
+  const projectId = properties.projectId || '';
+  const enablePerformanceMetrics = properties.enablePerformanceMetrics ?? false;
+  const readTimeoutMs = properties.readTimeoutMs ?? '';
+  const format = properties.format || 'TextIO';
+  const validate = properties.validate ?? true;
+  const minBundleSize = properties.minBundleSize ?? '';
+
+  const [isMetricsOpen, setIsMetricsOpen] = useState<boolean>(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+
+  // NOTE: mirrors StoragePathField's own validation rule; used here to gate helper text.
+  const isFilePatternInvalid = !filePattern.trim();
+
+  // System instructions text with fallback
+  const systemInstructions = resolveSystemInstructions(node);
+
+  /**
+   * Handles generic input changes for form fields
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === 'checkbox';
+    const checked = isCheckbox ? (e.target as HTMLInputElement).checked : undefined;
+
+    onChange({
+      ...properties,
+      [name]: isCheckbox ? checked : value
+    });
+  };
+
+  /**
+   * Updates AI prompt / system instructions
+   */
+  /**
+   * Toggles the GCS metrics telemetry accordion state
+   */
+  const handleToggleMetrics = () => {
+    setIsMetricsOpen((prev) => !prev);
+  };
+
+  /**
+   * Toggles the advanced tuning accordion state
+   */
+  const handleToggleAdvanced = () => {
+    setIsAdvancedOpen((prev) => !prev);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col gap-4">
+      {/* File Pattern Input with Cloud Storage bucket autocomplete */}
+      <StoragePathField
+        id="gcsSourceFilePattern"
+        name="filePattern"
+        label="File Pattern / Path (gs://)"
+        tooltip="Google Cloud Storage URI or glob pattern to read (e.g. gs://bucket/data/*.json). Scheme gs:// is registered by GcsFileSystemRegistrar."
+        value={filePattern}
+        onChange={handleChange}
+        placeholder="gs://bucket/data/*.json"
+        errorMessage="File Pattern is required."
+        helperText={
+          !isFilePatternInvalid ? (
+            <span className="text-xs text-[var(--vscode-text-muted)]">
+              Target file or glob pattern in Cloud Storage (registered scheme: <code>gs://</code>).
+            </span>
+          ) : null
+        }
+      />
+
+      {/* Project ID Input */}
+      <PropertyField
+        id="gcsSourceProjectId"
+        name="projectId"
+        label="GCP Project ID (Optional)"
+        tooltip="Google Cloud Project ID. Maps to GcsOptions.setProject(String) (--project in Java GcpOptions and Python GoogleCloudOptions)."
+        value={projectId}
+        onChange={handleChange}
+        placeholder="my-gcp-project"
+        mono={true}
+        helperText={
+          <span className="text-xs text-[var(--vscode-text-muted)]">
+            Maps to <code>GcsOptions.setProject(String)</code> (<code>--project</code> in Java and Python <code>GoogleCloudOptions</code>).
+          </span>
+        }
+      />
+
+      {/* GCS Performance Metrics Checkbox */}
+      <label htmlFor="gcsSourcePerformanceMetrics" className="flex items-center gap-2 cursor-pointer mt-1">
+        <input
+          id="gcsSourcePerformanceMetrics"
+          type="checkbox"
+          name="enablePerformanceMetrics"
+          checked={enablePerformanceMetrics}
+          onChange={handleChange}
+          className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+        />
+        <span className="text-xs text-[var(--vscode-text-secondary)]">
+          Enable GCS Performance Metrics (--gcsPerformanceMetrics)
+        </span>
+        <InfoTooltip text="Enables per-bucket GCS byte counters. Maps to --gcsPerformanceMetrics (GcsOptions.setGcsPerformanceMetrics(Boolean)) in Java and --enable_bucket_read_metric_counter in Python GoogleCloudOptions." />
+      </label>
+
+      {/* HTTP Read Timeout Input */}
+      <PropertyField
+        id="gcsSourceReadTimeoutMs"
+        type="number"
+        name="readTimeoutMs"
+        label="HTTP Read Timeout (ms)"
+        tooltip="HTTP request read timeout in milliseconds for GCS API calls (maps to GcsOptions.getGcsHttpRequestReadTimeout()). Default is 20000 ms."
+        value={readTimeoutMs}
+        onChange={handleChange}
+        placeholder="20000"
+        min="0"
+        mono={true}
+        helperText={
+          <span className="text-xs text-[var(--vscode-text-muted)]">
+            Timeout in milliseconds for GCS read HTTP requests.
+          </span>
+        }
+      />
+
+      {/* Wrapping Reader Format Select */}
+      <SelectField
+        id="gcsSourceFormat"
+        name="format"
+        label="Wrapping Reader Format"
+        tooltip="Underlying Beam I/O transform used to parse GCS file contents (TextIO, AvroIO, ParquetIO, or FileIO)."
+        value={format}
+        options={GCS_SOURCE_FORMATS}
+        onChange={handleChange}
+        helperText={
+          <span>
+            Beam I/O reader applied to files resolved via GcsFileSystem. Defaults to <code>TextIO</code>.
+          </span>
+        }
+      />
+
+      {/* GCS Metrics & Telemetry Accordion */}
+      <CollapsibleSection
+        title="GCS Metrics & Telemetry"
+        icon={<Activity className="w-4 h-4 text-emerald-400" />}
+        isOpen={isMetricsOpen}
+        onToggle={handleToggleMetrics}
+      >
+        <div className="text-xs text-[var(--vscode-text-secondary)] leading-relaxed">
+          When performance metrics are enabled (<code className="text-[var(--vscode-text-primary)]">--gcsPerformanceMetrics</code> in Java / <code className="text-[var(--vscode-text-primary)]">--enable_bucket_read_metric_counter</code> in Python), Beam emits per-bucket byte counters into execution telemetry:
+        </div>
+
+        <div className="flex flex-col gap-2 pt-1">
+          <div className="flex items-center justify-between p-2 rounded bg-[var(--vscode-input-bg)] border border-[var(--vscode-border)]">
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-[var(--vscode-text-primary)]">Bytes Read from GCS Bucket</span>
+              <span className="text-[11px] font-mono text-[var(--vscode-text-muted)]">GCS_read_bytes_counter_&lt;bucket&gt;</span>
+            </div>
+            <InfoTooltip text="Beam counter tracking payload bytes read per Cloud Storage bucket (configurable prefix via GcsOptions.getGcsReadCounterPrefix(), default GCS_read_bytes_counter_<bucket>; gated by --enable_bucket_read_metric_counter in Python)." />
+          </div>
+
+          <div className="flex items-center justify-between p-2 rounded bg-[var(--vscode-input-bg)] border border-[var(--vscode-border)]">
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-[var(--vscode-text-primary)]">Bytes Written to GCS Bucket</span>
+              <span className="text-[11px] font-mono text-[var(--vscode-text-muted)]">GCS_write_bytes_counter_&lt;bucket&gt;</span>
+            </div>
+            <InfoTooltip text="Beam counter tracking payload bytes written per Cloud Storage bucket (configurable prefix via GcsOptions.getGcsWriteCounterPrefix(), default GCS_write_bytes_counter_<bucket>; gated by --enable_bucket_write_metric_counter in Python)." />
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Advanced Tuning Accordion */}
+      <CollapsibleSection
+        title="Read Tuning & Options"
+        icon={<Sliders className="w-4 h-4 text-emerald-400" />}
+        isOpen={isAdvancedOpen}
+        onToggle={handleToggleAdvanced}
+      >
+        {/* Validate Checkbox */}
+        <label htmlFor="gcsSourceValidate" className="flex items-center gap-2 cursor-pointer mt-1">
+          <input
+            id="gcsSourceValidate"
+            type="checkbox"
+            name="validate"
+            checked={validate}
+            onChange={handleChange}
+            className="rounded bg-[var(--vscode-input-bg)] border-[var(--vscode-border)] text-blue-500 focus:ring-0 focus:ring-offset-0"
+          />
+          <span className="text-xs text-[var(--vscode-text-secondary)]">
+            Validate file existence on pipeline startup
+          </span>
+          <InfoTooltip text="Validates input file pattern matches at pipeline construction time." />
+        </label>
+
+        {/* Minimum Bundle Size */}
+        <PropertyField
+          id="gcsSourceMinBundleSize"
+          type="number"
+          name="minBundleSize"
+          label="Minimum Bundle Size (bytes)"
+          tooltip="Minimum byte size to consider when splitting input into bundles for parallel worker execution. Default 0."
+          value={minBundleSize}
+          onChange={handleChange}
+          placeholder="0"
+          min="0"
+          mono={true}
+        />
+      </CollapsibleSection>
+
+      {/* Code Generation Instructions */}
+      <SystemInstructionsField
+        id="gcsSourceInstructions"
+        value={systemInstructions}
+        tooltip="Custom instructions provided directly to Gemini when generating pipeline source code for this GcsFileSystem reader step."
+        placeholder="e.g. Read newline-delimited JSON events from gs://my-bucket/events/*.json with GCS performance metrics enabled."
+        helperText="Additional guidance appended to prompt when synthesizing Java/Python code."
+        textareaClassName="h-24"
+        wrapperClassName="pt-2 border-t border-[var(--vscode-border-light)]"
+        onChange={(value) =>
+          onChange({
+            ...properties,
+            system_instructions: value,
+          })
+        }
+      />
+    </div>
+  );
+};

@@ -5,12 +5,12 @@
  * 
  * Purpose:
  * Unit tests validating SqsIOSourceProperties component functionality,
- * form change callbacks, validation states, dynamic extension callbacks,
+ * form change callbacks, validation states, authentication modes,
  * and code generation instructions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SqsIOSourceProperties } from './SqsIO';
 
@@ -206,55 +206,4 @@ describe('SqsIOSourceProperties', () => {
     );
   });
 
-  it('requests secrets and aws queues via vscode.postMessage and updates datalist options on message events', () => {
-    const mockPostMessage = vi.fn();
-    (window as any).vscode = { postMessage: mockPostMessage };
-
-    const mockNode = {
-      data: {
-        label: 'SQS',
-        properties: {
-          authMode: 'secretManager' as const
-        }
-      }
-    };
-    const mockOnChange = vi.fn();
-
-    render(<SqsIOSourceProperties node={mockNode} onChange={mockOnChange} />);
-
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getSecrets' });
-    expect(mockPostMessage).toHaveBeenCalledWith({ command: 'getAwsQueues' });
-
-    // Simulate extension response events
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'secretsLoaded',
-            secrets: [
-              { name: 'projects/123/secrets/aws_key', id: 'aws_key' }
-            ]
-          }
-        })
-      );
-
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            command: 'awsQueuesLoaded',
-            queues: ['https://sqs.us-east-1.amazonaws.com/123/discovered-queue']
-          }
-        })
-      );
-    });
-
-    // Check datalist options
-    const queueDatalist = document.getElementById('sqs-source-queue-options');
-    expect(queueDatalist?.children.length).toBe(1);
-    expect(queueDatalist?.children[0]).toHaveAttribute('value', 'https://sqs.us-east-1.amazonaws.com/123/discovered-queue');
-
-    const secretsDatalist = document.getElementById('sqs-source-secrets-list');
-    expect(secretsDatalist?.children.length).toBe(1);
-    expect(secretsDatalist?.children[0]).toHaveAttribute('value', 'aws_key');
-  });
 });
