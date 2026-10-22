@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isIgnoredPath, filterSourceFiles } from './fileFilters';
+import {
+  isIgnoredPath,
+  filterSourceFiles,
+  filterGeneratedFiles,
+  sortGeneratedFiles,
+} from './fileFilters';
 
 describe('fileFilters', () => {
   describe('isIgnoredPath', () => {
@@ -80,7 +85,63 @@ describe('fileFilters', () => {
 
     it('handles empty or null lists safely', () => {
       expect(filterSourceFiles([])).toEqual([]);
-      expect(filterSourceFiles(null as any)).toEqual([]);
+      expect(filterSourceFiles(null as unknown as string[])).toEqual([]);
+    });
+  });
+
+  describe('filterGeneratedFiles', () => {
+    it('includes all generated project files while excluding venv, caches, and gemini.log', () => {
+      const files = [
+        'pipeline.py',
+        'requirements.txt',
+        'README.md',
+        'Dockerfile',
+        '.dockerignore',
+        '.gcloudignore',
+        'run_directrunner.sh',
+        'metadata.json',
+        'gemini.log',
+        'venv/lib/python3.11/site-packages/apache_beam/pipeline.py',
+        '.venv/bin/activate',
+        '__pycache__/pipeline.cpython-311.pyc',
+        'pipeline.pyc',
+        'target/classes/Pipeline.class',
+      ];
+
+      expect(filterGeneratedFiles(files)).toEqual([
+        'pipeline.py',
+        'requirements.txt',
+        'README.md',
+        'Dockerfile',
+        '.dockerignore',
+        '.gcloudignore',
+        'run_directrunner.sh',
+        'metadata.json',
+      ]);
+    });
+  });
+
+  describe('sortGeneratedFiles', () => {
+    it('orders primary pipeline file first, followed by tests, dependencies, docs, and Docker', () => {
+      const files = [
+        'Dockerfile',
+        'README.md',
+        'requirements.txt',
+        'test_pipeline.py',
+        'transforms.py',
+        'pipeline.py',
+        '__init__.py',
+      ];
+
+      expect(sortGeneratedFiles(files, 'Python')).toEqual([
+        'pipeline.py',
+        'transforms.py',
+        'test_pipeline.py',
+        'requirements.txt',
+        'README.md',
+        'Dockerfile',
+        '__init__.py',
+      ]);
     });
   });
 });

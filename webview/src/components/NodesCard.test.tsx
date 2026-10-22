@@ -319,7 +319,7 @@ describe('NodesCard', () => {
     expect(samplesTab).toHaveClass('text-amber-400');
   });
 
-  it('renders sample items when activeTab is SAMPLES and handles click & keypress', () => {
+  it('renders sample items when activeTab is SAMPLES and handles Info and New File buttons', () => {
     const mockOnOpenSample = vi.fn();
     const customSamples = [
       {
@@ -328,6 +328,7 @@ describe('NodesCard', () => {
         title: 'Custom Sample Title',
         description: 'Test custom sample description',
         badge: 'Java',
+        readmeContent: '# Custom Sample Title\n\n## Overview\nDetailed README documentation for custom sample.',
         content: 'content: test'
       }
     ];
@@ -349,16 +350,18 @@ describe('NodesCard', () => {
     expect(screen.getByText('Custom Sample Title')).toBeInTheDocument();
     expect(screen.getByText('custom-sample.beam')).toBeInTheDocument();
     expect(screen.getByText('Test custom sample description')).toBeInTheDocument();
-    expect(screen.getByText('Java')).toBeInTheDocument();
+    expect(screen.queryByText('Java')).not.toBeInTheDocument();
 
-    // Click sample
-    fireEvent.click(screen.getByText('Custom Sample Title'));
+    // Click Info button to open README modal
+    fireEvent.click(screen.getByTestId('sample-info-btn-sample-1'));
+    expect(screen.getByTestId('sample-info-modal')).toBeInTheDocument();
+    expect(screen.getByText('Detailed README documentation for custom sample.')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('sample-info-modal-close'));
+    expect(screen.queryByTestId('sample-info-modal')).not.toBeInTheDocument();
+
+    // Click New File button to trigger save dialog / open sample
+    fireEvent.click(screen.getByTestId('sample-new-file-btn-sample-1'));
     expect(mockOnOpenSample).toHaveBeenCalledWith(customSamples[0]);
-
-    // Keydown Enter on sample
-    const sampleCard = screen.getByTitle('Click to open Custom Sample Title (custom-sample.beam) as a new file tab');
-    fireEvent.keyDown(sampleCard, { key: 'Enter' });
-    expect(mockOnOpenSample).toHaveBeenCalledTimes(2);
   });
 
   it('filters sample items using search input in SAMPLES tab', () => {
@@ -714,7 +717,7 @@ describe('NodesCard', () => {
         />
       );
 
-      const sampleButtons = screen.getAllByTitle(/Click to open .* as a new file tab/i);
+      const sampleButtons = screen.getAllByTitle(/Save ".*" as a new \.beam file and open in editor/i);
       const renderedTitles = sampleButtons.map((el) => el.getAttribute('title') || '');
       expect(renderedTitles[0]).toContain('Alpha Pipeline');
       expect(renderedTitles[1]).toContain('Metrics Pipeline');

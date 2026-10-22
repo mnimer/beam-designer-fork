@@ -40,6 +40,10 @@ export interface SamplePipeline {
     language?: string;
     /** Optional recommended runner name ('DirectRunner' | 'Dataflow' | 'Spark'). */
     runner?: string;
+    /** Optional number of nodes in the sample pipeline DAG. */
+    nodesCount?: number;
+    /** Optional full Markdown README documentation for the sample pipeline. */
+    readmeContent?: string;
     /** Raw .beam YAML text content. */
     content: string;
 }

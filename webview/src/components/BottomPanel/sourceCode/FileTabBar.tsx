@@ -1,42 +1,27 @@
 /**
- * @fileoverview Horizontal tab bar displaying generated source and configuration files.
+ * @fileoverview Vertical file explorer sidebar displaying generated source and configuration files.
  *
  * Author: Mike Nimer <mikenimer@google.com>
  */
 
 import React from 'react';
-import { FileCode, FileText } from 'lucide-react';
+import { FileCode } from 'lucide-react';
+import { getFileColorInfo } from './fileTypeColors';
 
 /**
  * Props for the FileTabBar component.
  */
 export interface FileTabBarProps {
-  /** List of file names to display as horizontal tabs. */
-  files: string[];
+  /** List of file names to display in the vertical file list. */
+  readonly files: string[];
   /** Currently selected file name, or null when defaulting to the first file. */
-  selectedFile: string | null;
-  /** Callback invoked when a file tab is selected. */
-  onSelectFile: (fileName: string) => void;
+  readonly selectedFile: string | null;
+  /** Callback invoked when a file item is selected. */
+  readonly onSelectFile: (fileName: string) => void;
 }
 
 /**
- * Helper to pick the appropriate file icon based on file extension.
- *
- * @param fileName File name string.
- * @returns React icon element.
- */
-const getFileIcon = (fileName: string): React.ReactElement => {
-  if (fileName.endsWith('.py') || fileName.endsWith('.java')) {
-    return <FileCode className="w-3.5 h-3.5 text-blue-400 shrink-0" />;
-  }
-  return <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
-};
-
-/**
- * FileTabBar component rendering horizontal scrollable tabs for generated files.
- *
- * @param props Component properties.
- * @returns React component.
+ * Renders a vertical sidebar file list for selecting one generated file at a time.
  */
 export const FileTabBar: React.FC<FileTabBarProps> = ({
   files,
@@ -44,25 +29,46 @@ export const FileTabBar: React.FC<FileTabBarProps> = ({
   onSelectFile,
 }) => {
   return (
-    <div className="flex items-center border-b border-slate-700 bg-[#151722] px-2 overflow-x-auto min-h-[38px] shrink-0 no-scrollbar">
+    <aside
+      data-testid="generated-files-sidebar-list"
+      aria-label="Generated files"
+      className="w-56 border-r border-[#30363d] bg-[#161b22] overflow-y-auto shrink-0 p-2 space-y-1 select-none"
+    >
+      <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        Generated Files ({files.length})
+      </div>
       {files.map((file) => {
         const isSelected = selectedFile === file || (!selectedFile && file === files[0]);
+        const colorInfo = getFileColorInfo(file);
         return (
           <button
             key={file}
             type="button"
             onClick={() => onSelectFile(file)}
-            className={`flex items-center gap-2 py-2 px-3 text-xs font-medium border-b-2 transition cursor-pointer shrink-0 whitespace-nowrap ${
+            data-testid={`generated-file-item-${file}`}
+            aria-current={isSelected ? 'true' : undefined}
+            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs font-mono transition text-left cursor-pointer ${
               isSelected
-                ? 'bg-[#1E202A] text-white border-blue-500 font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border-transparent'
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40 font-semibold'
+                : 'text-slate-400 hover:bg-[#21262d] hover:text-slate-200 border border-transparent'
             }`}
           >
-            {getFileIcon(file)}
-            <span className="font-mono">{file}</span>
+            <FileCode
+              className={`w-3.5 h-3.5 shrink-0 ${
+                isSelected ? colorInfo.iconColor : 'text-slate-500'
+              }`}
+            />
+            <span className="truncate flex-1">{file}</span>
+            {colorInfo.badgeLabel && (
+              <span
+                className={`px-1 py-0.2 rounded text-[8px] font-sans font-bold uppercase tracking-wider shrink-0 border ${colorInfo.badgeClass}`}
+              >
+                {colorInfo.badgeLabel}
+              </span>
+            )}
           </button>
         );
       })}
-    </div>
+    </aside>
   );
 };

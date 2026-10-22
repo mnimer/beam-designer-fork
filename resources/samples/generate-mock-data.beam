@@ -80,7 +80,7 @@ runtimeVariables:
   - key: NUM_OBJECTS_PER_ITERATION
     value: "1"
 jobConfig:
-  runner: Dataflow
+  runner: DirectRunner
   machineType: n1-standard-1
   minInstances: 1
   maxInstances: 10
