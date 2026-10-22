@@ -2,8 +2,8 @@ nodes:
   - id: "1787600432005"
     type: pipeline
     position:
-      x: 109.5
-      y: 81.5
+      x: 80
+      y: 150
     data:
       label: trigger
       type: SOURCE
@@ -16,8 +16,8 @@ nodes:
   - id: "1787600436005"
     type: pipeline
     position:
-      x: 347.5
-      y: 193.1507064290317
+      x: 380
+      y: 150
     data:
       label: generate mock data
       type: STEP
