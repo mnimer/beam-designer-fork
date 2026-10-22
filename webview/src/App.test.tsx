@@ -16,6 +16,9 @@ import AppWithProvider from './App.tsx';
 
 let capturedEdges: any[] = [];
 let capturedNodes: any[] = [];
+const mockFitView = vi.fn();
+const mockZoomIn = vi.fn();
+const mockZoomOut = vi.fn();
 
 // Mock React Flow
 vi.mock('reactflow', async () => {
@@ -44,7 +47,12 @@ vi.mock('reactflow', async () => {
     Controls: ({ children }: any) => <div data-testid="controls">{children}</div>,
     ControlButton: ({ onClick, children, title }: any) => <button onClick={onClick} title={title} data-testid="control-button">{children}</button>,
     Background: () => <div data-testid="background" />,
-    useReactFlow: () => ({ project: (p: any) => p, fitView: vi.fn() }),
+    useReactFlow: () => ({
+      project: (p: any) => p,
+      fitView: mockFitView,
+      zoomIn: mockZoomIn,
+      zoomOut: mockZoomOut,
+    }),
     useNodesState: (initial: any) => {
       const [nodes, setNodes] = React.useState(initial);
       return [nodes, setNodes, vi.fn()];
@@ -212,24 +220,73 @@ edges:
     expect(a.position).not.toEqual(b.position);
   });
 
-  it('allows expanding and collapsing navigation widget on click (defaults to off)', () => {
+  it('renders CanvasToolbar with Undo, Redo, Auto Layout, Zoom In, Zoom Out, Zoom to Fit, and MiniMap', () => {
+    mockFitView.mockClear();
+    mockZoomIn.mockClear();
+    mockZoomOut.mockClear();
+
     render(<AppWithProvider />);
 
-    // Defaults to off
-    expect(screen.queryByTestId('mini-map')).not.toBeInTheDocument();
-
-    const expandBtn = screen.getByTitle('Expand Navigation Map');
-    expect(expandBtn).toBeInTheDocument();
-
-    // Click to expand
-    fireEvent.click(expandBtn);
+    expect(screen.getByTestId('canvas-toolbar')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-undo-button')).toBeDisabled();
+    expect(screen.getByTestId('canvas-redo-button')).toBeDisabled();
+    expect(screen.getByTestId('canvas-autolayout-button')).toHaveTextContent('Auto Layout');
+    expect(screen.getByTestId('canvas-zoomin-button')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-zoomout-button')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-fitview-button')).toHaveTextContent('Zoom to Fit');
     expect(screen.getByTestId('mini-map')).toBeInTheDocument();
 
-    // Click to collapse
-    const collapseBtn = screen.getByTitle('Collapse Navigation Map');
-    expect(collapseBtn).toBeInTheDocument();
-    fireEvent.click(collapseBtn);
-    expect(screen.queryByTestId('mini-map')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('canvas-zoomin-button'));
+    expect(mockZoomIn).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('canvas-zoomout-button'));
+    expect(mockZoomOut).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('canvas-fitview-button'));
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2 });
+  });
+
+  it('starts bottom panel minimized at 40px, opens to 80% on tab click, toggles via expand icon, and allows free drag resizing', () => {
+    render(<AppWithProvider />);
+
+    const bottomPanel = screen.getByTestId('bottom-panel');
+    const divider = screen.getByTestId('bottom-panel-divider');
+
+    // 1. Starts minimized to 40px tab header
+    expect(bottomPanel).toHaveStyle({ height: '40px' });
+    expect(screen.getByLabelText('Expand Panel')).toBeInTheDocument();
+
+    // 2. Clicking a tab opens the tab area to 80%
+    fireEvent.click(screen.getByText('DEPLOYMENT'));
+    expect(bottomPanel).toHaveStyle({ height: '80%' });
+    expect(screen.getByLabelText('Collapse Panel')).toBeInTheDocument();
+
+    // 3. Clicking the collapse/expand icon jumps between 80% and 40px
+    fireEvent.click(screen.getByLabelText('Collapse Panel'));
+    expect(bottomPanel).toHaveStyle({ height: '40px' });
+    fireEvent.click(screen.getByLabelText('Expand Panel'));
+    expect(bottomPanel).toHaveStyle({ height: '80%' });
+
+    // 4. Dragging the divider resizes freely, and clicking collapse icon afterwards jumps back to 40px
+    const mainContainer = bottomPanel.parentElement!;
+    mainContainer.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      bottom: 1000,
+      height: 1000,
+      left: 0,
+      right: 1200,
+      width: 1200,
+    });
+
+    fireEvent.mouseDown(divider, { clientY: 200 });
+    fireEvent.mouseMove(window, { clientY: 550 });
+    fireEvent.mouseUp(window);
+
+    expect(bottomPanel).toHaveStyle({ height: '450px' });
+
+    // Clicking collapse icon after custom drag jumps back to 40px
+    fireEvent.click(screen.getByLabelText('Collapse Panel'));
+    expect(bottomPanel).toHaveStyle({ height: '40px' });
   });
 
   it('updates output folder when receiving loadPipeline and updateOutputFolder messages', () => {
@@ -457,9 +514,8 @@ edges: []
     const initialNode = capturedNodes[0];
     const initialData = initialNode.data;
 
-    // Trigger an App re-render that does not modify node data (e.g. toggling minimap)
-    const expandBtn = screen.getByTitle('Expand Navigation Map');
-    fireEvent.click(expandBtn);
+    // Trigger an App re-render that does not modify node data (e.g. switching bottom tab)
+    fireEvent.click(screen.getByText('DEPLOYMENT'));
 
     expect(capturedNodes.length).toBe(1);
     const reRenderedNode = capturedNodes[0];
@@ -536,9 +592,8 @@ edges: []
       const saveCalls1 = postMessageSpy.mock.calls.filter((c: any[]) => c[0]?.command === 'savePipeline');
       expect(saveCalls1.length).toBe(1);
 
-      // Trigger a re-render without state change (e.g. toggle minimap)
-      const expandBtn = screen.getByTitle('Expand Navigation Map');
-      fireEvent.click(expandBtn);
+      // Trigger a re-render without pipeline state change (e.g. switching bottom tab)
+      fireEvent.click(screen.getByText('DEPLOYMENT'));
 
       // Second debounce tick
       act(() => {

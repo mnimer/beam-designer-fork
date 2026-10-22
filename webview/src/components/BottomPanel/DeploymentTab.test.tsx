@@ -151,4 +151,14 @@ describe('DeploymentTab', () => {
     expect(nextState.region).toBe('us-central1');
     expect(nextState.projectId).toBe('my-project');
   });
+
+  it('defaults Target Environment to DirectRunner when runner is unset', () => {
+    renderWithBottomPanel(<DeploymentTab />, {
+      ...defaultProps,
+      jobConfig: { machineType: 'n1-standard-1' },
+    });
+
+    const runnerSelect = screen.getByDisplayValue('DirectRunner');
+    expect(runnerSelect).toBeInTheDocument();
+  });
 });

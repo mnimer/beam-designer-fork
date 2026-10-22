@@ -236,7 +236,8 @@ export async function handleReadFolderFiles(ctx: MessageContext, message: any): 
                 let results: string[] = [];
                 const list = await fs.promises.readdir(dir);
                 for (const item of list) {
-                    if (item.startsWith('.')) continue;
+                    if (item === 'gemini.log') continue;
+                    if (item.startsWith('.') && item !== '.dockerignore' && item !== '.gcloudignore' && item !== '.gitignore') continue;
                     const fullPath = path.join(dir, item);
                     const stat = await fs.promises.lstat(fullPath);
                     if (stat.isSymbolicLink()) continue;

@@ -39,14 +39,85 @@ describe('SourceCodeTab', () => {
     expect(screen.getByText('Generate Code')).toBeInTheDocument();
     expect(screen.getByText('Stop')).toBeInTheDocument();
 
-    // Check only .py and .java files are shown in the horizontal tabs
+    // Check vertical generated files list shows all generated files with badges
+    const sidebar = screen.getByTestId('generated-files-sidebar-list');
+    expect(sidebar).toBeInTheDocument();
+    expect(sidebar).toHaveTextContent('Generated Files (2)');
     expect(screen.getByText('job.py')).toBeInTheDocument();
-    expect(screen.queryByText('requirements.txt')).not.toBeInTheDocument();
+    expect(screen.getByText('requirements.txt')).toBeInTheDocument();
+
+    // Check top header bar shows active filename, model badge, and action buttons
+    expect(screen.getByTestId('active-file-header-name')).toHaveTextContent('job.py');
+    expect(screen.getByTestId('active-model-badge')).toHaveTextContent('Model: gemini-3.7-flash');
+    expect(screen.getByTestId('find-in-code-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('copy-code-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('download-code-btn')).toBeInTheDocument();
 
     // Default code should be visible
     expect(screen.getByText((_content, node) => {
       return node?.tagName === 'CODE' && node?.textContent === 'print("pipeline")';
     })).toBeInTheDocument();
+  });
+
+  it('displays color-coded file type badges in the vertical file list and sub-header', () => {
+    renderWithBottomPanel(
+      <SourceCodeTab />,
+      {
+        ...mockProps,
+        files: ['pipeline.py', 'test_pipeline.py', 'requirements.txt', 'README.md', 'Dockerfile'],
+        selectedFile: 'requirements.txt',
+        selectedFileContent: 'apache-beam[gcp]==2.60.0',
+      }
+    );
+
+    expect(screen.getByTestId('generated-file-item-pipeline.py')).toHaveTextContent('PY');
+    expect(screen.getByTestId('generated-file-item-test_pipeline.py')).toHaveTextContent('TEST');
+    expect(screen.getByTestId('generated-file-item-requirements.txt')).toHaveTextContent('DEPS');
+    expect(screen.getByTestId('generated-file-item-README.md')).toHaveTextContent('DOC');
+    expect(screen.getByTestId('generated-file-item-Dockerfile')).toHaveTextContent('DOCKER');
+    expect(screen.getByTestId('active-file-type-badge')).toHaveTextContent('DEPS');
+    expect(screen.getByText('Python runtime dependencies')).toBeInTheDocument();
+  });
+
+  it('toggles inline Find bar, highlights matches in active file, and closes on Escape', () => {
+    renderWithBottomPanel(
+      <SourceCodeTab />,
+      {
+        ...mockProps,
+        generatedCode: 'import apache_beam as beam\nbeam.Pipeline()',
+      }
+    );
+
+    expect(screen.queryByTestId('find-in-files-bar')).not.toBeInTheDocument();
+
+    // Open Find bar via button
+    fireEvent.click(screen.getByTestId('find-in-code-btn'));
+    expect(screen.getByTestId('find-in-files-bar')).toBeInTheDocument();
+
+    const findInput = screen.getByTestId('find-in-files-input');
+    fireEvent.change(findInput, { target: { value: 'beam' } });
+
+    expect(screen.getByTestId('find-match-count')).toHaveTextContent('3 matches');
+    expect(screen.getAllByTestId('search-match-highlight')).toHaveLength(3);
+
+    // Close via Escape key
+    fireEvent.keyDown(findInput, { key: 'Escape' });
+    expect(screen.queryByTestId('find-in-files-bar')).not.toBeInTheDocument();
+  });
+
+  it('copies active file content to clipboard when clicking Copy button', () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    renderWithBottomPanel(<SourceCodeTab />, mockProps);
+
+    const copyBtn = screen.getByTestId('copy-code-btn');
+    fireEvent.click(copyBtn);
+
+    expect(writeTextMock).toHaveBeenCalledWith('print("pipeline")');
+    expect(copyBtn).toHaveTextContent('Copied');
   });
 
   it('filters out venv, node_modules, and build cache files from the file list', () => {

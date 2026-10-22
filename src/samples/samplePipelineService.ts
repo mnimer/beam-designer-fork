@@ -129,6 +129,87 @@ export function computePipelineFlow(nodes: any[], edges: any[]): string {
 }
 
 /**
+ * Synthesizes README-level markdown documentation from a parsed `.beam` sample structure
+ * when no standalone `<baseName>.md` or `<baseName>/README.md` file is present on disk.
+ *
+ * @param title Human-readable title of the sample pipeline.
+ * @param filename Sample `.beam` filename.
+ * @param flow Topological DAG flow summary string.
+ * @param runner Default runner name.
+ * @param parsed Parsed `.beam` YAML object.
+ * @returns Comprehensive Markdown README string.
+ */
+export function buildSampleReadmeMarkdown(
+    title: string,
+    filename: string,
+    flow: string,
+    runner: string,
+    parsed: any
+): string {
+    const nodes: any[] = Array.isArray(parsed?.nodes) ? parsed.nodes : [];
+    const runtimeVariables: any[] = Array.isArray(parsed?.runtimeVariables) ? parsed.runtimeVariables : [];
+
+    const lines: string[] = [
+        `# ${title}`,
+        '',
+        '## Overview',
+        flow
+            ? `Pre-configured Apache Beam sample pipeline (\`${filename}\`) implementing the flow: **${flow}**.`
+            : `Pre-configured Apache Beam sample pipeline (\`${filename}\`) configured for the **${runner}** runner.`,
+        '',
+        'This sample can be generated and executed in either **Python** or **Java** using the **Generate Code** panel.',
+    ];
+
+    if (flow || nodes.length > 0) {
+        lines.push(
+            '',
+            '## Pipeline Architecture & Data Flow'
+        );
+        if (flow) {
+            lines.push(`\`${flow}\``);
+        }
+        if (nodes.length > 0) {
+            lines.push('');
+            nodes.forEach((node, index) => {
+                const label = node?.data?.label || node?.id || 'Node';
+                const type = node?.data?.type || 'STEP';
+                const transform = node?.data?.beam_transform || node?.data?.label || type;
+                lines.push(`${index + 1}. **${label} (\`${transform}\` / \`${type}\`)**`);
+            });
+        }
+    }
+
+    if (runtimeVariables.length > 0) {
+        lines.push(
+            '',
+            '## Runtime Parameters',
+            '| Parameter | Default Value |',
+            '|---|---|'
+        );
+        for (const variable of runtimeVariables) {
+            const key = variable?.key || 'PARAM';
+            const val = variable?.value !== undefined && variable?.value !== null && String(variable.value) !== ''
+                ? `\`${String(variable.value)}\``
+                : '*(unset)*';
+            lines.push(`| \`${key}\` | ${val} |`);
+        }
+    }
+
+    lines.push(
+        '',
+        '## Code Generation & Execution',
+        `1. Click **New File** to save a copy of \`${filename}\` in your workspace.`,
+        '2. Open the **Generate Code** tab, choose **Python** or **Java**, and click **Generate Code**.',
+        '3. Run locally with DirectRunner or deploy to Google Cloud Dataflow:',
+        '```bash',
+        './run_directrunner.sh',
+        '```'
+    );
+
+    return lines.join('\n');
+}
+
+/**
  * Discovers and parses all .beam sample pipelines located in the resources/samples directory.
  *
  * Converted to `fs.promises` so that opening the webview no longer blocks the extension
@@ -192,20 +273,49 @@ export async function getSamplePipelines(context: vscode.ExtensionContext): Prom
 
                 // 4. Extract metadata and the DAG flow summary from the YAML structure.
                 let language = 'Java';
-                let runner = 'Dataflow';
+                let runner = 'DirectRunner';
                 let flow = '';
+                let nodesCount = 0;
+                let parsedYaml: any = null;
 
                 try {
-                    const parsed = YAML.parse(content);
-                    if (parsed) {
-                        language = normalizeLanguage(parsed.pipelineConfig?.language) ?? 'Java';
-                        if (parsed.jobConfig?.runner) {
-                            runner = parsed.jobConfig.runner;
+                    parsedYaml = YAML.parse(content);
+                    if (parsedYaml) {
+                        language = normalizeLanguage(parsedYaml.pipelineConfig?.language) ?? 'Java';
+                        if (parsedYaml.jobConfig?.runner) {
+                            runner = parsedYaml.jobConfig.runner;
                         }
-                        flow = computePipelineFlow(parsed.nodes, parsed.edges);
+                        if (Array.isArray(parsedYaml.nodes)) {
+                            nodesCount = parsedYaml.nodes.length;
+                        }
+                        flow = computePipelineFlow(parsedYaml.nodes, parsedYaml.edges);
                     }
                 } catch (parseErr) {
                     console.warn(`Failed to parse YAML for sample ${file}, falling back to text scan`, parseErr);
+                }
+
+                // 5. Load companion Markdown README (<baseName>.md or <baseName>/README.md) if available
+                let readmeContent = '';
+                const candidateReadmePaths = [
+                    path.join(samplesDir, `${baseName}.md`),
+                    path.join(samplesDir, baseName, 'README.md'),
+                ];
+                for (const readmePath of candidateReadmePaths) {
+                    try {
+                        const isReadmeFile = await fs.promises.stat(readmePath).then(s => s.isFile()).catch(() => false);
+                        if (isReadmeFile) {
+                            readmeContent = await fs.promises.readFile(readmePath, 'utf-8');
+                            if (readmeContent.trim().length > 0) {
+                                break;
+                            }
+                        }
+                    } catch {
+                        // Fall through to next candidate or synthesized README
+                    }
+                }
+
+                if (!readmeContent.trim()) {
+                    readmeContent = buildSampleReadmeMarkdown(title, file, flow, runner, parsedYaml);
                 }
 
                 const description = flow
@@ -221,6 +331,8 @@ export async function getSamplePipelines(context: vscode.ExtensionContext): Prom
                     badge: language,
                     language,
                     runner,
+                    nodesCount,
+                    readmeContent,
                     content
                 });
             } catch (err) {
