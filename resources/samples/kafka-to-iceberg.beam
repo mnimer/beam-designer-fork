@@ -1,0 +1,58 @@
+nodes:
+  - id: "2001"
+    type: pipeline
+    position: { x: 80, y: 150 }
+    data:
+      label: Kafka Telemetry Stream
+      type: SOURCE
+      iconName: Zap
+      beam_transform: ReadFromKafka
+      properties:
+        bootstrapServers: "localhost:9092"
+        topic: "telemetry_events"
+  - id: "2002"
+    type: pipeline
+    position: { x: 360, y: 150 }
+    data:
+      label: Parse & Validate JSON
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: "Parse incoming JSON bytes into schema rows. Route malformed payloads to DLQ."
+  - id: "2003"
+    type: pipeline
+    position: { x: 680, y: 90 }
+    data:
+      label: Iceberg Lakehouse Table
+      type: SINK
+      iconName: Database
+      beam_transform: WriteToIceberg
+      properties:
+        tableIdentifier: "default.telemetry_iceberg"
+  - id: "2004"
+    type: pipeline
+    position: { x: 680, y: 220 }
+    data:
+      label: Dead Letter Log
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+edges:
+  - id: e-2001-2002
+    source: "2001"
+    target: "2002"
+  - id: e-2002-2003
+    source: "2002"
+    sourceHandle: valid
+    target: "2003"
+  - id: e-2002-2004
+    source: "2002"
+    sourceHandle: error
+    target: "2004"
+runtimeVariables:
+  - key: JOB_ID
+    value: kafka-to-iceberg-pipeline
+pipelineConfig:
+  language: Python
+  outputFolder: ./kafka-to-iceberg-pipeline
