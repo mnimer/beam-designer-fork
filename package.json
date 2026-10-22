@@ -1,8 +1,8 @@
 {
-  "name": "dataflow-pipeline-builder",
-  "displayName": "DataFlow Pipeline Builder",
-  "description": "Visual pipeline builder for DataFlow using React-Flow",
-  "version": "1.0.11",
+  "name": "apache-beam-designer",
+  "displayName": "Apache Beam/DataFlow Pipeline Builder",
+  "description": "Visual pipeline builder for Apache Beam and DataFlow",
+  "version": "1.0.14",
   "publisher": "antigravity",
   "repository": {
     "type": "git",
