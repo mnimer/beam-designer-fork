@@ -17,12 +17,8 @@
  */
 
 import React, { useCallback, useState, useEffect, useRef, useMemo, useContext, createContext } from 'react';
-import { LayoutTemplate, Map } from 'lucide-react';
 
 import ReactFlow, {
-  MiniMap,
-  Controls,
-  ControlButton,
   Background,
   ReactFlowProvider,
   useReactFlow,
@@ -34,7 +30,8 @@ import { PropertyPane } from './components/PropertyPane';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { validateDiagramLanguageSupport } from './utils/nodeLanguageSupport';
 import { NodesCard } from './components/NodesCard';
-import { BottomPanel } from './components/BottomPanel/BottomPanel';
+import { CanvasToolbar } from './components/CanvasToolbar';
+import { BottomPanel, BOTTOM_PANEL_HEADER_HEIGHT } from './components/BottomPanel/BottomPanel';
 import {
   BottomPanelProvider,
   type BottomPanelContextValue,
@@ -138,7 +135,6 @@ function App() {
     }
   };
 
-  const [showMiniMap, setShowMiniMap] = useState(false);
   const [bottomTab, setBottomTab] = useState('SOURCE_CODE');
 
   // Job and pipeline configuration state
@@ -184,7 +180,7 @@ function App() {
 
   const restoreRef = useRef<(snapshot: PipelineSnapshot) => void>(() => {});
 
-  const { takeSnapshot, undo, redo } = useUndoRedoHistory<PipelineSnapshot>({
+  const { takeSnapshot, undo, redo, canUndo, canRedo } = useUndoRedoHistory<PipelineSnapshot>({
     capture: useCallback(() => snapshotRef.current, []),
     restore: useCallback((snapshot: PipelineSnapshot) => {
       restoreRef.current(snapshot);
@@ -436,16 +432,18 @@ function App() {
     ipcRegenerate({ nodes, edges, runtimeVariables, jobConfig });
   }, [ipcRegenerate, nodes, edges, runtimeVariables, jobConfig, pipelineConfig, isCodegenValid, combinedValidationErrors, lastSavedYamlRef, serializePipeline]);
 
-  // Resize state for Bottom Panel
+  // Resize state for Bottom Panel (minimized to 40px tab header by default; expands to 80% on tab click or toggle)
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(false);
+  const [hasCustomBottomPanelHeight, setHasCustomBottomPanelHeight] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
   const {
     size: bottomPanelHeight,
+    setSize: setBottomPanelHeight,
     startResize: handleMouseDown,
   } = usePanelResize({
     axis: 'y',
-    initialSize: 320,
+    initialSize: BOTTOM_PANEL_HEADER_HEIGHT,
     cursor: 'row-resize',
     computeSize: (e, startSize) => {
       const container = mainContentRef.current;
@@ -453,14 +451,46 @@ function App() {
       const containerRect = container.getBoundingClientRect();
       let newHeight = containerRect.bottom - e.clientY;
 
-      const minHeight = 100;
-      const maxHeight = containerRect.height - 150;
+      const minHeight = BOTTOM_PANEL_HEADER_HEIGHT;
+      const maxHeight = Math.max(minHeight, containerRect.height - 4);
       if (newHeight < minHeight) newHeight = minHeight;
       if (newHeight > maxHeight) newHeight = maxHeight;
 
       return newHeight;
     },
   });
+
+  const isEffectiveBottomPanelExpanded = hasCustomBottomPanelHeight
+    ? bottomPanelHeight > BOTTOM_PANEL_HEADER_HEIGHT
+    : isBottomPanelExpanded;
+
+  const handleExpandBottomPanel = useCallback(() => {
+    setHasCustomBottomPanelHeight(false);
+    setIsBottomPanelExpanded(true);
+  }, []);
+
+  const handleToggleBottomPanelExpand = useCallback(() => {
+    const currentlyExpanded = hasCustomBottomPanelHeight
+      ? bottomPanelHeight > BOTTOM_PANEL_HEADER_HEIGHT
+      : isBottomPanelExpanded;
+    setHasCustomBottomPanelHeight(false);
+    setIsBottomPanelExpanded(!currentlyExpanded);
+  }, [hasCustomBottomPanelHeight, bottomPanelHeight, isBottomPanelExpanded]);
+
+  const handleBottomDividerMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (!hasCustomBottomPanelHeight && mainContentRef.current) {
+        const rect = mainContentRef.current.getBoundingClientRect();
+        const currentPixelHeight = isBottomPanelExpanded
+          ? Math.round(rect.height * 0.8)
+          : BOTTOM_PANEL_HEADER_HEIGHT;
+        setBottomPanelHeight(currentPixelHeight);
+      }
+      setHasCustomBottomPanelHeight(true);
+      handleMouseDown(e);
+    },
+    [hasCustomBottomPanelHeight, isBottomPanelExpanded, setBottomPanelHeight, handleMouseDown]
+  );
 
   // Property panel resizing state (default 320px = w-80, minimum 320px)
   // Note: Width is now persisted to localStorage on mouseup via onResizeEnd (previously every mousemove) — intentional.
@@ -614,7 +644,7 @@ function App() {
       {/* Main Content Area (Canvas + Bottom Panel) */}
       <div ref={mainContentRef} className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {/* Diagram Canvas Area */}
-        <div className={`flex-1 relative min-h-0 overflow-hidden ${isBottomPanelExpanded ? 'hidden' : 'flex'}`}>
+        <div className="flex-1 relative min-h-0 overflow-hidden flex">
           {/* Canvas */}
           <div
             className="flex-1 relative h-full min-w-0"
@@ -662,40 +692,13 @@ function App() {
                 onDragOver={onDragOver}
                 onNodeDragStop={() => takeSnapshot()}
               >
-                <Controls
-                  position="top-right"
-                  style={{
-                    top: '12px',
-                    right: '12px',
-                    margin: 0,
-                  }}
-                >
-                  <ControlButton onClick={onLayout} title="Auto Layout Diagram">
-                    <LayoutTemplate className="w-3.5 h-3.5" />
-                  </ControlButton>
-                  <ControlButton
-                    onClick={() => setShowMiniMap((prev) => !prev)}
-                    title={showMiniMap ? 'Collapse Navigation Map' : 'Expand Navigation Map'}
-                    aria-label={showMiniMap ? 'Collapse Navigation Map' : 'Expand Navigation Map'}
-                  >
-                    <Map style={{ width: '14px', height: '14px' }} />
-                  </ControlButton>
-                </Controls>
-                {showMiniMap && (
-                  <MiniMap
-                    position="top-right"
-                    style={{
-                      top: '58px',
-                      right: '12px',
-                      margin: 0,
-                    }}
-                    nodeColor={(node: any) => {
-                      if (node.data?.type === 'SOURCE') return '#10b981';
-                      if (node.data?.type === 'SINK') return '#ef4444';
-                      return '#3b82f6';
-                    }}
-                  />
-                )}
+                <CanvasToolbar
+                  canUndo={canUndo}
+                  canRedo={canRedo}
+                  onUndo={undo}
+                  onRedo={redo}
+                  onAutoLayout={onLayout}
+                />
                 <Background gap={12} size={1} />
               </ReactFlow>
             </LabelChangeContext.Provider>
@@ -703,24 +706,28 @@ function App() {
         </div>
 
         {/* Resizable Divider */}
-        {!isBottomPanelExpanded && (
-          <div
-            className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-30 relative"
-            onMouseDown={(e) => {
-              handleMouseDown(e);
-              handleBottomPanelInteract();
-            }}
-          />
-        )}
+        <div
+          data-testid="bottom-panel-divider"
+          className="h-1 bg-[var(--vscode-border)] hover:bg-[var(--vscode-highlight)] cursor-row-resize transition-colors z-30 relative shrink-0"
+          onMouseDown={(e) => {
+            handleBottomDividerMouseDown(e);
+            handleBottomPanelInteract();
+          }}
+          onDoubleClick={() => {
+            handleToggleBottomPanelExpand();
+            handleBottomPanelInteract();
+          }}
+        />
 
         {/* Bottom Panel */}
         <BottomPanelProvider value={bottomPanelContextValue}>
           <BottomPanel
             bottomTab={bottomTab}
             setBottomTab={setBottomTab}
-            height={bottomPanelHeight}
-            isExpanded={isBottomPanelExpanded}
-            onToggleExpand={() => setIsBottomPanelExpanded((prev) => !prev)}
+            height={hasCustomBottomPanelHeight ? bottomPanelHeight : undefined}
+            isExpanded={isEffectiveBottomPanelExpanded}
+            onToggleExpand={handleToggleBottomPanelExpand}
+            onExpand={handleExpandBottomPanel}
             onInteract={handleBottomPanelInteract}
           />
         </BottomPanelProvider>

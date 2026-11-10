@@ -25,13 +25,14 @@ export const RunnerSettings: React.FC<RunnerSettingsProps> = ({
   runner,
   setJobConfig,
 }) => {
+  const effectiveRunner = runner || 'DirectRunner';
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
         Target Environment
       </label>
       <select 
-        value={runner} 
+        value={effectiveRunner} 
         onChange={(e) => {
           const nextValue = e.target.value;
           setJobConfig((prev: any) => ({ ...prev, runner: nextValue }));

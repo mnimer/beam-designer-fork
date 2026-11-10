@@ -100,7 +100,12 @@ describe('getSamplePipelines', () => {
             expect(mockSample.id).toBe('generate-mock-data');
             expect(mockSample.title).toBe('Generate Mock Data');
             expect(mockSample.language).toBe('Java');
-            expect(mockSample.runner).toBe('Dataflow');
+            expect(mockSample.runner).toBe('DirectRunner');
+            expect(mockSample.nodesCount).toBe(3);
+            expect(mockSample.readmeContent).toContain('# Generate Mock Data Pipeline');
+            expect(mockSample.readmeContent).toContain('## Overview');
+            expect(mockSample.readmeContent).toContain('## Pipeline Architecture & Data Flow');
+            expect(mockSample.readmeContent).not.toContain('## Pipeline Nodes & Transforms');
             expect(mockSample.description).toBe('Pipeline flow: trigger ➔ generate mock data ➔ Log Message');
         }
 
@@ -110,8 +115,35 @@ describe('getSamplePipelines', () => {
             expect(pubsubSample.id).toBe('pubsub-to-bigquery');
             expect(pubsubSample.title).toBe('Pubsub To Bigquery');
             expect(pubsubSample.language).toBe('Java');
-            expect(pubsubSample.runner).toBe('Spark');
+            expect(pubsubSample.runner).toBe('DirectRunner');
+            expect(pubsubSample.nodesCount).toBe(4);
+            expect(pubsubSample.readmeContent).toContain('# Pub/Sub to BigQuery Streaming Pipeline');
+            expect(pubsubSample.readmeContent).toContain('## Pipeline Architecture & Data Flow');
+            expect(pubsubSample.readmeContent).not.toContain('## Pipeline Nodes & Transforms');
             expect(pubsubSample.description).toBe('Pipeline flow: PubSub Connector ➔ Parse Message ➔ [BigQuery, Log Message]');
+        }
+
+        const wordcountSample = samples.find(s => s.filename === 'textio-wordcount.beam');
+        expect(wordcountSample).toBeDefined();
+        if (wordcountSample) {
+            expect(wordcountSample.id).toBe('textio-wordcount');
+            expect(wordcountSample.runner).toBe('DirectRunner');
+            expect(wordcountSample.nodesCount).toBe(5);
+            expect(wordcountSample.readmeContent).toContain('# TextIO WordCount Batch Pipeline');
+            expect(wordcountSample.readmeContent).toContain('## Pipeline Architecture & Data Flow');
+            expect(wordcountSample.readmeContent).not.toContain('## Pipeline Nodes & Transforms');
+        }
+
+        const kafkaIcebergSample = samples.find(s => s.filename === 'kafka-to-iceberg.beam');
+        expect(kafkaIcebergSample).toBeDefined();
+        if (kafkaIcebergSample) {
+            expect(kafkaIcebergSample.id).toBe('kafka-to-iceberg');
+            expect(kafkaIcebergSample.title).toBe('Kafka To Iceberg');
+            expect(kafkaIcebergSample.runner).toBe('DirectRunner');
+            expect(kafkaIcebergSample.nodesCount).toBe(4);
+            expect(kafkaIcebergSample.readmeContent).toContain('# Kafka to Apache Iceberg Lakehouse Pipeline');
+            expect(kafkaIcebergSample.readmeContent).toContain('## Pipeline Architecture & Data Flow');
+            expect(kafkaIcebergSample.readmeContent).not.toContain('## Pipeline Nodes & Transforms');
         }
     });
 });

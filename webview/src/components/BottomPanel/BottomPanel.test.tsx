@@ -85,22 +85,28 @@ describe('BottomPanel', () => {
     expect(screen.getByText('print("hello")')).toBeInTheDocument();
   });
 
-  it('calls setBottomTab when clicking tabs', () => {
-    renderWithBottomPanel(<BottomPanel {...mockProps} />, defaultContext);
+  it('calls setBottomTab and onExpand when clicking tabs', () => {
+    const onExpand = vi.fn();
+    renderWithBottomPanel(<BottomPanel {...mockProps} onExpand={onExpand} />, defaultContext);
 
     fireEvent.click(screen.getByText('Generate Code'));
     expect(mockProps.setBottomTab).toHaveBeenCalledWith('SOURCE_CODE');
+    expect(onExpand).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('DEPLOYMENT'));
     expect(mockProps.setBottomTab).toHaveBeenCalledWith('DEPLOYMENT');
+    expect(onExpand).toHaveBeenCalledTimes(2);
   });
 
-  it('renders expand/collapse button and triggers onToggleExpand', () => {
+  it('defaults to 40px minimized tab header height and expands to 80% when isExpanded is true', () => {
     const onToggleExpand = vi.fn();
     const { rerenderWithContext } = renderWithBottomPanel(
       <BottomPanel {...mockProps} isExpanded={false} onToggleExpand={onToggleExpand} />,
       defaultContext
     );
+
+    const panel = screen.getByTestId('bottom-panel');
+    expect(panel).toHaveStyle({ height: '40px' });
 
     const expandBtn = screen.getByLabelText('Expand Panel');
     expect(expandBtn).toBeInTheDocument();
@@ -111,6 +117,7 @@ describe('BottomPanel', () => {
       <BottomPanel {...mockProps} isExpanded={true} onToggleExpand={onToggleExpand} />,
       defaultContext
     );
+    expect(screen.getByTestId('bottom-panel')).toHaveStyle({ height: '80%' });
     expect(screen.getByLabelText('Collapse Panel')).toBeInTheDocument();
   });
 

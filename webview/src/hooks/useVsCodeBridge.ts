@@ -271,17 +271,16 @@ export function useVsCodeBridge({
                 variables.unshift({ key: 'JOB_ID', value: defaultJobId });
               }
               setRuntimeVariables(variables);
-              setJobConfig(
-                data.jobConfig || {
-                  runner: 'DirectRunner',
-                  machineType: 'n1-standard-1',
-                  minInstances: 1,
-                  maxInstances: 10,
-                  gcsStagingPath: '',
-                  network: '',
-                  subnetwork: '',
-                }
-              );
+              setJobConfig({
+                machineType: 'n1-standard-1',
+                minInstances: 1,
+                maxInstances: 10,
+                gcsStagingPath: '',
+                network: '',
+                subnetwork: '',
+                ...(data.jobConfig || {}),
+                runner: data.jobConfig?.runner || 'DirectRunner',
+              });
 
               const rawConfig = data.pipelineConfig || {};
               const config: PipelineConfig = {

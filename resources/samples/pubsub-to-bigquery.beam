@@ -94,7 +94,7 @@ jobConfig:
   machineType: n1-standard-2
   minInstances: 1
   maxInstances: 6
-  runner: Spark
+  runner: DirectRunner
   gcsStagingPath: null
   subnetwork: regions/us-central1/subnetworks/default
 pipelineConfig:

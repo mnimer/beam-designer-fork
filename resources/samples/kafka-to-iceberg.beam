@@ -1,0 +1,79 @@
+nodes:
+  - id: "2001"
+    type: pipeline
+    position:
+      x: 80
+      y: 150
+    data:
+      label: Kafka Telemetry Stream
+      type: SOURCE
+      iconName: Zap
+      beam_transform: ReadFromKafka
+      properties:
+        bootstrapServers: localhost:9092
+        topic: telemetry_events
+  - id: "2002"
+    type: pipeline
+    position:
+      x: 408
+      y: 150
+    data:
+      label: Parse & Validate JSON
+      type: STEP
+      iconName: Code
+      beam_transform: ParDo
+      properties:
+        codeGenerationPrompt: Parse incoming JSON bytes into schema rows. Route
+          malformed payloads to DLQ.
+  - id: "2004"
+    type: pipeline
+    position:
+      x: 714.7449350649351
+      y: 208.23896103896104
+    data:
+      label: Dead Letter Log
+      type: SINK
+      iconName: Terminal
+      beam_transform: LogMessage
+      properties:
+        logLevel: Warning
+  - id: 6fedcfe6-05dd-4d5f-b1b3-ea6d1c6f5f2e
+    type: pipeline
+    position:
+      x: 708.614025974026
+      y: 100.51948051948052
+    data:
+      label: Iceberg
+      type: SINK
+      iconName: Database
+      beam_transform: IcebergIO
+      properties:
+        catalogType: rest
+edges:
+  - id: e-2001-2002
+    source: "2001"
+    target: "2002"
+  - id: e-2002-2004
+    source: "2002"
+    sourceHandle: error
+    target: "2004"
+  - source: "2002"
+    sourceHandle: valid
+    target: 6fedcfe6-05dd-4d5f-b1b3-ea6d1c6f5f2e
+    targetHandle: null
+    id: reactflow__edge-2002valid-6fedcfe6-05dd-4d5f-b1b3-ea6d1c6f5f2e
+runtimeVariables:
+  - key: JOB_ID
+    value: kafka-to-iceberg-pipeline
+jobConfig:
+  machineType: n1-standard-1
+  minInstances: 1
+  maxInstances: 10
+  gcsStagingPath: ""
+  network: ""
+  subnetwork: ""
+  runner: DirectRunner
+pipelineConfig:
+  language: Python
+  outputFolder: beam/kafka-to-iceberg
+  needsRebuild: true

@@ -8,3 +8,6 @@ export { NodeGroupAccordion } from './NodeGroupAccordion';
 export type { NodeGroupAccordionProps } from './NodeGroupAccordion';
 export { SamplesTabPanel } from './SamplesTabPanel';
 export type { SamplesTabPanelProps } from './SamplesTabPanel';
+export { SampleInfoModal, formatReadmeForModal, buildFallbackSampleReadme } from './SampleInfoModal';
+export type { SampleInfoModalProps, FormattedReadmeResult } from './SampleInfoModal';
+

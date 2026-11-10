@@ -20,6 +20,12 @@ import { SourceCodeTab } from './SourceCodeTab';
 import { filterSourceFiles } from '../../utils/fileFilters';
 import { useBottomPanel } from './BottomPanelContext';
 
+/** Height in pixels of the collapsed bottom tab header bar (5 * 8pt = 40px). */
+export const BOTTOM_PANEL_HEADER_HEIGHT = 40;
+
+/** Expanded height CSS value when opening a tab or clicking the expand toggle. */
+export const BOTTOM_PANEL_EXPANDED_HEIGHT = '80%';
+
 /**
  * Props for the {@link BottomPanel} component.
  */
@@ -29,6 +35,7 @@ export interface BottomPanelProps {
   height?: number;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  onExpand?: () => void;
   onInteract?: () => void;
 }
 
@@ -44,6 +51,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   height,
   isExpanded = false,
   onToggleExpand,
+  onExpand,
   onInteract,
 }) => {
   const { codegen } = useBottomPanel();
@@ -52,19 +60,30 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     [codegen.files]
   );
 
+  const panelHeightStyle =
+    height !== undefined
+      ? { height: `${height}px` }
+      : isExpanded
+        ? { height: BOTTOM_PANEL_EXPANDED_HEIGHT }
+        : { height: `${BOTTOM_PANEL_HEADER_HEIGHT}px` };
+
   return (
     <div 
-      className="bg-[var(--vscode-workbench-bg,#151722)] text-[var(--vscode-text-primary)] flex flex-col"
-      style={isExpanded ? { height: '100%' } : height ? { height: `${height}px` } : { height: '30%' }}
+      data-testid="bottom-panel"
+      className="bg-[var(--vscode-workbench-bg,#151722)] text-[var(--vscode-text-primary)] flex flex-col overflow-hidden shrink-0"
+      style={panelHeightStyle}
       onClickCapture={onInteract}
       onFocusCapture={onInteract}
     >
       {/* Tab Headers */}
-      <div className="flex items-center justify-between border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)] px-4">
-        <div className="flex items-center">
+      <div className="flex items-center justify-between border-b border-[var(--vscode-border,#334155)] bg-[var(--vscode-subcard-bg,#1E202A)] px-4 h-10 shrink-0">
+        <div className="flex items-center h-full">
           <button
-            className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer flex items-center gap-2 ${bottomTab === 'SOURCE_CODE' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
-            onClick={() => setBottomTab('SOURCE_CODE')}
+            className={`h-full px-4 text-xs font-semibold tracking-wider transition cursor-pointer flex items-center gap-2 ${bottomTab === 'SOURCE_CODE' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
+            onClick={() => {
+              setBottomTab('SOURCE_CODE');
+              onExpand?.();
+            }}
           >
             <Code2 className="w-3.5 h-3.5" />
             <span>Generate Code</span>
@@ -75,8 +94,11 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             )}
           </button>
           <button
-            className={`py-2 px-4 text-xs font-semibold tracking-wider transition cursor-pointer ${bottomTab === 'DEPLOYMENT' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
-            onClick={() => setBottomTab('DEPLOYMENT')}
+            className={`h-full px-4 text-xs font-semibold tracking-wider transition cursor-pointer flex items-center ${bottomTab === 'DEPLOYMENT' ? 'text-[var(--vscode-text-primary,#ffffff)] border-b-2 border-[var(--vscode-highlight,#3b82f6)]' : 'text-[var(--vscode-text-muted,#64748b)] hover:text-[var(--vscode-text-primary,#cbd5e1)]'}`}
+            onClick={() => {
+              setBottomTab('DEPLOYMENT');
+              onExpand?.();
+            }}
           >
             DEPLOYMENT
           </button>
@@ -87,7 +109,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           <button
             onClick={onToggleExpand}
             className="p-1.5 my-1 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded transition cursor-pointer"
-            title={isExpanded ? 'Collapse Panel (30%)' : 'Expand Panel (100%)'}
+            title={isExpanded ? 'Collapse Panel' : 'Expand Panel (80%)'}
             aria-label={isExpanded ? 'Collapse Panel' : 'Expand Panel'}
           >
             {isExpanded ? (
